@@ -79,6 +79,27 @@ describe('plans.repository', () => {
     expect(update!.v).toContain(480);
   });
 
+  it('reviewPlan approve with a deny override passes ttlClampMinutes, not clampedTtl', async () => {
+    const sql = sqlMock([
+      [{ plan_id: 'pa_1', ttl_minutes: 100, status: 'pending' }], // SELECT plan (clampedTtl would be min(100, 480) = 100)
+      [{ step_id: 'ps_1' }, { step_id: 'ps_2' }], // SELECT step_id FROM plan_authorization_steps (two steps)
+      [{ plan_id: 'pa_1', status: 'partially_approved' }], // UPDATE plan_authorizations RETURNING *
+      [], // UPDATE plan_authorization_steps SET grant_status = 'approved' (ps_1)
+      [], // UPDATE plan_authorization_steps SET grant_status = 'denied' (ps_2)
+      [], // SELECT steps ORDER BY seq ASC
+    ]);
+    const result = await reviewPlan(sql as never, 'org_1', 'pa_1', {
+      verdict: 'approve', stepOverrides: { ps_2: 'deny' }, reviewedBy: 'operator', ttlClampMinutes: 480,
+    });
+    expect(result!.plan!.status).toBe('partially_approved');
+    const headerUpdate = sql.calls.find((c) => c.text.includes('UPDATE plan_authorizations') && c.text.includes('expires_at'));
+    expect(headerUpdate).toBeTruthy();
+    // A step denial is an operator "no" — its lifetime is the org clamp (480),
+    // never the agent-requested clampedTtl (min(100, 480) = 100).
+    expect(headerUpdate!.v).toContain(480);
+    expect(headerUpdate!.v).not.toContain(100);
+  });
+
   it('consumePlanStepGrant issues a single atomic UPDATE with grant_used_at IS NULL guard', async () => {
     const sql = sqlMock([
       [{ step_id: 'ps_1', plan_id: 'pa_1', seq: 1, reviewed_by: 'operator', act_content_hash: null, total_steps: 3 }],
@@ -148,7 +169,7 @@ describe('plans.repository', () => {
     expect(headerUpdate!.v).not.toContain(10);
   });
 
-  it('findDeniedStepMatch includes revoked plans (explicit denials survive revocation)', async () => {
+  it('findDeniedStepMatch keeps revoked in the status list (belt-and-braces; revoke expiry is what ends denials)', async () => {
     const sql = sqlMock([[]]);
     await findDeniedStepMatch(sql as never, 'org_1', { agentId: 'a', actionType: 'deploy', declaredGoal: 'g', actHash: null });
     expect(sql.calls[0]!.text).toContain("'revoked'");

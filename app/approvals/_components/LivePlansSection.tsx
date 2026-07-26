@@ -29,6 +29,7 @@ export default function LivePlansSection({ plans, canDecide, onResolved }: {
   plans: Array<{ plan: Plan; steps: PlanStep[] }>; canDecide: boolean; onResolved: () => void;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [errorId, setErrorId] = useState<{ planId: string; message: string } | null>(null);
 
   if (plans.length === 0) return null;
 
@@ -37,12 +38,19 @@ export default function LivePlansSection({ plans, canDecide, onResolved }: {
   const revoke = async (planId: string) => {
     try {
       setBusyId(planId);
+      setErrorId(null);
       const res = await fetch(`/api/plans/${planId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ verdict: 'revoke' }),
       });
-      if (res.ok) onResolved();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Revoke failed (${res.status})`);
+      }
+      onResolved();
+    } catch (err) {
+      setErrorId({ planId, message: err instanceof Error ? err.message : 'Revoke failed' });
     } finally {
       setBusyId(null);
     }
@@ -58,6 +66,7 @@ export default function LivePlansSection({ plans, canDecide, onResolved }: {
           const consumed = steps.filter((s) => s.grant_used_at).length;
           const isDenied = plan.status === 'denied';
           const busy = busyId === plan.plan_id;
+          const error = errorId?.planId === plan.plan_id ? errorId.message : null;
           return (
             <Card
               key={plan.plan_id}
@@ -66,24 +75,27 @@ export default function LivePlansSection({ plans, canDecide, onResolved }: {
               data-entity-status={plan.status}
               hover={false}
             >
-              <CardContent className="flex items-center gap-3 pt-3">
-                <Badge variant={STATUS_VARIANT[plan.status] ?? 'default'} size="xs">{plan.status}</Badge>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm text-white">{plan.declared_goal}</div>
-                  <div className="text-xs text-tertiary">
-                    {plan.agent_id} · {consumed}/{steps.length} steps consumed
-                    {isDenied && <> · denials active until {relativeUntil(plan.expires_at)}</>}
+              <CardContent className="pt-3">
+                <div className="flex items-center gap-3">
+                  <Badge variant={STATUS_VARIANT[plan.status] ?? 'default'} size="xs">{plan.status}</Badge>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm text-white">{plan.declared_goal}</div>
+                    <div className="text-xs text-tertiary">
+                      {plan.agent_id} · {consumed}/{steps.length} steps consumed
+                      {isDenied && <> · denials active until {relativeUntil(plan.expires_at)}</>}
+                    </div>
                   </div>
+                  {canDecide && (
+                    <button
+                      onClick={() => revoke(plan.plan_id)}
+                      disabled={busy}
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-error/20 bg-error-subtle px-3 py-1.5 text-xs font-medium text-error transition-colors hover:bg-error/10 disabled:opacity-50"
+                    >
+                      {isDenied ? 'Lift & revoke' : 'Revoke'}
+                    </button>
+                  )}
                 </div>
-                {canDecide && (
-                  <button
-                    onClick={() => revoke(plan.plan_id)}
-                    disabled={busy}
-                    className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-error/20 bg-error-subtle px-3 py-1.5 text-xs font-medium text-error transition-colors hover:bg-error/10 disabled:opacity-50"
-                  >
-                    {isDenied ? 'Lift & revoke' : 'Revoke'}
-                  </button>
-                )}
+                {error && <p className="mt-2 text-xs text-error">{error}</p>}
               </CardContent>
             </Card>
           );

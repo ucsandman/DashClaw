@@ -88,7 +88,7 @@ export default function ApprovalsPage() {
   }, [agentId]);
 
   const fetchPlanList = useCallback(async (status: string) => {
-    const res = await fetch(`/api/plans?status=${status}`, { cache: 'no-store' });
+    const res = await fetch(`/api/plans?status=${status}&limit=20`, { cache: 'no-store' });
     if (!res.ok) return [];
     const data = await res.json();
     return data.plans ?? [];
@@ -120,7 +120,14 @@ export default function ApprovalsPage() {
         fetchPlanDetails([...approved, ...partiallyApproved, ...denied]),
       ]);
       setPendingPlans(pendingDetailed);
-      setLivePlans(liveDetailed);
+      // Dead plans (expires_at already in the past — e.g. a lifted denial or
+      // an unrevoked plan that simply timed out) age out of the Live plans
+      // section client-side rather than sticking around until the next
+      // status-based refetch drops them.
+      setLivePlans(liveDetailed.filter((p: any) => {
+        const expiresAt = p?.plan?.expires_at;
+        return expiresAt && Date.parse(expiresAt) > Date.now();
+      }));
     } catch { /* pending/live plans are additive; the actions inbox must not break on this */ }
   }, [fetchPlanList, fetchPlanDetails]);
 

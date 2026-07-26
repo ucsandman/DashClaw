@@ -196,10 +196,15 @@ export async function reviewPlan(
     return { step_id: row.step_id, verdict };
   });
   const status = denied === 0 ? 'approved' : denied === stepRows.length ? 'denied' : 'partially_approved';
+  // Same asymmetry as the standalone 'deny' verdict above: any denied step is
+  // an operator "no", so its lifetime is the org clamp (input.ttlClampMinutes)
+  // rather than the agent-requested clampedTtl. Only the all-approved case
+  // (denied === 0) gets the agent's own clamped TTL.
+  const ttlMinutes = denied === 0 ? clampedTtl : input.ttlClampMinutes;
   const updated = await sql`
     UPDATE plan_authorizations
     SET status = ${status}, reviewed_by = ${input.reviewedBy}, reviewed_at = now(),
-        expires_at = now() + make_interval(mins => ${clampedTtl})
+        expires_at = now() + make_interval(mins => ${ttlMinutes})
     WHERE org_id = ${orgId} AND plan_id = ${planId} AND status = 'pending'
     RETURNING *
   `;
