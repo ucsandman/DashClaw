@@ -90,6 +90,8 @@ describe('plans.repository', () => {
     const q = sql.calls[0]!.text;
     expect(q).toContain('grant_used_at IS NULL');
     expect(q).toContain('UPDATE plan_authorization_steps');
+    // guard appears twice: once in the subquery WHERE, once in the outer WHERE
+    expect(q.split('grant_used_at IS NULL').length - 1).toBe(2);
   });
 
   it('findDeniedStepMatch is a read (no UPDATE)', async () => {
@@ -97,5 +99,25 @@ describe('plans.repository', () => {
     const hit = await findDeniedStepMatch(sql as never, 'org_1', { agentId: 'a', actionType: 'deploy', declaredGoal: 'g', actHash: null });
     expect(hit).toBeNull();
     expect(sql.calls[0]!.text).not.toContain('UPDATE');
+  });
+
+  it('revoke leaves step grant_status untouched', async () => {
+    const sql = sqlMock([
+      [{ plan_id: 'pa_1', ttl_minutes: 60, status: 'approved' }], // SELECT plan
+      [{ plan_id: 'pa_1', status: 'revoked' }], // UPDATE plan_authorizations RETURNING *
+      [], // SELECT steps ORDER BY seq ASC
+    ]);
+    const result = await reviewPlan(sql as never, 'org_1', 'pa_1', { verdict: 'revoke', reviewedBy: 'operator', ttlClampMinutes: 480 });
+    expect(result!.plan!.status).toBe('revoked');
+    const touchedStepGrantStatus = sql.calls.some(
+      (c) => c.text.includes('UPDATE plan_authorization_steps') && c.text.includes('grant_status'),
+    );
+    expect(touchedStepGrantStatus).toBe(false);
+  });
+
+  it('findDeniedStepMatch includes revoked plans (explicit denials survive revocation)', async () => {
+    const sql = sqlMock([[]]);
+    await findDeniedStepMatch(sql as never, 'org_1', { agentId: 'a', actionType: 'deploy', declaredGoal: 'g', actHash: null });
+    expect(sql.calls[0]!.text).toContain("'revoked'");
   });
 });

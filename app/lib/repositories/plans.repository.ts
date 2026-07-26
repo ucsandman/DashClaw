@@ -124,10 +124,13 @@ export async function reviewPlan(
 
   if (input.verdict === 'revoke') {
     if (!['pending', 'approved', 'partially_approved'].includes(plan.status)) return null;
-    await sql`
-      UPDATE plan_authorization_steps SET grant_status = 'denied'
-      WHERE org_id = ${orgId} AND plan_id = ${planId} AND grant_used_at IS NULL
-    `;
+    // Revocation withdraws the fast lane only — consumePlanStepGrant already
+    // excludes non-live plan statuses (approved/partially_approved), so a
+    // revoked plan's unconsumed steps stop being consumable. It does NOT
+    // rewrite step grant_status to 'denied': grant_status records operator
+    // intent (what was explicitly approved/denied at review time), while
+    // plan status controls liveness. Explicit review-time denials keep
+    // blocking via findDeniedStepMatch regardless of plan status.
     const updated = await sql`
       UPDATE plan_authorizations
       SET status = 'revoked', reviewed_by = ${input.reviewedBy}, reviewed_at = now()
@@ -250,7 +253,12 @@ export async function findDeniedStepMatch(
     WHERE st.org_id = ${orgId}
       AND p.agent_id = ${input.agentId}
       AND st.action_type = ${input.actionType}
-      AND p.status IN ('approved', 'partially_approved', 'denied')
+      -- 'revoked' is included so EXPLICIT review-time step denials
+      -- (grant_status = 'denied') survive plan revocation for the TTL.
+      -- Revoked plans' approved steps never surface here because their
+      -- grant_status stays 'approved' — only st.grant_status = 'denied'
+      -- below (never rewritten to 'denied' by revoke) matches.
+      AND p.status IN ('approved', 'partially_approved', 'denied', 'revoked')
       AND p.expires_at > now()
       AND st.grant_status = 'denied'
       AND (
