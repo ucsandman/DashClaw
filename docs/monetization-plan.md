@@ -50,7 +50,7 @@ The complete governance runtime. Never gated:
 - Agent identity (Phase 2 JWKS, 2b replay, 2c action binding).
 - Durable execution finality, capability runtime, execution studio (workflows /
   knowledge / model strategies), scoring, learning, drift, Code Sessions.
-- All SDKs (Node + Python), MCP server (15 tools / 4 resources), coding-agent
+- All SDKs (Node + Python), MCP server (17 tools / 4 resources), coding-agent
   plugins + hooks.
 - Single organization, community support, in-memory realtime.
 

@@ -15,14 +15,14 @@ pip install dashclaw
 Python agents typically pair the SDK with one or more of these:
 
 - **[`@dashclaw/cli`](https://www.npmjs.com/package/@dashclaw/cli)** — `dashclaw approvals`, `dashclaw approve <id>`, `dashclaw deny <id>` for terminal approvals. Also `dashclaw doctor` (report-only diagnosis; `--fix` applies safe repairs) and `dashclaw logout`. Config at env vars or `~/.dashclaw/config.json` (`600`).
-- **[`@dashclaw/mcp-server`](https://www.npmjs.com/package/@dashclaw/mcp-server)** — Model Context Protocol server exposing governance as **15 tools** across 4 groups: core governance (`dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro`), retrospection (`dashclaw_decisions_recent`, `dashclaw_assumption_record`), agent identity (`dashclaw_pair`), team tasks (`dashclaw_task_create`, `dashclaw_task_event`, `dashclaw_task_update`). Plus 3 resources: `dashclaw://policies`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`. stdio or Streamable HTTP at `POST /api/mcp`.
+- **[`@dashclaw/mcp-server`](https://www.npmjs.com/package/@dashclaw/mcp-server)** — Model Context Protocol server exposing governance as **17 tools** across 5 groups: core governance (`dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro`), retrospection (`dashclaw_decisions_recent`, `dashclaw_assumption_record`), agent identity (`dashclaw_pair`), team tasks (`dashclaw_task_create`, `dashclaw_task_event`, `dashclaw_task_update`), plans (`dashclaw_plan_submit`, `dashclaw_plan_status`). Plus 3 resources: `dashclaw://policies`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`. stdio or Streamable HTTP at `POST /api/mcp`.
 - **[`@dashclaw/openclaw-plugin`](https://www.npmjs.com/package/@dashclaw/openclaw-plugin)** — Governance plugin for OpenClaw lifecycle hooks (`PreToolUse` / `PostToolUse`) that calls guard / record / wait-for-approval automatically.
 - **Self-host Doctor** — Operators run `npm run doctor` on the DashClaw host for filesystem-level fixes (env writes, migrations, default policy seed, drift guard).
 - **Claude governance skill** — Anthropic Managed Agents or Claude Code can load the `@dashclaw/governance` skill to teach the agent the MCP usage protocol. Pairs with the MCP server.
 
 ## Quick Start
 
-The Python SDK exposes the governance-core surface (51 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK exposes the governance-core surface (56 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -631,9 +631,9 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK exposes the governance surface (51 methods) — the same intercept → decide → approve → prove core as the Node SDK, plus a handful of read/admin conveniences (webhooks, org management, activity logs).
+This SDK exposes the governance surface (56 methods) — the same intercept → decide → approve → prove core as the Node SDK, plus a handful of read/admin conveniences (webhooks, org management, activity logs).
 
-The Node.js SDK exposes a curated subset of **31 methods** focused on agent governance. The following core methods are available in both the Node.js SDK and this Python SDK:
+The Node.js SDK exposes a curated subset of **36 methods** focused on agent governance. The following core methods are available in both the Node.js SDK and this Python SDK:
 
 | Category | Node method | Python equivalent |
 |----------|-------------|-------------------|

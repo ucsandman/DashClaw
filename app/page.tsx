@@ -462,7 +462,7 @@ export default function LandingPage() {
               <p className="mt-3 text-text-secondary leading-relaxed">
                 One command wires Claude Code, Codex, or Hermes. A plugin covers
                 OpenClaw. The MCP server gives any MCP client the same loop
-                through {'15 tools and 3 resources'}, no SDK and no code changes.
+                through {'17 tools and 3 resources'}, no SDK and no code changes.
                 Everything else takes the Node or Python SDK.
               </p>
             </div>

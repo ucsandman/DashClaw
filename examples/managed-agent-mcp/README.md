@@ -17,7 +17,7 @@ mcp_servers=[{
 }]
 ```
 
-This gives the agent 15 governance tools and 3 resources automatically. The core-governance tools are listed below; for the full inventory, see [`mcp-server/README.md`](../../mcp-server/README.md).
+This gives the agent 17 governance tools and 3 resources automatically. The core-governance tools are listed below; for the full inventory, see [`mcp-server/README.md`](../../mcp-server/README.md).
 
 | Tool | Purpose |
 |---|---|
@@ -92,4 +92,4 @@ While the agent runs, open your DashClaw instance:
 | Lines of code | ~80 | ~410 |
 | Tool handling | Automatic (MCP protocol) | Manual (HTTP + result routing) |
 | Setup | One config line | Tool definitions + HTTP client |
-| Governance tools | 15 tools + 3 resources | 3 tools |
+| Governance tools | 17 tools + 3 resources | 3 tools |

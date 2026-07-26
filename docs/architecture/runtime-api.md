@@ -15,6 +15,20 @@ A fully governed action usually follows this flow:
 
 `PATCH /api/actions/:actionId` still exists for legacy lifecycle updates, but the current durable-finality path is `POST /api/actions/:actionId/outcome` plus `GET /api/actions/:actionId/outcome` for polling.
 
+## Plan authorization (preflight)
+
+Long-horizon runs amortize approvals: `POST /api/plans` submits an ordered
+step list; every step is dry-run through the full guard pipeline
+(side-effect-free) and stored with its preview verdict; the operator reviews
+one card on /approvals (per-step overrides included). Approved steps become
+single-use, act-or-goal-bound, TTL-bound grants: when the agent later
+performs a matching action that evaluates to `require_approval`, the grant
+is consumed atomically and the decision downgrades to `allow` with
+`builtin:plan_grant` provenance. Explicitly denied steps are raised to
+`block` on match for the plan's TTL. A plan grant never downgrades `block`,
+nothing auto-approves, and revocation (`POST /api/plans/:id` verdict
+`revoke`) is instant — the consumption path is uncached.
+
 ---
 
 ## Core Endpoints
@@ -234,7 +248,7 @@ The signing key is the DashClaw instance's own Ed25519 key — generated and sto
 
 ## Minimal SDK Flow
 
-The canonical Node SDK is `dashclaw` on npm (version tracked in `sdk/package.json`). The canonical SDK file `sdk/dashclaw.js` exposes 31 public methods across the core runtime and extension surfaces (verify with `npm run sdk:count`).
+The canonical Node SDK is `dashclaw` on npm (version tracked in `sdk/package.json`). The canonical SDK file `sdk/dashclaw.js` exposes 36 public methods across the core runtime and extension surfaces (verify with `npm run sdk:count`).
 
 The minimal governance loop uses only a small subset:
 

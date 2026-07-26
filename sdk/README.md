@@ -343,7 +343,7 @@ Both SDKs expose the governance core (intercept → decide → approve → prove
 
 | | Node SDK | Python SDK |
 |---|---|---|
-| **Focus** | Governance-core surface (31 methods) | Governance core + conveniences (51 methods) |
+| **Focus** | Governance-core surface (36 methods) | Governance core + conveniences (56 methods) |
 | **Guard / actions / approvals** | ✅ | ✅ |
 | **Assumptions / signals** | ✅ | ✅ |
 | **Sessions / action graph** | ✅ | ✅ |
@@ -610,7 +610,7 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 
 **Streamable HTTP transport** (same surface, served by your DashClaw instance at `POST /api/mcp`).
 
-**15 tools** in 4 groups:
+**17 tools** in 5 groups:
 
 - **Core governance (9):** `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro` — per-session defensibility retro (clean/review/flagged posture).
 - **Retrospection (2):** `dashclaw_decisions_recent`, `dashclaw_assumption_record` — recent governed-action ledger; record an assumption an action rests on.

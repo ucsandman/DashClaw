@@ -253,7 +253,7 @@ hermes dashclaw doctor`}
             icon={Network}
             eyebrow="Model Context Protocol"
             title="MCP server"
-            description="15 governance tools plus 3 read-only resources. Ships inside every plugin above as the on-disk path mcp-server/bin/dashclaw-mcp.js. Also reachable as Streamable HTTP at /api/mcp on any DashClaw deployment, no install required."
+            description="17 governance tools plus 3 read-only resources. Ships inside every plugin above as the on-disk path mcp-server/bin/dashclaw-mcp.js. Also reachable as Streamable HTTP at /api/mcp on any DashClaw deployment, no install required."
           />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="rounded-xl border border-border bg-surface-secondary p-5">
@@ -355,7 +355,7 @@ hermes dashclaw doctor`}
                 </a>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed mb-3">
-                Canonical 31-method surface across core governance, durable execution finality, security scanning, sessions and the action graph, agent identity, risk signals, policy simulation, and team tasks.
+                Canonical 36-method surface across core governance, durable execution finality, security scanning, sessions and the action graph, agent identity, risk signals, policy simulation, plan authorization, and team tasks.
               </p>
               <CommandBlock label={`Install (v${process.env.NEXT_PUBLIC_SDK_NODE_VERSION})`}>{`npm install dashclaw`}</CommandBlock>
             </div>
@@ -373,7 +373,7 @@ hermes dashclaw doctor`}
                 </a>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed mb-3">
-                Broader Python surface (51 methods) with framework integrations: CrewAI task instrumentation and AutoGen conversation monitoring.
+                Broader Python surface (56 methods) with framework integrations: CrewAI task instrumentation and AutoGen conversation monitoring.
               </p>
               <CommandBlock label={`Install (v${process.env.NEXT_PUBLIC_SDK_PYTHON_VERSION})`}>{`pip install dashclaw`}</CommandBlock>
             </div>

@@ -1,6 +1,6 @@
 # @dashclaw/mcp-server
 
-MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance. Exposes 15 governance tools, 2 stdio-only support tools, and 3 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/) — guard, record, invoke governed capabilities, wait for approvals, and read the decision ledger, all through the DashClaw governance loop. Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
+MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance. Exposes 17 governance tools, 2 stdio-only support tools, and 3 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/) — guard, record, invoke governed capabilities, wait for approvals, and read the decision ledger, all through the DashClaw governance loop. Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
 
 The governance tools register only when `DASHCLAW_URL` and `DASHCLAW_API_KEY` are both set; without them the server registers nothing and warns on stderr if exactly one is present.
 
@@ -72,7 +72,7 @@ in the UI — Claude's connector flow requires OAuth, not headers:
 2. Paste `https://<your-instance>/api/mcp`.
 3. Claude discovers `/.well-known/oauth-protected-resource`, registers via DCR,
    and opens your DashClaw login + a consent screen.
-4. Authorize → the 15 governance tools appear, scoped to your workspace.
+4. Authorize → the 17 governance tools appear, scoped to your workspace.
 
 Works on Free/Pro/Max/Team/Enterprise (Free is capped at one custom connector).
 The legacy `x-api-key` path (Managed Agents) is unchanged.
@@ -83,7 +83,7 @@ To also load the DashClaw **skills** (governance protocol + platform intelligenc
 in the Claude app: Customize → Plugins → "+" → Add marketplace →
 `github: ucsandman/DashClaw`, then install the `dashclaw` plugin.
 
-## Tools (15 governance + 2 stdio support)
+## Tools (17 governance + 2 stdio support)
 
 Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical definitions.
 
@@ -123,6 +123,13 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 | `dashclaw_task_create` | Create a Team Task — one record per multi-agent /team run |
 | `dashclaw_task_event` | Append one event to a Team Task timeline (delegation, reply, status, approval_needed, result, error, done) |
 | `dashclaw_task_update` | Update a Team Task: status transitions and stored transport session ids |
+
+**Plans (2)** — submit a preflight plan for one-card operator review; poll its verdict before executing.
+
+| Tool | Description |
+|---|---|
+| `dashclaw_plan_submit` | Submit an ordered step list for preflight review; approved steps become single-use grants |
+| `dashclaw_plan_status` | Check a submitted plan's overall and per-step verdict |
 
 ### DashClaw-gated stdio tools (2)
 

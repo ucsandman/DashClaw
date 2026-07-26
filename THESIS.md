@@ -262,12 +262,12 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 
 | Surface | Ceiling | Counted from |
 |---|---|---|
-| Active API routes | 121 | `app/api/**/route.{js,ts,tsx}` |
+| Active API routes | 123 | `app/api/**/route.{js,ts,tsx}` |
 | App pages | 47 | `app/**/page.{js,jsx,ts,tsx}` |
-| MCP tools | 15 | `mcp-server/src/tools.ts` |
+| MCP tools | 17 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
-| Node SDK methods | 31 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
-| Python SDK methods | 51 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
+| Node SDK methods | 36 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
+| Python SDK methods | 56 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
 | CLI commands | 13 | `cli/bin/dashclaw.js` (`COMMAND_HANDLERS`) |
 | Guard policy types | 14 | `app/lib/guard/policy.ts` (`KNOWN_POLICY_TYPES`) |
 
@@ -310,6 +310,15 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
 - **2026-07-10 — Node SDK methods 28 → 31 (fleets-and-teams amendment).**
   Thin wrappers for the three Team Tasks routes. Python SDK deliberately
   not extended (team agents write via MCP/HTTP).
+- **2026-07-26 — Preflight Plan Authorization (governed-autonomy feature 1).**
+  Active API routes 121 → 123, MCP tools 15 → 17, Node SDK methods 31 → 36,
+  Python SDK methods 51 → 56. The thesis's forward bet (governed autonomy)
+  begins shipping: an agent submits its intended plan, the operator reviews
+  one card, approved steps become single-use act-scoped grants — N mid-run
+  interruptions become one upfront review with MORE context, not less. Every
+  new surface sits directly on the loop: plans are intercepted intent,
+  reviewed by a human, provable in the decision ledger (`builtin:plan_grant`
+  provenance). RFC: docs/rfcs/2026-07-06-preflight-plan-authorization.md.
 
 ## Version story
 
