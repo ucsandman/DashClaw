@@ -31,7 +31,7 @@ const {
   mockGetOrgRole: vi.fn(() => 'admin'),
   mockGetUserId: vi.fn(() => 'user_1'),
   mockLogActivity: vi.fn(),
-  mockPublishOrgEvent: vi.fn(() => Promise.resolve()),
+  mockPublishOrgEvent: vi.fn((_event: string, _payload: unknown) => Promise.resolve()),
   mockGetSettings: vi.fn(async () => [] as Array<{ key: string; value: string }>),
   mockGetPlanWithSteps: vi.fn(),
   mockReviewPlan: vi.fn(),
@@ -214,7 +214,26 @@ describe('POST /api/plans/[planId]', () => {
     expect(mockReviewPlan).toHaveBeenCalled();
   });
 
-  it('T1: a NULL created_by (legacy/system row) is unenforceable and stays approvable', async () => {
+  // X1(b): belt-and-braces — a principal-less legacy row (created_by NULL)
+  // cannot prove separation of duties either way, so it fails closed to the
+  // break-glass 'operator' principal instead of staying approvable by any
+  // admin.
+  it('X1(b): a NULL created_by plan cannot be approved by a normal admin — 403', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: null },
+      steps: [],
+    });
+
+    const res = await POST(postReq({ verdict: 'approve' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.code).toBe('PRINCIPAL_LESS_PLAN_REQUIRES_OPERATOR');
+    expect(mockReviewPlan).not.toHaveBeenCalled();
+  });
+
+  it("X1(b): a NULL created_by plan CAN be approved by 'operator'", async () => {
+    mockGetUserId.mockReturnValueOnce('operator');
     mockGetPlanWithSteps.mockResolvedValueOnce({
       plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: null },
       steps: [],
@@ -223,6 +242,34 @@ describe('POST /api/plans/[planId]', () => {
     mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
 
     const res = await POST(postReq({ verdict: 'approve' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockReviewPlan).toHaveBeenCalled();
+  });
+
+  it('X1(b): a NULL created_by DENIED plan cannot have its denial lifted (revoke) by a normal admin — 403', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', created_by: null },
+      steps: [],
+    });
+
+    const res = await POST(postReq({ verdict: 'revoke' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.code).toBe('PRINCIPAL_LESS_PLAN_REQUIRES_OPERATOR');
+    expect(mockReviewPlan).not.toHaveBeenCalled();
+  });
+
+  it('X1(b): a NULL created_by plan CAN be denied (plain deny, not approve/deny-lift) by a normal admin', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: null },
+      steps: [],
+    });
+    const plan = { plan_id: 'pa_1234567890abcdef', status: 'denied' };
+    mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
+
+    const res = await POST(postReq({ verdict: 'deny' }), { params });
 
     expect(res.status).toBe(200);
     expect(mockReviewPlan).toHaveBeenCalled();
@@ -242,9 +289,41 @@ describe('POST /api/plans/[planId]', () => {
     expect(mockReviewPlan).toHaveBeenCalled();
   });
 
-  it('T1: denying your own plan is allowed — the self-approval gate only applies to approve (and deny-lift)', async () => {
+  // X2: self-deny is now gated too — with org-wide denial binding, a
+  // submitter denying its own plan would plant an org-wide block with zero
+  // second-party involvement, the same risk a self-approval carries.
+  it('X2: rejects the submitter denying their own plan with 403 SELF_APPROVAL_FORBIDDEN', async () => {
     mockGetPlanWithSteps.mockResolvedValueOnce({
       plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'user_1' },
+      steps: [],
+    });
+
+    const res = await POST(postReq({ verdict: 'deny' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.code).toBe('SELF_APPROVAL_FORBIDDEN');
+    expect(mockReviewPlan).not.toHaveBeenCalled();
+  });
+
+  it('X2: a different admin credential may deny a plan it did not submit', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'user_submitter' },
+      steps: [],
+    });
+    const plan = { plan_id: 'pa_1234567890abcdef', status: 'denied' };
+    mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
+
+    const res = await POST(postReq({ verdict: 'deny' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockReviewPlan).toHaveBeenCalled();
+  });
+
+  it("X2: 'operator' is exempt from the self-deny gate too", async () => {
+    mockGetUserId.mockReturnValueOnce('operator');
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'operator' },
       steps: [],
     });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'denied' };
@@ -417,6 +496,27 @@ describe('POST /api/plans/[planId]', () => {
       }),
       mockGetSql,
     );
+  });
+
+  // X3: created_by is a reviewer/creator principal — never leak it into the
+  // org event payload either (mirrors W3's response strip). Previously the
+  // response stripped it but publishOrgEvent still carried the raw row.
+  it('X3: strips created_by from the org event payload, not just the response', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'user_submitter' },
+      steps: [],
+    });
+    const plan = { plan_id: 'pa_1234567890abcdef', status: 'approved', created_by: 'user_submitter', reviewed_by: 'user_1' };
+    mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
+
+    const res = await POST(postReq({ verdict: 'approve' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.plan).not.toHaveProperty('created_by');
+    const eventPayload = mockPublishOrgEvent.mock.calls[0]![1] as { plan: Record<string, unknown> };
+    expect(eventPayload.plan).not.toHaveProperty('created_by');
+    expect(eventPayload.plan.reviewed_by).toBe('user_1');
   });
 
   it('returns 500 on unexpected error', async () => {

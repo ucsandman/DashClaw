@@ -74,8 +74,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
     // submitted a plan may not approve it, mirroring the approvals gate
     // (app/api/approvals/[actionId]/route.ts:~108). 'operator' is exempt: in
     // single-admin self-host the root credential legitimately does both, and
-    // if an agent holds root the gate was already forfeit. NULL created_by
-    // (legacy/system rows) is unenforceable and stays approvable.
+    // if an agent holds root the gate was already forfeit.
     //
     // The pre-read runs for EVERY verdict (not just approve) because the gate
     // is asymmetric by plan status, not just by verdict: revoking a LIVE plan
@@ -83,22 +82,54 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
     // the submitter stays free to do that themselves. But revoking a DENIED
     // plan lifts an operator's explicit no — that's the same privilege as
     // approving, just reached via a different verdict, so it needs a
-    // different principal (or the operator) too. Denying your own plan is
-    // still always open to the submitter (deny only closes doors further).
+    // different principal (or the operator) too.
+    //
+    // X2: deny is now gated too. With org-wide denial binding
+    // (findDeniedStepMatch matches the ACT for the whole org, not just the
+    // submitting agent — see its own comment), a submitter denying its own
+    // plan would plant an org-wide block with zero second-party involvement.
+    // A denial, like an approval, needs a principal other than the submitter
+    // (or the operator).
     const existing = await getPlanWithSteps(sql, orgId, planId);
     const createdBy = (existing?.plan as { created_by?: string | null } | undefined)?.created_by;
     const existingStatus = (existing?.plan as { status?: string } | undefined)?.status;
-    if (userId !== 'operator' && createdBy && createdBy === userId && (verdict === 'approve' || existingStatus === 'denied')) {
-      const isDenyLift = verdict !== 'approve';
-      return NextResponse.json(
-        {
-          error: isDenyLift
-            ? 'The credential that submitted this plan cannot lift its denial. Use a different admin credential, or lift it from the dashboard.'
-            : 'The credential that submitted this plan cannot approve it. Approve from the dashboard, or use a different admin credential.',
-          code: 'SELF_APPROVAL_FORBIDDEN',
-        },
-        { status: 403 },
-      );
+    if (userId !== 'operator') {
+      const selfGateTriggers = verdict === 'approve' || verdict === 'deny' || existingStatus === 'denied';
+      if (createdBy && createdBy === userId && selfGateTriggers) {
+        const isDenyLift = verdict !== 'approve';
+        return NextResponse.json(
+          {
+            error: isDenyLift
+              ? 'The credential that submitted this plan cannot lift its denial. Use a different admin credential, or lift it from the dashboard.'
+              : 'The credential that submitted this plan cannot approve it. Approve from the dashboard, or use a different admin credential.',
+            code: 'SELF_APPROVAL_FORBIDDEN',
+          },
+          { status: 403 },
+        );
+      }
+      // X1(b): belt-and-braces — a principal-less legacy row (created_by
+      // NULL) cannot prove separation of duties either way, so approving it
+      // or lifting its denial fails closed to the break-glass 'operator'
+      // principal rather than staying open to any admin. Plain deny is not
+      // gated here (unlike the self-submitted case above): a NULL created_by
+      // row has no submitter to protect against, so an unrelated admin deny
+      // carries none of X2's self-deny risk. Gated on `existing` (the plan
+      // actually being found) so a genuinely missing planId still falls
+      // through to reviewPlan's 404 instead of this 403 masking it — an
+      // absent row is not the same thing as a NULL created_by column.
+      const nullPrincipalGateTriggers = existing && !createdBy && (verdict === 'approve' || existingStatus === 'denied');
+      if (nullPrincipalGateTriggers) {
+        const isDenyLift = verdict !== 'approve';
+        return NextResponse.json(
+          {
+            error: isDenyLift
+              ? 'This plan has no attributable submitter, so only the operator credential can lift its denial.'
+              : 'This plan has no attributable submitter, so only the operator credential can approve it.',
+            code: 'PRINCIPAL_LESS_PLAN_REQUIRES_OPERATOR',
+          },
+          { status: 403 },
+        );
+      }
     }
 
     const settings = await getSettings(sql, orgId, { category: 'general' });
@@ -120,11 +151,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
       resourceType: 'plan', resourceId: planId,
       details: { verdict, step_overrides: stepOverrides ?? {} }, request,
     }, sql));
-    void publishOrgEvent(EVENTS.ACTION_UPDATED, { orgId, plan: result.plan });
 
-    // W3: created_by is a reviewer/creator principal — never leak it to the
-    // verdict response either (mirrors the GET's V7 strip above).
+    // W3/X3: created_by is a reviewer/creator principal — never leak it to
+    // the verdict response OR the org event payload (mirrors the GET's V7
+    // strip above). Stripped before publishOrgEvent now too — previously
+    // only the response was stripped, so the event still carried it.
     const { created_by: _createdBy, ...plan } = result.plan as Record<string, unknown>;
+    void publishOrgEvent(EVENTS.ACTION_UPDATED, { orgId, plan });
+
     return NextResponse.json({ ...result, plan });
   } catch (error) {
     return apiErrorResponse(error, 'PLAN REVIEW POST');

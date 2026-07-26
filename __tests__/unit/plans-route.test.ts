@@ -41,7 +41,7 @@ const {
     jti: null,
     verification: null,
   })),
-  mockPublishOrgEvent: vi.fn(() => Promise.resolve()),
+  mockPublishOrgEvent: vi.fn((_event: string, _payload: unknown) => Promise.resolve()),
   mockEvaluateGuard: vi.fn(),
   mockGetSettings: vi.fn(async () => [] as Array<{ key: string; value: string }>),
   mockCreatePlanWithSteps: vi.fn(),
@@ -215,6 +215,7 @@ describe('POST /api/plans', () => {
     const planRow = {
       plan_id: 'pa_1234567890abcdef', org_id: 'org_test', agent_id: 'agent_1',
       declared_goal: 'ship the feature', status: 'pending', ttl_minutes: 60,
+      created_by: 'user_1',
     };
     const stepRows = [
       { step_id: 'ps_1111111111111111', plan_id: planRow.plan_id, seq: 1, action_type: 'deploy', step_goal: 'deploy service', act: null },
@@ -227,7 +228,9 @@ describe('POST /api/plans', () => {
     const data = await res.json();
 
     expect(res.status).toBe(201);
-    expect(data.plan).toEqual(planRow);
+    const { created_by: _createdBy, ...planRowWithoutCreatedBy } = planRow;
+    expect(data.plan).toEqual(planRowWithoutCreatedBy);
+    expect(data.plan).not.toHaveProperty('created_by');
     expect(data.steps).toHaveLength(2);
 
     // evaluateGuard called once per step, simulate:true, with a plain preview
@@ -255,8 +258,11 @@ describe('POST /api/plans', () => {
     );
 
     expect(mockPublishOrgEvent).toHaveBeenCalledWith(
-      'action.updated', expect.objectContaining({ orgId: 'org_test', plan: planRow }),
+      'action.updated', expect.objectContaining({ orgId: 'org_test', plan: planRowWithoutCreatedBy }),
     );
+    // X3: created_by must not escape into the event payload either.
+    const eventPayload = mockPublishOrgEvent.mock.calls[0]![1] as { plan: Record<string, unknown> };
+    expect(eventPayload.plan).not.toHaveProperty('created_by');
 
     // T1: SoD — the submitting principal is stamped as created_by so the
     // review route can reject reviewer === created_by.
@@ -314,19 +320,20 @@ describe('POST /api/plans', () => {
     expect(data.plan).toEqual(previewingPlan);
   });
 
-  it('T1: createdBy is null when the request carries no attributable principal', async () => {
+  // X1: an unattributed request (empty x-user-id, e.g. the OAuth Bearer auth
+  // channel) must not insert a principal-less created_by NULL row — that
+  // would make the SoD reviewer!==created_by gate an unconditional no-op for
+  // the row. Fail closed instead, mirroring the review route's
+  // APPROVER_IDENTITY_REQUIRED guard.
+  it('X1: returns 403 SUBMITTER_IDENTITY_REQUIRED when the request carries no attributable principal, and never creates the plan', async () => {
     mockGetUserId.mockReturnValueOnce('');
-    mockCreatePlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef' },
-      steps: [{ step_id: 'ps_1', seq: 1, action_type: 'deploy', step_goal: 'deploy service', act: null }],
-    });
-    mockEvaluateGuard.mockResolvedValue({ decision: 'allow', risk_score: 12, reasons: [], simulated: true });
 
-    await POST(postReq(validBody));
+    const res = await POST(postReq(validBody));
+    const data = await res.json();
 
-    expect(mockCreatePlanWithSteps).toHaveBeenCalledWith(
-      mockGetSql, 'org_test', expect.objectContaining({ createdBy: null }),
-    );
+    expect(res.status).toBe(403);
+    expect(data.code).toBe('SUBMITTER_IDENTITY_REQUIRED');
+    expect(mockCreatePlanWithSteps).not.toHaveBeenCalled();
   });
 
   it('T4: dry-runs against the RAW act from the request body, not the stored/redacted step act', async () => {
@@ -356,6 +363,36 @@ describe('POST /api/plans', () => {
       expect.objectContaining({ act: redactedAct }),
       mockGetSql, { simulate: true },
     );
+  });
+
+  // X4: reasons can quote act content; the stored act is already redacted
+  // (S2), so a secret-shaped string surfacing in a preview reason must be
+  // redacted the same way before it's stamped — and before it reaches the
+  // response, or the response would leak what the stamp just redacted.
+  // Uses AWS's own published example key (same split-join convention as
+  // security-scanner.test.js) so this isn't flagged as a real credential.
+  it('X4: a secret-shaped preview reason is redacted before stampStepPreview and in the response', async () => {
+    const TEST_AWS_KEY = ['AKIA', 'IOSFODNN7EXAMPLE'].join('');
+    const planRow = { plan_id: 'pa_1234567890abcdef' };
+    const stepRows = [
+      { step_id: 'ps_1111111111111111', plan_id: planRow.plan_id, seq: 1, action_type: 'deploy', step_goal: 'deploy service', act: null },
+    ];
+    mockCreatePlanWithSteps.mockResolvedValueOnce({ plan: planRow, steps: stepRows });
+    mockEvaluateGuard.mockResolvedValueOnce({
+      decision: 'warn', risk_score: 40,
+      reasons: [`act contains ${TEST_AWS_KEY}`],
+      simulated: true,
+    });
+
+    const res = await POST(postReq(validBody));
+    const data = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(mockStampStepPreview).toHaveBeenCalledWith(
+      mockGetSql, 'org_test', 'ps_1111111111111111',
+      { decision: 'warn', riskScore: 40, reasons: ['act contains [REDACTED:aws_access_key]'] },
+    );
+    expect(data.steps[0].preview_reasons).toEqual(['act contains [REDACTED:aws_access_key]']);
   });
 
   it('returns 500 on unexpected error', async () => {

@@ -14,6 +14,7 @@ import { apiErrorResponse } from '../../lib/apiErrors';
 import { EVENTS, publishOrgEvent } from '../../lib/events';
 import { resolveAgentIdentity } from '../../lib/identity-resolution';
 import { evaluateGuard } from '../../lib/guard';
+import { redactAny } from '../../lib/security';
 import { getSettings } from '../../lib/repositories/settings.repository';
 import {
   createPlanWithSteps, stampStepPreview, listPlans, countPendingPlans, markPlanPending, reviewPlan,
@@ -44,6 +45,21 @@ export async function POST(request: Request) {
   try {
     const sql = getSql();
     const orgId = getOrgId(request);
+    // X1: SoD (drizzle/0063) needs an attributable created_by to enforce the
+    // reviewer !== submitter gate in POST /api/plans/[planId]. A NULL
+    // created_by makes that gate an unconditional no-op for the row, so
+    // fail closed here instead of inserting one — mirrors the review route's
+    // own APPROVER_IDENTITY_REQUIRED guard. This affects the OAuth Bearer
+    // auth channel (middleware's handleBearerAuth never sets x-user-id), not
+    // the x-api-key path (handleOperatorKey/handleDatabaseKey both stamp a
+    // principal) or session/dev auth (all set a non-empty userId).
+    const submitterId = getUserId(request);
+    if (!submitterId) {
+      return NextResponse.json(
+        { error: 'Plan submission requires an attributable credential', code: 'SUBMITTER_IDENTITY_REQUIRED' },
+        { status: 403 },
+      );
+    }
     const body = await request.json();
 
     const identity = await resolveAgentIdentity(request, { agentId: body.agent_id });
@@ -101,8 +117,9 @@ export async function POST(request: Request) {
       agentId, declaredGoal: body.declared_goal, ttlMinutes, maxPending: MAX_PENDING_PLANS,
       steps: steps.map((s) => ({ action_type: String(s.action_type), step_goal: String(s.step_goal), act: s.act })),
       // SoD (drizzle/0063): trusted middleware principal, never the body —
-      // the review route rejects reviewer === created_by.
-      createdBy: getUserId(request) || null,
+      // the review route rejects reviewer === created_by. Never null (X1
+      // above already 403'd an unattributed request).
+      createdBy: submitterId,
     });
     if (!created) {
       // R3: the countPendingPlans read above is a courtesy fast-path; this is
@@ -157,16 +174,22 @@ export async function POST(request: Request) {
           declared_goal: String(step.step_goal),
           ...(rawAct !== undefined ? { act: rawAct } : {}),
         }, sql, { simulate: true });
+        // X4: reasons can quote act content (e.g. "declared_goal contains
+        // X"); the stored act is already redacted (S2 in
+        // plans.repository.ts), so its derived reasons must be too — redact
+        // once and use the same copy for both the DB stamp and the response,
+        // or the response would leak what the stamp just redacted.
+        const redactedReasons = redactAny(preview.reasons ?? [], []) as unknown[];
         await stampStepPreview(sql, orgId, String(step.step_id), {
           decision: String(preview.decision),
           riskScore: Number(preview.risk_score ?? 0),
-          reasons: preview.reasons ?? [],
+          reasons: redactedReasons,
         });
         previewedSteps.push({
           ...step,
           preview_decision: preview.decision,
           preview_risk_score: preview.risk_score,
-          preview_reasons: preview.reasons,
+          preview_reasons: redactedReasons,
         });
       }
 
@@ -191,9 +214,17 @@ export async function POST(request: Request) {
       throw previewErr;
     }
 
-    void publishOrgEvent(EVENTS.ACTION_UPDATED, { orgId, plan });
+    // X3: created_by is a reviewer/creator principal — never leak it into
+    // the response or the org event payload (mirrors the GET/list V7 strip
+    // below). Stripped here (once the plan is finalized post-preview-loop)
+    // rather than right after createPlanWithSteps, because `plan` may be
+    // reassigned to markPlanPending's fresh RETURNING * row above, which
+    // carries created_by again.
+    const { created_by: _createdBy, ...strippedPlan } = plan as Record<string, unknown>;
 
-    return NextResponse.json({ plan, steps: previewedSteps }, { status: 201 });
+    void publishOrgEvent(EVENTS.ACTION_UPDATED, { orgId, plan: strippedPlan });
+
+    return NextResponse.json({ plan: strippedPlan, steps: previewedSteps }, { status: 201 });
   } catch (error) {
     return apiErrorResponse(error, 'PLANS POST');
   }

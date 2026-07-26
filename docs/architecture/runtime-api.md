@@ -29,6 +29,11 @@ is consumed atomically and the decision downgrades to `allow` with
 nothing auto-approves, and revocation (`POST /api/plans/:id` verdict
 `revoke`) is instant — the consumption path is uncached.
 
+**Read authorization.** `GET /api/plans` and `GET /api/plans/:id` are
+readable by any credential in the org — matching the approvals and
+decisions model, the org credential is the trust boundary, and plans are
+not agent-private.
+
 **Accepted risk — deny binding is org-wide.** A denied step's match is
 deliberately scoped to the org, not to the agent that submitted the plan:
 agent identities are self-asserted at guard time (absent a verified JWT), so
