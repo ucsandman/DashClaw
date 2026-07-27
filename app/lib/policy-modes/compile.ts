@@ -134,7 +134,9 @@ const MODE_BUILDERS: Record<string, ModeBuilder> = {
       mk(m, 'Constrain subagents', 'delegation_constraint', {
         parent: '*',
         child_types: ['*'],
-        max_risk_score: 60,
+        // Aligned with this mode's own interrupt line (threshold 85 above), not
+        // the shield's tighter 60 — that stays an explicit operator click.
+        max_risk_score: 85,
         escalate_action: 'require_approval',
       }),
     ];

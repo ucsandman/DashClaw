@@ -601,10 +601,16 @@ const POLICY_TYPE_VALIDATORS = {
         && (!Array.isArray(rules[key]) || !rules[key].every((t) => typeof t === 'string' && t.length > 0 && t.length <= 128))) {
         addError(`delegation_constraint rules.${key} must be null or an array of non-empty strings`);
       }
+      if (Array.isArray(rules[key]) && rules[key].length > 50) {
+        addError(`delegation_constraint rules.${key} must have at most 50 entries`);
+      }
     }
     if (rules.blocked_path_globs !== undefined
       && (!Array.isArray(rules.blocked_path_globs) || !rules.blocked_path_globs.every((p) => typeof p === 'string' && p.length > 0 && p.length <= 256))) {
       addError('delegation_constraint rules.blocked_path_globs must be an array of non-empty glob strings (<=256 chars)');
+    }
+    if (Array.isArray(rules.blocked_path_globs) && rules.blocked_path_globs.length > 50) {
+      addError('delegation_constraint rules.blocked_path_globs must have at most 50 entries');
     }
     if (rules.max_depth !== undefined && (!Number.isInteger(rules.max_depth) || rules.max_depth < 1 || rules.max_depth > 8)) {
       addError('delegation_constraint rules.max_depth must be an integer 1-8');

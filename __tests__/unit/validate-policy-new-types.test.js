@@ -151,6 +151,34 @@ describe('validatePolicy — delegation_constraint', () => {
     expect(r.valid).toBe(false);
   });
 
+  it('rejects blocked_path_globs above 50 entries', () => {
+    const r = validatePolicy(base('delegation_constraint', {
+      blocked_path_globs: Array.from({ length: 51 }, (_, i) => `path-${i}/**`),
+    }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('accepts blocked_path_globs at exactly 50 entries', () => {
+    const r = validatePolicy(base('delegation_constraint', {
+      blocked_path_globs: Array.from({ length: 50 }, (_, i) => `path-${i}/**`),
+    }));
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects allowed_action_types above 50 entries', () => {
+    const r = validatePolicy(base('delegation_constraint', {
+      allowed_action_types: Array.from({ length: 51 }, (_, i) => `action-${i}`),
+    }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects blocked_action_types above 50 entries', () => {
+    const r = validatePolicy(base('delegation_constraint', {
+      blocked_action_types: Array.from({ length: 51 }, (_, i) => `action-${i}`),
+    }));
+    expect(r.valid).toBe(false);
+  });
+
   it('rejects child_types: [] (must be non-empty when present)', () => {
     const r = validatePolicy(base('delegation_constraint', { child_types: [] }));
     expect(r.valid).toBe(false);

@@ -47,7 +47,7 @@ What happens next is automatic OAuth (you don't configure any of it):
 2. You're redirected to your DashClaw **login**, then a **consent screen** ("Authorize Claude").
 3. Click **Authorize** → you're sent back to Claude with the connection live.
 
-The 29 governance tools now show under the connector, scoped to your workspace and attributed to agent **`claude-desktop`**.
+The 17 governance tools now show under the connector, scoped to your workspace and attributed to agent **`claude-desktop`**.
 
 ## 3. Test it
 

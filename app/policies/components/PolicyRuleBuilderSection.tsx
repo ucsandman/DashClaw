@@ -307,16 +307,21 @@ function DelegationConstraintFields({ form, onChange }: DelegationConstraintFiel
             <option value="block">Block</option>
           </select>
         </div>
-        <label className="flex items-center gap-2 text-sm text-white sm:mt-5">
-          <input
-            aria-label="Require verified parent"
-            type="checkbox"
-            checked={!!form.requireVerifiedParent}
-            onChange={(event) => onChange('requireVerifiedParent', event.target.checked)}
-            className="h-4 w-4 accent-brand"
-          />
-          Require verified parent
-        </label>
+        <div>
+          <label className="flex items-center gap-2 text-sm text-white sm:mt-5">
+            <input
+              aria-label="Require verified parent"
+              type="checkbox"
+              checked={!!form.requireVerifiedParent}
+              onChange={(event) => onChange('requireVerifiedParent', event.target.checked)}
+              className="h-4 w-4 accent-brand"
+            />
+            Require verified parent
+          </label>
+          <p className="text-xs text-tertiary mt-1">
+            Requires the caller&apos;s verified identity (JWKS) — without Phase-2 identity configured, every composed call escalates.
+          </p>
+        </div>
       </div>
     </div>
   );

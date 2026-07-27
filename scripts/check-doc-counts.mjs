@@ -122,6 +122,8 @@ const COUNT_CHECKS = [
   { file: 'examples/README.md', label: 'MCP tool count', re: /agent (\d+) governance tools/, expected: [S.mcpTools] },
   { file: 'examples/managed-agent-mcp/README.md', label: 'MCP tool count', re: /(\d+) tools \+ \d+ resources/, expected: [S.mcpTools] },
   { file: 'docs/monetization-plan.md', label: 'MCP tool count', re: /MCP server \((\d+) tools/, expected: [S.mcpTools] },
+  { file: 'docs/monetization-plan.md', label: 'policy type count',
+    re: /all (\d+) policy types/, expected: [S.policyTypes] },
   // Surfaces caught stale at 29/224 by the 2026-06-10 preship drift audit —
   // gated so the next tool/method addition fails the build here, not review.
   { file: 'sdk/README.md', label: 'MCP tool count', re: /\*\*(\d+) tools\*\* in \d+ groups/, expected: [S.mcpTools] },

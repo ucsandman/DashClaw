@@ -109,11 +109,13 @@ Prompt-injection scanning runs against `declared_goal` before guard evaluation a
 | `blocked_path_globs` | string[] | Path scope, matched with the same `matchesProtectedPath` semantics as `protected_path`. |
 | `max_depth` | integer 1–8 | Maximum `parent:child:...` nesting depth. |
 | `escalate_action` | `require_approval` \| `block` (default `require_approval`) | What happens on a violation — never a grant. |
-| `require_verified_parent` | boolean | Fail closed on an unverified caller identity. |
+| `require_verified_parent` | boolean | Fail closed on an unverified caller identity — without Phase-2 JWKS identity configured, every composed call is unverified and escalates. |
 
 Worked example: a `Constrain subagents` policy sets `{ parent: '*', child_types: ['*'], max_risk_score: 40, escalate_action: 'require_approval' }`. A composed child `claude-code:explore` calls guard with `risk_score: 75` (above the 40 ceiling) — the decision downgrades from whatever the bare risk score would earn to `require_approval`, and the policy id appears in `matched_policies` with reason `risk 75 exceeds the delegated ceiling 40 for claude-code:explore`. The same child calling with `risk_score: 5` is unaffected; the constraint does not match. The bare parent `claude-code` (no `:` in `agent_id`) is never evaluated against this policy at all — it is a hard no-op for non-composed callers, so every existing single-agent fleet sees zero behavior change.
 
-The evaluator fires only on composed identities — an `agent_id` containing the reserved `:` delimiter. Provenance-mode callers (a base `agent_id` plus `intel.subagent`) are documented **out of v1 scope**; only the composed-id calling convention is constrained today. Attenuation only tightens: this policy type can escalate a decision to `require_approval` or `block`, but it has no grant path and can never loosen a decision another policy already raised.
+The evaluator fires only on composed identities — an `agent_id` containing the reserved `:` delimiter. Provenance-mode callers (a base `agent_id` plus `intel.subagent`) are documented **out of v1 scope**; only the composed-id calling convention is constrained today. Attenuation only tightens: this policy type can escalate a decision to `require_approval` or `block`, but it has no grant path of its own. Like every other raiser (risk calibration, other policies), a `require_approval` it produces can still be covered by an operator-sanctioned grant — `allow_grant`, a plan grant, or an operator approval; `block` remains absolute.
+
+Attenuation is enforced against the identity the caller *asserts* in `agent_id`, not a cryptographically verified one. Combine `require_verified_parent: true` with the Phase-2 JWKS identity system for a cryptographic claim rather than a self-reported one.
 
 ### 2. Actions (`POST /api/actions`)
 

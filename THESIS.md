@@ -325,6 +325,9 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   authority a provable subset of its parent's — risk ceiling, action-type
   allow/block lists, path scope, spawn depth, optional verified-identity
   requirement — enforced on every guard call from a `parent:child` identity.
+  That enforcement trusts the identity the caller asserts in `agent_id`; pair
+  `require_verified_parent: true` with Phase-2 JWKS identity for a
+  cryptographic claim instead of a self-reported one.
   No-surface economy: this is a policy type layered on the existing evaluator
   map, the existing `/policies` rails, and one convenience wrapper per SDK —
   no new tables, no new routes, no MCP changes. The evaluator only escalates
