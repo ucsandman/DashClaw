@@ -268,7 +268,7 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
 | Node SDK methods | 39 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
 | Python SDK methods | 59 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
-| CLI commands | 13 | `cli/bin/dashclaw.js` (`COMMAND_HANDLERS`) |
+| CLI commands | 14 | `cli/bin/dashclaw.js` (`COMMAND_HANDLERS`) |
 | Guard policy types | 15 | `app/lib/guard/policy.ts` (`KNOWN_POLICY_TYPES`) |
 
 Raising any ceiling requires amending this section **and**
@@ -352,6 +352,13 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   caller can never receive `allow_contained` from `guard()` itself; these
   methods only manage rows that reached `awaiting_promotion` some other way.
   RFC: docs/superpowers/plans/2026-07-27-containment-verdicts.md.
+- **2026-07-27 — CLI commands 13 → 14 (`dashclaw contained` group).** The
+  Containment Verdicts governed-merge CLI: `dashclaw contained list|diff|apply`
+  — list actions awaiting promotion, print a contained action's captured
+  patch, and (once an operator has promoted from the dashboard) run the
+  governed merge itself. One top-level command housing a `runSubcommand`
+  group, the same pattern as `install`/`codex`, not three separate top-level
+  commands. RFC: docs/superpowers/plans/2026-07-27-containment-verdicts.md.
 
 ## Version story
 
