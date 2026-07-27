@@ -13,9 +13,9 @@ As of v5.0.0, both SDKs converge on the **governance core** — the intercept �
 decide → approve → prove loop and its directly supporting calls. The SDKs are no
 longer an agent-platform surface.
 
-- `dashclaw` (Node) is the canonical SDK: **36 governance-core methods**.
+- `dashclaw` (Node) is the canonical SDK: **37 governance-core methods**.
 - `dashclaw` (Python) exposes the same core plus a few read/admin conveniences:
-  **56 methods**.
+  **57 methods**.
 - The `dashclaw/legacy` Node compatibility subpath was **removed in v5.0.0**
   (its removal was announced with the v4.4.x deprecation notice).
 
@@ -26,8 +26,8 @@ and `_`-private methods) and gated by `scripts/check-doc-counts.mjs --strict`.
 
 | Surface | Entry point | Role |
 |---|---|---|
-| Node SDK | `sdk/dashclaw.js` / `import { DashClaw } from 'dashclaw'` | Canonical governance-core SDK (36 methods) |
-| Python SDK | `sdk-python/dashclaw/client.py` | Governance core + read/admin conveniences (56 methods) |
+| Node SDK | `sdk/dashclaw.js` / `import { DashClaw } from 'dashclaw'` | Canonical governance-core SDK (37 methods) |
+| Python SDK | `sdk-python/dashclaw/client.py` | Governance core + read/admin conveniences (57 methods) |
 
 ## Governance-core surface (both SDKs)
 
@@ -46,6 +46,9 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
   `resolvePlan`, `waitForPlanReview`.
 - **Pairing (enrollment)**: `createPairing`, `waitForPairing`.
 - **Security**: `scanPromptInjection`.
+- **Policies**: `createDelegationConstraint` / `create_delegation_constraint` — convenience
+  wrapper for the `delegation_constraint` policy type (scoped subagent authority
+  attenuation).
 
 ## Surface-specific methods
 
@@ -71,7 +74,7 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
 | Signals | Yes | Yes | Canonical. |
 | Security (prompt injection) | Yes | Yes | `POST /api/security/prompt-injection`. |
 | Pairing / identities | Enrollment (`createPairing` + `waitForPairing`) | Enrollment + admin reads | Node enrollment is canonical; admin identity reads are Python-only (or HTTP). |
-| Policies (test / import / proof) | `simulatePolicy` (dry-run) | `test_policies` / `import_policies` / `get_proof_report` | Governance-core policy surface. |
+| Policies (test / import / proof / delegation) | `simulatePolicy` (dry-run), `createDelegationConstraint` | `test_policies` / `import_policies` / `get_proof_report`, `create_delegation_constraint` | Governance-core policy surface. `createDelegationConstraint` / `create_delegation_constraint` are at parity. |
 | Webhooks / org / activity | HTTP only | Yes | Read/admin conveniences in Python. |
 
 Retired at v5.0.0 (no longer on either SDK — their backing routes were removed):

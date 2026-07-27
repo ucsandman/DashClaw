@@ -194,6 +194,7 @@ dashclaw doctor`}</pre>
                   'Behavior guard -- no-code policy decisions (mechanically enforced on hook and capability surfaces)',
                   'Human-in-the-loop approval gates with expiry (a lapsed approval can never release work)',
                   'Preflight plan authorization -- an agent submits its plan, you review one card with per-step verdicts, approved steps become single-use act-bound grants',
+                  'Scoped delegation constraints -- cap a spawned subagent\'s risk, action types, paths, and depth; attenuation only tightens',
                   'Approval flood guard with bulk resolution',
                   'One judgment queue on /policies -- tuning, tightening, loosening, and calibration proposals with ratify/dismiss/undo in one click',
                   'Calibrated interruption controller on /calibration -- set a target false-interruption rate, hold it with a distribution-free bound (shadow first, tighten-only when active)',

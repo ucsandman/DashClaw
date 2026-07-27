@@ -215,7 +215,7 @@ echo '{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_use_id":"t
 
 Every instance also serves Streamable HTTP MCP at `/api/mcp`. For Claude Desktop, add that URL as a custom connector (Settings, Connectors); OAuth auto-discovers, no key in the UI.
 
-**SDKs.** `npm install dashclaw` (Node 18+) or `pip install dashclaw` (Python 3.7+). The **36-method canonical Node surface** covers guard, record, assumptions, approvals, durable-execution finality, security scanning, sessions and the action graph, pairing, risk signals, policy simulation, plan authorization, and team tasks. The **Python SDK exposes 56 methods**, plus CrewAI and AutoGen integrations.
+**SDKs.** `npm install dashclaw` (Node 18+) or `pip install dashclaw` (Python 3.7+). The **37-method canonical Node surface** covers guard, record, assumptions, approvals, durable-execution finality, security scanning, sessions and the action graph, pairing, risk signals, policy simulation, plan authorization, delegation constraints, and team tasks. The **Python SDK exposes 57 methods**, plus CrewAI and AutoGen integrations.
 
 **REST.** Every primitive is HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](docs/openapi/critical-stable.openapi.json); the full inventory (**122 routes**: 38 stable, 17 beta, 67 experimental) is in [`docs/api-inventory.md`](docs/api-inventory.md). Webhooks: `decision.created`, `action.created`, `lost_confirmation`, configurable per org.
 
@@ -225,7 +225,7 @@ Every instance also serves Streamable HTTP MCP at `/api/mcp`. For Claude Desktop
 
 Control before execution, not observability after it. Seven points, each falsifiable:
 
-1. **Every risky action is evaluated against active policies before it runs.** Policies are declarative. The builder ships with nine pre-built safety switches (Deploy Gate, Risk Threshold, Rate Limiter, Evidence Required, Protected Path, and others across 14 guard policy types), an AI generator, and YAML import.
+1. **Every risky action is evaluated against active policies before it runs.** Policies are declarative. The builder ships with ten pre-built safety switches (Deploy Gate, Risk Threshold, Rate Limiter, Evidence Required, Protected Path, Subagent Constraint, and others across 15 guard policy types), an AI generator, and YAML import.
 2. **The default pack is catastrophe-only.** Seeded automatically for every new self-hosted org, it interrupts for the irreversible class: it blocks mass-destructive filesystem, git, and database actions outright, and holds writes to secret files (`.env`, `*.pem`, `*.key`, `secrets/**`) for one-click approval. A warn-only rate limit nets runaways; everything else runs. This is a documented lesson, not a preference. See below.
 3. **Sensitive actions require human approval, and the approval is one click.** Approvals route to `/approvals`, the CLI, the mobile PWA at `/approve`, Telegram, or Discord. When one policy blows its interruption budget, per-action pings collapse into one flood banner with bulk-resolve. Pending approvals are never auto-resolved.
 4. **Every decision is recorded and outcomes are durable.** A five-state finality machine plus a lost-confirmation sweep guarantee no silent double-execute on retry. Spec below and in [`docs/architecture/durable-execution-finality.md`](docs/architecture/durable-execution-finality.md).

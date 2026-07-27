@@ -266,10 +266,10 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 | App pages | 47 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 17 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
-| Node SDK methods | 36 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
-| Python SDK methods | 56 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
+| Node SDK methods | 37 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
+| Python SDK methods | 57 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
 | CLI commands | 13 | `cli/bin/dashclaw.js` (`COMMAND_HANDLERS`) |
-| Guard policy types | 14 | `app/lib/guard/policy.ts` (`KNOWN_POLICY_TYPES`) |
+| Guard policy types | 15 | `app/lib/guard/policy.ts` (`KNOWN_POLICY_TYPES`) |
 
 Raising any ceiling requires amending this section **and**
 `contracts/surface-budget.json` in the same commit with a written reason — the
@@ -319,6 +319,17 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   new surface sits directly on the loop: plans are intercepted intent,
   reviewed by a human, provable in the decision ledger (`builtin:plan_grant`
   provenance). RFC: docs/rfcs/2026-07-06-preflight-plan-authorization.md.
+- **2026-07-26 — Scoped Delegation Constraints (governed-autonomy feature 2).**
+  Guard policy types 14 → 15, Node SDK methods 36 → 37, Python SDK methods
+  56 → 57. `delegation_constraint` makes a composed subagent's effective
+  authority a provable subset of its parent's — risk ceiling, action-type
+  allow/block lists, path scope, spawn depth, optional verified-identity
+  requirement — enforced on every guard call from a `parent:child` identity.
+  No-surface economy: this is a policy type layered on the existing evaluator
+  map, the existing `/policies` rails, and one convenience wrapper per SDK —
+  no new tables, no new routes, no MCP changes. The evaluator only escalates
+  (`require_approval` or `block`); attenuation only tightens, never grants.
+  RFC: docs/rfcs/2026-07-06-scoped-delegation-grants.md.
 
 ## Version story
 

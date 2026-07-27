@@ -193,7 +193,7 @@ DashClaw ships a Node SDK and a Python SDK. The DEPRECATED `dashclaw/legacy` sub
 | Canonical Node SDK | `import { DashClaw } from 'dashclaw'` from `sdk/dashclaw.js` | npm package `dashclaw`; the SDK for all work (version tracked in `sdk/package.json`). |
 | Python SDK | `sdk-python/dashclaw/client.py` | Broad Python surface with route-contract parity for critical domains. |
 
-The canonical Node SDK currently exposes **36 public methods** in `sdk/dashclaw.js` and the Python SDK **56** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
+The canonical Node SDK currently exposes **37 public methods** in `sdk/dashclaw.js` and the Python SDK **57** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
 
 - core governance: `guard`, `createAction`, `updateOutcome`, `getAction`, `approveAction`, `getPendingApprovals`, `waitForApproval`, `recordAssumption`
 - durable finality: `reportActionOutcome`, `getActionOutcome`, `reportActionSuccess`, `reportActionFailure`, `reportActionPartial`, `deriveIdempotencyKey`

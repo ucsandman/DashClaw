@@ -22,7 +22,7 @@ Python agents typically pair the SDK with one or more of these:
 
 ## Quick Start
 
-The Python SDK exposes the governance-core surface (56 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK exposes the governance-core surface (57 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -442,6 +442,11 @@ claw.import_policies(pack="enterprise-strict")
 
 # Or import raw YAML
 claw.import_policies(yaml="policies:\n  - name: block-deploys\n    ...")
+
+# Cap what a spawned subagent may do
+claw.create_delegation_constraint(
+    {"parent": "claude-code", "child_types": ["*"], "max_risk_score": 60, "escalate_action": "require_approval"},
+)
 ```
 
 **Methods:**
@@ -451,6 +456,7 @@ claw.import_policies(yaml="policies:\n  - name: block-deploys\n    ...")
 | `test_policies()` | Run guardrails tests against all active policies |
 | `get_proof_report(format="json")` | Generate compliance proof report. Format: "json" or "md" |
 | `import_policies(pack=None, yaml=None)` | Import a policy pack or raw YAML. Packs: enterprise-strict, smb-safe, startup-growth, development |
+| `create_delegation_constraint(rules, name=None, agent_ids=None)` | Create a `delegation_constraint` policy: caps a composed subagent's (`parent:child` identity) risk ceiling, action types, path scope, and spawn depth. Attenuation only tightens. |
 
 ## Security Scanning
 
@@ -631,9 +637,9 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK exposes the governance surface (56 methods) — the same intercept → decide → approve → prove core as the Node SDK, plus a handful of read/admin conveniences (webhooks, org management, activity logs).
+This SDK exposes the governance surface (57 methods) — the same intercept → decide → approve → prove core as the Node SDK, plus a handful of read/admin conveniences (webhooks, org management, activity logs).
 
-The Node.js SDK exposes a curated subset of **36 methods** focused on agent governance. The following core methods are available in both the Node.js SDK and this Python SDK:
+The Node.js SDK exposes a curated subset of **37 methods** focused on agent governance. The following core methods are available in both the Node.js SDK and this Python SDK:
 
 | Category | Node method | Python equivalent |
 |----------|-------------|-------------------|

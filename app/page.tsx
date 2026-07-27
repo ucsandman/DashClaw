@@ -106,7 +106,7 @@ const SUPPORT_SURFACES = [
   {
     icon: SlidersHorizontal,
     title: 'Policies',
-    desc: 'A small set of safety switches plus calibration review. The default pack is catastrophe-only; anything that loosens enforcement is a proposal you ratify with one click.',
+    desc: 'A small set of safety switches plus calibration review, including caps on what spawned subagents may do. The default pack is catastrophe-only; anything that loosens enforcement is a proposal you ratify with one click.',
     href: '/policies',
   },
   {

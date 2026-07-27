@@ -98,6 +98,23 @@ Prompt-injection scanning runs against `declared_goal` before guard evaluation a
 
 `GET /api/guard` lists recent guard decisions and supports filters such as `agent_id`, `decision`, `days`, `limit`, and `offset`. `days` (1–90) windows both the rows and the `total` count to the last N days, so `?decision=block&days=7` returns the true weekly denied count via `total`; without `days` the list spans all history.
 
+**Scoped delegation constraints (`delegation_constraint` policy type).** A composed subagent's effective authority is a provable subset of its parent's, enforced on every guard call made with a `parent:child` identity.
+
+| Rule field | Type | Effect |
+|---|---|---|
+| `parent` | string (default `*`) | Which parent identity this constraint applies to. |
+| `child_types` | string[] (default `['*']`) | Which child segments are constrained. |
+| `max_risk_score` | number 0–100 | Ceiling on `effectiveRiskScore` (the post-predictive value, same number the decision itself is judged on). |
+| `allowed_action_types` / `blocked_action_types` | string[] | Action-type allow/block list. |
+| `blocked_path_globs` | string[] | Path scope, matched with the same `matchesProtectedPath` semantics as `protected_path`. |
+| `max_depth` | integer 1–8 | Maximum `parent:child:...` nesting depth. |
+| `escalate_action` | `require_approval` \| `block` (default `require_approval`) | What happens on a violation — never a grant. |
+| `require_verified_parent` | boolean | Fail closed on an unverified caller identity. |
+
+Worked example: a `Constrain subagents` policy sets `{ parent: '*', child_types: ['*'], max_risk_score: 40, escalate_action: 'require_approval' }`. A composed child `claude-code:explore` calls guard with `risk_score: 75` (above the 40 ceiling) — the decision downgrades from whatever the bare risk score would earn to `require_approval`, and the policy id appears in `matched_policies` with reason `risk 75 exceeds the delegated ceiling 40 for claude-code:explore`. The same child calling with `risk_score: 5` is unaffected; the constraint does not match. The bare parent `claude-code` (no `:` in `agent_id`) is never evaluated against this policy at all — it is a hard no-op for non-composed callers, so every existing single-agent fleet sees zero behavior change.
+
+The evaluator fires only on composed identities — an `agent_id` containing the reserved `:` delimiter. Provenance-mode callers (a base `agent_id` plus `intel.subagent`) are documented **out of v1 scope**; only the composed-id calling convention is constrained today. Attenuation only tightens: this policy type can escalate a decision to `require_approval` or `block`, but it has no grant path and can never loosen a decision another policy already raised.
+
 ### 2. Actions (`POST /api/actions`)
 
 Records an action in the DashClaw ledger. This endpoint also runs guard evaluation internally. If policy blocks the action, DashClaw creates a blocked action record and returns `403`. If approval is required, the action is created with `status: "pending_approval"`.
@@ -267,7 +284,7 @@ The signing key is the DashClaw instance's own Ed25519 key — generated and sto
 
 ## Minimal SDK Flow
 
-The canonical Node SDK is `dashclaw` on npm (version tracked in `sdk/package.json`). The canonical SDK file `sdk/dashclaw.js` exposes 36 public methods across the core runtime and extension surfaces (verify with `npm run sdk:count`).
+The canonical Node SDK is `dashclaw` on npm (version tracked in `sdk/package.json`). The canonical SDK file `sdk/dashclaw.js` exposes 37 public methods across the core runtime and extension surfaces (verify with `npm run sdk:count`).
 
 The minimal governance loop uses only a small subset:
 

@@ -343,7 +343,7 @@ Both SDKs expose the governance core (intercept → decide → approve → prove
 
 | | Node SDK | Python SDK |
 |---|---|---|
-| **Focus** | Governance-core surface (36 methods) | Governance core + conveniences (56 methods) |
+| **Focus** | Governance-core surface (37 methods) | Governance core + conveniences (57 methods) |
 | **Guard / actions / approvals** | ✅ | ✅ |
 | **Assumptions / signals** | ✅ | ✅ |
 | **Sessions / action graph** | ✅ | ✅ |
@@ -376,6 +376,7 @@ The v2 SDK exposes the stable governance runtime plus promoted execution domains
 
 ### Policies
 - `simulatePolicy({ policy_type, rules, days })` -- Side-effect-free dry-run of a proposed policy against recent historical actions before committing it (pairs with `guard()` for live enforcement). `policy_type` and `rules` are required; `days` is optional. Returns `{ summary: { total, matches, block, warn, require_approval, allow }, matches, sample_size, window_days }`. Persists nothing.
+- `createDelegationConstraint(rules, opts?)` -- Create a `delegation_constraint` policy: caps what a composed subagent (`parent:child` identity) may do — risk ceiling, action-type allow/block lists, path scope, spawn depth, optional verified-identity requirement. Thin wrapper over `POST /api/policies`. `opts` accepts `{ name?, agent_ids? }`.
 
 ### Durable Execution Finality (v2.13.3+)
 Terminal outcome reporting that is one-shot, retry-safe, and immutable once non-pending. Separate from `updateOutcome`, which remains the lifecycle-PATCH path. Full spec: [`docs/architecture/durable-execution-finality.md`](../docs/architecture/durable-execution-finality.md). Detailed examples in the [Action Outcome](#action-outcome-durable-execution-finality) subsection of Execution Studio below.
