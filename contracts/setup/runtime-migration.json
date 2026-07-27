@@ -31,6 +31,10 @@
         "approval_grant_used_at",
         "act_content_hash",
         "close_source",
+        "containment_status",
+        "containment_ref",
+        "containment_resolved_by",
+        "containment_resolved_at",
         "harness_session_id",
         "subagent_uuid"
       ],
