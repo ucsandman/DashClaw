@@ -30,7 +30,8 @@ export type GuardPolicyType =
   | 'permission_escalation'
   | 'green_contract'
   | 'branch_freshness'
-  | 'require_evidence';
+  | 'require_evidence'
+  | 'delegation_constraint';
 
 export type GreenLevel = 'targeted' | 'package' | 'workspace' | 'merge_ready';
 

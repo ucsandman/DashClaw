@@ -94,6 +94,16 @@ export interface PolicyRules {
   // self-declared intent (no act attached). action_types (above) scopes it;
   // empty = all.
   enforcement?: string;
+  // delegation_constraint: bounds a composed subagent's authority to a
+  // provable subset of its parent's (agent_id "parent:child" identities only).
+  blocked_action_types?: string[];
+  parent?: string;
+  child_types?: string[];
+  max_depth?: number;
+  max_risk_score?: number;
+  blocked_path_globs?: string[];
+  require_verified_parent?: boolean;
+  escalate_action?: string;
 }
 
 export interface PolicyResult {

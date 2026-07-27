@@ -351,6 +351,68 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
     return null;
   },
   require_evidence: evaluateRequireEvidencePolicy,
+  // Scoped delegation constraints (governed-autonomy feature 2, RFC
+  // 2026-07-06): a composed subagent's authority is a provable subset of its
+  // parent's. Fires ONLY on composed identities (agent_id containing the
+  // reserved ':' delimiter) — plain parents and provenance-mode callers
+  // (base id + intel.subagent) are out of scope by design, so this is a
+  // hard no-op for every existing single-agent fleet. Tighten-only: it can
+  // escalate to require_approval or block, never grant. effectiveRiskScore
+  // arrives POST-predictive (evaluate.ts passes the final adjusted score to
+  // runLocalPolicies), so the risk ceiling checks the same number the
+  // decision itself is judged on. Matching is on the id STRING — an
+  // unpaired composed id (no agent_identities row) is still constrained;
+  // the base-fallback identity lookup cannot defeat attenuation.
+  delegation_constraint: ({ rules, context, effectiveRiskScore }) => {
+    const agentId = typeof context.agent_id === 'string' ? context.agent_id : '';
+    const sep = agentId.indexOf(':');
+    if (sep <= 0) return null; // non-composed caller — no-op
+    const parent = agentId.slice(0, sep);
+    const childSegments = agentId.slice(sep + 1).split(':').filter(Boolean);
+
+    const ruleParent = typeof rules.parent === 'string' ? rules.parent : '*';
+    if (ruleParent !== '*' && ruleParent !== parent) return null;
+    const childTypes = Array.isArray(rules.child_types) ? rules.child_types : ['*'];
+    const childMatch = childTypes.includes('*') || childSegments.some((s) => childTypes.includes(s));
+    if (!childMatch) return null;
+
+    const escalate = rules.escalate_action === 'block' ? 'block' : 'require_approval';
+
+    if (typeof rules.max_depth === 'number' && childSegments.length > rules.max_depth) {
+      return { action: escalate, reason: `spawn depth ${childSegments.length} exceeds max_depth ${rules.max_depth} for ${agentId}` };
+    }
+    if (typeof rules.max_risk_score === 'number') {
+      const risk = effectiveRiskScore != null
+        ? effectiveRiskScore
+        : Math.max(0, Math.min(Number(context.risk_score) || 0, 100));
+      if (risk > rules.max_risk_score) {
+        return { action: escalate, reason: `risk ${risk} exceeds the delegated ceiling ${rules.max_risk_score} for ${agentId}` };
+      }
+    }
+    const actionType = typeof context.action_type === 'string' ? context.action_type : '';
+    if (Array.isArray(rules.blocked_action_types) && actionType && rules.blocked_action_types.includes(actionType)) {
+      return { action: escalate, reason: `action type "${actionType}" is outside ${agentId}'s delegated authority (blocked)` };
+    }
+    if (Array.isArray(rules.allowed_action_types) && actionType && !rules.allowed_action_types.includes(actionType)) {
+      return { action: escalate, reason: `action type "${actionType}" is outside ${agentId}'s delegated allowlist` };
+    }
+    if (Array.isArray(rules.blocked_path_globs) && rules.blocked_path_globs.length > 0) {
+      const candidates: string[] = [];
+      if (typeof context.target === 'string' && context.target) candidates.push(context.target);
+      if (Array.isArray(context.write_paths)) candidates.push(...(context.write_paths as string[]));
+      const hit = candidates.find((p) => matchesProtectedPath(p, rules.blocked_path_globs));
+      if (hit) {
+        return { action: escalate, reason: `path ${hit} is outside ${agentId}'s delegated scope` };
+      }
+    }
+    if (rules.require_verified_parent === true) {
+      const status = typeof context.verification_status === 'string' ? context.verification_status : 'unverified';
+      if (status !== 'verified') {
+        return { action: escalate, reason: `unverified caller identity (${status}) — this constraint requires a verified parent` };
+      }
+    }
+    return null;
+  },
 };
 
 // Dispatch via a Map so a user-controlled policy_type cannot reach an inherited
