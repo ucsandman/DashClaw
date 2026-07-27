@@ -168,6 +168,77 @@ def append_posted_deviation_keys(session_id, keys):
 
 
 # ---------------------------------------------------------------------------
+# Containment Verdicts (Task 10): per-turn contained-action log + idempotency
+#
+# PostToolUse appends "<action_id>\t<containment_ref>" for every contained
+# mutation it processes this turn (dashclaw_posttool.py). The Stop hook reads
+# these pairs, PATCHes containment_status=awaiting_promotion for each
+# (idempotent per session via the posted-keys file below, mirroring the
+# assumption/deviation pattern above), then clears the per-turn log.
+# ---------------------------------------------------------------------------
+
+def contained_turn_path(session_id):
+    return os.path.join(
+        tempfile.gettempdir(), "dashclaw_contained_turn_" + safe_session_id(session_id)
+    )
+
+
+def read_contained_turn_actions(session_id):
+    """(action_id, containment_ref) pairs appended this turn. Dedups by
+    action_id (first ref wins); [] on any read failure."""
+    try:
+        with open(contained_turn_path(session_id), encoding="utf-8") as f:
+            lines = f.readlines()
+    except Exception:
+        return []
+    seen = set()
+    out = []
+    for raw in lines:
+        line = raw.rstrip("\n")
+        if "\t" not in line:
+            continue
+        action_id, _, ref = line.partition("\t")
+        action_id = action_id.strip()
+        ref = ref.strip()
+        if action_id and ref and action_id not in seen:
+            seen.add(action_id)
+            out.append((action_id, ref))
+    return out
+
+
+def clear_contained_turn_actions(session_id):
+    try:
+        os.remove(contained_turn_path(session_id))
+    except Exception:
+        pass
+
+
+def contained_posted_path(session_id):
+    return os.path.join(
+        tempfile.gettempdir(), "dashclaw_contained_posted_" + safe_session_id(session_id)
+    )
+
+
+def read_posted_containment_keys(session_id):
+    try:
+        with open(contained_posted_path(session_id), encoding="utf-8") as f:
+            return {ln.strip() for ln in f if ln.strip()}
+    except Exception:
+        return set()
+
+
+def append_posted_containment_keys(session_id, keys):
+    if not keys:
+        return
+    try:
+        with open(contained_posted_path(session_id), "a", encoding="utf-8") as f:
+            for key in keys:
+                f.write(key + "\n")
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Push throttle markers + sample-upload offsets
 # ---------------------------------------------------------------------------
 

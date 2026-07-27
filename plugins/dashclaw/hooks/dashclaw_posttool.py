@@ -15,6 +15,8 @@ Never blocks. Always exits 0.
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import urllib.request
@@ -24,6 +26,7 @@ from datetime import datetime, timezone
 # Import the shared HTTP retry helper from the sibling intel package.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dashclaw_agent_intel.http_client import request_with_retry
+from dashclaw_agent_intel.stop_state import safe_session_id as _safe_session_id
 
 # ---------------------------------------------------------------------------
 # Load .env file (C:/Projects/DashClaw/.env) before reading config.
@@ -92,6 +95,19 @@ API_KEY = os.environ.get("DASHCLAW_API_KEY") or ""
 DEBUG = (os.environ.get("DASHCLAW_HOOK_DEBUG") or "").strip() in ("1", "true", "yes")
 
 MAX_SUMMARY = 500
+
+# Containment Verdicts (Task 10): cap on the staged-diff text bytes uploaded
+# per contained mutation, env-overridable. Default keeps a single artifact
+# well under the /api/artifacts 2MB request-body cap even for a large diff.
+_DEFAULT_CONTAINMENT_DIFF_CAP_BYTES = 1_500_000
+
+
+def _containment_diff_cap_bytes():
+    raw = os.environ.get("DASHCLAW_CONTAINMENT_DIFF_CAP_BYTES")
+    try:
+        return max(1, int(raw)) if raw else _DEFAULT_CONTAINMENT_DIFF_CAP_BYTES
+    except (TypeError, ValueError):
+        return _DEFAULT_CONTAINMENT_DIFF_CAP_BYTES
 
 
 def _log(tag, msg):
@@ -305,21 +321,177 @@ def _patch_action(action_id, body):
                     + " — outcome not recorded; action may be stuck in 'running'")
 
 
+def _post_artifact(body):
+    """POST /api/artifacts. Fail-silent like every posttool path: logs and
+    returns on any failure, never raises."""
+    url = BASE_URL + "/api/artifacts"
+    data = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+        },
+        method="POST",
+    )
+    try:
+        request_with_retry(req, timeout=3)
+    except urllib.error.HTTPError as e:
+        _log_always("artifact_post_failed", "HTTP " + str(e.code))
+    except Exception as e:
+        _log_always("artifact_post_failed", type(e).__name__ + ": " + str(e))
+
+
+# ---------------------------------------------------------------------------
+# Containment Verdicts (Task 10): staged-diff artifact + ref/status flip.
+#
+# When PreToolUse (Task 9) redirected a mutation into a per-session
+# containment worktree, its state file carries a non-None containment_ref.
+# Here we compute the worktree's staged diff, upload it as a `patch` artifact
+# for operator review, and flip the action to awaiting_promotion with its ref
+# stamped. containment_ref can ONLY be persisted together with
+# containment_status='awaiting_promotion' -- the server's PATCH handler
+# (app/api/actions/[actionId]/route.ts) only reads body.containment_ref
+# inside the containment_status branch, and setContainmentAwaiting always
+# sets both columns in the same UPDATE. The Stop hook's awaiting-promotion
+# sweep (dashclaw_stop.py) repeats this PATCH as an idempotent backstop in
+# case this call never lands. Fail-silent throughout: git and HTTP failures
+# never raise past this function.
+# ---------------------------------------------------------------------------
+
+_GIT_SUBPROCESS_KWARGS = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
+
+
+def _run_git(args, cwd, timeout=15):
+    """Run `git <args>` in cwd. Returns a CompletedProcess, or None on any
+    failure (missing git, spawn error, timeout) -- never raises."""
+    git = shutil.which("git")
+    if not git:
+        return None
+    try:
+        return subprocess.run(
+            [git] + list(args),
+            cwd=cwd,
+            capture_output=True,
+            timeout=timeout,
+            **_GIT_SUBPROCESS_KWARGS,
+        )
+    except Exception:
+        return None
+
+
+def _git_diff_payload(worktree, cap_bytes):
+    """Return (diff_text, truncated, stat_text, untracked_paths) for the
+    worktree's changes relative to HEAD. Any git failure yields empty/False
+    values rather than raising."""
+    diff_proc = _run_git(["diff", "HEAD"], cwd=worktree)
+    diff_bytes = diff_proc.stdout if (diff_proc and diff_proc.returncode == 0) else b""
+    truncated = len(diff_bytes) > cap_bytes
+    if truncated:
+        diff_bytes = diff_bytes[:cap_bytes]
+    diff_text = diff_bytes.decode("utf-8", "replace")
+
+    stat_proc = _run_git(["diff", "HEAD", "--stat"], cwd=worktree)
+    stat_text = stat_proc.stdout.decode("utf-8", "replace") if (stat_proc and stat_proc.returncode == 0) else ""
+
+    status_proc = _run_git(["status", "--porcelain"], cwd=worktree)
+    untracked = []
+    if status_proc and status_proc.returncode == 0:
+        for line in status_proc.stdout.decode("utf-8", "replace").splitlines():
+            if line.startswith("?? "):
+                untracked.append(line[3:])
+
+    return diff_text, truncated, stat_text, untracked
+
+
+def _maybe_post_containment_diff(action_id, ref, worktree):
+    """Upload the containment worktree's staged diff as a `patch` artifact
+    and flip the action to awaiting_promotion with its ref stamped. No-op
+    when ref/worktree are missing (a containment failure path already
+    recorded None for both). Fail-silent end to end."""
+    if not ref or not worktree:
+        return
+    try:
+        cap = _containment_diff_cap_bytes()
+        diff_text, truncated, stat_text, untracked = _git_diff_payload(worktree, cap)
+        content_json = {
+            "diff": diff_text,
+            "stat": stat_text,
+            "ref": ref,
+            "truncated": truncated,
+        }
+        if untracked:
+            content_json["untracked"] = untracked
+        _post_artifact({
+            "artifact_type": "patch",
+            "name": "containment-diff-" + action_id,
+            "source_action_id": action_id,
+            "content_json": content_json,
+        })
+        _patch_action(action_id, {"containment_status": "awaiting_promotion", "containment_ref": ref})
+    except Exception as e:
+        _log_always("containment_diff_failed", "action_id=" + action_id + " " + type(e).__name__ + ": " + str(e))
+
+
+def _append_contained_turn_action(session_id, action_id, ref):
+    """Append "<action_id>\\t<ref>" to the per-session contained-turn log so
+    the Stop hook's awaiting-promotion sweep can flip this action even if the
+    PATCH above failed or never landed. Cleared by the Stop hook at end of
+    turn (dashclaw_agent_intel.stop_state). Best-effort; never raises."""
+    if not session_id or not action_id or not ref:
+        return
+    path = os.path.join(tempfile.gettempdir(), "dashclaw_contained_turn_" + _safe_session_id(session_id))
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(action_id + "\t" + ref + "\n")
+    except Exception:
+        pass
+
+
 # ---------------------------------------------------------------------------
 # Temp file helpers
 # ---------------------------------------------------------------------------
+
+def _read_action_state(tool_use_id):
+    """Read the PreToolUse temp-file payload for this tool_use_id.
+
+    Ordinary (non-contained) decisions write a bare action_id string
+    (write_action_id in dashclaw_pretool.py). Contained decisions
+    (_write_containment_action_state, Task 9) write a JSON object instead:
+    {"action_id": ..., "containment_ref": ..., "containment_worktree": ...}
+    (ref/worktree are None on a containment failure path). Returns
+    {"action_id": str|None, "containment_ref": str|None,
+    "containment_worktree": str|None} -- never raises.
+    """
+    empty = {"action_id": None, "containment_ref": None, "containment_worktree": None}
+    path = os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            raw = f.read().strip()
+    except Exception:
+        return empty
+    if not raw:
+        return empty
+    if raw.startswith("{"):
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            return empty
+        return {
+            "action_id": parsed.get("action_id") or None,
+            "containment_ref": parsed.get("containment_ref"),
+            "containment_worktree": parsed.get("containment_worktree"),
+        }
+    return {"action_id": raw, "containment_ref": None, "containment_worktree": None}
+
 
 def _read_action_id(tool_use_id):
     """Read action_id from the temp file written by PreToolUse.
 
     Returns action_id string or None if not found.
     """
-    path = os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id)
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return f.read().strip() or None
-    except Exception:
-        return None
+    return _read_action_state(tool_use_id)["action_id"]
 
 
 def _cleanup_temp(tool_use_id):
@@ -371,9 +543,10 @@ def _require_tool_use(data):
     sys.exit(0)
 
 
-def _require_action_id(tool_use_id, tool_name):
-    """Return the PreToolUse action id, or exit when this tool was not recorded."""
-    action_id = _read_action_id(tool_use_id)
+def _require_action_id(state, tool_use_id, tool_name):
+    """Return the PreToolUse action id from an already-read state dict, or
+    exit when this tool was not recorded."""
+    action_id = state.get("action_id")
     if action_id:
         return action_id
     _log("exit_early", "no action_id for tool_use_id=" + tool_use_id
@@ -398,8 +571,10 @@ def main():
     data = _parse_stdin()
     tool_name, tool_use_id = _require_tool_use(data)
 
-    # Find the action ID from the temp file written by PreToolUse
-    action_id = _require_action_id(tool_use_id, tool_name)
+    # Find the action ID (and any containment fields) from the temp file
+    # written by PreToolUse.
+    state = _read_action_state(tool_use_id)
+    action_id = _require_action_id(state, tool_use_id, tool_name)
 
     # Extract structured outcome from tool_response
     tool_response = data.get("tool_response") or {}
@@ -415,6 +590,14 @@ def main():
     # PATCH the action with the outcome
     _patch_action(action_id, _patch_body(status, output_summary, outcome_metadata))
     _log("patched", "action_id=" + action_id + " status=" + status)
+
+    # Containment Verdicts (Task 10): a contained mutation's staged diff is
+    # uploaded as an artifact and the action flipped to awaiting_promotion.
+    # No-op for ordinary (non-contained) actions.
+    containment_ref = state.get("containment_ref")
+    if containment_ref:
+        _maybe_post_containment_diff(action_id, containment_ref, state.get("containment_worktree"))
+        _append_contained_turn_action(data.get("session_id") or "", action_id, containment_ref)
 
     # Clean up temp file
     _cleanup_temp(tool_use_id)

@@ -48,6 +48,10 @@ from dashclaw_agent_intel.stop_state import (
     read_posted_deviation_keys as _read_posted_deviation_keys,
     append_posted_deviation_keys as _append_posted_deviation_keys,
     count_session_actions as _count_session_actions,
+    read_contained_turn_actions as _read_contained_turn_actions,
+    clear_contained_turn_actions as _clear_contained_turn_actions,
+    read_posted_containment_keys as _read_posted_containment_keys,
+    append_posted_containment_keys as _append_posted_containment_keys,
 )
 from dashclaw_agent_intel.stop_transcript import (
     load_entries as _load_entries,
@@ -498,6 +502,47 @@ def _capture_deviations(entries, last_uuid, session_id, cwd):
 
 
 # ---------------------------------------------------------------------------
+# Containment Verdicts (Task 10): awaiting-promotion sweep
+#
+# PostToolUse (dashclaw_posttool.py) already PATCHes containment_status ->
+# awaiting_promotion for a contained mutation as soon as its diff artifact is
+# uploaded. This sweep is the backstop for a turn's contained action_ids
+# whose flip never landed (PostToolUse missed entirely, or its PATCH failed):
+# it repeats the PATCH from the per-turn contained-actions log PostToolUse
+# appended. Server-side the transition is gated (setContainmentAwaiting only
+# matches containment_status='contained'), so a repeat call for an action
+# already flipped just hits the WHERE-gate and no-ops — any response is fine
+# here, fail-silent like every Stop hook path. Idempotent across hook re-runs
+# via a per-session posted-keys file, mirroring _capture_deviations.
+# ---------------------------------------------------------------------------
+
+def _patch_containment_awaiting(action_id, ref):
+    """PATCH containment_status=awaiting_promotion, re-stamping ref defensively
+    in case PostToolUse's own flip never landed (setContainmentAwaiting's
+    COALESCE leaves an already-set ref untouched either way)."""
+    _patch_action(action_id, {"containment_status": "awaiting_promotion", "containment_ref": ref})
+
+
+def _flip_contained_to_awaiting(session_id):
+    """Sweep this turn's contained action_ids to awaiting_promotion. Fail-
+    silent end to end; no-ops when the turn contained nothing."""
+    try:
+        pairs = _read_contained_turn_actions(session_id)
+        if not pairs:
+            return
+        posted = _read_posted_containment_keys(session_id)
+        new_keys = []
+        for action_id, ref in pairs:
+            if action_id in posted:
+                continue
+            _patch_containment_awaiting(action_id, ref)
+            new_keys.append(action_id)
+        _append_posted_containment_keys(session_id, new_keys)
+    except Exception as e:
+        _log_hook_error("flip_contained_to_awaiting -> " + type(e).__name__ + ": " + str(e))
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -569,12 +614,18 @@ def main():
     # fail-silent.
     _capture_deviations(entries, last_uuid, session_id, data.get("cwd") or "")
 
+    # Containment Verdicts (Task 10): sweep this turn's contained action_ids
+    # to awaiting_promotion -- a backstop in case PostToolUse's own flip
+    # never landed. Idempotent + fail-silent.
+    _flip_contained_to_awaiting(session_id)
+
     # Visible first session: one stderr recap line when this turn governed
     # anything (silent otherwise).
     _print_session_recap(action_ids, session_id)
 
     _write_cursor(session_id, new_cursor)
     _clear_turn_actions(session_id)
+    _clear_contained_turn_actions(session_id)
     sys.exit(0)
 
 
