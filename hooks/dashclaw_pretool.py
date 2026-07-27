@@ -725,7 +725,13 @@ _BRANCH_SEGMENT_RE = re.compile(r"[^A-Za-z0-9-]")
 
 def _safe_branch_segment(session_id):
     """Sanitize an (untrusted, harness-supplied) session_id into an
-    alnum+dash segment safe for a git branch name / directory component."""
+    alnum+dash segment safe for a git branch name / directory component.
+
+    Deliberately stricter than _safe_session_id (which allows `.` and `_` for
+    temp-file suffixes above): a git branch/ref component rejects a leading
+    `.` and disallows `..` outright, and this segment doubles as a filesystem
+    directory name, so the narrower alnum+dash charset sidesteps both classes
+    of surprise rather than special-casing them."""
     cleaned = _BRANCH_SEGMENT_RE.sub("-", session_id or "").strip("-")
     return cleaned[:64] or "session"
 
@@ -1061,6 +1067,15 @@ def handle_require_approval(guard_resp, context, tool_use_id):
     sys.exit(2)
 
 
+def _record_observed_containment(guard_resp, context, tool_use_id):
+    """Observe mode never blocks or redirects anything (mirrors handle_block /
+    handle_require_approval): record the action as an ordinary allow — no
+    worktree, no JSON containment state — and let the caller exit 0."""
+    log("[DashClaw] [observe] Would contain: " + context.get("declared_goal", "unknown"))
+    if not _persist_guard_recorded_action(guard_resp, tool_use_id):
+        _record_running_action("handle_allow_contained", context, tool_use_id)
+
+
 def handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_id):
     """Contained execution: a negotiated allow_contained verdict. Redirect the
     effect into a per-session git worktree instead of the working tree, and
@@ -1068,17 +1083,30 @@ def handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_
 
     Worktree creation failure (or not being in a git repo at all) is fail-
     toward-interruption (invariant 5): governance never lets a contained
-    effect proceed unstaged."""
+    effect proceed unstaged. DASHCLAW_CONTAINMENT=0 is a full kill switch, not
+    just a capability-advertisement toggle: a server that still emits
+    allow_contained (version skew, a stale cached decision, mixed hook
+    versions across a multi-hook install) must never cause a worktree to be
+    created while the operator has explicitly disabled containment."""
+    if not CONTAINMENT_ENABLED:
+        if HOOK_MODE == "observe":
+            # Observe mode never blocks or redirects, disabled or not.
+            _record_observed_containment(guard_resp, context, tool_use_id)
+            sys.exit(0)
+        action_id = _persist_guard_recorded_action(guard_resp, tool_use_id)
+        if not action_id:
+            action_id = _record_running_action("handle_allow_contained", context, tool_use_id)
+        log("[DashClaw] Containment disabled by DASHCLAW_CONTAINMENT=0 — interrupting.")
+        _write_containment_action_state(tool_use_id, action_id, None, None)
+        sys.exit(2)
+
     if HOOK_MODE == "observe":
-        # Mirrors handle_block / handle_require_approval: observe mode never
-        # blocks or redirects anything. A conformant server never emits
-        # allow_contained here (observe mode never advertises the capability,
-        # so negotiation would have downgraded to require_approval) — this is
-        # a defense-in-depth carve-out for version skew or a misconfigured
-        # server, not a path this hook's own capability gating can reach.
-        log("[DashClaw] [observe] Would contain: " + context.get("declared_goal", "unknown"))
-        if not _persist_guard_recorded_action(guard_resp, tool_use_id):
-            _record_running_action("handle_allow_contained", context, tool_use_id)
+        # A conformant server never emits allow_contained here (observe mode
+        # never advertises the capability, so negotiation would have
+        # downgraded to require_approval) — this is a defense-in-depth
+        # carve-out for version skew or a misconfigured server, not a path
+        # this hook's own capability gating can reach.
+        _record_observed_containment(guard_resp, context, tool_use_id)
         sys.exit(0)
 
     action_id = _persist_guard_recorded_action(guard_resp, tool_use_id)

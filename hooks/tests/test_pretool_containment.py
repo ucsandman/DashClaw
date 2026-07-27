@@ -368,6 +368,24 @@ class TestPretoolContainment(unittest.TestCase):
         body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][-1]["body"]
         self.assertEqual(body.get("client_capabilities"), ["allow_contained"])
 
+    def test_capability_advertised_for_write_tool(self):
+        """Same gating matrix, a second containable tool (Write, not Bash)."""
+        repo = self._new_repo()
+        tool_use_id = "tu-4a2-" + uuid.uuid4().hex[:8]
+        self._action_state_path(tool_use_id)
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": os.path.join(repo, "cap.txt"), "content": "x"},
+                "tool_use_id": tool_use_id,
+                "session_id": "sess-4a2",
+            },
+            self._env(repo),
+        )
+        self.assertEqual(code, 0)
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][-1]["body"]
+        self.assertEqual(body.get("client_capabilities"), ["allow_contained"])
+
     def test_capability_absent_when_containment_disabled(self):
         repo = self._new_repo()
         tool_use_id = "tu-4b-" + uuid.uuid4().hex[:8]
@@ -494,6 +512,105 @@ class TestPretoolContainment(unittest.TestCase):
         self.assertEqual(updated["content"], "hi there")
 
         self.assertTrue(os.path.isdir(expected_worktree))
+
+    # -----------------------------------------------------------------------
+    # 6. Worktree-escape regression (invariant 1): a rewrite must never place
+    #    a path outside the repo into the worktree just because the server
+    #    said allow_contained.
+    # -----------------------------------------------------------------------
+
+    def test_rewrite_rejects_path_outside_repo(self):
+        repo = self._new_repo()
+        session_id = "sess-" + uuid.uuid4().hex[:8]
+
+        outside_dir = tempfile.mkdtemp(prefix="dashclaw-containment-outside-")
+        self._repos.append(outside_dir)
+        outside_target = os.path.join(outside_dir, "escape.txt")
+
+        self.log.guard_response = {
+            "decision": "allow_contained",
+            "recorded": True,
+            "action_id": "act-contained-escape",
+            "containment": {"status": "contained", "basis": "file"},
+        }
+
+        tool_use_id = "tu-6-" + uuid.uuid4().hex[:8]
+        self._action_state_path(tool_use_id)
+        code, stdout, stderr = _run_hook(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": outside_target, "content": "escape"},
+                "tool_use_id": tool_use_id,
+                "session_id": session_id,
+            },
+            self._env(repo, DASHCLAW_CONTAINMENT_REWRITE="1"),
+        )
+
+        self.assertEqual(code, 2, "a path outside the repo must instructive-deny, not rewrite; stderr=%s" % stderr)
+        self.assertNotIn("updatedInput", stdout)
+        self.assertEqual(stdout, "")
+
+        if os.name == "nt":
+            # Cross-drive path: os.path.relpath raises ValueError on
+            # mismatched drive letters -- a pure string comparison, no
+            # filesystem I/O, so this doesn't require a second drive to
+            # actually exist on disk.
+            repo_drive = os.path.splitdrive(repo)[0].upper()
+            other_drive = "Z:" if repo_drive != "Z:" else "Y:"
+            tool_use_id_2 = "tu-6b-" + uuid.uuid4().hex[:8]
+            self._action_state_path(tool_use_id_2)
+            code2, stdout2, stderr2 = _run_hook(
+                {
+                    "tool_name": "Write",
+                    "tool_input": {"file_path": other_drive + "\\escape\\file.txt", "content": "escape"},
+                    "tool_use_id": tool_use_id_2,
+                    "session_id": session_id,
+                },
+                self._env(repo, DASHCLAW_CONTAINMENT_REWRITE="1"),
+            )
+            self.assertEqual(code2, 2, "cross-drive path must instructive-deny; stderr=%s" % stderr2)
+            self.assertNotIn("updatedInput", stdout2)
+            self.assertEqual(stdout2, "")
+
+    # -----------------------------------------------------------------------
+    # 7. DASHCLAW_CONTAINMENT=0 is a full kill switch, not just a capability-
+    #    advertisement toggle: a server that still emits allow_contained
+    #    (version skew) must not cause ANY worktree creation.
+    # -----------------------------------------------------------------------
+
+    def test_containment_disabled_is_full_kill_switch_in_enforce_mode(self):
+        repo = self._new_repo()
+        session_id = "sess-" + uuid.uuid4().hex[:8]
+        tool_use_id = "tu-7-" + uuid.uuid4().hex[:8]
+        self._action_state_path(tool_use_id)
+
+        self.log.guard_response = {
+            "decision": "allow_contained",
+            "recorded": True,
+            "action_id": "act-contained-killswitch",
+            "containment": {"status": "contained", "basis": "file"},
+        }
+
+        code, stdout, stderr = _run_hook(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": os.path.join(repo, "foo.txt"), "content": "hello"},
+                "tool_use_id": tool_use_id,
+                "session_id": session_id,
+            },
+            self._env(repo, DASHCLAW_CONTAINMENT="0"),
+        )
+
+        self.assertEqual(code, 2, "kill switch must still interrupt in enforce mode; stderr=%s" % stderr)
+        self.assertIn("dashclaw_containment=0", stderr.lower())
+        self.assertFalse(os.path.isdir(os.path.join(repo, ".dashclaw")),
+                          "no worktree may be created while containment is disabled")
+
+        with open(self._action_state_path(tool_use_id), encoding="utf-8") as f:
+            state = json.loads(f.read())
+        self.assertIsNone(state["containment_ref"])
+        self.assertIsNone(state["containment_worktree"])
+        self.assertEqual(state["action_id"], "act-contained-killswitch")
 
 
 if __name__ == "__main__":
