@@ -383,10 +383,19 @@ def _run_git(args, cwd, timeout=15):
 
 def _git_diff_payload(worktree, cap_bytes):
     """Return (diff_text, truncated, stat_text, untracked_paths) for the
-    worktree's changes relative to HEAD. Any git failure yields empty/False
-    values rather than raising."""
+    worktree's changes relative to HEAD, or None if `git diff HEAD` itself
+    failed (missing git, bad worktree path, non-zero exit, timeout).
+
+    None is distinct from a legitimately empty diff: a zero-length diff after
+    a successful `git diff HEAD` (returncode 0) is a valid outcome (e.g. a
+    no-op edit) and returns normally with diff_text=""; only a failed
+    subprocess call returns None. Callers must not conflate the two --
+    treating a git failure as an empty diff would let an operator promote a
+    change that was never actually captured for review."""
     diff_proc = _run_git(["diff", "HEAD"], cwd=worktree)
-    diff_bytes = diff_proc.stdout if (diff_proc and diff_proc.returncode == 0) else b""
+    if not diff_proc or diff_proc.returncode != 0:
+        return None
+    diff_bytes = diff_proc.stdout
     truncated = len(diff_bytes) > cap_bytes
     if truncated:
         diff_bytes = diff_bytes[:cap_bytes]
@@ -409,12 +418,28 @@ def _maybe_post_containment_diff(action_id, ref, worktree):
     """Upload the containment worktree's staged diff as a `patch` artifact
     and flip the action to awaiting_promotion with its ref stamped. No-op
     when ref/worktree are missing (a containment failure path already
-    recorded None for both). Fail-silent end to end."""
+    recorded None for both).
+
+    If the diff computation itself fails (_git_diff_payload returns None --
+    git unreachable, bad worktree path, timeout), skip BOTH the artifact
+    upload and the status flip: an operator must never be able to promote a
+    change whose diff was never actually captured. The action stays
+    'contained' -- the Stop hook's awaiting-promotion sweep will still flip
+    its status (no artifact) as a backstop, and the change stays reviewable
+    later via `dashclaw contained diff` (CLI). Fail-silent end to end."""
     if not ref or not worktree:
         return
     try:
         cap = _containment_diff_cap_bytes()
-        diff_text, truncated, stat_text, untracked = _git_diff_payload(worktree, cap)
+        payload = _git_diff_payload(worktree, cap)
+        if payload is None:
+            _log_always(
+                "containment_diff_failed",
+                "containment diff computation failed for " + action_id
+                + " — leaving contained for stop-hook retry",
+            )
+            return
+        diff_text, truncated, stat_text, untracked = payload
         content_json = {
             "diff": diff_text,
             "stat": stat_text,

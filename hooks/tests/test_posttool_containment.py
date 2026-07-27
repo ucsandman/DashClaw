@@ -267,6 +267,34 @@ class TestPosttoolContainmentDiff(unittest.TestCase):
         self.assertLessEqual(len(content["diff"].encode("utf-8")), cap)
 
     # -----------------------------------------------------------------------
+    # Git failure (not a legitimately empty diff): skip artifact + flip
+    # -----------------------------------------------------------------------
+
+    def test_git_diff_failure_skips_artifact_and_flip(self):
+        """When the diff subprocess itself fails (bad worktree path here --
+        same effect as git being unreachable or timing out), the hook must
+        not upload an artifact or flip the action, since no diff was ever
+        actually captured for operator review."""
+        tool_use_id = "post-cont-tu-004"
+        action_id = "act-cont-004"
+        ref = "dashclaw/contained-sess-004"
+        nonexistent_worktree = os.path.join(tempfile.gettempdir(), "dashclaw_test_no_such_worktree_xyz")
+        _write_contained_action(tool_use_id, action_id, ref, nonexistent_worktree)
+        self.addCleanup(_cleanup_temp_action, tool_use_id)
+
+        code, _, err = _run_hook(
+            {
+                "tool_use_id": tool_use_id,
+                "tool_response": {"output": "wrote file"},
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0, msg=err)
+
+        self.assertEqual(self._artifact_posts(), [])
+        self.assertEqual(self._containment_patches(), [])
+
+    # -----------------------------------------------------------------------
     # Non-contained action: zero artifact calls (regression proof)
     # -----------------------------------------------------------------------
 
