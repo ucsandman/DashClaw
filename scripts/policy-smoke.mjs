@@ -1603,6 +1603,144 @@ async function main() {
     void deep; // first deep call predates pid2 — not asserted
   }
 
+  // ---------------------------------------------------------------- AH ----
+  // Live containment verdict + promotion proof (governed-autonomy feature 3,
+  // RFC docs/rfcs/2026-07-06-containment-verdicts.md). Task-14 brief called
+  // this "section AG", but by the time this task ran the AG letter was
+  // already claimed by the shipped delegation-constraint proof directly
+  // above (v5.5.0, commit e8ef18ff) — lettered AH instead so no section
+  // header or claim id collides; see .superpowers/sdd/task-14-report.md.
+  //
+  // Self-contained the same way AF is: a temporary agent-scoped
+  // risk_threshold policy with a containment band ([contain_above,
+  // threshold)) so this holds regardless of what else is configured on the
+  // org. Rides the standard createPolicy() cleanup.
+  //
+  // Proves, end to end: risk-band containment negotiates allow_contained to
+  // a contained result when the caller advertises support; the identical
+  // call without that advertisement downgrades to require_approval (skew
+  // only tightens); an http act is never containable even in-band with
+  // capabilities; the agent-side awaiting_promotion flip + operator promote
+  // verdict actually mint a covering grant; and that grant is consumed by
+  // the SAME canonical merge retry exactly once (act-content-hash bound).
+  console.log('\nAH. live containment verdict + promotion proof...');
+  {
+    const agent = agentFor('contain');
+    const pid = await createPolicy('ah-containment', 'risk_threshold',
+      { threshold: 80, action: 'require_approval', contain_above: 40 }, [agent]);
+    check('AH1', 'agent-scoped risk_threshold policy with a containment band created',
+      Boolean(pid), `policy_id=${pid}`);
+
+    const fileAct = { kind: 'file', file: { path: 'src/containment-smoke.ts', content_excerpt: 'x' } };
+
+    const withCaps = await api('POST', '/api/guard', {
+      agent_id: agent, action_type: 'smoke.write', declared_goal: `containment file write ${RUN}`,
+      risk_score: 60, act: fileAct, client_capabilities: ['allow_contained'],
+    });
+    check('AH2', 'file act in the containment band + capability advertised → allow_contained, negotiated contained',
+      withCaps.json?.decision === 'allow_contained' && withCaps.json?.containment?.status === 'contained',
+      `decision=${withCaps.json?.decision} containment=${JSON.stringify(withCaps.json?.containment)}`);
+
+    const withoutCaps = await api('POST', '/api/guard', {
+      agent_id: agent, action_type: 'smoke.write', declared_goal: `containment file write no-cap ${RUN}`,
+      risk_score: 60, act: fileAct,
+    });
+    check('AH3', 'same call without client_capabilities → downgraded to require_approval (skew only tightens)',
+      withoutCaps.json?.decision === 'require_approval'
+        && withoutCaps.json?.risk_breakdown?._containment?.downgraded_to_interrupt === true,
+      `decision=${withoutCaps.json?.decision} _containment=${JSON.stringify(withoutCaps.json?.risk_breakdown?._containment)}`);
+
+    const httpAct = await api('POST', '/api/guard', {
+      agent_id: agent, action_type: 'smoke.http', declared_goal: `containment http call ${RUN}`,
+      risk_score: 60, act: { kind: 'http', request: { url: 'https://example.com/x', method: 'POST' } },
+      client_capabilities: ['allow_contained'],
+    });
+    // Asserts the containment-eligibility claim itself (never negotiated to
+    // allow_contained/contained), not the raw final decision: an org can have
+    // its own ambient allow_grant policy for this call's (evidence-derived)
+    // action type — e.g. a "Claude Code Mode" preset grant on api-classified
+    // acts — that legitimately downgrades an UNRELATED require_approval to
+    // allow after containment eligibility has already been decided. That
+    // grant's downgrade doesn't touch containment, and applyResult always
+    // pushes a matching policy's id to matched_policies before any later
+    // grant runs, so pid's presence here is unaffected by it either way —
+    // same defensive posture as the org-ambient-template note on AF above.
+    const httpMatched = JSON.stringify(httpAct.json?.matched_policies || []);
+    check('AH4', 'http act in band → never eligible for containment (never allow_contained), even with capabilities',
+      httpAct.json?.decision !== 'allow_contained' && httpAct.json?.containment === undefined
+        && httpMatched.includes(pid),
+      `decision=${httpAct.json?.decision} containment=${JSON.stringify(httpAct.json?.containment)} matched=${httpMatched}`);
+
+    // AH5: drive the lifecycle for real — record the contained action
+    // (?record=true), flip it to awaiting_promotion with a containment_ref,
+    // then the operator's promote verdict. Three checks under one claim id,
+    // same idiom as RS1's held→approved→resumed proof above.
+    const recorded = await api('POST', '/api/guard?record=true', {
+      agent_id: agent, action_type: 'smoke.write', declared_goal: `containment lifecycle write ${RUN}`,
+      risk_score: 60, act: fileAct, client_capabilities: ['allow_contained'],
+    });
+    const containedActionId = recorded.json?.action_id;
+    check('AH5', 'guard record=true creates the contained action row',
+      recorded.json?.recorded === true && recorded.json?.decision === 'allow_contained' && Boolean(containedActionId),
+      `recorded=${recorded.json?.recorded} decision=${recorded.json?.decision} action_id=${containedActionId}`);
+
+    const containmentRef = `dashclaw/contained-smoke-${RUN}`;
+    const patched = containedActionId
+      ? await api('PATCH', `/api/actions/${containedActionId}`, {
+          containment_status: 'awaiting_promotion', containment_ref: containmentRef,
+        })
+      : { status: 0, json: null };
+    check('AH5', 'PATCH flips the action to awaiting_promotion with a containment_ref',
+      patched.status === 200 && patched.json?.action?.containment_status === 'awaiting_promotion',
+      `status=${patched.status} containment_status=${patched.json?.action?.containment_status}`);
+
+    const promoted = containedActionId
+      ? await api('POST', `/api/actions/${containedActionId}/containment`, { verdict: 'promote' })
+      : { status: 0, json: null };
+    const promotionActionId = promoted.json?.promotion_action_id;
+    check('AH5', 'operator promote verdict succeeds and mints a promotion_action_id',
+      promoted.status === 200 && Boolean(promotionActionId),
+      `status=${promoted.status} promotion_action_id=${promotionActionId}`);
+
+    // AH6-AH8: the canonical merge retry the promote verdict expects —
+    // same agent_id as the contained action, declared_goal built by
+    // buildPromotionGoal(containedActionId), act built by
+    // buildPromotionAct(containmentRef). Consumes the grant the promote
+    // verdict minted (act-bound + single-use), same shape as AF6-AF8's
+    // act-bound plan-grant proof above.
+    const mergeGoal = `containment promote ${containedActionId}`;
+    const mergeAct = { kind: 'shell', command: `git merge --no-ff ${containmentRef}` };
+
+    const mergeFirst = await api('POST', '/api/guard', {
+      agent_id: agent, action_type: 'containment_promote', declared_goal: mergeGoal, act: mergeAct,
+    });
+    const mergeFirstMatched = JSON.stringify(mergeFirst.json?.matched_policies || []);
+    check('AH6', 'canonical merge retry consumes the promote grant → allow, both builtin sentinels matched',
+      mergeFirst.json?.decision === 'allow'
+        && mergeFirstMatched.includes('builtin:containment_promote')
+        && mergeFirstMatched.includes('builtin:operator_approval'),
+      `decision=${mergeFirst.json?.decision} matched=${mergeFirstMatched}`);
+
+    const mergeSecond = await api('POST', '/api/guard', {
+      agent_id: agent, action_type: 'containment_promote', declared_goal: mergeGoal, act: mergeAct,
+    });
+    check('AH7', 'identical second merge call interrupts again (grant was single-use)',
+      mergeSecond.json?.decision === 'require_approval',
+      `decision=${mergeSecond.json?.decision}`);
+
+    // AH7 already consumed the grant, so this would fail even on a hash
+    // match — the mutated act additionally proves it was never eligible via
+    // act-content-hash in the first place (same accepted double-coverage as
+    // AF's ordering above).
+    const mergeMutated = await api('POST', '/api/guard', {
+      agent_id: agent, action_type: 'containment_promote', declared_goal: mergeGoal,
+      act: { kind: 'shell', command: 'git merge --no-ff other-branch' },
+    });
+    check('AH8', 'mutated merge act is never covered by the grant (act-content-hash bind)',
+      mergeMutated.json?.decision === 'require_approval',
+      `decision=${mergeMutated.json?.decision}`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {
