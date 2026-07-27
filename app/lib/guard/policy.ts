@@ -7,6 +7,7 @@ import { baseAgentId } from '../agent-identity-resolve';
 import { deliverGuardWebhook } from '../webhooks';
 import { matchesProtectedPath } from './protected-path';
 import { targetPrefixMatches } from '../policy-shapes';
+import { isContainableAct } from './containment';
 import { verify } from '../integrity/verify';
 import type { SourceOfTruth } from '../integrity/verify';
 import { issueReceipt } from '../integrity/receipt';
@@ -263,6 +264,20 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
       : Math.max(0, Math.min(Number(context.risk_score) || 0, 100));
     if (riskScore >= threshold) {
       return { action: rules.action || 'block', reason: `Risk score ${riskScore} >= threshold ${threshold}` };
+    }
+    // Containment band (RFC 2026-07-06-containment-verdicts): only meaningful on
+    // interrupt policies; validator enforces contain_above < threshold + action
+    // require_approval. Ineligible acts in the band interrupt (deliberate tighten).
+    if (
+      typeof rules.contain_above === 'number' &&
+      rules.action === 'require_approval' &&
+      riskScore >= rules.contain_above
+    ) {
+      const eligibility = isContainableAct(context);
+      if (eligibility.eligible) {
+        return { action: 'allow_contained', reason: `Risk score ${riskScore} in containment band [${rules.contain_above}, ${threshold}) — execute contained (${eligibility.basis})` };
+      }
+      return { action: 'require_approval', reason: `Risk score ${riskScore} in containment band but act not containable (${eligibility.basis})` };
     }
     return null;
   },

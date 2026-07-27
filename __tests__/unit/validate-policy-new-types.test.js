@@ -195,3 +195,28 @@ describe('validatePolicy — delegation_constraint', () => {
     expect(r.valid).toBe(false);
   });
 });
+
+// RFC 2026-07-06-containment-verdicts, Task 4: contain_above must sit strictly
+// below threshold and only ever pair with rules.action 'require_approval' —
+// containment sits below the interrupt rail, never the block rail.
+describe('validatePolicy — risk_threshold contain_above', () => {
+  it('rejects contain_above at/above threshold (90 vs threshold 80)', () => {
+    const r = validatePolicy(base('risk_threshold', { threshold: 80, action: 'require_approval', contain_above: 90 }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects contain_above paired with rules.action "block"', () => {
+    const r = validatePolicy(base('risk_threshold', { threshold: 80, action: 'block', contain_above: 50 }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('accepts a valid combo (threshold 80, action require_approval, contain_above 50)', () => {
+    const r = validatePolicy(base('risk_threshold', { threshold: 80, action: 'require_approval', contain_above: 50 }));
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects a non-integer contain_above', () => {
+    const r = validatePolicy(base('risk_threshold', { threshold: 80, action: 'require_approval', contain_above: 50.5 }));
+    expect(r.valid).toBe(false);
+  });
+});

@@ -337,6 +337,10 @@ const GUARD_INPUT_SCHEMA = {
   // The generic object check runs here; validateGuardInput deep-validates the
   // per-kind payload family and size caps below.
   act:             { type: 'object' },
+  // Containment negotiation: caller-advertised capabilities (e.g.
+  // 'allow_contained'). Generic array type check runs here; validateGuardInput
+  // deep-validates the count/length caps below (validateClientCapabilities).
+  client_capabilities: { type: 'array' },
 };
 
 // Evidence-first `act` payload — deep validation (caps + per-kind family).
@@ -383,6 +387,20 @@ function validateActField(act, addError) {
   }
 }
 
+// Containment negotiation (RFC 2026-07-06-containment-verdicts): the caller
+// advertises support for allow_contained via context.client_capabilities. A
+// version-skew safety valve, not a free-form bag — bounded to a handful of
+// short capability strings.
+function validateClientCapabilities(context, addError) {
+  if (context.client_capabilities !== undefined) {
+    if (!Array.isArray(context.client_capabilities)
+      || context.client_capabilities.length > 8
+      || !context.client_capabilities.every((c) => typeof c === 'string' && c.length > 0 && c.length <= 64)) {
+      addError('client_capabilities must be an array of at most 8 capability strings (<=64 chars)');
+    }
+  }
+}
+
 const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'require_evidence', 'delegation_constraint'];
 const GUARD_ACTIONS = ['allow', 'warn', 'block', 'require_approval'];
 
@@ -413,6 +431,10 @@ export function validateGuardInput(body) {
     validateActField(result.data.act, (msg) => result.errors.push(msg));
     if (result.errors.length > before) result.valid = false;
   }
+
+  const beforeCaps = result.errors.length;
+  validateClientCapabilities(result.data, (msg) => result.errors.push(msg));
+  if (result.errors.length > beforeCaps) result.valid = false;
 
   return result;
 }
@@ -460,6 +482,16 @@ const POLICY_TYPE_VALIDATORS = {
   risk_threshold: (rules, addError) => {
     if (typeof rules.threshold !== 'number' || rules.threshold < 0 || rules.threshold > 100) {
       addError('risk_threshold policy requires rules.threshold (0-100)');
+    }
+    if (rules.contain_above !== undefined) {
+      if (!Number.isInteger(rules.contain_above) || rules.contain_above < 0 || rules.contain_above > 100) {
+        addError('risk_threshold rules.contain_above must be an integer 0-100');
+      } else if (typeof rules.threshold === 'number' && rules.contain_above >= rules.threshold) {
+        addError('risk_threshold rules.contain_above must be strictly below rules.threshold');
+      }
+      if (rules.action !== 'require_approval') {
+        addError("risk_threshold rules.contain_above requires rules.action 'require_approval' (containment sits below the interrupt rail)");
+      }
     }
   },
   require_approval: (rules, addError, policyType) => validateActionTypesRequired(rules, addError, policyType),

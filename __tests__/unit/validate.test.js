@@ -73,6 +73,30 @@ describe('validateGuardInput preserves governance signals the guard engine reads
   });
 });
 
+// RFC 2026-07-06-containment-verdicts, Task 4: client_capabilities advertises
+// containment support (e.g. 'allow_contained'). Bounded to at most 8 short
+// capability strings — it is a negotiation signal, not a free-form bag.
+describe('validateGuardInput — client_capabilities', () => {
+  it('rejects client_capabilities as a string', () => {
+    const result = validateGuardInput({ action_type: 'deploy', client_capabilities: 'allow_contained' });
+    expect(result.valid).toBe(false);
+  });
+
+  it('rejects a 9-entry array', () => {
+    const result = validateGuardInput({
+      action_type: 'deploy',
+      client_capabilities: Array.from({ length: 9 }, (_, i) => `cap-${i}`),
+    });
+    expect(result.valid).toBe(false);
+  });
+
+  it('accepts a valid single-capability array', () => {
+    const result = validateGuardInput({ action_type: 'deploy', client_capabilities: ['allow_contained'] });
+    expect(result.valid).toBe(true);
+    expect(result.data.client_capabilities).toEqual(['allow_contained']);
+  });
+});
+
 describe('validateActionRecord', () => {
   it('should validate a correct action record', () => {
     const validRecord = {
