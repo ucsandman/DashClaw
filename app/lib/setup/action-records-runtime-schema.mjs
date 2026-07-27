@@ -36,6 +36,13 @@ export const ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS = [
   // Closure provenance (drizzle/0048, v4.2 coverage truth): 'outcome' |
   // 'stop_autoclose' | 'direct'; NULL means pre-v4.2 row.
   { name: 'close_source', sql: 'text' },
+  // Containment Verdicts (drizzle/0064): staged-effect lifecycle. NULL for
+  // the overwhelming majority of actions; set only when guard emitted
+  // allow_contained.
+  { name: 'containment_status', sql: 'text' },
+  { name: 'containment_ref', sql: 'text' },
+  { name: 'containment_resolved_by', sql: 'text' },
+  { name: 'containment_resolved_at', sql: 'timestamp' },
   // Fleet attribution (drizzle/0049, v4.3): harness session uuid (fan-out
   // grouping key) + subagent instance uuid (leaf lineage evidence).
   { name: 'harness_session_id', sql: 'text' },

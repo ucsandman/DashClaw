@@ -222,6 +222,81 @@ export async function markActionBlocked(sql: SqlClient, orgId: string, actionId:
   return result[0] || null;
 }
 
+// ── Containment Verdicts (RFC 2026-07-06, drizzle/0064) ─────────────────────
+// Staged-effect lifecycle: contained -> awaiting_promotion -> promoted|discarded.
+// Same WHERE-gate-as-legality-check pattern as recordApproval above: the
+// prior-status condition in the WHERE clause IS the legality check — an
+// illegal or racing transition simply returns no rows (null), never an error.
+
+/**
+ * Agent/hook-side flip: a contained action becomes awaiting_promotion once the
+ * staged diff is ready for operator review. The containment_ref (worktree
+ * branch) can be (re)stamped on the same call; a null ref leaves it unchanged.
+ */
+export async function setContainmentAwaiting(
+  sql: SqlClient,
+  orgId: string,
+  actionId: string,
+  containmentRef?: string | null,
+): Promise<Row | null> {
+  const rows = await sql`
+    UPDATE action_records
+    SET containment_status = 'awaiting_promotion',
+        containment_ref = COALESCE(${containmentRef ?? null}, containment_ref)
+    WHERE action_id = ${actionId}
+      AND org_id = ${orgId}
+      AND containment_status = 'contained'
+    RETURNING *
+  `;
+  return rows[0] || null;
+}
+
+interface ResolveContainmentData {
+  verdict: 'promote' | 'discard';
+  resolvedBy: string;
+}
+
+/**
+ * Operator-side flip: an awaiting_promotion action is resolved to promoted
+ * (the staged diff lands) or discarded (thrown away). Admin-gated at the route.
+ */
+export async function resolveContainment(
+  sql: SqlClient,
+  orgId: string,
+  actionId: string,
+  data: ResolveContainmentData,
+): Promise<Row | null> {
+  const { verdict, resolvedBy } = data;
+  const next = verdict === 'promote' ? 'promoted' : 'discarded';
+  const rows = await sql`
+    UPDATE action_records
+    SET containment_status = ${next},
+        containment_resolved_by = ${resolvedBy},
+        containment_resolved_at = CURRENT_TIMESTAMP
+    WHERE action_id = ${actionId}
+      AND org_id = ${orgId}
+      AND containment_status = 'awaiting_promotion'
+    RETURNING *
+  `;
+  return rows[0] || null;
+}
+
+/**
+ * Rows currently awaiting an operator promote/discard verdict, newest-first —
+ * ordering matches listActions (timestamp_start DESC) so the /approvals
+ * Containment section sorts consistently with every other list on the page.
+ */
+export async function listAwaitingPromotion(sql: SqlClient, orgId: string, limit: number | string = 50): Promise<Row[]> {
+  const capped = Math.max(1, Math.min(Number(limit) || 50, 200));
+  return sql`
+    SELECT * FROM action_records
+    WHERE org_id = ${orgId}
+      AND containment_status = 'awaiting_promotion'
+    ORDER BY timestamp_start DESC
+    LIMIT ${capped}
+  `;
+}
+
 interface RecordBulkApprovalsData {
   newStatus: string;
   errorMessage: string | null;
@@ -276,6 +351,8 @@ interface ListActionsFilters {
   action_type?: string;
   risk_min?: number | string;
   outcome_status?: string;
+  /** Containment Verdicts (drizzle/0064): filters to a single lifecycle status. */
+  containment_status?: string;
   /** Optional rolling window (1-365 days): scopes the list AND total/stats. */
   days?: number | string;
   /**
@@ -295,6 +372,7 @@ interface ParsedListActionsFilters {
   status?: string;
   exclude_status?: string;
   action_type?: string;
+  containment_status?: string;
   outcomeFilter: string | null;
   parsedRiskMin: number | null;
   /** ISO cutoff derived from `days` (null = no window). */
@@ -315,6 +393,7 @@ interface ListActionSqlFragments {
   outcome: ReturnType<SqlClient>;
   since: ReturnType<SqlClient>;
   expiredAfter: ReturnType<SqlClient>;
+  containmentStatus: ReturnType<SqlClient>;
 }
 
 // Neon returns numeric aggregates (AVG/SUM) as strings; coerce the two stats
@@ -338,6 +417,7 @@ function parseListActionsFilters(filters: ListActionsFilters): ParsedListActions
     action_type,
     risk_min,
     outcome_status,
+    containment_status,
     days,
     expired_after,
     limit = 50,
@@ -356,6 +436,7 @@ function parseListActionsFilters(filters: ListActionsFilters): ParsedListActions
     status,
     exclude_status,
     action_type,
+    containment_status,
     outcomeFilter: validOutcomes.has(outcome_status as string) ? (outcome_status as string) : null,
     parsedRiskMin: Number.isFinite(Number(risk_min)) ? Number(risk_min) : null,
     sinceIso: clampedDays != null ? new Date(Date.now() - clampedDays * 86_400_000).toISOString() : null,
@@ -399,6 +480,7 @@ function listActionQuerySpecs(filters: ParsedListActionsFilters): QueryCondition
     { active: !!filters.action_type, condition: 'action_type =', value: filters.action_type },
     { active: filters.parsedRiskMin != null, condition: 'risk_score >=', value: filters.parsedRiskMin },
     { active: !!filters.outcomeFilter, condition: 'outcome_status =', value: filters.outcomeFilter },
+    { active: !!filters.containment_status, condition: 'containment_status =', value: filters.containment_status },
     { active: filters.sinceIso != null, condition: 'created_at::timestamptz >=', value: filters.sinceIso },
     { active: filters.expiredAfterIso != null, condition: 'approval_expires_at::timestamptz >', value: filters.expiredAfterIso },
   ];
@@ -451,6 +533,7 @@ function listActionSqlFragments(
     actionType: sqlFragment(sql, !!filters.action_type, () => sql`AND action_type = ${filters.action_type}`),
     riskMin: sqlFragment(sql, filters.parsedRiskMin != null, () => sql`AND risk_score >= ${filters.parsedRiskMin}`),
     outcome: sqlFragment(sql, !!filters.outcomeFilter, () => sql`AND outcome_status = ${filters.outcomeFilter}`),
+    containmentStatus: sqlFragment(sql, !!filters.containment_status, () => sql`AND containment_status = ${filters.containment_status}`),
     since: sqlFragment(sql, filters.sinceIso != null, () => sql`AND created_at::timestamptz >= ${filters.sinceIso}`),
     expiredAfter: sqlFragment(sql, filters.expiredAfterIso != null, () => sql`AND approval_expires_at::timestamptz > ${filters.expiredAfterIso}`),
   };
@@ -522,6 +605,7 @@ function listActionsWhere(
         ${fragments.actionType}
         ${fragments.riskMin}
         ${fragments.outcome}
+        ${fragments.containmentStatus}
         ${fragments.since}
         ${fragments.expiredAfter}
     `;
@@ -675,6 +759,9 @@ interface ActionData {
   // Approvals lifecycle (drizzle/0039): how long the client will poll for an
   // approval decision. Only read when the row is created as pending_approval.
   approval_wait_seconds?: number | null;
+  // Containment Verdicts (drizzle/0064): stamped 'contained' when guard emits
+  // allow_contained via ?record=true. NULL for every other action.
+  containment_status?: string | null;
   [field: string]: unknown;
 }
 
@@ -730,6 +817,9 @@ function createActionInsertValues(payload: CreateActionPayload) {
     idempotency_key: orNull(data.idempotency_key),
     session_id: orNull(data.session_id),
     guard_decision_id: orNull(data.guard_decision_id),
+    // Containment Verdicts (drizzle/0064): passthrough only — the guard route
+    // is the sole writer (via ?record=true), never client-set on POST /api/actions.
+    containment_status: orNull(data.containment_status),
     harness_session_id: boundedIdText(data.harness_session_id),
     subagent_uuid: boundedIdText(data.subagent_uuid),
     // Act-content grant binding (drizzle/0056): server-computed from the act
@@ -774,6 +864,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       timestamp_start, timestamp_end, duration_ms, cost_estimate,
       tokens_in, tokens_out, model,
       signature, verified, idempotency_key, session_id, guard_decision_id,
+      containment_status,
       act_content_hash, created_by, harness_session_id, subagent_uuid,
       close_source, approval_expires_at
     ) VALUES (
@@ -813,6 +904,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       ${values.idempotency_key},
       ${values.session_id},
       ${values.guard_decision_id},
+      ${values.containment_status},
       ${values.act_content_hash},
       ${values.created_by},
       ${values.harness_session_id},

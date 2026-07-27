@@ -201,6 +201,12 @@ export const actionRecords = pgTable('action_records', {
   // terminal). NULL = pre-v4.2 (no backfill). Makes outcome coverage computable
   // from durable data instead of string-matching the auto-close summary.
   closeSource: text('close_source'),
+  // Containment Verdicts (drizzle/0064): staged-effect lifecycle. NULL for the
+  // overwhelming majority of actions; set only when guard emitted allow_contained.
+  containmentStatus: text('containment_status'),
+  containmentRef: text('containment_ref'),
+  containmentResolvedBy: text('containment_resolved_by'),
+  containmentResolvedAt: timestamp('containment_resolved_at'),
   // Fleet attribution (v4.3, drizzle/0049). harnessSessionId: the harness
   // session uuid stamped on every record — the fan-out grouping key (NOT
   // sessionId, which is the sess_* DashClaw-session namespace). subagentUuid:
@@ -214,6 +220,11 @@ export const actionRecords = pgTable('action_records', {
   outcomeStatusCheck: check(
     'action_records_outcome_status_check',
     sql`${table.outcomeStatus} IN ('pending', 'completed', 'partial', 'failed', 'lost_confirmation')`,
+  ),
+  // Containment Verdicts (drizzle/0064): staged-effect lifecycle values.
+  containmentStatusCheck: check(
+    'action_records_containment_status_check',
+    sql`${table.containmentStatus} IS NULL OR ${table.containmentStatus} IN ('contained', 'awaiting_promotion', 'promoted', 'discarded')`,
   ),
   // Codified from scripts/migrate-multi-tenant.mjs (they existed only on
   // live DBs migrated by that script — fresh installs were seq-scanning).
