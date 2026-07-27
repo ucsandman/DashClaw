@@ -13,7 +13,43 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
-## [5.3.2] — 2026-07-26
+## [5.4.0] — 2026-07-26
+
+### Added
+- **Preflight Plan Authorization — one review card instead of N mid-run
+  interruptions.** An agent submits its intended plan (`POST /api/plans`,
+  ordered steps with optional literal acts) before executing; every step is
+  dry-run through the real guard pipeline side-effect-free
+  (`GuardOptions.simulate`) and stored with its preview verdict; the
+  operator reviews ONE card on /approvals — per-step approve/deny toggles,
+  expandable redacted act views, goal-bound disclosure — and each approved
+  step becomes a single-use, act-or-goal-bound, TTL-bound grant consumed
+  atomically when the matching action evaluates to `require_approval`
+  (`builtin:plan_grant` provenance on the decision). Explicitly denied
+  steps hard-block matching actions org-wide for the plan's TTL
+  (`builtin:plan_deny`); revocation is instant and click-driven (Live plans
+  section). A plan grant never downgrades `block`, nothing auto-approves,
+  and off-plan actions fall back to per-action governance unchanged.
+  Surface: +2 routes, +5 Node / +5 Python SDK methods (`submitPlan` family),
+  +2 MCP tools (`dashclaw_plan_submit`, `dashclaw_plan_status`) — THESIS
+  surface-budget amendment 2026-07-26; RFC
+  `docs/rfcs/2026-07-06-preflight-plan-authorization.md` (governed-autonomy
+  program, feature 1 of 3).
+
+### Security
+- **Eight adversarial pre-ship sweeps hardened the grant machinery before
+  it ever shipped.** Denials are fail-closed and unevadable by act mutation,
+  action_type relabeling, identity renaming, or field omission (they bind
+  the act org-wide, raise on hash OR goal, and fail to `require_approval`
+  when the lookup errors); plan submission and review enforce separation of
+  duties (`created_by`, migration 0063 — the submitting credential cannot
+  approve, deny, or lift the denial of its own plan; principal-less rows
+  are operator-only); the review card renders the redacted act so approvals
+  are never blind; stored acts and preview reasons are redacted while
+  hashes bind the original bytes; simulate mode provably skips persistence,
+  events, grants, AND webhook side effects; abandoned post-deadline
+  evaluations cannot burn single-use grants; caps are SQL-enforced with
+  hard code ceilings (25 steps, 480-minute TTL, aged pending slots).
 
 ### Fixed
 - **Homepage LiveDemo rows no longer count as agent traffic in analytics.**

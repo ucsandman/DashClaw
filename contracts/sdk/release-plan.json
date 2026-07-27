@@ -1,22 +1,24 @@
 {
   "node": {
-    "current_version": "5.3.0",
+    "current_version": "5.4.0",
     "next_bump": "none",
-    "reason": "5.3.0 is platform-only for Node - no Node SDK source change (sdk/README.md only, which rides the next real publish); the version advances per the unified model but the SDK is NOT republished; npm stays at 5.2.0.",
+    "reason": "v5.4.0 adds 5 plan-authorization methods (submitPlan/getPlan/listPlans/resolvePlan/waitForPlanReview) — SDK source changed; REPUBLISH owed via release:sdks.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.3.0",
+    "current_version": "5.4.0",
     "next_bump": "none",
-    "reason": "5.3.0 is platform-only for Python - no Python SDK source change; the version advances per the unified model but the SDK is NOT republished; PyPI stays at the last SDK release.",
+    "reason": "v5.4.0 adds 5 snake_case plan-authorization methods — SDK source changed; REPUBLISH owed via release:sdks.",
     "domains": [
       "platform"
     ]
   },
   "reason": "5.3.0 retires the livingcode subsystem: the Python organism package, /livingcode dashboard, doctor shape/drift checks, the platform-intelligence skill + download, and the MCP routes inventory are removed; a trimmed refresh-bundles script keeps the three hand-authored download bundles current. CLI 0.9.1 and MCP server 3.0.2 carry the matching doctor-category and route-drift-check changes.",
   "domains": [
-    "platform"
+    "platform",
+    "node",
+    "python"
   ]
 }

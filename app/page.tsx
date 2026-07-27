@@ -74,7 +74,7 @@ const LOOP_STEPS = [
   },
   {
     stage: 'Approve',
-    text: 'require_approval freezes the action and pages a human, who approves or denies with one click, from the Approvals inbox or a phone. Grants are single-use and bound to the exact action.',
+    text: 'require_approval freezes the action and pages a human, who approves or denies with one click, from the Approvals inbox or a phone. Grants are single-use and bound to the exact action. Long runs can submit their whole plan upfront: one review card, per-step verdicts, and each approved step becomes a single-use grant the run draws down without waking you again.',
   },
   {
     stage: 'Prove',
@@ -94,7 +94,7 @@ const SUPPORT_SURFACES = [
   {
     icon: Inbox,
     title: 'Approvals inbox',
-    desc: 'The one primary human surface: what your agent just tried, what is frozen and waiting on you, two buttons per item. Resolve from a browser, the CLI, a phone, Telegram, or Discord.',
+    desc: 'The one primary human surface: what your agent just tried, what is frozen and waiting on you, two buttons per item — plus whole-plan review cards with per-step approve/deny. Resolve from a browser, the CLI, a phone, Telegram, or Discord.',
     href: '/approvals',
   },
   {
