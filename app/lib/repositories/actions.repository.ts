@@ -115,7 +115,8 @@ export async function hasAction(sql: SqlClient, orgId: string, actionId: string)
 
 export async function getActionStatus(sql: SqlClient, orgId: string, actionId: string): Promise<Row | null> {
   const rows = await sql`
-    SELECT status, agent_id, model, action_type, approval_expires_at, created_at, created_by
+    SELECT status, agent_id, model, action_type, approval_expires_at, created_at, created_by,
+           containment_status, containment_ref
     FROM action_records
     WHERE action_id = ${actionId} AND org_id = ${orgId}
     LIMIT 1
@@ -276,6 +277,31 @@ export async function resolveContainment(
     WHERE action_id = ${actionId}
       AND org_id = ${orgId}
       AND containment_status = 'awaiting_promotion'
+    RETURNING *
+  `;
+  return rows[0] || null;
+}
+
+/**
+ * Stamp operator-approval fields on the synthetic `containment_promote` grant
+ * row created by POST /api/actions/[actionId]/containment. createActionRecord
+ * intentionally has no approved-fields insert path (never client-settable at
+ * creation, drizzle/0055 precedent) — this is the dedicated post-insert stamp,
+ * scoped by org_id + action_id like every other write in this module.
+ */
+export async function stampPromotionApproval(
+  sql: SqlClient,
+  orgId: string,
+  actionId: string,
+  userId: string,
+): Promise<Row | null> {
+  const rows = await sql`
+    UPDATE action_records
+    SET approved_by = ${userId},
+        approved_at = CURRENT_TIMESTAMP,
+        approval_expires_at = CURRENT_TIMESTAMP + interval '15 minutes'
+    WHERE action_id = ${actionId}
+      AND org_id = ${orgId}
     RETURNING *
   `;
   return rows[0] || null;

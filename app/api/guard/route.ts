@@ -81,6 +81,12 @@ async function recordRunningAction(
   // proposal loop, drizzle/0035). Overrides any client-supplied value.
   record.guard_decision_id = typeof result.decision_id === 'string' ? result.decision_id : null;
 
+  // Containment Verdicts (drizzle/0064): a negotiated+eligible allow_contained
+  // verdict starts the row's staged-effect lifecycle at 'contained'. Every
+  // other decision leaves containment_status NULL (createActionRecord's
+  // default passthrough).
+  if (result.decision === 'allow_contained') record.containment_status = 'contained';
+
   const action_id = `act_${crypto.randomUUID()}`;
   const createdAction = await createActionRecord(sql, {
     orgId,

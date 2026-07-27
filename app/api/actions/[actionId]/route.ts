@@ -17,6 +17,7 @@ import {
   updateActionOutcome,
   isApprovalOverdue,
   expireOverdueApproval,
+  setContainmentAwaiting,
 } from '../../../lib/repositories/actions.repository';
 
 // Fleet attribution (v4.3): the ONE outcome_metadata key the server persists —
@@ -81,6 +82,40 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
     // if the row is still `running`; token fields always apply. This prevents
     // a late Stop hook from clobbering a terminal state PostToolUse just wrote.
     const closeIfRunning = body.close_if_running === true;
+
+    // Containment Verdicts (drizzle/0064): agent/hook-side flip — a contained
+    // action becomes awaiting_promotion once its staged diff is ready for
+    // operator review. Handled as an isolated branch (not part of
+    // validateActionOutcome's schema): this is the ONLY containment_status
+    // transition an agent-key caller may drive. The operator's
+    // promote/discard verdict lives at
+    // POST /api/actions/[actionId]/containment instead.
+    if (body.containment_status !== undefined) {
+      if (body.containment_status !== 'awaiting_promotion') {
+        return NextResponse.json(
+          { error: 'containment_status may only be set to "awaiting_promotion" via this route' },
+          { status: 400 },
+        );
+      }
+      if (body.containment_ref !== undefined && (typeof body.containment_ref !== 'string' || body.containment_ref.length > 256)) {
+        return NextResponse.json(
+          { error: 'containment_ref must be a string of at most 256 characters' },
+          { status: 400 },
+        );
+      }
+      // CAUTION: an empty-string ref must never reach setContainmentAwaiting —
+      // its COALESCE(ref, containment_ref) would blank an existing ref for an
+      // empty string (only null/undefined fall through the COALESCE).
+      const containmentRef = typeof body.containment_ref === 'string' && body.containment_ref.length > 0
+        ? body.containment_ref
+        : undefined;
+      const flipped = await setContainmentAwaiting(sql, orgId, actionId, containmentRef);
+      if (!flipped) {
+        return NextResponse.json({ error: 'Action not found or not in a contained state' }, { status: 409 });
+      }
+      void publishOrgEvent(EVENTS.ACTION_UPDATED, { orgId, action: flipped });
+      return NextResponse.json({ action: flipped });
+    }
 
     const { valid, data, errors } = validateActionOutcome(body);
     if (!valid) {

@@ -7,6 +7,7 @@ const {
   mockGetActionStatus,
   mockGetActionWithRelations,
   mockUpdateActionOutcome,
+  mockSetContainmentAwaiting,
   mockPublishOrgEvent,
   mockScanSensitiveData,
   mockScoreAndStoreActionEpisode,
@@ -18,6 +19,7 @@ const {
   mockGetActionStatus: vi.fn(),
   mockGetActionWithRelations: vi.fn(),
   mockUpdateActionOutcome: vi.fn(),
+  mockSetContainmentAwaiting: vi.fn(),
   mockPublishOrgEvent: vi.fn(),
   mockScanSensitiveData: vi.fn(),
   mockScoreAndStoreActionEpisode: vi.fn(),
@@ -53,6 +55,7 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   getActionStatus: mockGetActionStatus,
   getActionWithRelations: mockGetActionWithRelations,
   updateActionOutcome: mockUpdateActionOutcome,
+  setContainmentAwaiting: mockSetContainmentAwaiting,
 }));
 vi.mock('@/lib/learningLoop.service.js', () => ({
   scoreAndStoreActionEpisode: mockScoreAndStoreActionEpisode,
@@ -205,6 +208,64 @@ describe('/api/actions/[actionId]', () => {
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data).not.toHaveProperty('cost_alert');
+    });
+
+    // Containment Verdicts (drizzle/0064) — agent-side flip. Isolated from
+    // the outcome-field path above: this is the ONLY containment_status
+    // transition an agent-key PATCH may drive (operator promote/discard
+    // lives at POST /api/actions/[actionId]/containment).
+    describe('containment transition (drizzle/0064)', () => {
+      it('flips a contained action to awaiting_promotion and stamps the ref', async () => {
+        const flipped = { action_id: 'act_1', containment_status: 'awaiting_promotion', containment_ref: 'dashclaw/contained-act_1' };
+        mockSetContainmentAwaiting.mockResolvedValue(flipped);
+
+        const res = await PATCH(req({ containment_status: 'awaiting_promotion', containment_ref: 'dashclaw/contained-act_1' }), routeCtx);
+        const data = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(data.action).toEqual(flipped);
+        expect(mockSetContainmentAwaiting).toHaveBeenCalledWith(mockSql, 'org_test', 'act_1', 'dashclaw/contained-act_1');
+        expect(mockValidateActionOutcome).not.toHaveBeenCalled();
+      });
+
+      it('allows the status flip with no ref (ref omitted)', async () => {
+        mockSetContainmentAwaiting.mockResolvedValue({ action_id: 'act_1', containment_status: 'awaiting_promotion' });
+
+        const res = await PATCH(req({ containment_status: 'awaiting_promotion' }), routeCtx);
+
+        expect(res.status).toBe(200);
+        expect(mockSetContainmentAwaiting).toHaveBeenCalledWith(mockSql, 'org_test', 'act_1', undefined);
+      });
+
+      it('rejects any containment_status value other than awaiting_promotion with 400', async () => {
+        const res = await PATCH(req({ containment_status: 'promoted' }), routeCtx);
+
+        expect(res.status).toBe(400);
+        expect(mockSetContainmentAwaiting).not.toHaveBeenCalled();
+      });
+
+      it('rejects a containment_ref longer than 256 chars with 400', async () => {
+        const res = await PATCH(req({ containment_status: 'awaiting_promotion', containment_ref: 'x'.repeat(257) }), routeCtx);
+
+        expect(res.status).toBe(400);
+        expect(mockSetContainmentAwaiting).not.toHaveBeenCalled();
+      });
+
+      it('never passes an empty-string ref through — would blank an existing ref via COALESCE', async () => {
+        mockSetContainmentAwaiting.mockResolvedValue({ action_id: 'act_1', containment_status: 'awaiting_promotion' });
+
+        await PATCH(req({ containment_status: 'awaiting_promotion', containment_ref: '' }), routeCtx);
+
+        expect(mockSetContainmentAwaiting).toHaveBeenCalledWith(mockSql, 'org_test', 'act_1', undefined);
+      });
+
+      it('returns 409 when the action is not in a contained state', async () => {
+        mockSetContainmentAwaiting.mockResolvedValue(null);
+
+        const res = await PATCH(req({ containment_status: 'awaiting_promotion' }), routeCtx);
+
+        expect(res.status).toBe(409);
+      });
     });
 
     describe('close_if_running (Stop hook contract)', () => {
