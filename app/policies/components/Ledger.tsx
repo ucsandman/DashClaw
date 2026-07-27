@@ -92,6 +92,7 @@ const SOURCE_ORDER: Source[] = ['mode', 'shield', 'custom', 'learned'];
 
 const BUCKET_META: Record<RuleBucket, { label: string; cls: string | undefined }> = {
   warn: { label: 'Warn', cls: styles.bkWarn },
+  allow_contained: { label: 'Contain', cls: styles.bkContained },
   require_approval: { label: 'Approve', cls: styles.bkAppr },
   block: { label: 'Block', cls: styles.bkBlock },
   allow: { label: 'Grant', cls: styles.bkGrant },
@@ -518,7 +519,7 @@ export default function Ledger({
 
   const counts = useMemo(() => {
     const src: Record<Source, number> = { mode: 0, shield: 0, custom: 0, learned: 0 };
-    const bkt: Record<RuleBucket, number> = { warn: 0, require_approval: 0, block: 0, allow: 0 };
+    const bkt: Record<RuleBucket, number> = { warn: 0, allow_contained: 0, require_approval: 0, block: 0, allow: 0 };
     let active = 0;
     let paused = 0;
     for (const c of classified) {

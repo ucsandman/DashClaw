@@ -12,7 +12,7 @@ import type {
   ActionBindingStatus,
 } from './identity';
 
-export type DecisionType = 'allow' | 'warn' | 'require_approval' | 'block';
+export type DecisionType = 'allow' | 'warn' | 'allow_contained' | 'require_approval' | 'block';
 
 /** Server-computed authoritative risk, integer 0-100 (guard.js computeRiskScore). */
 export type RiskScore = Brand<number, 'RiskScore'>;

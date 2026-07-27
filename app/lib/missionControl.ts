@@ -10,6 +10,7 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'Cancelled',
   allow: 'Allowed',
   warn: 'Warned',
+  allow_contained: 'Contained',
   block: 'Blocked',
   require_approval: 'Approval required',
   open: 'Open',

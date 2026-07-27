@@ -38,7 +38,9 @@ export function unitWeight(u: GovernableUnit): number {
   return riskFactor(u.riskLevel) * reversibility * spend * frequencyFactor(u.observedCount);
 }
 
-const GRADE: Record<Decision, 0 | 0.5 | 1> = { allow: 0, warn: 0.5, require_approval: 1, block: 1 };
+// allow_contained = reversible friction (an agent proceeded inside a sandbox/dry-run
+// envelope, not a hard stop) — same coverage weight as warn.
+const GRADE: Record<Decision, 0 | 0.5 | 1> = { allow: 0, warn: 0.5, allow_contained: 0.5, require_approval: 1, block: 1 };
 
 // Evidence-first guard (docs/superpowers/specs/2026-07-05-evidence-first-guard.md
 // §6): on the enforcement dimension, coverage earned from a self-declared

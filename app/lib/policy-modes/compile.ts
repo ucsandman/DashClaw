@@ -343,13 +343,15 @@ export function nominalDecision(policy: CompiledModePolicy): DecisionType {
 export function summarizeModePack(policies: CompiledModePolicy[]): {
   total: number;
   warn: number;
+  allow_contained: number;
   require_approval: number;
   block: number;
 } {
-  const summary = { total: policies.length, warn: 0, require_approval: 0, block: 0 };
+  const summary = { total: policies.length, warn: 0, allow_contained: 0, require_approval: 0, block: 0 };
   for (const p of policies) {
     const d = nominalDecision(p);
     if (d === 'warn') summary.warn++;
+    else if (d === 'allow_contained') summary.allow_contained++;
     else if (d === 'require_approval') summary.require_approval++;
     else if (d === 'block') summary.block++;
   }

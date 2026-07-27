@@ -3,7 +3,7 @@
  * the evaluation orchestrator. Kept in one place so both agree on the ordering.
  */
 
-const DECISION_SEVERITY = { allow: 0, warn: 1, require_approval: 2, block: 3 } as const;
+const DECISION_SEVERITY = { allow: 0, warn: 1, allow_contained: 2, require_approval: 3, block: 4 } as const;
 const SEVERITY = DECISION_SEVERITY as Record<string, number>;
 /** Severity of a decision string (0 for an unknown value — matches JS `undefined`-comparison behaviour). */
 const sevOf = (d: string): number => SEVERITY[d] ?? 0;

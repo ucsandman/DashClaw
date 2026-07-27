@@ -24,7 +24,7 @@ const SIMULATED_TYPES = new Set<string>([
   'protected_path',
 ]);
 
-const SEVERITY: Record<string, number> = { allow: 0, warn: 1, require_approval: 2, block: 3 };
+const SEVERITY: Record<string, number> = { allow: 0, warn: 1, allow_contained: 2, require_approval: 3, block: 4 };
 
 export interface FrictionUnavailable {
   available: false;

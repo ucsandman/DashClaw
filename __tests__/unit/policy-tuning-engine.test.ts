@@ -24,7 +24,7 @@ function makeStats(overrides: Partial<PolicyTuningStats> = {}): PolicyTuningStat
     rules: { threshold: 70, action: 'require_approval' },
     window_days: 30,
     window_started_at: '2026-06-01T00:00:00.000Z',
-    fired: { warn: 0, require_approval: 10, block: 0, total: 10 },
+    fired: { warn: 0, allow_contained: 0, require_approval: 10, block: 0, total: 10 },
     approvals: { approved: 9, denied: 1, pending: 0 },
     override_rate: 0.9,
     approved_risk_scores: null,
@@ -37,7 +37,7 @@ function makeStats(overrides: Partial<PolicyTuningStats> = {}): PolicyTuningStat
 describe('deriveProposals — raise_risk_threshold', () => {
   it('fires at exactly the boundary (fired=minFired, resolved=minResolved, override_rate=0.9)', () => {
     const stats = makeStats({
-      fired: { warn: 0, require_approval: TUNING_DEFAULTS.minFired, block: 0, total: TUNING_DEFAULTS.minFired },
+      fired: { warn: 0, allow_contained: 0, require_approval: TUNING_DEFAULTS.minFired, block: 0, total: TUNING_DEFAULTS.minFired },
       approvals: { approved: 4, denied: 1, pending: 0 }, // resolved = 5 = minResolved
       override_rate: 0.9,
     });
@@ -51,6 +51,7 @@ describe('deriveProposals — raise_risk_threshold', () => {
     const stats = makeStats({
       fired: {
         warn: 0,
+        allow_contained: 0,
         require_approval: TUNING_DEFAULTS.minFired - 1,
         block: 0,
         total: TUNING_DEFAULTS.minFired - 1,
@@ -64,7 +65,7 @@ describe('deriveProposals — raise_risk_threshold', () => {
 
   it('does NOT fire one resolved-count below minResolved', () => {
     const stats = makeStats({
-      fired: { warn: 0, require_approval: TUNING_DEFAULTS.minFired, block: 0, total: TUNING_DEFAULTS.minFired },
+      fired: { warn: 0, allow_contained: 0, require_approval: TUNING_DEFAULTS.minFired, block: 0, total: TUNING_DEFAULTS.minFired },
       approvals: { approved: 3, denied: 1, pending: 0 }, // resolved = 4 < minResolved(5)
       override_rate: 0.9,
     });
@@ -74,7 +75,7 @@ describe('deriveProposals — raise_risk_threshold', () => {
 
   it('does NOT fire at override_rate 0.89 (one unit below the 0.9 boundary)', () => {
     const stats = makeStats({
-      fired: { warn: 0, require_approval: TUNING_DEFAULTS.minFired, block: 0, total: TUNING_DEFAULTS.minFired },
+      fired: { warn: 0, allow_contained: 0, require_approval: TUNING_DEFAULTS.minFired, block: 0, total: TUNING_DEFAULTS.minFired },
       approvals: { approved: 4, denied: 1, pending: 0 },
       override_rate: 0.89,
     });
@@ -85,7 +86,7 @@ describe('deriveProposals — raise_risk_threshold', () => {
   it('does NOT fire when rules.action is "block", even with perfect override evidence', () => {
     const stats = makeStats({
       rules: { threshold: 70, action: 'block' },
-      fired: { warn: 0, require_approval: 100, block: 0, total: 100 },
+      fired: { warn: 0, allow_contained: 0, require_approval: 100, block: 0, total: 100 },
       approvals: { approved: 100, denied: 0, pending: 0 },
       override_rate: 1,
     });
@@ -96,7 +97,7 @@ describe('deriveProposals — raise_risk_threshold', () => {
   it('does NOT fire when rules.action is missing (default), even with perfect override evidence', () => {
     const stats = makeStats({
       rules: { threshold: 70 },
-      fired: { warn: 0, require_approval: 100, block: 0, total: 100 },
+      fired: { warn: 0, allow_contained: 0, require_approval: 100, block: 0, total: 100 },
       approvals: { approved: 100, denied: 0, pending: 0 },
       override_rate: 1,
     });
@@ -130,7 +131,7 @@ describe('deriveProposals — keep_policy', () => {
     const stats = makeStats({
       policy_type: 'rate_limit',
       rules: {},
-      fired: { warn: 0, require_approval: 10, block: 0, total: 10 },
+      fired: { warn: 0, allow_contained: 0, require_approval: 10, block: 0, total: 10 },
       approvals: { approved: 2, denied: 8, pending: 0 }, // denialRate = 0.8
       override_rate: 0.2,
     });
@@ -145,7 +146,7 @@ describe('deriveProposals — keep_policy', () => {
     const stats = makeStats({
       policy_type: 'rate_limit',
       rules: {},
-      fired: { warn: 0, require_approval: 100, block: 0, total: 100 },
+      fired: { warn: 0, allow_contained: 0, require_approval: 100, block: 0, total: 100 },
       approvals: { approved: 21, denied: 79, pending: 0 }, // denialRate = 0.79
       override_rate: 0.21,
     });
@@ -161,7 +162,7 @@ describe('deriveProposals — keep_policy', () => {
     const stats = makeStats({
       policy_type: 'risk_threshold',
       rules: { threshold: 70, action: 'require_approval' },
-      fired: { warn: 0, require_approval: 10, block: 0, total: 10 },
+      fired: { warn: 0, allow_contained: 0, require_approval: 10, block: 0, total: 10 },
       approvals: { approved: 1, denied: 9, pending: 0 }, // denialRate = 0.9 (would also satisfy keep)
       override_rate: 0.95, // independently set field satisfies raise
     });
@@ -182,7 +183,7 @@ describe('deriveProposals — dead_policy', () => {
       policy_type: 'block_action_type',
       rules: {},
       created_at: daysAgoIso(61),
-      fired: { warn: 0, require_approval: 0, block: 0, total: 0 },
+      fired: { warn: 0, allow_contained: 0, require_approval: 0, block: 0, total: 0 },
       approvals: { approved: 0, denied: 0, pending: 0 },
       override_rate: null,
       fired_60d: 0,
@@ -199,7 +200,7 @@ describe('deriveProposals — dead_policy', () => {
       policy_type: 'block_action_type',
       rules: {},
       created_at: daysAgoIso(59),
-      fired: { warn: 0, require_approval: 0, block: 0, total: 0 },
+      fired: { warn: 0, allow_contained: 0, require_approval: 0, block: 0, total: 0 },
       approvals: { approved: 0, denied: 0, pending: 0 },
       override_rate: null,
       fired_60d: 0,
@@ -213,7 +214,7 @@ describe('deriveProposals — dead_policy', () => {
       policy_type: 'block_action_type',
       rules: {},
       created_at: daysAgoIso(61),
-      fired: { warn: 0, require_approval: 0, block: 0, total: 0 },
+      fired: { warn: 0, allow_contained: 0, require_approval: 0, block: 0, total: 0 },
       approvals: { approved: 0, denied: 0, pending: 0 },
       override_rate: null,
       fired_60d: 1,
@@ -228,7 +229,7 @@ describe('deriveProposals — dead_policy', () => {
       policy_type: 'block_action_type',
       rules: {},
       created_at: daysAgoIso(61),
-      fired: { warn: 0, require_approval: 0, block: 0, total: 0 },
+      fired: { warn: 0, allow_contained: 0, require_approval: 0, block: 0, total: 0 },
       approvals: { approved: 0, denied: 0, pending: 0 },
       override_rate: null,
       fired_60d: 0,

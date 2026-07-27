@@ -123,11 +123,12 @@ export function buildUnits(
 const DECISION_SEV: Record<string, number> = {
   allow: 0,
   warn: 1,
-  require_approval: 2,
-  block: 3,
+  allow_contained: 2,
+  require_approval: 3,
+  block: 4,
 };
 
-const VALID_DECISIONS = new Set<string>(['allow', 'warn', 'require_approval', 'block']);
+const VALID_DECISIONS = new Set<string>(['allow', 'warn', 'allow_contained', 'require_approval', 'block']);
 
 function toDecision(s: string): Decision {
   return VALID_DECISIONS.has(s) ? (s as Decision) : 'allow';

@@ -13,6 +13,7 @@ import crypto from 'node:crypto';
 
 export interface PolicyFiredCounts {
   warn: number;
+  allow_contained: number;
   require_approval: number;
   block: number;
   total: number;
@@ -198,12 +199,13 @@ export function buildTuningStats(
       const updatedMs = updatedIso ? new Date(updatedIso).getTime() : null;
       const startMs = updatedMs != null && updatedMs > windowStartMs ? updatedMs : windowStartMs;
 
-      const fired: PolicyFiredCounts = { warn: 0, require_approval: 0, block: 0, total: 0 };
+      const fired: PolicyFiredCounts = { warn: 0, allow_contained: 0, require_approval: 0, block: 0, total: 0 };
       let lastFired: string | null = null;
       for (const row of mixByPolicy.get(p.id) || []) {
         const cnt = Number(row.cnt) || 0;
         fired.total += cnt;
         if (row.decision === 'warn') fired.warn += cnt;
+        else if (row.decision === 'allow_contained') fired.allow_contained += cnt;
         else if (row.decision === 'require_approval') fired.require_approval += cnt;
         else if (row.decision === 'block') fired.block += cnt;
         const rowLast = toIso(row.last_fired);

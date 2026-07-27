@@ -464,6 +464,7 @@
 .bucket { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; white-space: nowrap; }
 .bucket .dot { width: 7px; height: 7px; border-radius: 2px; }
 .bkWarn { color: var(--color-warning); }
+.bkContained { color: var(--color-info); }
 .bkAppr { color: var(--color-brand); }
 .bkBlock { color: var(--color-error); }
 .bkGrant { color: var(--color-text-tertiary); }

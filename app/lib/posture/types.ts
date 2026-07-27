@@ -1,7 +1,7 @@
 export type Dimension =
   | 'identity' | 'enforcement' | 'spend' | 'auditability' | 'approval' | 'data_protection';
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
-export type Decision = 'allow' | 'warn' | 'require_approval' | 'block';
+export type Decision = 'allow' | 'warn' | 'allow_contained' | 'require_approval' | 'block';
 
 export interface GovernableUnit {
   key: string;                 // capability slug, or `action_type:<type>`

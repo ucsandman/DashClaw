@@ -30,7 +30,7 @@ export interface OutcomeCounts {
   block: number;
 }
 
-export type RuleBucket = 'allow' | 'warn' | 'require_approval' | 'block';
+export type RuleBucket = 'allow' | 'warn' | 'allow_contained' | 'require_approval' | 'block';
 export interface PolicySummaryMode {
   id: string;
   name: string;
@@ -92,10 +92,12 @@ function parseRules(r: ActivePolicyRow['rules']): Record<string, unknown> {
   return {};
 }
 
-const BUCKET_ORDER: Record<RuleBucket, number> = { block: 0, require_approval: 1, warn: 2, allow: 3 };
+// allow_contained sits between warn and require_approval on the severity ladder.
+const BUCKET_ORDER: Record<RuleBucket, number> = { block: 0, require_approval: 1, allow_contained: 2, warn: 3, allow: 4 };
 
 function toBucket(d: DecisionType): RuleBucket {
   if (d === 'warn') return 'warn';
+  if (d === 'allow_contained') return 'allow_contained';
   if (d === 'require_approval') return 'require_approval';
   if (d === 'block') return 'block';
   return 'allow';
