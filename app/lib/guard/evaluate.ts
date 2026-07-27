@@ -22,6 +22,7 @@ import type { RiskBreakdown, EvidenceDerivedBreakdown } from './risk';
 import { classifyAct } from './evidence';
 import type { ActInput } from './evidence';
 import { persistGuardDecision } from './persistence';
+import { finalizeContainment } from './containment';
 
 // Evaluation deadline: the hook gives the whole guard call one attempt with a
 // 5s read timeout (GUARD_TIMEOUT, GUARD_RETRIES=0) — the server must answer
@@ -679,6 +680,7 @@ interface GuardFinalizeInput {
   planGrant: PlanGrantInfo | null;
   timings: Record<string, number> | null;
   degraded: { kind: string; deadline_ms: number; action: string; phase_in_flight: string | null } | null;
+  containment: { status: 'contained'; basis: string } | null;
 }
 
 function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionInsert {
@@ -784,6 +786,7 @@ function buildGuardResult(input: GuardFinalizeInput) {
     ...(input.predictiveRisk ? { predictive_risk: input.predictiveRisk } : {}),
     ...(input.calibration ? { calibration: input.calibration } : {}),
     ...(input.degraded ? { degraded: true } : {}),
+    ...(input.containment ? { containment: input.containment } : {}),
     // Backward compatibility
     reasons: acc.reasons,
     warnings: acc.warnings,
@@ -964,6 +967,14 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     const deps: GuardPhaseDeps = { context, sql, orgId };
     await timed('local_policies', () => runLocalPolicies(policies, deps, adjustedRiskScore, liveAcc));
     scanPromptInjection(context, liveAcc);
+    // Containment promotions are always governed: the merge that lands staged
+    // effects interrupts unless the operator's Promote click wrote the covering
+    // grant (consumed below by applyOperatorApprovalGrant). RFC containment-verdicts.
+    if (context.action_type === 'containment_promote') {
+      raiseDecision(liveAcc, 'require_approval');
+      liveAcc.reasons.push('Containment promotion requires operator approval');
+      liveAcc.matchedPolicies.push('builtin:containment_promote');
+    }
     // T2: webhook_check policies fire real outbound HTTP to a customer
     // endpoint and write a webhook_deliveries row — a simulate:true dry-run
     // (preflight plan preview) must never do either for a preview the
@@ -1119,10 +1130,16 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   applyBlockOverride(acc, replayBlockReason);
   applyBlockOverride(acc, actBlockReason);
 
+  // Containment finalize: eligibility + capability negotiation. Runs after every
+  // raise/override so persistence, simulate previews, and the result all see the
+  // negotiated decision. Skew only tightens: allow_contained → require_approval.
+  const containmentOut = finalizeContainment(context, acc, riskBreakdown as unknown as Record<string, unknown>);
+
   const input: GuardFinalizeInput = {
     decisionId, orgId, context, acc, safeContextForLog, evidenceJson, statuses,
     adjustedRiskScore, agentRiskScore, evaluatedAt, predictiveRisk,
     riskBreakdown, intentSource, evidenceDerived, calibration, planGrant, timings, degraded: degradedDetail,
+    containment: containmentOut.containment ?? null,
   };
 
   if (options.simulate) {
