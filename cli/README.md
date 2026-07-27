@@ -107,6 +107,18 @@ dashclaw halt off                                 # resume normal guard evaluati
 
 The halt is absolute at the decision layer (propagates across instances in ~3 s); whether a blocked action is mechanically stopped depends on the surface — see `docs/architecture/enforcement-boundary.md` in the repo.
 
+### `dashclaw contained list|diff|apply`
+
+Terminal client for Containment Verdicts (RFC 2026-07-06): an agent's provably file-scoped change is staged in an isolated git worktree instead of applied directly, and an operator reviews the diff before it merges.
+
+```bash
+dashclaw contained list                # actions awaiting an operator's promote/discard verdict
+dashclaw contained diff act_01h...     # print the captured patch for one contained action
+dashclaw contained apply act_01h...    # after promoting in the dashboard: run the governed merge
+```
+
+`apply` refuses to run unless the action's `containment_status` is `promoted` (the dashboard's verdict is the only source of truth), then re-presents the exact promotion act (`git merge --no-ff <containment_ref>`) to `guard()` so it resolves against the operator's grant. `allow` runs the merge and cleans up the worktree/branch; `require_approval` means promote from the dashboard first (or re-promote if the 15-minute grant window lapsed); a merge conflict surfaces git's raw output and exits 1 — resolve manually and commit, or re-promote for a fresh grant.
+
 ### `dashclaw install claude`
 
 Provision DashClaw governance into Claude Code without cloning the repo.

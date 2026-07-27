@@ -77,6 +77,10 @@ ${bold('Usage:')}
   dashclaw approve <actionId> [--reason]  Approve an action
   dashclaw deny <actionId> [--reason]     Deny an action
   dashclaw halt on|off|status [--reason]  Org kill switch: halt/resume every governed action (admin)
+  dashclaw contained list                List actions awaiting containment promotion
+  dashclaw contained diff <actionId>     Print the captured patch diff for a contained action
+  dashclaw contained apply <actionId>    Governed merge: run the promoted action's containment_ref
+                                         merge, guarded by the operator's promote grant
   dashclaw doctor                        Diagnose your instance + this machine (report-only)
     --fix                                Apply safe auto-fixes, then re-check and report
     --json                               Output as JSON (for CI/scripts)
@@ -518,6 +522,247 @@ async function cmdImport() {
   }
 }
 
+// -- contained (Containment Verdicts, RFC 2026-07-06) -------------------------
+//
+// `dashclaw contained list|diff|apply` — the operator/agent-facing CLI for the
+// contained -> awaiting_promotion -> promoted -> merged lifecycle. `list` and
+// `diff` are read-only; `apply` runs the governed merge once an operator has
+// promoted the action from the dashboard.
+
+// Pinned to app/lib/guard/containment.ts buildPromotionGoal/buildPromotionAct
+// — the CLI never imports app/** code, so these two tiny string builders are
+// duplicated here byte-for-byte. If those change, mirror the change here too;
+// a mismatch means the guard call's act/goal no longer matches the operator's
+// pre-approved grant and `apply` never resolves to allow.
+function buildPromotionGoal(containedActionId) {
+  return `containment promote ${containedActionId}`;
+}
+function buildPromotionAct(containmentRef) {
+  return { kind: 'shell', command: `git merge --no-ff ${containmentRef}` };
+}
+
+// Mirrors hooks/dashclaw_pretool.py _ensure_containment_worktree: ref is
+// "dashclaw/contained-<branch_seg>"; the worktree lives at
+// .dashclaw/contained/<branch_seg> relative to the repo root. Returned as a
+// path relative to the repo root (git resolves it against cwd).
+function containmentWorktreePath(ref) {
+  const branchSeg = ref.replace(/^dashclaw\/contained-/, '');
+  return `.dashclaw/contained/${branchSeg}`;
+}
+
+function gitRepoRoot(cwd) {
+  try {
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8' }).trim();
+  } catch {
+    return null;
+  }
+}
+
+function formatAge(iso) {
+  if (!iso) return '-';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '-';
+  const mins = Math.floor((Date.now() - then) / 60000);
+  if (mins < 1) return '<1m';
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+function renderContainedRow(action) {
+  const id = String(action.action_id || action.id || '-').padEnd(38);
+  const agent = String(action.agent_id || '-').padEnd(14);
+  const ref = String(action.containment_ref || '-').padEnd(32);
+  const age = formatAge(action.timestamp_start || action.created_at);
+  return `  ${id}${agent}${ref}${age}`;
+}
+
+async function cmdContainedList() {
+  // listContained() is a brand-new SDK method (this feature) the PUBLISHED
+  // npm package doesn't have yet (see cli/lib/api.js's doc comment) — go
+  // straight through the raw endpoint instead of createClient().listContained().
+  //
+  // Defensively re-filters client-side: as of this writing GET /api/actions
+  // does not read/forward the containment_status query param (a gap in the
+  // server route, out of scope for this CLI-only change — see task-12-report.md),
+  // so the raw response may include actions of every status.
+  try {
+    const { actions } = await apiRequest({ baseUrl, apiKey }, 'GET', '/api/actions', {
+      query: { containment_status: 'awaiting_promotion' },
+    });
+    const rows = (actions || []).filter((a) => a && a.containment_status === 'awaiting_promotion');
+    if (rows.length === 0) {
+      console.log(dim('\n  No contained actions awaiting promotion.\n'));
+      return;
+    }
+    console.log(`\n  ${bold('Action'.padEnd(38))}${bold('Agent'.padEnd(14))}${bold('Ref'.padEnd(32))}${bold('Age')}`);
+    for (const action of rows) console.log(renderContainedRow(action));
+    console.log();
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exitCode = 1;
+  }
+}
+
+async function cmdContainedDiff() {
+  const actionId = args[2];
+  if (!actionId) {
+    console.error('Usage: dashclaw contained diff <actionId>');
+    process.exitCode = 1;
+    return;
+  }
+  try {
+    const { action } = await createClient().getAction(actionId);
+    if (!action) {
+      console.error(`Error: action ${actionId} not found.`);
+      process.exitCode = 1;
+      return;
+    }
+    const { artifacts } = await apiRequest({ baseUrl, apiKey }, 'GET', `/api/actions/${actionId}/artifacts`);
+    // listArtifacts orders newest-first, so the first 'patch' match is the
+    // latest captured diff.
+    const patch = (artifacts || []).find((a) => a && a.artifact_type === 'patch');
+    if (!patch) {
+      const ref = action.containment_ref;
+      const hint = ref ? ` at ${containmentWorktreePath(ref)} (ref ${ref})` : '';
+      console.error(`No diff artifact captured; the containment worktree may still exist${hint}.`);
+      process.exitCode = 1;
+      return;
+    }
+    let content;
+    try {
+      content = typeof patch.content_json === 'string' ? JSON.parse(patch.content_json) : patch.content_json;
+    } catch {
+      console.error(`Error: artifact content for ${actionId} is not valid JSON.`);
+      process.exitCode = 1;
+      return;
+    }
+    if (content && content.truncated) {
+      console.error('Note: diff was truncated at capture time (large changeset) — this may not be the full diff.');
+    }
+    process.stdout.write((content && content.diff) || '');
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exitCode = 1;
+  }
+}
+
+async function cmdContainedApply() {
+  const actionId = args[2];
+  if (!actionId) {
+    console.error('Usage: dashclaw contained apply <actionId>');
+    process.exitCode = 1;
+    return;
+  }
+
+  const claw = createClient();
+  let action;
+  try {
+    ({ action } = await claw.getAction(actionId));
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exitCode = 1;
+    return;
+  }
+  if (!action) {
+    console.error(`Error: action ${actionId} not found.`);
+    process.exitCode = 1;
+    return;
+  }
+  // Server is the source of truth: only a dashboard 'promote' verdict flips
+  // containment_status to 'promoted'. Never trust a local/cached copy.
+  if (action.containment_status !== 'promoted') {
+    console.error(
+      `Refusing: ${actionId} is not promoted (containment_status: ${action.containment_status || 'none'}).\n` +
+      `Promote it from the dashboard first.`
+    );
+    process.exitCode = 1;
+    return;
+  }
+  const ref = action.containment_ref;
+  if (!ref) {
+    console.error(`Error: ${actionId} is promoted but has no containment_ref recorded — cannot merge.`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const repoRoot = gitRepoRoot(process.cwd());
+  if (!repoRoot) {
+    console.error('Error: not inside a git repository. Run this from the governed project checkout.');
+    process.exitCode = 1;
+    return;
+  }
+
+  let decision;
+  try {
+    decision = await claw.guard({
+      agent_id: action.agent_id,
+      action_type: 'containment_promote',
+      declared_goal: buildPromotionGoal(actionId),
+      act: buildPromotionAct(ref),
+      risk_score: 20,
+    });
+  } catch (err) {
+    console.error(`Error: guard evaluation failed: ${err.message}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  if (decision.decision === 'require_approval') {
+    console.error('Promote in the dashboard first (or the 15-minute approval window expired — re-promote for a fresh grant).');
+    process.exitCode = 1;
+    return;
+  }
+  if (decision.decision !== 'allow') {
+    console.error(`${decision.decision}: ${decision.reason || '(no reason given)'}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  try {
+    const mergeOutput = execFileSync('git', ['merge', '--no-ff', ref], { cwd: repoRoot, encoding: 'utf8' });
+    process.stdout.write(mergeOutput);
+  } catch (err) {
+    if (err.stdout) process.stdout.write(err.stdout);
+    if (err.stderr) process.stderr.write(err.stderr);
+    console.error(
+      '\nMerge failed — grant consumed. Resolve manually and commit, ' +
+      'or re-promote from the dashboard for a fresh grant.'
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  // The synthetic containment_promote action's id is never returned as a
+  // structured field — guard()'s response only embeds it in a human-readable
+  // `signals` string ("Covered by operator approval <id> ...") when the
+  // operator-approval grant matches, and there's no SDK/API method to look it
+  // up by tuple otherwise. Skipping the outcome PATCH rather than parsing
+  // free text for an id; the merge itself already succeeded.
+  console.error('Note: skipping promotion-action outcome update (no structured way to resolve its action id from here).');
+
+  const worktreePath = containmentWorktreePath(ref);
+  try {
+    execFileSync('git', ['worktree', 'remove', worktreePath], { cwd: repoRoot, stdio: 'pipe' });
+    execFileSync('git', ['branch', '-d', ref], { cwd: repoRoot, stdio: 'pipe' });
+    console.log(green(`\nMerged and cleaned up: worktree + branch ${ref} removed.\n`));
+  } catch (err) {
+    // Cleanup failure isn't a command failure — the merge already succeeded.
+    console.error(`\nMerge succeeded, but cleanup failed: ${err.message}`);
+    console.error(`Run manually:\n  git worktree remove ${worktreePath}\n  git branch -d ${ref}`);
+  }
+}
+
+async function cmdContained() {
+  return runSubcommand({
+    list: cmdContainedList,
+    diff: cmdContainedDiff,
+    apply: cmdContainedApply,
+  }, args[1], (sub) => `Unknown subcommand: dashclaw contained ${sub || '(missing)'}\n` +
+    'Try: dashclaw contained list | diff <actionId> | apply <actionId>');
+}
+
 // -- up / down (one-command local install) -----------------------------------
 
 async function cmdUp() {
@@ -577,7 +822,7 @@ async function cmdCodex() {
 
 // -- Router -------------------------------------------------------------------
 
-const COMMANDS_NEEDING_CONFIG = new Set(['approvals', 'approve', 'deny', 'doctor', 'halt', 'import']);
+const COMMANDS_NEEDING_CONFIG = new Set(['approvals', 'approve', 'deny', 'doctor', 'halt', 'import', 'contained']);
 // `install` deliberately omitted: provisioning hooks and AGENTS.md shouldn't
 // require the user to have already configured API keys. If config happens to
 // be present, install will pick up baseUrl for the AGENTS.md instance link.
@@ -623,6 +868,7 @@ const COMMAND_HANDLERS = {
   install: cmdInstall,
   codex: cmdCodex,
   halt: cmdHalt,
+  contained: cmdContained,
   help: cmdHelp,
   '--help': cmdHelp,
   '-h': cmdHelp,
