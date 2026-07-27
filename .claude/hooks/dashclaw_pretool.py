@@ -14,7 +14,9 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import socket
+import subprocess
 import sys
 import tempfile
 import time
@@ -81,10 +83,9 @@ _load_dotenv()
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dashclaw_agent_intel import classify_bash, scan_file_operation, classify_tool, McpHealthMonitor
-from dashclaw_agent_intel.bash_classifier import is_bounded_rm
+from dashclaw_agent_intel.bash_classifier import is_bounded_rm, is_regenerable_artifact_rm
 from dashclaw_agent_intel.file_scanner import is_placeholder_path
 from dashclaw_agent_intel.http_client import request_with_retry, env_retries
-from dashclaw_agent_intel import behavior_recorder
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -133,6 +134,16 @@ GUARD_UNAVAILABLE_POLICY = (os.environ.get("DASHCLAW_GUARD_UNAVAILABLE_POLICY") 
 # provenance fields; set DASHCLAW_SUBAGENT_IDENTITY=provenance to roll back.
 # See docs/rfcs/2026-06-01-subagent-fleet-identities.md.
 SUBAGENT_IDENTITY = (os.environ.get("DASHCLAW_SUBAGENT_IDENTITY") or "distinct").lower()
+
+# Containment Verdicts (v5.6): capability advertisement + contained-execution
+# redirect. See docs/rfcs/2026-07-06-containment-verdicts.md and
+# app/lib/guard/containment.ts (server-side eligibility + negotiation).
+CONTAINMENT_ENABLED = (os.environ.get("DASHCLAW_CONTAINMENT") or "1") != "0"
+# Task 1 spike verdict: updatedInput rewrite works on Claude Code v2.1.220.
+# Default ON so a contained Write/Edit/MultiEdit stages transparently instead
+# of always falling back to an instructive deny.
+CONTAINMENT_REWRITE = (os.environ.get("DASHCLAW_CONTAINMENT_REWRITE") or "1") == "1"
+_CONTAINABLE_TOOLS = frozenset({"Write", "Edit", "MultiEdit", "Bash"})
 
 # todo-001: one-shot demo-mode probe to surface a misrouted DASHCLAW_BASE_URL
 # (e.g. a stale env var pointing at a local sandbox) before the operator burns
@@ -338,12 +349,17 @@ def _enrich_bash(tool_input: dict, tool_info: dict, label: str = "Bash") -> dict
     command = tool_input.get("command") or ""
     bash_intel = classify_bash(command, mode=PERMISSION_MODE, workspace=WORKSPACE)
 
-    # Map bash intent to action_type. A bounded single-file rm maps to
-    # "cleanup", not "security": the server takes max(server base, client
-    # score), and the security base (80) + irreversible modifier alone would
-    # push every routine delete into the block band regardless of the
-    # classifier's graded score.
-    if bash_intel["intent"] == "destructive" and is_bounded_rm(bash_intel.get("parsed") or {}):
+    # Map bash intent to action_type. A bounded single-file rm — or a
+    # recursive delete of a regenerable build artifact (.next, dist,
+    # node_modules...) — maps to "cleanup", not "security": the server takes
+    # max(server base, client score), and the security base (80) +
+    # irreversible modifier alone would push every routine delete into the
+    # block band regardless of the classifier's graded score (2026-07-03
+    # `rm -rf .next` hard-block, vector rm-rf-next-build-cache).
+    if bash_intel["intent"] == "destructive" and (
+        is_bounded_rm(bash_intel.get("parsed") or {})
+        or is_regenerable_artifact_rm(bash_intel.get("parsed") or {})
+    ):
         action_type = "cleanup"
     else:
         action_type = _INTENT_TO_ACTION.get(bash_intel["intent"], "other")
@@ -534,12 +550,11 @@ def write_action_id(tool_use_id, action_id):
     """Write action_id to a temp file keyed by tool_use_id.
 
     Also appends the (tool_use_id, action_id) pair to a per-session mapping
-    log so the Stop hook's code-session reporter can populate the
-    `tool_use_action_map` field in POST /api/code-sessions/ingest-jsonl.
-    PostToolUse cleans up the per-tool_use_id file after PATCHing, so the
-    session-scoped log is the only persistent record of which Claude Code
-    tool calls correspond to which DashClaw action_records by the time
-    Stop fires.
+    log the Stop hook's coverage counter reads (expected-vs-recorded governed
+    tool_uses for /api/coverage). PostToolUse cleans up the per-tool_use_id
+    file after PATCHing, so the session-scoped log is the only persistent
+    record of which Claude Code tool calls correspond to which DashClaw
+    action_records by the time Stop fires.
     """
     path = os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id)
     try:
@@ -552,8 +567,8 @@ def write_action_id(tool_use_id, action_id):
 
 
 def _append_session_tool_map(session_id, tool_use_id, action_id):
-    """Append "<tool_use_id>\\t<action_id>" to a per-session log used by the
-    Stop hook's code-session reporter. Best-effort; never raises."""
+    """Append "<tool_use_id>\\t<action_id>" to a per-session log the Stop hook's
+    coverage counter reads. Best-effort; never raises."""
     path = os.path.join(
         tempfile.gettempdir(),
         "dashclaw_session_tool_map_" + _safe_session_id(session_id),
@@ -613,6 +628,261 @@ def append_turn_action(session_id, action_id):
 
 
 # ---------------------------------------------------------------------------
+# Containment (allow_contained): git-repo detection, worktree lifecycle,
+# capability advertisement, and the updatedInput rewrite.
+# ---------------------------------------------------------------------------
+
+_GIT_SUBPROCESS_KWARGS = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
+
+
+def _run_git(args, cwd, timeout=10):
+    """Run `git <args>` in cwd. Returns a CompletedProcess, or None on any
+    failure (missing git, spawn error, timeout) -- never raises. Windows:
+    CREATE_NO_WINDOW keeps a console from flashing on every git call."""
+    git = shutil.which("git")
+    if not git:
+        return None
+    try:
+        return subprocess.run(
+            [git] + list(args),
+            cwd=cwd,
+            capture_output=True,
+            timeout=timeout,
+            **_GIT_SUBPROCESS_KWARGS,
+        )
+    except Exception:
+        return None
+
+
+_is_git_repo_cache = None
+
+
+def _is_git_repo():
+    """True if WORKSPACE is inside a git working tree. Cached per process --
+    every governed tool call in this invocation shares one answer."""
+    global _is_git_repo_cache
+    if _is_git_repo_cache is None:
+        proc = _run_git(["rev-parse", "--is-inside-work-tree"], cwd=WORKSPACE, timeout=5)
+        _is_git_repo_cache = bool(
+            proc and proc.returncode == 0
+            and proc.stdout.decode("utf-8", "replace").strip() == "true"
+        )
+    return _is_git_repo_cache
+
+
+_repo_root_cache = ""
+_repo_root_computed = False
+
+
+def _repo_root():
+    """The repo's toplevel directory, or None. Cached per process."""
+    global _repo_root_cache, _repo_root_computed
+    if not _repo_root_computed:
+        proc = _run_git(["rev-parse", "--show-toplevel"], cwd=WORKSPACE, timeout=5)
+        raw = proc.stdout.decode("utf-8", "replace").strip() if proc and proc.returncode == 0 else ""
+        # git always prints forward slashes for --show-toplevel, even on
+        # Windows; normalize so paths built from this join cleanly with
+        # os.path.join (native backslashes) instead of a mixed-separator string.
+        _repo_root_cache = os.path.normpath(raw) if raw else ""
+        _repo_root_computed = True
+    return _repo_root_cache or None
+
+
+def _git_common_dir(root):
+    """<git_common_dir> for the repo at root -- where info/exclude lives.
+    Falls back to `<root>/.git` on any failure (the common case)."""
+    proc = _run_git(["rev-parse", "--git-common-dir"], cwd=root, timeout=5)
+    if not proc or proc.returncode != 0:
+        return os.path.join(root, ".git")
+    path = proc.stdout.decode("utf-8", "replace").strip()
+    if not path:
+        return os.path.join(root, ".git")
+    if not os.path.isabs(path):
+        path = os.path.join(root, path)
+    return os.path.normpath(path)
+
+
+def _ensure_exclude_line(git_common_dir):
+    """Append `.dashclaw/` to <git_common_dir>/info/exclude if not already
+    present. NEVER touches the tracked .gitignore. Best-effort."""
+    exclude_path = os.path.join(git_common_dir, "info", "exclude")
+    try:
+        os.makedirs(os.path.dirname(exclude_path), exist_ok=True)
+        existing_lines = []
+        if os.path.exists(exclude_path):
+            with open(exclude_path, encoding="utf-8") as f:
+                existing_lines = f.read().splitlines()
+        if any(line.strip() == ".dashclaw/" for line in existing_lines):
+            return
+        with open(exclude_path, "a", encoding="utf-8") as f:
+            f.write(".dashclaw/\n")
+    except Exception:
+        pass
+
+
+_BRANCH_SEGMENT_RE = re.compile(r"[^A-Za-z0-9-]")
+
+
+def _safe_branch_segment(session_id):
+    """Sanitize an (untrusted, harness-supplied) session_id into an
+    alnum+dash segment safe for a git branch name / directory component."""
+    cleaned = _BRANCH_SEGMENT_RE.sub("-", session_id or "").strip("-")
+    return cleaned[:64] or "session"
+
+
+def _containment_session_state_path(session_id):
+    return os.path.join(
+        tempfile.gettempdir(),
+        "dashclaw_containment_session_" + _safe_session_id(session_id) + ".json",
+    )
+
+
+def _read_containment_session_state(session_id):
+    """Return (worktree_path, ref) from a prior contained call this session,
+    or None when there is no state yet or the worktree no longer exists."""
+    path = _containment_session_state_path(session_id)
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.loads(f.read())
+        worktree_path = data.get("worktree_path")
+        ref = data.get("ref")
+    except Exception:
+        return None
+    if not worktree_path or not ref or not os.path.isdir(worktree_path):
+        return None
+    return worktree_path, ref
+
+
+def _write_containment_session_state(session_id, worktree_path, ref):
+    """Best-effort persist of (worktree_path, ref) so the next contained call
+    in this session reuses the worktree instead of adding a second one."""
+    path = _containment_session_state_path(session_id)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"worktree_path": worktree_path, "ref": ref}))
+    except Exception:
+        pass
+
+
+def _ensure_containment_worktree(session_id):
+    """Lazily create (once per session) or reuse the containment worktree.
+
+    Returns (worktree_path, ref), or None on any failure -- not a git repo,
+    repo root unresolvable, `git worktree add` failed. Callers MUST fail
+    toward interruption on None (invariant 5): a contained effect never
+    proceeds unstaged."""
+    if not _is_git_repo():
+        return None
+
+    cached = _read_containment_session_state(session_id)
+    if cached:
+        return cached
+
+    root = _repo_root()
+    if not root:
+        return None
+
+    branch_seg = _safe_branch_segment(session_id)
+    ref = "dashclaw/contained-" + branch_seg
+    worktree_path = os.path.join(root, ".dashclaw", "contained", branch_seg)
+
+    _ensure_exclude_line(_git_common_dir(root))
+
+    os.makedirs(os.path.dirname(worktree_path), exist_ok=True)
+    proc = _run_git(["worktree", "add", worktree_path, "-b", ref], cwd=root, timeout=30)
+    if not proc or proc.returncode != 0:
+        return None
+
+    _write_containment_session_state(session_id, worktree_path, ref)
+    return worktree_path, ref
+
+
+def _attach_client_capabilities(context, tool_name):
+    """Advertise containment support to the guard so an eligible allow_contained
+    verdict is not skewed down to require_approval (server-side negotiation --
+    see app/lib/guard/containment.ts, clientAdvertisesContainment). Gated so a
+    non-enforcing or non-git caller never claims a capability it cannot stage:
+    observe mode cannot redirect anything, and there is no worktree to redirect
+    into outside a git repo."""
+    if not CONTAINMENT_ENABLED:
+        return
+    if HOOK_MODE != "enforce":
+        return
+    if tool_name not in _CONTAINABLE_TOOLS:
+        return
+    if not _is_git_repo():
+        return
+    context["client_capabilities"] = ["allow_contained"]
+
+
+def _relative_to_repo(path, root):
+    """path's location relative to root, or None if it can't be expressed
+    that way (outside the repo, cross-drive on Windows, etc.)."""
+    try:
+        rel = os.path.relpath(os.path.abspath(path), root)
+    except Exception:
+        return None
+    if rel == os.pardir or rel.startswith(os.pardir + os.sep):
+        return None
+    return rel
+
+
+def _rewrite_input_for_containment(tool_input, worktree_path, root):
+    """Build a COMPLETE replacement tool_input with its path field rewritten
+    under the worktree, preserving the file's repo-relative layout. Returns
+    None when there's no path field or it can't be mapped into the repo."""
+    key = "file_path" if "file_path" in tool_input else ("path" if "path" in tool_input else None)
+    if not key:
+        return None
+    path = tool_input.get(key)
+    if not path:
+        return None
+    rel = _relative_to_repo(path, root)
+    if rel is None:
+        return None
+    updated = dict(tool_input)
+    updated[key] = os.path.join(worktree_path, rel)
+    return updated
+
+
+def _emit_contained_allow(updated_input, worktree_path, ref):
+    """Emit the Task-1-spike hookSpecificOutput JSON on stdout and exit 0.
+    Verified working on Claude Code v2.1.220: updatedInput is honored as a
+    COMPLETE replacement of the tool's input, redirecting the effect into the
+    containment worktree instead of the working tree."""
+    payload = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "permissionDecisionReason": (
+                "Contained: staged under %s (containment ref %s)." % (worktree_path, ref)
+            ),
+            "updatedInput": updated_input,
+        }
+    }
+    sys.stdout.write(json.dumps(payload))
+    sys.stdout.flush()
+
+
+def _write_containment_action_state(tool_use_id, action_id, containment_ref, worktree_path):
+    """Extend the pretool->posttool temp file (see write_action_id) with
+    containment fields. PostToolUse (Task 10) parses this JSON shape to
+    resolve a contained action's staged effect; ordinary allow/warn decisions
+    still write the bare action_id string PostToolUse reads today."""
+    path = os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id)
+    payload = {
+        "action_id": action_id or "",
+        "containment_ref": containment_ref,
+        "containment_worktree": worktree_path,
+    }
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(json.dumps(payload))
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Decision handlers
 # ---------------------------------------------------------------------------
 
@@ -629,20 +899,22 @@ def _record_running_action(handler, context, tool_use_id):
     Shared by handle_allow and handle_warn: on success it persists the id for
     PostToolUse and token attribution; on a missing id or failed create it logs
     the attribution gap so it never disappears silently. `handler` names the
-    caller for the log line."""
+    caller for the log line. Returns the action_id, or "" on failure (existing
+    callers ignore the return value; handle_allow_contained uses it)."""
     resp = create_action(context, status="running")
     if not resp:
         _log_hook_error(handler + ": create_action failed (None); tool proceeded without governance record")
-        return
+        return ""
     action_id = _extract_action_id(resp)
     if not action_id:
         # Governance server returned a response but no action_id — the Stop
         # hook will produce orphan_tokens for this turn. Log so ops can spot
         # the attribution gap instead of the failure disappearing silently.
         _log_hook_error(handler + ": create_action returned no action_id; response=" + str(resp)[:200])
-        return
+        return ""
     write_action_id(tool_use_id, action_id)
     append_turn_action(_SESSION_ID, action_id)
+    return action_id
 
 
 def _persist_guard_recorded_action(guard_resp, tool_use_id):
@@ -739,6 +1011,11 @@ def _wait_for_approval(action_id, tool_use_id):
             write_action_id(tool_use_id, action_id)
             append_turn_action(_SESSION_ID, action_id)
             sys.exit(0)
+        if status == "expired":
+            # Approvals lifecycle (roadmap v2.3): the server decided this
+            # approval can no longer release anything. Terminal — stop polling.
+            log("[DashClaw] Approval expired server-side.")
+            sys.exit(2)
         if status in ("failed", "cancelled"):
             log("[DashClaw] Action denied by operator.")
             sys.exit(2)
@@ -781,6 +1058,43 @@ def handle_require_approval(guard_resp, context, tool_use_id):
     _wait_for_approval(action_id, tool_use_id)
 
     log("[DashClaw] Approval timeout. Blocking tool execution.")
+    sys.exit(2)
+
+
+def handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_id):
+    """Contained execution: a negotiated allow_contained verdict. Redirect the
+    effect into a per-session git worktree instead of the working tree, and
+    persist the containment_ref for PostToolUse (Task 10) to resolve.
+
+    Worktree creation failure (or not being in a git repo at all) is fail-
+    toward-interruption (invariant 5): governance never lets a contained
+    effect proceed unstaged."""
+    action_id = _persist_guard_recorded_action(guard_resp, tool_use_id)
+    if not action_id:
+        action_id = _record_running_action("handle_allow_contained", context, tool_use_id)
+
+    ensured = _ensure_containment_worktree(_SESSION_ID)
+    if not ensured:
+        log("[DashClaw] Containment failed: could not create or reuse a containment worktree "
+            "(not a git repo, or `git worktree add` failed). Failing toward interruption — "
+            "a contained effect must never proceed unstaged.")
+        _write_containment_action_state(tool_use_id, action_id, None, None)
+        sys.exit(2)
+
+    worktree_path, ref = ensured
+    _write_containment_action_state(tool_use_id, action_id, ref, worktree_path)
+
+    if tool_name in ("Write", "Edit", "MultiEdit") and CONTAINMENT_REWRITE:
+        root = _repo_root()
+        updated_input = _rewrite_input_for_containment(tool_input, worktree_path, root) if root else None
+        if updated_input is not None:
+            _emit_contained_allow(updated_input, worktree_path, ref)
+            sys.exit(0)
+        # Path couldn't be mapped into the worktree (no path field, or outside
+        # the repo) — fall through to the instructive deny below.
+
+    log("Contained: re-run this edit against " + worktree_path + " (containment ref " + ref
+        + "). Effects will be staged for operator promotion.")
     sys.exit(2)
 
 
@@ -928,138 +1242,6 @@ def _maybe_warn_demo_mode():
 
 
 # ---------------------------------------------------------------------------
-# Skill auto-scan (out-of-the-box protection)
-# ---------------------------------------------------------------------------
-# When the agent loads a Skill, scan its files for embedded secrets and
-# dangerous/injection patterns and WARN (never block — advisory by design, the
-# operator stays in control). Reuses POST /api/skills/scan, which dedupes by
-# content hash so repeat loads of an unchanged skill are cheap. Opt out with
-# DASHCLAW_SKILL_SCAN=0.
-
-_SKILL_SCAN_ENABLED = (os.environ.get("DASHCLAW_SKILL_SCAN") or "1") != "0"
-_SKILL_TEXT_EXTS = (".md", ".txt", ".py", ".js", ".mjs", ".ts", ".json",
-                    ".yaml", ".yml", ".sh", ".toml", ".rb", ".go")
-_SKILL_SCAN_MAX_FILE = 100_000      # per-file byte cap
-_SKILL_SCAN_MAX_TOTAL = 400_000     # total chars sent
-_SKILL_SCAN_MAX_FILES = 50
-
-
-def _skill_leaf(skill_name):
-    """Return a safe skill leaf name, or None when the name is not filesystem-safe."""
-    leaf = (skill_name or "").split(":")[-1].strip()
-    if not leaf or any(sep in leaf for sep in ("/", "\\", "..")):
-        return None
-    return leaf
-
-
-def _skill_candidate_dirs(leaf):
-    roots = []
-    proj = os.environ.get("CLAUDE_PROJECT_DIR") or WORKSPACE
-    if proj:
-        roots.append(os.path.join(proj, ".claude", "skills", leaf))
-    roots.append(os.path.join(os.path.expanduser("~"), ".claude", "skills", leaf))
-    return roots
-
-
-def _resolve_skill_dir(skill_name):
-    """Best-effort: find the on-disk directory for a loaded skill, or None.
-
-    Only project- and user-level skill dirs are resolvable here; built-in or
-    plugin-bundled skills we can't locate are skipped (nothing to scan). The
-    leaf-name guard rejects path separators so a crafted skill name can't walk
-    outside the skills dir."""
-    leaf = _skill_leaf(skill_name)
-    if not leaf:
-        return None
-    for d in _skill_candidate_dirs(leaf):
-        if os.path.isdir(d):
-            return d
-    return None
-
-
-def _read_skill_file(fp):
-    """Return a capped text file's content, or None when too big / unreadable."""
-    try:
-        if os.path.getsize(fp) > _SKILL_SCAN_MAX_FILE:
-            return None
-        with open(fp, encoding="utf-8", errors="replace") as f:
-            return f.read()
-    except Exception:
-        return None
-
-
-def _collect_skill_files(skill_dir):
-    """Read the skill's text files into a {relpath: content} map (capped)."""
-    files = {}
-    total = 0
-    for root, _dirs, names in os.walk(skill_dir):
-        for n in names:
-            if not n.lower().endswith(_SKILL_TEXT_EXTS):
-                continue
-            fp = os.path.join(root, n)
-            content = _read_skill_file(fp)
-            if content is None:
-                continue
-            rel = os.path.relpath(fp, skill_dir).replace("\\", "/")
-            files[rel] = content
-            total += len(content)
-            if total >= _SKILL_SCAN_MAX_TOTAL or len(files) >= _SKILL_SCAN_MAX_FILES:
-                return files
-    return files
-
-
-def _warn_skill_findings(skill_name, findings):
-    """Print the auto-scan summary + per-finding lines for a flagged skill."""
-    high = any(f.get("severity") == "high" for f in findings)
-    rules = ", ".join(sorted({f.get("rule_id", "issue") for f in findings}))
-    sev_word = "secrets/dangerous code" if high else "suspicious patterns"
-    log("[DashClaw] ⚠ Skill '%s' flagged by auto-scan (%s: %s). Review before trusting it."
-        % (skill_name, sev_word, rules))
-    for f in findings[:6]:
-        loc = f.get("file") or ""
-        line = f.get("line")
-        where = (" — %s:%s" % (loc, line)) if loc else ""
-        log("   - [%s] %s%s" % (f.get("severity") or "warn", f.get("rule_id") or "finding", where))
-
-
-def _skill_name_from_input(tool_input):
-    return (tool_input.get("skill") or tool_input.get("name")
-            or tool_input.get("command") or "").strip()
-
-
-def _skill_scan_files(skill_name):
-    skill_dir = _resolve_skill_dir(skill_name)
-    return _collect_skill_files(skill_dir) if skill_dir else {}
-
-
-def _skill_scan_findings(skill_name, files):
-    resp = api_request("POST", "/api/skills/scan",
-                       body={"skill_name": skill_name, "files": files})
-    return (resp or {}).get("findings") or []
-
-
-def scan_skill_and_warn(tool_input):
-    """Scan a loaded skill for secrets / dangerous patterns and warn.
-
-    Advisory only: prints to stderr, never blocks, never raises."""
-    if not _SKILL_SCAN_ENABLED:
-        return
-    try:
-        skill_name = _skill_name_from_input(tool_input)
-        if not skill_name:
-            return
-        files = _skill_scan_files(skill_name)
-        if not files:
-            return
-        findings = _skill_scan_findings(skill_name, files)
-        if not findings:
-            return
-        _warn_skill_findings(skill_name, findings)
-    except Exception:
-        pass
-
-
-# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -1098,7 +1280,60 @@ def _enrich_tool(tool_name, tool_input, tool_info):
     return _enrich_default(tool_name, tool_input, tool_info)
 
 
-def _build_guard_context(tool_name, tool_info, enrichment):
+_ACT_COMMAND_CAP = 8192
+_ACT_FILE_EXCERPT_CAP = 4096
+
+# Same pattern set as the SDKs' scrub_act (parity; the server re-redacts).
+_ACT_SCRUB_PATTERNS = [
+    (re.compile(r"oc_live_[A-Za-z0-9_-]+"), "[REDACTED]"),
+    (re.compile(r"sk-[A-Za-z0-9_-]{10,}"), "[REDACTED]"),
+    (re.compile(r"ghp_[A-Za-z0-9]{20,}"), "[REDACTED]"),
+    (re.compile(r"Bearer\s+[A-Za-z0-9._-]+", re.IGNORECASE), "Bearer [REDACTED]"),
+]
+_ACT_SCRUB_KV = re.compile(r"(password|token|secret)\s*=\s*[^\s&\"']+", re.IGNORECASE)
+
+
+def _scrub_act_text(text):
+    """Mask secret-looking substrings before the act leaves the machine."""
+    if not text:
+        return text
+    for pattern, replacement in _ACT_SCRUB_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return _ACT_SCRUB_KV.sub(lambda m: m.group(1) + "=[REDACTED]", text)
+
+
+def _build_act(tool_name, tool_input):
+    """Evidence-first guard: attach the actual act (shell command / file
+    write) so the server can classify it and fold the derived risk in,
+    independent of this hook's own (also client-side, and therefore
+    tamperable) classification. PowerShell rides the same shell path as Bash
+    (see _enrich_tool). See
+    docs/superpowers/specs/2026-07-05-evidence-first-guard.md."""
+    if tool_name in ("Bash", "PowerShell"):
+        command = str(tool_input.get("command") or "")
+        if not command:
+            return None
+        return {"kind": "shell", "command": _scrub_act_text(command[:_ACT_COMMAND_CAP])}
+    if tool_name in ("Write", "Edit", "MultiEdit"):
+        path = tool_input.get("file_path") or tool_input.get("path") or ""
+        if not path:
+            # act.file.path is required non-empty server-side; omit act rather
+            # than send a payload the server would 400 on (ACT_TOO_LARGE's
+            # sibling validation error), which would break the tool call.
+            return None
+        content = str(_outbound_content(tool_name, tool_input) or "")
+        return {
+            "kind": "file",
+            "file": {
+                "path": path,
+                "content_excerpt": _scrub_act_text(content[:_ACT_FILE_EXCERPT_CAP]),
+                "bytes": len(content.encode("utf-8", errors="ignore")),
+            },
+        }
+    return None
+
+
+def _build_guard_context(tool_name, tool_info, enrichment, tool_input):
     """Assemble the guard context dict and forward the resolved target path."""
     context = {
         "action_type": enrichment["action_type"],
@@ -1113,11 +1348,24 @@ def _build_guard_context(tool_name, tool_info, enrichment):
             "required_permission": tool_info["required_permission"],
         },
         "intel": enrichment.get("intel", {}),
+        # Approvals lifecycle (roadmap v2.3): declare how long this hook will
+        # poll for an approval, so a require_approval row gets a truthful
+        # approval_expires_at stamp (server adds a retry grace on top).
+        # Clamped to the server's accepted range (5..86400).
+        "approval_wait_seconds": max(5, min(int(APPROVAL_TIMEOUT), 86400)),
+        # Enforcement posture: tell the server how this hook will TREAT the
+        # decision (enforce = blocks stop the tool call; observe = logged
+        # only). Attribution-only server-side, but it is the ONLY way the
+        # dashboard can show that an agent's blocks are not actually enforced.
+        "enforcement_mode": HOOK_MODE,
     }
     # Forward the resolved target path (file tools, bash redirects) so a
     # protected_path guard policy can match it. Omitted when there is no path.
     if enrichment.get("target"):
         context["target"] = enrichment["target"]
+    act = _build_act(tool_name, tool_input)
+    if act:
+        context["act"] = act
     return context
 
 
@@ -1153,7 +1401,7 @@ def _subagent_values(data):
 
 
 def _is_swarm_call(subagent_id, subagent_type, tool_name):
-    return bool(subagent_id or subagent_type or tool_name in ("Agent", "Task"))
+    return bool(subagent_id or subagent_type or tool_name in ("Agent", "Task", "Workflow"))
 
 
 def _has_subagent_provenance(subagent_id, subagent_type):
@@ -1169,14 +1417,27 @@ def _apply_distinct_subagent_id(context, subagent_type):
         context["agent_id"] = "%s:%s" % (AGENT_ID, _subagent_id_segment(subagent_type))
 
 
+def _attach_harness_session(context):
+    """v4.3 fleet attribution (verdict 1): stamp harness_session_id on EVERY
+    record payload, not just swarm/subagent calls. Unlike swarm_id (spawn +
+    subagent leaf calls only), this rides every governed action in the
+    session so a fan-out's leaves and non-subagent actions can be joined as
+    one unit at read time. Server-side this is a separate column from
+    session_id (which stays in the sess_* DashClaw-session namespace) — see
+    docs/superpowers/specs/2026-07-04-fleet-attribution.md. Capped to the
+    server's accepted length (200 chars)."""
+    if _SESSION_ID:
+        context["harness_session_id"] = _SESSION_ID[:200]
+
+
 def _attach_subagent_provenance(context, data, tool_name):
     """Sub-agent provenance. Claude Code puts agent_id / agent_type on hook stdin
     ONLY when the call fires inside a sub-agent. We keep the governed agent_id =
     the configured parent (sub-agents inherit the parent's pairing and policies,
     matching Claude Code's own model) and record the sub-agent as provenance
     DashClaw persists: a display name, a per-session swarm group, and intel. Spawn
-    calls (Agent/Task) are also tagged into the session swarm so the delegation
-    and the delegated work group together in the ledger."""
+    calls (Agent/Task/Workflow) are also tagged into the session swarm so the
+    delegation and the delegated work group together in the ledger."""
     subagent_id, subagent_type = _subagent_values(data)
     if _is_swarm_call(subagent_id, subagent_type, tool_name) and _SESSION_ID:
         context["swarm_id"] = _SESSION_ID
@@ -1189,6 +1450,10 @@ def _attach_subagent_provenance(context, data, tool_name):
     context["agent_name"] = _agent_name_for(subagent_type)
     context["trigger"] = "subagent:%s" % (subagent_type or "unknown")
     context["intel"]["subagent"] = {"agent_id": subagent_id, "agent_type": subagent_type}
+    # v4.3 verdict 2a: persist the subagent instance uuid so the read path can
+    # join this leaf row against its spawn row's outcome_metadata.spawned_agent_uuid.
+    if subagent_id:
+        context["subagent_uuid"] = str(subagent_id)[:200]
 
 
 def _warn_secret_scan(guard_resp, decision):
@@ -1204,20 +1469,32 @@ def _warn_secret_scan(guard_resp, decision):
         pass
 
 
-def _record_behavior_sample(tool_use_id, tool_name, tool_input, context, guard_resp, decision):
-    """Behavior Learning: passively record a redacted sample of this governed
-    tool call (opt-in via DASHCLAW_BEHAVIOR_SAMPLES_ENABLED; fully fail-silent).
-    For allow/warn/approval the pending sample is finalized by PostToolUse;
-    an enforce-mode block is recorded terminally here since PostToolUse won't fire."""
+def _warn_assumption_alerts(guard_resp):
+    """Advocate v2a: an operator invalidated an assumption this agent recorded.
+    Advisory only — printed even on allow, never changes the decision. After
+    surfacing, acknowledge (mark the inbox message read) so the alert stops
+    riding future guard responses. The ack is the ONLY extra HTTP call and it
+    fires solely when alerts are present, so the common path stays single-call."""
     try:
-        behavior_recorder.record_pre(
-            tool_use_id, tool_name, tool_input, context, guard_resp, decision, HOOK_MODE, WORKSPACE
-        )
+        alerts = guard_resp.get("assumption_alerts") or []
+        if not alerts:
+            return
+        message_ids = []
+        for a in alerts[:3]:
+            text = (a.get("assumption") or "an assumption")[:120]
+            reason = (a.get("invalidated_reason") or "no reason given")[:200]
+            log('[DashClaw] ⚠ Operator invalidated an assumption you recorded: "%s" — reason: %s. Re-verify before relying on it.' % (text, reason))
+            if a.get("message_id"):
+                message_ids.append(a["message_id"])
+        if message_ids:
+            api_request("PATCH", "/api/messages",
+                        body={"message_ids": message_ids, "action": "read", "agent_id": AGENT_ID},
+                        retries=0)
     except Exception:
-        pass
+        pass  # fail-silent: the alert simply rides again next call
 
 
-def _dispatch_decision(decision, guard_resp, context, tool_use_id):
+def _dispatch_decision(decision, guard_resp, context, tool_use_id, tool_name=None, tool_input=None):
     """Route the guard decision to its handler. Each handler calls sys.exit."""
     if decision == "warn":
         handle_warn(guard_resp, context, tool_use_id)
@@ -1225,6 +1502,8 @@ def _dispatch_decision(decision, guard_resp, context, tool_use_id):
         handle_block(guard_resp, context)
     elif decision == "require_approval":
         handle_require_approval(guard_resp, context, tool_use_id)
+    elif decision == "allow_contained":
+        handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_id)
     else:
         # allow + any unknown decision both fall through to allow.
         handle_allow(guard_resp, context, tool_use_id)
@@ -1246,14 +1525,6 @@ def main():
     global _SESSION_ID
     _SESSION_ID = data.get("session_id") or ""
 
-    # Skill loads aren't governed actions, but DashClaw scans them for embedded
-    # secrets and dangerous/injection patterns and warns out of the box
-    # (advisory; never blocks). Handled before the governance flow because Skill
-    # is not in the governed-tool set.
-    if tool_name == "Skill":
-        scan_skill_and_warn(tool_input)
-        sys.exit(0)
-
     # Step 1: Classify the tool using the intel module
     tool_info = classify_tool(tool_name, tool_input)
 
@@ -1265,9 +1536,11 @@ def main():
     enrichment = _enrich_tool(tool_name, tool_input, tool_info)
 
     # Step 4: Build guard context
-    context = _build_guard_context(tool_name, tool_info, enrichment)
+    context = _build_guard_context(tool_name, tool_info, enrichment, tool_input)
+    _attach_harness_session(context)
     _attach_autoscan_content(context, tool_name, tool_input)
     _attach_subagent_provenance(context, data, tool_name)
+    _attach_client_capabilities(context, tool_name)
 
     # Idempotency: tool_use_id is unique per tool call, so a blind retry of
     # the SAME call derives the same key (server dedupes the guard decision
@@ -1291,8 +1564,8 @@ def main():
     # Step 6: Handle decision
     decision = guard_resp.get("decision", "allow")
     _warn_secret_scan(guard_resp, decision)
-    _record_behavior_sample(tool_use_id, tool_name, tool_input, context, guard_resp, decision)
-    _dispatch_decision(decision, guard_resp, context, tool_use_id)
+    _warn_assumption_alerts(guard_resp)
+    _dispatch_decision(decision, guard_resp, context, tool_use_id, tool_name, tool_input)
 
 
 if __name__ == "__main__":

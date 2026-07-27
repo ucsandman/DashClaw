@@ -14,7 +14,9 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import socket
+import subprocess
 import sys
 import tempfile
 import time
@@ -132,6 +134,16 @@ GUARD_UNAVAILABLE_POLICY = (os.environ.get("DASHCLAW_GUARD_UNAVAILABLE_POLICY") 
 # provenance fields; set DASHCLAW_SUBAGENT_IDENTITY=provenance to roll back.
 # See docs/rfcs/2026-06-01-subagent-fleet-identities.md.
 SUBAGENT_IDENTITY = (os.environ.get("DASHCLAW_SUBAGENT_IDENTITY") or "distinct").lower()
+
+# Containment Verdicts (v5.6): capability advertisement + contained-execution
+# redirect. See docs/rfcs/2026-07-06-containment-verdicts.md and
+# app/lib/guard/containment.ts (server-side eligibility + negotiation).
+CONTAINMENT_ENABLED = (os.environ.get("DASHCLAW_CONTAINMENT") or "1") != "0"
+# Task 1 spike verdict: updatedInput rewrite works on Claude Code v2.1.220.
+# Default ON so a contained Write/Edit/MultiEdit stages transparently instead
+# of always falling back to an instructive deny.
+CONTAINMENT_REWRITE = (os.environ.get("DASHCLAW_CONTAINMENT_REWRITE") or "1") == "1"
+_CONTAINABLE_TOOLS = frozenset({"Write", "Edit", "MultiEdit", "Bash"})
 
 # todo-001: one-shot demo-mode probe to surface a misrouted DASHCLAW_BASE_URL
 # (e.g. a stale env var pointing at a local sandbox) before the operator burns
@@ -616,6 +628,261 @@ def append_turn_action(session_id, action_id):
 
 
 # ---------------------------------------------------------------------------
+# Containment (allow_contained): git-repo detection, worktree lifecycle,
+# capability advertisement, and the updatedInput rewrite.
+# ---------------------------------------------------------------------------
+
+_GIT_SUBPROCESS_KWARGS = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
+
+
+def _run_git(args, cwd, timeout=10):
+    """Run `git <args>` in cwd. Returns a CompletedProcess, or None on any
+    failure (missing git, spawn error, timeout) -- never raises. Windows:
+    CREATE_NO_WINDOW keeps a console from flashing on every git call."""
+    git = shutil.which("git")
+    if not git:
+        return None
+    try:
+        return subprocess.run(
+            [git] + list(args),
+            cwd=cwd,
+            capture_output=True,
+            timeout=timeout,
+            **_GIT_SUBPROCESS_KWARGS,
+        )
+    except Exception:
+        return None
+
+
+_is_git_repo_cache = None
+
+
+def _is_git_repo():
+    """True if WORKSPACE is inside a git working tree. Cached per process --
+    every governed tool call in this invocation shares one answer."""
+    global _is_git_repo_cache
+    if _is_git_repo_cache is None:
+        proc = _run_git(["rev-parse", "--is-inside-work-tree"], cwd=WORKSPACE, timeout=5)
+        _is_git_repo_cache = bool(
+            proc and proc.returncode == 0
+            and proc.stdout.decode("utf-8", "replace").strip() == "true"
+        )
+    return _is_git_repo_cache
+
+
+_repo_root_cache = ""
+_repo_root_computed = False
+
+
+def _repo_root():
+    """The repo's toplevel directory, or None. Cached per process."""
+    global _repo_root_cache, _repo_root_computed
+    if not _repo_root_computed:
+        proc = _run_git(["rev-parse", "--show-toplevel"], cwd=WORKSPACE, timeout=5)
+        raw = proc.stdout.decode("utf-8", "replace").strip() if proc and proc.returncode == 0 else ""
+        # git always prints forward slashes for --show-toplevel, even on
+        # Windows; normalize so paths built from this join cleanly with
+        # os.path.join (native backslashes) instead of a mixed-separator string.
+        _repo_root_cache = os.path.normpath(raw) if raw else ""
+        _repo_root_computed = True
+    return _repo_root_cache or None
+
+
+def _git_common_dir(root):
+    """<git_common_dir> for the repo at root -- where info/exclude lives.
+    Falls back to `<root>/.git` on any failure (the common case)."""
+    proc = _run_git(["rev-parse", "--git-common-dir"], cwd=root, timeout=5)
+    if not proc or proc.returncode != 0:
+        return os.path.join(root, ".git")
+    path = proc.stdout.decode("utf-8", "replace").strip()
+    if not path:
+        return os.path.join(root, ".git")
+    if not os.path.isabs(path):
+        path = os.path.join(root, path)
+    return os.path.normpath(path)
+
+
+def _ensure_exclude_line(git_common_dir):
+    """Append `.dashclaw/` to <git_common_dir>/info/exclude if not already
+    present. NEVER touches the tracked .gitignore. Best-effort."""
+    exclude_path = os.path.join(git_common_dir, "info", "exclude")
+    try:
+        os.makedirs(os.path.dirname(exclude_path), exist_ok=True)
+        existing_lines = []
+        if os.path.exists(exclude_path):
+            with open(exclude_path, encoding="utf-8") as f:
+                existing_lines = f.read().splitlines()
+        if any(line.strip() == ".dashclaw/" for line in existing_lines):
+            return
+        with open(exclude_path, "a", encoding="utf-8") as f:
+            f.write(".dashclaw/\n")
+    except Exception:
+        pass
+
+
+_BRANCH_SEGMENT_RE = re.compile(r"[^A-Za-z0-9-]")
+
+
+def _safe_branch_segment(session_id):
+    """Sanitize an (untrusted, harness-supplied) session_id into an
+    alnum+dash segment safe for a git branch name / directory component."""
+    cleaned = _BRANCH_SEGMENT_RE.sub("-", session_id or "").strip("-")
+    return cleaned[:64] or "session"
+
+
+def _containment_session_state_path(session_id):
+    return os.path.join(
+        tempfile.gettempdir(),
+        "dashclaw_containment_session_" + _safe_session_id(session_id) + ".json",
+    )
+
+
+def _read_containment_session_state(session_id):
+    """Return (worktree_path, ref) from a prior contained call this session,
+    or None when there is no state yet or the worktree no longer exists."""
+    path = _containment_session_state_path(session_id)
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.loads(f.read())
+        worktree_path = data.get("worktree_path")
+        ref = data.get("ref")
+    except Exception:
+        return None
+    if not worktree_path or not ref or not os.path.isdir(worktree_path):
+        return None
+    return worktree_path, ref
+
+
+def _write_containment_session_state(session_id, worktree_path, ref):
+    """Best-effort persist of (worktree_path, ref) so the next contained call
+    in this session reuses the worktree instead of adding a second one."""
+    path = _containment_session_state_path(session_id)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"worktree_path": worktree_path, "ref": ref}))
+    except Exception:
+        pass
+
+
+def _ensure_containment_worktree(session_id):
+    """Lazily create (once per session) or reuse the containment worktree.
+
+    Returns (worktree_path, ref), or None on any failure -- not a git repo,
+    repo root unresolvable, `git worktree add` failed. Callers MUST fail
+    toward interruption on None (invariant 5): a contained effect never
+    proceeds unstaged."""
+    if not _is_git_repo():
+        return None
+
+    cached = _read_containment_session_state(session_id)
+    if cached:
+        return cached
+
+    root = _repo_root()
+    if not root:
+        return None
+
+    branch_seg = _safe_branch_segment(session_id)
+    ref = "dashclaw/contained-" + branch_seg
+    worktree_path = os.path.join(root, ".dashclaw", "contained", branch_seg)
+
+    _ensure_exclude_line(_git_common_dir(root))
+
+    os.makedirs(os.path.dirname(worktree_path), exist_ok=True)
+    proc = _run_git(["worktree", "add", worktree_path, "-b", ref], cwd=root, timeout=30)
+    if not proc or proc.returncode != 0:
+        return None
+
+    _write_containment_session_state(session_id, worktree_path, ref)
+    return worktree_path, ref
+
+
+def _attach_client_capabilities(context, tool_name):
+    """Advertise containment support to the guard so an eligible allow_contained
+    verdict is not skewed down to require_approval (server-side negotiation --
+    see app/lib/guard/containment.ts, clientAdvertisesContainment). Gated so a
+    non-enforcing or non-git caller never claims a capability it cannot stage:
+    observe mode cannot redirect anything, and there is no worktree to redirect
+    into outside a git repo."""
+    if not CONTAINMENT_ENABLED:
+        return
+    if HOOK_MODE != "enforce":
+        return
+    if tool_name not in _CONTAINABLE_TOOLS:
+        return
+    if not _is_git_repo():
+        return
+    context["client_capabilities"] = ["allow_contained"]
+
+
+def _relative_to_repo(path, root):
+    """path's location relative to root, or None if it can't be expressed
+    that way (outside the repo, cross-drive on Windows, etc.)."""
+    try:
+        rel = os.path.relpath(os.path.abspath(path), root)
+    except Exception:
+        return None
+    if rel == os.pardir or rel.startswith(os.pardir + os.sep):
+        return None
+    return rel
+
+
+def _rewrite_input_for_containment(tool_input, worktree_path, root):
+    """Build a COMPLETE replacement tool_input with its path field rewritten
+    under the worktree, preserving the file's repo-relative layout. Returns
+    None when there's no path field or it can't be mapped into the repo."""
+    key = "file_path" if "file_path" in tool_input else ("path" if "path" in tool_input else None)
+    if not key:
+        return None
+    path = tool_input.get(key)
+    if not path:
+        return None
+    rel = _relative_to_repo(path, root)
+    if rel is None:
+        return None
+    updated = dict(tool_input)
+    updated[key] = os.path.join(worktree_path, rel)
+    return updated
+
+
+def _emit_contained_allow(updated_input, worktree_path, ref):
+    """Emit the Task-1-spike hookSpecificOutput JSON on stdout and exit 0.
+    Verified working on Claude Code v2.1.220: updatedInput is honored as a
+    COMPLETE replacement of the tool's input, redirecting the effect into the
+    containment worktree instead of the working tree."""
+    payload = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "permissionDecisionReason": (
+                "Contained: staged under %s (containment ref %s)." % (worktree_path, ref)
+            ),
+            "updatedInput": updated_input,
+        }
+    }
+    sys.stdout.write(json.dumps(payload))
+    sys.stdout.flush()
+
+
+def _write_containment_action_state(tool_use_id, action_id, containment_ref, worktree_path):
+    """Extend the pretool->posttool temp file (see write_action_id) with
+    containment fields. PostToolUse (Task 10) parses this JSON shape to
+    resolve a contained action's staged effect; ordinary allow/warn decisions
+    still write the bare action_id string PostToolUse reads today."""
+    path = os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id)
+    payload = {
+        "action_id": action_id or "",
+        "containment_ref": containment_ref,
+        "containment_worktree": worktree_path,
+    }
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(json.dumps(payload))
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Decision handlers
 # ---------------------------------------------------------------------------
 
@@ -632,20 +899,22 @@ def _record_running_action(handler, context, tool_use_id):
     Shared by handle_allow and handle_warn: on success it persists the id for
     PostToolUse and token attribution; on a missing id or failed create it logs
     the attribution gap so it never disappears silently. `handler` names the
-    caller for the log line."""
+    caller for the log line. Returns the action_id, or "" on failure (existing
+    callers ignore the return value; handle_allow_contained uses it)."""
     resp = create_action(context, status="running")
     if not resp:
         _log_hook_error(handler + ": create_action failed (None); tool proceeded without governance record")
-        return
+        return ""
     action_id = _extract_action_id(resp)
     if not action_id:
         # Governance server returned a response but no action_id — the Stop
         # hook will produce orphan_tokens for this turn. Log so ops can spot
         # the attribution gap instead of the failure disappearing silently.
         _log_hook_error(handler + ": create_action returned no action_id; response=" + str(resp)[:200])
-        return
+        return ""
     write_action_id(tool_use_id, action_id)
     append_turn_action(_SESSION_ID, action_id)
+    return action_id
 
 
 def _persist_guard_recorded_action(guard_resp, tool_use_id):
@@ -789,6 +1058,43 @@ def handle_require_approval(guard_resp, context, tool_use_id):
     _wait_for_approval(action_id, tool_use_id)
 
     log("[DashClaw] Approval timeout. Blocking tool execution.")
+    sys.exit(2)
+
+
+def handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_id):
+    """Contained execution: a negotiated allow_contained verdict. Redirect the
+    effect into a per-session git worktree instead of the working tree, and
+    persist the containment_ref for PostToolUse (Task 10) to resolve.
+
+    Worktree creation failure (or not being in a git repo at all) is fail-
+    toward-interruption (invariant 5): governance never lets a contained
+    effect proceed unstaged."""
+    action_id = _persist_guard_recorded_action(guard_resp, tool_use_id)
+    if not action_id:
+        action_id = _record_running_action("handle_allow_contained", context, tool_use_id)
+
+    ensured = _ensure_containment_worktree(_SESSION_ID)
+    if not ensured:
+        log("[DashClaw] Containment failed: could not create or reuse a containment worktree "
+            "(not a git repo, or `git worktree add` failed). Failing toward interruption — "
+            "a contained effect must never proceed unstaged.")
+        _write_containment_action_state(tool_use_id, action_id, None, None)
+        sys.exit(2)
+
+    worktree_path, ref = ensured
+    _write_containment_action_state(tool_use_id, action_id, ref, worktree_path)
+
+    if tool_name in ("Write", "Edit", "MultiEdit") and CONTAINMENT_REWRITE:
+        root = _repo_root()
+        updated_input = _rewrite_input_for_containment(tool_input, worktree_path, root) if root else None
+        if updated_input is not None:
+            _emit_contained_allow(updated_input, worktree_path, ref)
+            sys.exit(0)
+        # Path couldn't be mapped into the worktree (no path field, or outside
+        # the repo) — fall through to the instructive deny below.
+
+    log("Contained: re-run this edit against " + worktree_path + " (containment ref " + ref
+        + "). Effects will be staged for operator promotion.")
     sys.exit(2)
 
 
@@ -1188,7 +1494,7 @@ def _warn_assumption_alerts(guard_resp):
         pass  # fail-silent: the alert simply rides again next call
 
 
-def _dispatch_decision(decision, guard_resp, context, tool_use_id):
+def _dispatch_decision(decision, guard_resp, context, tool_use_id, tool_name=None, tool_input=None):
     """Route the guard decision to its handler. Each handler calls sys.exit."""
     if decision == "warn":
         handle_warn(guard_resp, context, tool_use_id)
@@ -1196,6 +1502,8 @@ def _dispatch_decision(decision, guard_resp, context, tool_use_id):
         handle_block(guard_resp, context)
     elif decision == "require_approval":
         handle_require_approval(guard_resp, context, tool_use_id)
+    elif decision == "allow_contained":
+        handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_id)
     else:
         # allow + any unknown decision both fall through to allow.
         handle_allow(guard_resp, context, tool_use_id)
@@ -1232,6 +1540,7 @@ def main():
     _attach_harness_session(context)
     _attach_autoscan_content(context, tool_name, tool_input)
     _attach_subagent_provenance(context, data, tool_name)
+    _attach_client_capabilities(context, tool_name)
 
     # Idempotency: tool_use_id is unique per tool call, so a blind retry of
     # the SAME call derives the same key (server dedupes the guard decision
@@ -1256,7 +1565,7 @@ def main():
     decision = guard_resp.get("decision", "allow")
     _warn_secret_scan(guard_resp, decision)
     _warn_assumption_alerts(guard_resp)
-    _dispatch_decision(decision, guard_resp, context, tool_use_id)
+    _dispatch_decision(decision, guard_resp, context, tool_use_id, tool_name, tool_input)
 
 
 if __name__ == "__main__":
