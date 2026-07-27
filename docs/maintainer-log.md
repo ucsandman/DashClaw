@@ -12,6 +12,43 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-26 — v5.5.0: delegation constraints — the fleet gets boundaries
+
+Feature 2 of the governed-autonomy program, same day as feature 1. Fleet
+identities gave subagents names (`claude-code:explore`); this gives them
+boundaries: a `delegation_constraint` policy makes a child's effective
+authority a provable subset of its parent's — risk ceiling, action-type
+lists, path scope, spawn depth — enforced on every guard call from a
+composed identity, escalating to require_approval or block, never
+granting. The headline economy held all the way to ship: a policy type,
+not a subsystem. No tables, no routes, no MCP changes; it rides every
+rail policies already have, and the /policies builder seeds constraints
+from the subagent families the ledger has actually observed, so
+constraining a family is a click, not a form full of typed identifiers.
+
+The contrast with the morning's feature is the story: preflight plans
+took seven adversarial sweep rounds to converge; delegation constraints
+**passed the security review on the first sweep**. Every hard-won lesson
+from the plans build — fail-closed matching, self-asserted identity
+boundaries, tighten-only coercion, validator/evaluator field alignment —
+was designed in rather than found after. The sweeps still earned their
+keep: they caught a stale "29 tools" contradiction, a pre-cull "10
+policy types" citation (and the checker now gates that file), an
+overclaiming "never loosened" sentence corrected to the honest grant
+contract, a mode default misaligned with its own stated interrupt line,
+and a validator footgun where a composed `parent` would create an
+active policy that silently governed nothing. Honest residuals recorded:
+attenuation binds the identity the caller asserts (the JWKS caveat is
+in the docs, `require_verified_parent` is the hard mode), operator
+grants may cover a delegation escalation exactly as they cover every
+other raiser, and the shared path normalizer's `..` handling is a
+follow-up with its own review cycle because it also tightens the
+existing protected-path shield.
+
+Feature 3 (containment verdicts) remains, gated on its own program
+preconditions. Wes's tail from today: `release:sdks` (now carries both
+the plan methods and the constraint wrappers) and `release:mcp`.
+
 ## 2026-07-26 — v5.4.0: preflight plans — the forward bet starts shipping
 
 With the roadmap's last obligations discharged this morning, the thesis's

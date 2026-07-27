@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "5.4.0",
+    "current_version": "5.5.0",
     "next_bump": "none",
-    "reason": "v5.4.0 adds 5 plan-authorization methods (submitPlan/getPlan/listPlans/resolvePlan/waitForPlanReview) — SDK source changed; REPUBLISH owed via release:sdks.",
+    "reason": "v5.5.0 adds createDelegationConstraint (37 methods; 5.4.0 plan methods also unpublished) — SDK source changed; REPUBLISH owed via release:sdks.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.4.0",
+    "current_version": "5.5.0",
     "next_bump": "none",
-    "reason": "v5.4.0 adds 5 snake_case plan-authorization methods — SDK source changed; REPUBLISH owed via release:sdks.",
+    "reason": "v5.5.0 adds create_delegation_constraint (57 methods; 5.4.0 plan methods also unpublished) — SDK source changed; REPUBLISH owed via release:sdks.",
     "domains": [
       "platform"
     ]

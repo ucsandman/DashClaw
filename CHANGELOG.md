@@ -13,7 +13,32 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
-## [5.4.0] — 2026-07-26
+## [5.5.0] — 2026-07-26
+
+### Added
+- **Scoped Delegation Constraints — a subagent's authority is now a
+  provable subset of its parent's.** New guard policy type
+  `delegation_constraint` (the 15th): risk ceiling, action-type
+  allow/block lists, path scope (the same glob engine as
+  `protected_path`), spawn depth, and an optional
+  `require_verified_parent` hard mode — enforced server-side on every
+  guard call from a composed `parent:child` identity. Fires ONLY on
+  composed ids (zero behavior change for single-agent fleets); matching
+  binds the id string itself, so an unpaired composed id is still
+  constrained and the base-fallback identity lookup cannot defeat
+  attenuation. Tighten-only by construction: the evaluator escalates to
+  `require_approval` or `block`, never grants. Rides every existing
+  policy rail (CRUD, YAML import, modes, simulate, contract view,
+  /policies UI) — **no new tables, no new routes, no MCP changes**. The
+  /policies builder seeds parent/child from OBSERVED composed identities
+  (one-click prefill); the shield gallery gains a 10th shield (Subagent
+  Constraint, risk > 60 escalates); the claude-code mode ships an
+  observe-grade starter aligned to the mode's 85 interrupt line. SDK:
+  `createDelegationConstraint` / `create_delegation_constraint` (Node 37
+  / Python 57). Attenuation is enforced against the identity the caller
+  asserts — combine with JWKS verification for a cryptographic claim
+  (documented). RFC `docs/rfcs/2026-07-06-scoped-delegation-grants.md`
+  (governed-autonomy program, feature 2 of 3).
 
 ### Added
 - **Preflight Plan Authorization — one review card instead of N mid-run
