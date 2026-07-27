@@ -217,6 +217,12 @@ class DashClaw:
         raise DashClawError(message, status=e.code, details=details)
 
     def _is_restrictive_decision(self, decision):
+        # 'allow_contained' is deliberately NOT restrictive here: it means the
+        # server let the act proceed (held for operator promote/discard
+        # afterward), not that run_governed/execution should pause. A bare
+        # SDK caller never sees it anyway — this client never advertises
+        # client_capabilities, so the server negotiates 'allow_contained'
+        # down to 'require_approval' before it ever reaches this check.
         return isinstance(decision, dict) and decision.get("decision") in ["block", "require_approval"]
 
     def _build_guard_context(self, action_def):
@@ -612,6 +618,30 @@ class DashClaw:
     def get_pending_approvals(self, limit=20, offset=0):
         return self.get_actions(status="pending_approval", limit=limit, offset=offset)
 
+    # --- Containment Verdicts (RFC 2026-07-06) ---
+    # This SDK never advertises client_capabilities, so a guard() call from
+    # this client can never receive decision "allow_contained" in the first
+    # place (the server negotiates it down to "require_approval" for
+    # non-advertising callers) — resolve_containment/list_contained only
+    # manage rows that reached "awaiting_promotion" some other way (e.g. a
+    # capability-aware caller, or the dashboard).
+
+    def resolve_containment(self, action_id, verdict):
+        """Operator verdict on a contained action awaiting promotion (admin
+        credential required).
+
+        verdict: "promote" | "discard". Response is
+        {"action": {...}, "promotion_action_id": "..."} on promote,
+        {"action": {...}} on discard.
+        """
+        if verdict not in ("promote", "discard"):
+            raise ValueError("verdict must be either 'promote' or 'discard'")
+        return self._request(f"/api/actions/{action_id}/containment", method="POST", body={"verdict": verdict})
+
+    def list_contained(self, status="awaiting_promotion", limit=None):
+        """List actions by containment status (default: awaiting_promotion)."""
+        return self.get_actions(containment_status=status, limit=limit)
+
     def _record_tracked_failure(self, action_id, start_time, error):
         duration_ms = int((time.time() - start_time) * 1000)
         try:
@@ -703,12 +733,23 @@ class DashClaw:
 
         Returns a guard decision dict with at minimum:
             decision         : 'allow' | 'block' | 'require_approval' | 'warn'
+                              | 'allow_contained'
             reason           : str | None
             signals          : list[str]
             verification_status : 'verified' | 'unverified' | 'expired'
                                 | 'failed' | 'unknown_issuer'
             agent_id         : str | None  (JWT sub when verified, else body value)
             agent_name       : str | None
+            containment      : {"status": "contained", "basis": str} | None
+
+        'allow_contained' (Containment Verdicts, RFC 2026-07-06): a provably
+        file-scoped act the server will let proceed but hold for operator
+        promote/discard via `resolve_containment` — ONLY when the caller
+        declared `client_capabilities: ["allow_contained"]` in the guard
+        context. This SDK never sets that field, so a bare SDK caller
+        receives 'require_approval' in its place (version skew only ever
+        tightens, never silently loosens). When present, `containment`
+        carries the eligibility basis.
 
         Phase 2 (#104): pass `auth_token` to the constructor to attach a JWT
         bearer token; the server verifies it via JWKS and the JWT sub claim

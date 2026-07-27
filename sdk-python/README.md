@@ -22,7 +22,7 @@ Python agents typically pair the SDK with one or more of these:
 
 ## Quick Start
 
-The Python SDK exposes the governance-core surface (57 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK exposes the governance-core surface (59 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -224,9 +224,13 @@ Check actions against policies and fetch guard audit history:
 ```python
 # Check an action against policies
 decision = claw.guard({"action_type": "deploy", "risk_score": 80})
-print(decision["decision"])  # allow | block | require_approval
+print(decision["decision"])  # allow | warn | allow_contained | require_approval | block
 print(decision["risk_score"])  # Server-computed authoritative score
 print(decision["agent_risk_score"])  # Raw agent-supplied value (or None)
+# allow_contained only ever reaches a caller that declared
+# client_capabilities: ["allow_contained"]; this SDK never does, so old/
+# non-advertising clients receive require_approval in its place. See
+# "Containment Verdicts" above.
 
 # Fetch recent guard decisions
 decisions = claw.get_guard_decisions(decision="block", limit=50)
@@ -637,9 +641,9 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK exposes the governance surface (57 methods) — the same intercept → decide → approve → prove core as the Node SDK, plus a handful of read/admin conveniences (webhooks, org management, activity logs).
+This SDK exposes the governance surface (59 methods) — the same intercept → decide → approve → prove core as the Node SDK, plus a handful of read/admin conveniences (webhooks, org management, activity logs).
 
-The Node.js SDK exposes a curated subset of **37 methods** focused on agent governance. The following core methods are available in both the Node.js SDK and this Python SDK:
+The Node.js SDK exposes a curated subset of **39 methods** focused on agent governance. The following core methods are available in both the Node.js SDK and this Python SDK:
 
 | Category | Node method | Python equivalent |
 |----------|-------------|-------------------|
@@ -680,6 +684,21 @@ Preflight plan authorization, at parity with the Node SDK: submit an ordered pla
 - `list_plans(status=None, agent_id=None, limit=None)` -- List submitted plans.
 - `resolve_plan(plan_id, verdict, step_overrides=None)` -- Operator verdict: `approve`, `deny`, or `revoke` (admin credential required).
 - `wait_for_plan_review(plan_id, timeout=300, interval=5)` -- Poll until the operator reviews the plan (status leaves `pending`).
+
+## Containment Verdicts (RFC 2026-07-06)
+
+A provably file-scoped act can come back from `guard()` as `decision: "allow_contained"` — the server lets it proceed but holds it for an operator promote/discard verdict, **only when the caller declared `client_capabilities: ["allow_contained"]`** in the guard context. This SDK never sets that field, so it never sees `allow_contained` itself; these two methods manage rows that reached `awaiting_promotion` some other way (a capability-aware caller, or the dashboard).
+
+- `resolve_containment(action_id, verdict)` -- `POST /api/actions/:id/containment`. Operator verdict on a contained action awaiting promotion (admin credential required). `verdict`: `"promote" | "discard"`, validated client-side before the request is sent. Returns `{"action": ..., "promotion_action_id": ...}` -- `promotion_action_id` is present only on `"promote"`.
+- `list_contained(status="awaiting_promotion", limit=None)` -- `GET /api/actions?containment_status=...`. List actions by containment status.
+
+```python
+# Operator resolves a contained action from the dashboard/back-office
+result = claw.resolve_containment("act_abc123", "promote")
+
+# List rows waiting on an operator verdict
+pending = claw.list_contained()  # status defaults to "awaiting_promotion"
+```
 
 ## Execution Graph & Finality
 

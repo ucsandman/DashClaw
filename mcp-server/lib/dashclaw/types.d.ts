@@ -1,4 +1,4 @@
-export type DashclawDecision = "allow" | "block" | "require_approval";
+export type DashclawDecision = "allow" | "block" | "require_approval" | "warn";
 export interface DashclawConfig {
     baseUrl: string;
     apiKey: string;

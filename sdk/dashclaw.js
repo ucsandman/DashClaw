@@ -104,6 +104,11 @@ const SCRUB_HEADER_KEYS = new Set(['authorization', 'cookie', 'x-api-key']);
 // an operator verdict yet, same as 'pending'.
 const PLAN_REVIEW_TERMINAL_STATUSES = new Set(['approved', 'partially_approved', 'denied', 'revoked', 'expired']);
 
+// Containment Verdicts (RFC 2026-07-06) — the only two operator verdicts
+// resolveContainment accepts. Validated client-side before the request
+// leaves so a typo is a synchronous throw, not a round trip to the 400.
+const CONTAINMENT_VERDICTS = new Set(['promote', 'discard']);
+
 /** Mask secret-looking substrings in a command/body/content excerpt. */
 function scrubActText(text) {
   if (typeof text !== 'string' || !text) return text;
@@ -365,13 +370,22 @@ class DashClaw {
    * @param {Object} [context.sourceOfTruth] - The facts `content` is allowed to
    *   state: `{ allowedFacts, requiredFacts, forbiddenPatterns?, extract? }`.
    * @returns {Promise<{
-   *   decision: 'allow'|'block'|'require_approval'|'warn',
+   *   decision: 'allow'|'block'|'require_approval'|'warn'|'allow_contained',
    *   reason: string,
    *   signals: string[],
    *   verification_status: 'verified'|'unverified'|'expired'|'failed'|'unknown_issuer',
    *   agent_id: string|null,
    *   agent_name: string|null,
+   *   containment?: { status: 'contained', basis: string },
    * }>}
+   *
+   * `allow_contained` (Containment Verdicts, RFC 2026-07-06): a provably
+   * file-scoped act the server will let proceed but hold for operator
+   * promote/discard via `resolveContainment` — ONLY when the caller declared
+   * `client_capabilities: ['allow_contained']` in the guard context. This SDK
+   * never sets that field, so a bare SDK caller receives `require_approval`
+   * in its place (version skew only ever tightens, never silently loosens).
+   * When present, `containment` carries the eligibility basis.
    *
    * `verification_status` reflects whether the JWT bearer token (if provided
    * via the `authToken` constructor option) was cryptographically verified:
@@ -556,6 +570,47 @@ class DashClaw {
     const body = { decision };
     if (reasoning) body.reasoning = reasoning;
     return this._post(`/api/actions/${actionId}/approve`, body);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Containment Verdicts (RFC 2026-07-06) — operator verdict on a contained
+  // action awaiting promotion. This SDK never advertises
+  // `client_capabilities`, so a guard() call from this client can never
+  // receive `decision: 'allow_contained'` in the first place (the server
+  // negotiates it down to `require_approval` for non-advertising callers) —
+  // resolveContainment/listContained only manage rows that already reached
+  // `awaiting_promotion` some other way (e.g. a capability-aware caller, or
+  // the dashboard).
+  // ---------------------------------------------------------------------------
+
+  /**
+   * POST /api/actions/:id/containment — Operator verdict on a contained
+   * action awaiting promotion (admin credential required).
+   * @param {string} actionId
+   * @param {'promote'|'discard'} verdict
+   * @returns {Promise<{action: object, promotion_action_id?: string}>}
+   *   promotion_action_id is present only when verdict is 'promote'.
+   * @throws {TypeError} if verdict is not 'promote' or 'discard' — checked
+   *   before any HTTP request is made.
+   */
+  async resolveContainment(actionId, verdict) {
+    if (!CONTAINMENT_VERDICTS.has(verdict)) {
+      throw new TypeError(`resolveContainment: verdict must be 'promote' or 'discard', got ${JSON.stringify(verdict)}`);
+    }
+    return this._post(`/api/actions/${actionId}/containment`, { verdict });
+  }
+
+  /**
+   * GET /api/actions?containment_status=... — List actions by containment
+   * status.
+   * @param {object} [opts] - { status = 'awaiting_promotion', limit? }
+   */
+  async listContained(opts = {}) {
+    const { status = 'awaiting_promotion', limit } = opts;
+    return this._get('/api/actions', {
+      containment_status: status,
+      ...(limit !== undefined ? { limit } : {}),
+    });
   }
 
   /**

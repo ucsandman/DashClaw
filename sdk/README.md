@@ -164,7 +164,11 @@ real bug in an early version of the OpenClaw plugin — don't reproduce it.
 ```javascript
 // 1. Guard — advisory on the SDK path: your code honoring the decision IS the
 //    enforcement (hook surfaces halt mechanically — see docs/architecture/enforcement-boundary.md).
-//    May return 'allow', 'block', 'warn', or 'require_approval'.
+//    May return 'allow', 'warn', 'allow_contained', 'require_approval', or 'block'.
+//    'allow_contained' (Containment Verdicts) is negotiated: it only ever
+//    reaches a caller that declared client_capabilities: ['allow_contained'].
+//    This SDK never does, so old/non-advertising clients receive
+//    'require_approval' in its place — see the Containment Verdicts section.
 const decision = await claw.guard({
   action_type: 'post_message',
   declared_goal: 'Notify #ops of deploy start',
@@ -343,7 +347,7 @@ Both SDKs expose the governance core (intercept → decide → approve → prove
 
 | | Node SDK | Python SDK |
 |---|---|---|
-| **Focus** | Governance-core surface (37 methods) | Governance core + conveniences (57 methods) |
+| **Focus** | Governance-core surface (39 methods) | Governance core + conveniences (59 methods) |
 | **Guard / actions / approvals** | ✅ | ✅ |
 | **Assumptions / signals** | ✅ | ✅ |
 | **Sessions / action graph** | ✅ | ✅ |
@@ -404,6 +408,19 @@ Terminal outcome reporting that is one-shot, retry-safe, and immutable once non-
 - `listPlans(opts?)` -- `GET /api/plans`. List plans. `opts`: `{ status?, agent_id?, limit? }`.
 - `resolvePlan(planId, verdict, opts?)` -- `POST /api/plans/:planId`. Operator verdict (admin credential required). `verdict`: `'approve' | 'deny' | 'revoke'`; `opts`: `{ step_overrides? }`.
 - `waitForPlanReview(planId, opts?)` -- Poll `getPlan()` until the operator reviews it (status leaves `pending`) or the timeout elapses. Same polling shape as `waitForApproval`. `opts`: `{ timeout = 300000, interval = 5000 }`.
+
+### Containment Verdicts (RFC 2026-07-06)
+A provably file-scoped act can come back from `guard()` as `decision: 'allow_contained'` — the server lets it proceed but holds it for an operator promote/discard verdict, **only when the caller declared `client_capabilities: ['allow_contained']`** in the guard context. This SDK never sets that field, so it never sees `allow_contained` itself; these two methods manage rows that reached `awaiting_promotion` some other way (a capability-aware caller, or the dashboard).
+- `resolveContainment(actionId, verdict)` -- `POST /api/actions/:id/containment`. Operator verdict on a contained action awaiting promotion (admin credential required). `verdict`: `'promote' | 'discard'`, validated client-side before the request is sent. Returns `{ action, promotion_action_id? }` — `promotion_action_id` is present only on `'promote'`.
+- `listContained(opts?)` -- `GET /api/actions?containment_status=...`. List actions by containment status. `opts`: `{ status = 'awaiting_promotion', limit? }`.
+
+```javascript
+// Operator resolves a contained action from the dashboard/back-office
+const { action, promotion_action_id } = await claw.resolveContainment('act_abc123', 'promote');
+
+// List rows waiting on an operator verdict
+const { actions } = await claw.listContained(); // status defaults to 'awaiting_promotion'
+```
 
 ### Team Tasks (fleets-and-teams amendment)
 - `createTeamTask(task)` -- Create a Team Task (one per multi-agent `/team` run). `task`: `{ id, instruction, origin, lead_agent, status?, stop_condition?, max_exchanges? }`.

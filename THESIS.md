@@ -266,8 +266,8 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 | App pages | 47 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 17 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
-| Node SDK methods | 37 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
-| Python SDK methods | 57 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
+| Node SDK methods | 39 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
+| Python SDK methods | 59 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
 | CLI commands | 13 | `cli/bin/dashclaw.js` (`COMMAND_HANDLERS`) |
 | Guard policy types | 15 | `app/lib/guard/policy.ts` (`KNOWN_POLICY_TYPES`) |
 
@@ -343,6 +343,15 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   no new tables, no new routes, no MCP changes. The evaluator only escalates
   (`require_approval` or `block`); attenuation only tightens, never grants.
   RFC: docs/rfcs/2026-07-06-scoped-delegation-grants.md.
+- **2026-07-27 — Containment Verdicts SDK parity (feature 3).** Node SDK
+  methods 37 → 39, Python SDK methods 57 → 59. `resolveContainment`/
+  `resolve_containment` (operator promote/discard on a contained action) and
+  `listContained`/`list_contained` (list by `containment_status`) — thin
+  wrappers over the one route this feature added (see the apiRoutes 123 → 124
+  entry above). Neither SDK ever sends `client_capabilities`, so a bare SDK
+  caller can never receive `allow_contained` from `guard()` itself; these
+  methods only manage rows that reached `awaiting_promotion` some other way.
+  RFC: docs/superpowers/plans/2026-07-27-containment-verdicts.md.
 
 ## Version story
 
