@@ -45,6 +45,7 @@ export interface GuardEvalContext {
     green?: { observed_level?: string };
     tool?: { required_permission?: string };
   };
+  client_capabilities?: unknown; // validated in validate.js; array of capability strings
   [field: string]: unknown;
 }
 
@@ -104,6 +105,7 @@ export interface PolicyRules {
   blocked_path_globs?: string[];
   require_verified_parent?: boolean;
   escalate_action?: string;
+  contain_above?: number;
 }
 
 export interface PolicyResult {

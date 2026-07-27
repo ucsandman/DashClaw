@@ -84,7 +84,7 @@ interface GuardShields {
 }
 
 // Mutable accumulator threaded through the guard phases below.
-interface GuardAccumulator {
+export interface GuardAccumulator {
   reasons: string[];
   warnings: string[];
   matchedPolicies: string[];
