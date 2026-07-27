@@ -40,6 +40,8 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
   (documented). RFC `docs/rfcs/2026-07-06-scoped-delegation-grants.md`
   (governed-autonomy program, feature 2 of 3).
 
+## [5.4.0] — 2026-07-26
+
 ### Added
 - **Preflight Plan Authorization — one review card instead of N mid-run
   interruptions.** An agent submits its intended plan (`POST /api/plans`,
