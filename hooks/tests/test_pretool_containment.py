@@ -421,6 +421,37 @@ class TestPretoolContainment(unittest.TestCase):
         self.assertNotIn("client_capabilities", body)
 
     # -----------------------------------------------------------------------
+    # 4b. Observe mode never blocks, even if the server sends allow_contained
+    #     (defense-in-depth against version skew / a misconfigured server).
+    # -----------------------------------------------------------------------
+
+    def test_observe_mode_never_blocks_on_allow_contained(self):
+        repo = self._new_repo()
+        tool_use_id = "tu-4e-" + uuid.uuid4().hex[:8]
+        self._action_state_path(tool_use_id)
+
+        self.log.guard_response = {
+            "decision": "allow_contained",
+            "recorded": True,
+            "action_id": "act-contained-observe",
+            "containment": {"status": "contained", "basis": "shell_file_ops"},
+        }
+
+        code, _, stderr = _run_hook(
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "echo hi > out.txt"},
+                "tool_use_id": tool_use_id,
+                "session_id": "sess-4e",
+            },
+            self._env(repo, DASHCLAW_HOOK_MODE="observe"),
+        )
+
+        self.assertEqual(code, 0, "observe mode must never block; stderr=%s" % stderr)
+        self.assertFalse(os.path.isdir(os.path.join(repo, ".dashclaw")),
+                          "observe mode must not create a containment worktree")
+
+    # -----------------------------------------------------------------------
     # 5. Rewrite path: updatedInput hookSpecificOutput, exit 0
     # -----------------------------------------------------------------------
 

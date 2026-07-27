@@ -1069,6 +1069,18 @@ def handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_
     Worktree creation failure (or not being in a git repo at all) is fail-
     toward-interruption (invariant 5): governance never lets a contained
     effect proceed unstaged."""
+    if HOOK_MODE == "observe":
+        # Mirrors handle_block / handle_require_approval: observe mode never
+        # blocks or redirects anything. A conformant server never emits
+        # allow_contained here (observe mode never advertises the capability,
+        # so negotiation would have downgraded to require_approval) — this is
+        # a defense-in-depth carve-out for version skew or a misconfigured
+        # server, not a path this hook's own capability gating can reach.
+        log("[DashClaw] [observe] Would contain: " + context.get("declared_goal", "unknown"))
+        if not _persist_guard_recorded_action(guard_resp, tool_use_id):
+            _record_running_action("handle_allow_contained", context, tool_use_id)
+        sys.exit(0)
+
     action_id = _persist_guard_recorded_action(guard_resp, tool_use_id)
     if not action_id:
         action_id = _record_running_action("handle_allow_contained", context, tool_use_id)
