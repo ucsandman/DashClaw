@@ -995,7 +995,16 @@ class DashClaw {
    * POST /api/policies/simulate — Simulate a single proposed policy against
    * recent historical actions. Side-effect-free.
    * @param {Object} args - { policy_type (required), rules (Object, required), days? }
-   * @returns {Promise<{ summary: { total, matches, block, warn, require_approval, allow }, matches: Array, sample_size, window_days }>}
+   * @returns {Promise<{ summary: { total, matches, block, warn, require_approval, allow, allow_contained? }, matches: Array, sample_size, window_days }>}
+   *
+   * `summary.allow_contained` appears when `rules.contain_above` is set on a
+   * `risk_threshold` policy and a historical action's risk score falls in the
+   * containment band: the evaluator that powers this simulation calls the
+   * containment eligibility check directly and is NOT capability-negotiated
+   * (that negotiation lives only in the live guard pipeline's
+   * `finalizeContainment`, which this simulate path bypasses) — so the count
+   * reflects the band verdict regardless of whether any real caller advertises
+   * `client_capabilities: ['allow_contained']`.
    */
   async simulatePolicy({ policy_type, rules, days } = {}) {
     return this._post('/api/policies/simulate', {
