@@ -181,3 +181,31 @@ describe('listActions — containment_status filter', () => {
     expect(listParams).toContain('contained');
   });
 });
+
+describe('listActions — SELECT projection includes containment columns', () => {
+  // Regression: the WHERE-fragment tests above passed even while the explicit
+  // SELECT column list omitted containment_status/containment_ref entirely —
+  // filtering matched rows server-side, but the returned rows carried no
+  // containment fields, so any caller reading row.containment_status (e.g.
+  // `dashclaw contained list`) saw undefined on every row. Assert the
+  // projected column list itself, not just the WHERE clause.
+  it('tagged-sql path: the actions SELECT projects all four containment columns', async () => {
+    const sql = makeSql([]);
+    await listActions(sql, 'org_1', {});
+    const selectCall = sql.calls.find((c) => /SELECT/i.test(c.text) && /FROM\s+action_records/i.test(c.text) && !/COUNT\(/i.test(c.text));
+    expect(selectCall?.text).toContain('containment_status');
+    expect(selectCall?.text).toContain('containment_ref');
+    expect(selectCall?.text).toContain('containment_resolved_by');
+    expect(selectCall?.text).toContain('containment_resolved_at');
+  });
+
+  it('query-mock path: the actions SELECT projects all four containment columns', async () => {
+    const sql = makeQuerySqlMock([[], [{ total: '0' }], [{}]]);
+    await listActions(sql as never, 'org_1', {});
+    const [listText] = sql.queryCalls[0]!;
+    expect(listText).toContain('containment_status');
+    expect(listText).toContain('containment_ref');
+    expect(listText).toContain('containment_resolved_by');
+    expect(listText).toContain('containment_resolved_at');
+  });
+});

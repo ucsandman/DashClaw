@@ -630,14 +630,10 @@ async function cmdContainedDiff() {
       process.exitCode = 1;
       return;
     }
-    let content;
-    try {
-      content = typeof patch.content_json === 'string' ? JSON.parse(patch.content_json) : patch.content_json;
-    } catch {
-      console.error(`Error: artifact content for ${actionId} is not valid JSON.`);
-      process.exitCode = 1;
-      return;
-    }
+    // The artifacts route shapes rows via shapeArtifact() (artifacts.repository.ts),
+    // which already JSON.parses the stored content_json column into `content` —
+    // there is no content_json key on the wire, only `content`.
+    const content = patch.content;
     if (content && content.truncated) {
       console.error('Note: diff was truncated at capture time (large changeset) — this may not be the full diff.');
     }
