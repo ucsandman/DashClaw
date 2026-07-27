@@ -51,6 +51,7 @@ describe('compileMode', () => {
       require_approval: 2,
       protected_path: 1,
       rate_limit: 2,
+      delegation_constraint: 1,
     });
     // eslint-disable-next-line no-console
     console.log('compileMode("claude-code") types:', policies.map((p) => p.policy_type).join(', '));

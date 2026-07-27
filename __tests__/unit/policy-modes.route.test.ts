@@ -52,7 +52,7 @@ describe('GET /api/policies/modes', () => {
     expect(data.modes).toHaveLength(8);
     const cc = data.modes.find((m: { id: string }) => m.id === 'claude-code');
     expect(cc).toBeTruthy();
-    expect(cc.policy_count).toBe(8);
+    expect(cc.policy_count).toBe(9);
     expect(cc.interruptionLevel).toBe('low');
     expect(Array.isArray(cc.requiresApproval)).toBe(true);
     expect(Array.isArray(cc.toolVisibilityNotes)).toBe(true);
@@ -68,8 +68,8 @@ describe('POST /api/policies/modes/preview', () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.mode.id).toBe('claude-code');
-    expect(data.policies).toHaveLength(8);
-    expect(data.summary.total).toBe(8);
+    expect(data.policies).toHaveLength(9);
+    expect(data.summary.total).toBe(9);
     // every previewed policy carries the _mode tag
     for (const p of data.policies) expect(p.rules._mode).toBe('claude-code');
     // no DB writes during preview
@@ -132,10 +132,10 @@ describe('POST /api/policies/modes/import', () => {
     }));
     expect(res.status).toBe(201);
     const data = await res.json();
-    expect(data.imported).toBe(8);
+    expect(data.imported).toBe(9);
     expect(data.reactivated).toBe(0);
     expect(data.skipped).toBe(0);
-    expect(mockInsertPolicy).toHaveBeenCalledTimes(8);
+    expect(mockInsertPolicy).toHaveBeenCalledTimes(9);
 
     const firstArgs = mockInsertPolicy.mock.calls[0]?.[2] as {
       name: string;
@@ -158,10 +158,10 @@ describe('POST /api/policies/modes/import', () => {
     }));
     expect(res.status).toBe(201);
     const data = await res.json();
-    expect(data.imported).toBe(7);
+    expect(data.imported).toBe(8);
     expect(data.reactivated).toBe(1);
     expect(data.skipped).toBe(0);
-    expect(mockInsertPolicy).toHaveBeenCalledTimes(7);
+    expect(mockInsertPolicy).toHaveBeenCalledTimes(8);
     expect(mockReactivateModePolicy).toHaveBeenCalledTimes(1);
 
     const [, , id, payload] = mockReactivateModePolicy.mock.calls[0] as [
@@ -188,10 +188,10 @@ describe('POST /api/policies/modes/import', () => {
     expect(res.status).toBe(201);
     const data = await res.json();
     expect(data.imported).toBe(0);
-    expect(data.reactivated).toBe(8);
+    expect(data.reactivated).toBe(9);
     expect(data.skipped).toBe(0);
     expect(mockInsertPolicy).not.toHaveBeenCalled();
-    expect(mockReactivateModePolicy).toHaveBeenCalledTimes(8);
+    expect(mockReactivateModePolicy).toHaveBeenCalledTimes(9);
   });
 
   it('rejects non-admin with 403', async () => {

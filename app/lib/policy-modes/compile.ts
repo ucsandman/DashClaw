@@ -131,6 +131,12 @@ const MODE_BUILDERS: Record<string, ModeBuilder> = {
         window_minutes: 60,
         action: 'require_approval',
       }),
+      mk(m, 'Constrain subagents', 'delegation_constraint', {
+        parent: '*',
+        child_types: ['*'],
+        max_risk_score: 60,
+        escalate_action: 'require_approval',
+      }),
     ];
   },
 
