@@ -810,11 +810,25 @@ function foldEvidenceIntoContext(context: GuardEvalContext): EvidenceDerivedBrea
   if (evidence.derived_action_type !== declaredType && evidence.base_risk > declaredBase) {
     mismatch = true;
     modifiers.push({ reason: `declared/derived mismatch (declared ${declaredType ?? 'none'} → derived ${evidence.derived_action_type})`, delta: 10 });
-    // Keep the declared type visible to restrictive policy matching: swapping
-    // to a lower-information derived type (e.g. social_post → other) must not
-    // let the action dodge a rule written against the declared type.
-    if (declaredType !== undefined) context.declared_action_type = declaredType;
-    context.action_type = evidence.derived_action_type;
+    // `containment_promote` is a governance sentinel, not a risk-scored action
+    // type: the builtin raise (below, ~line 973) and the operator-approval
+    // grant lookup (applyOperatorApprovalGrant) both match on the STORED
+    // declared type. It isn't in ACTION_TYPE_BASE_SCORES, so it always scores
+    // the 'other' floor (20) and any attached act (even the canonical merge
+    // act, base_risk 35) trips this mismatch. Swapping context.action_type
+    // out here would make the sentinel invisible to the raise (Task 8
+    // finding: act-attached containment_promote calls resolved to `allow`
+    // with an empty matched_policies — RFC invariant 3, governed-merge
+    // bypass) and would also break the grant lookup's action_type predicate
+    // for the legitimate happy path. Evidence still raises risk (mismatch +
+    // modifier kept) — only the type swap is suppressed for this sentinel.
+    if (declaredType !== 'containment_promote') {
+      // Keep the declared type visible to restrictive policy matching: swapping
+      // to a lower-information derived type (e.g. social_post → other) must not
+      // let the action dodge a rule written against the declared type.
+      if (declaredType !== undefined) context.declared_action_type = declaredType;
+      context.action_type = evidence.derived_action_type;
+    }
   }
   const total = Math.max(0, Math.min(evidence.base_risk + modifiers.reduce((s, m) => s + m.delta, 0), 100));
 
@@ -970,7 +984,10 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     // Containment promotions are always governed: the merge that lands staged
     // effects interrupts unless the operator's Promote click wrote the covering
     // grant (consumed below by applyOperatorApprovalGrant). RFC containment-verdicts.
-    if (context.action_type === 'containment_promote') {
+    // Also checks declared_action_type: defense in depth so any future
+    // reintroduction of an evidence-swap path for this sentinel (foldEvidenceIntoContext,
+    // above) cannot silently disable this rail again (Task 8 finding).
+    if (context.action_type === 'containment_promote' || context.declared_action_type === 'containment_promote') {
       raiseDecision(liveAcc, 'require_approval');
       liveAcc.reasons.push('Containment promotion requires operator approval');
       liveAcc.matchedPolicies.push('builtin:containment_promote');

@@ -17,6 +17,7 @@ vi.mock('@/lib/predictive-risk.js', () => ({ getPredictiveRisk: vi.fn(async () =
 vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: vi.fn(async () => []) }));
 
 import { evaluateGuard, __resetGuardCaches } from '@/lib/guard.js';
+import { buildPromotionAct } from '@/lib/guard/containment';
 
 function makePolicy(type, rules, overrides = {}) {
   return {
@@ -121,6 +122,32 @@ describe('containment negotiation (via evaluateGuard)', () => {
     }, sql);
 
     expect(result.decision).toBe('require_approval');
+    expect(result.matched_policies).toContain('builtin:containment_promote');
+  });
+
+  it('always governs containment_promote with the act attached: the merge act must not swap the sentinel type out from under the raise (Task 8 finding)', async () => {
+    const sql = makeSql({ policies: [makePolicy('risk_threshold', CONTAIN_RULES)] });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a',
+      action_type: 'containment_promote',
+      declared_goal: 'promote staged containment result',
+      act: buildPromotionAct('dashclaw/contained-x'),
+    }, sql);
+
+    expect(result.decision).toBe('require_approval');
+    expect(result.matched_policies).toContain('builtin:containment_promote');
+  });
+
+  it('the sentinel cannot be dodged by attaching a scarier act than the merge act', async () => {
+    const sql = makeSql({ policies: [makePolicy('risk_threshold', CONTAIN_RULES)] });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a',
+      action_type: 'containment_promote',
+      declared_goal: 'promote staged containment result',
+      act: { kind: 'shell', command: 'rm -rf /' },
+    }, sql);
+
+    expect(['require_approval', 'block']).toContain(result.decision);
     expect(result.matched_policies).toContain('builtin:containment_promote');
   });
 
