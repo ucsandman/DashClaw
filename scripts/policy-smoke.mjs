@@ -1663,13 +1663,32 @@ async function main() {
     // allow after containment eligibility has already been decided. That
     // grant's downgrade doesn't touch containment, and applyResult always
     // pushes a matching policy's id to matched_policies before any later
-    // grant runs, so pid's presence here is unaffected by it either way —
-    // same defensive posture as the org-ambient-template note on AF above.
+    // grant runs, so pid's presence here is unaffected by it either way.
+    // Adjacent to, but NOT the same as, AF's ambient-config note above: AF
+    // defends against an ambient policy RAISING a decision (a template's own
+    // risk_threshold could independently land require_approval); this is the
+    // opposite direction — an ambient allow_grant policy DOWNGRADING a
+    // decision after the fact (evaluate.ts's applyAllowGrants, ~line 301).
+    // The RFC's actual "never containable" claim still requires proving the
+    // require_approval fallback fired, not just waving off any non-contained
+    // outcome — so a bare 'allow' with no explanation must still fail. If the
+    // final decision is 'allow', a matching warning must document an actual
+    // grant downgrade (the literal string emitted at evaluate.ts:301 is
+    // `${policy.name}: grant downgraded ${prior decision} to allow` — matched
+    // here via /downgraded|grant/i rather than an exact string, since the
+    // policy name and prior-decision fragments vary run to run). Any other
+    // unexplained outcome (a silent allow, a block, anything but
+    // require_approval or an explained allow) fails this check.
     const httpMatched = JSON.stringify(httpAct.json?.matched_policies || []);
-    check('AH4', 'http act in band → never eligible for containment (never allow_contained), even with capabilities',
-      httpAct.json?.decision !== 'allow_contained' && httpAct.json?.containment === undefined
-        && httpMatched.includes(pid),
-      `decision=${httpAct.json?.decision} containment=${JSON.stringify(httpAct.json?.containment)} matched=${httpMatched}`);
+    const httpWarnings = Array.isArray(httpAct.json?.warnings) ? httpAct.json.warnings : [];
+    const httpDecision = httpAct.json?.decision;
+    const explainedDowngrade = httpDecision === 'allow'
+      && httpWarnings.some((w) => typeof w === 'string' && /downgraded|grant/i.test(w));
+    check('AH4', 'http act in band → never eligible for containment, and any final decision is require_approval or an explained grant downgrade (never a silent allow)',
+      httpDecision !== 'allow_contained' && httpAct.json?.containment === undefined
+        && httpMatched.includes(pid)
+        && (httpDecision === 'require_approval' || explainedDowngrade),
+      `decision=${httpDecision} containment=${JSON.stringify(httpAct.json?.containment)} matched=${httpMatched} warnings=${JSON.stringify(httpWarnings)}`);
 
     // AH5: drive the lifecycle for real — record the contained action
     // (?record=true), flip it to awaiting_promotion with a containment_ref,
