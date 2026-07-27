@@ -63,12 +63,14 @@ export const BUNDLE_TABLES: BundleTableSpec[] = [
   // signature/verified attest to the SOURCE instance's signing key — on the
   // target they cannot re-verify and must never render as natively verified
   // (security review, 2026-07-05). Imported rows get schema defaults instead.
-  // containment_* (drizzle/0064) are DENIED: containment_ref names a git
-  // worktree branch that only exists on the exporting instance's filesystem;
-  // an imported awaiting_promotion/contained row would point an operator's
-  // Promote click at a ref that never existed on the target. Imported rows
-  // get schema defaults (NULL) instead.
-  { name: 'action_records', table: actionRecords, dedupeKey: 'action_id', conflictTarget: '(action_id)', deny: ['id', 'signature', 'verified', 'containment_status', 'containment_ref', 'containment_resolved_by', 'containment_resolved_at'] },
+  // containment_ref (drizzle/0064) is DENIED: it names a git worktree branch
+  // that only exists on the exporting instance's filesystem — an imported
+  // awaiting_promotion/contained row would point an operator's Promote click
+  // at a ref that never existed on the target. containment_status/
+  // containment_resolved_by/containment_resolved_at are durable governance
+  // facts (same class as outcome_status/created_by, already exported) and
+  // travel with the row.
+  { name: 'action_records', table: actionRecords, dedupeKey: 'action_id', conflictTarget: '(action_id)', deny: ['id', 'signature', 'verified', 'containment_ref'] },
   { name: 'open_loops', table: openLoops, dedupeKey: 'loop_id', deny: ['id'] },
   { name: 'assumptions', table: assumptions, dedupeKey: 'assumption_id', deny: ['id'] },
   { name: 'agent_identities', table: agentIdentities, dedupeKey: 'agent_id', conflictTarget: '(org_id, agent_id)', deny: [] },
