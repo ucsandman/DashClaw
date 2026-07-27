@@ -383,7 +383,7 @@ function validateActField(act, addError) {
   }
 }
 
-const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'require_evidence'];
+const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'require_evidence', 'delegation_constraint'];
 const GUARD_ACTIONS = ['allow', 'warn', 'block', 'require_approval'];
 
 const POLICY_SCHEMA = {
@@ -581,6 +581,39 @@ const POLICY_TYPE_VALIDATORS = {
     }
     if (rules.enforcement !== undefined && !['warn', 'require_approval', 'block'].includes(rules.enforcement)) {
       addError('require_evidence policy rules.enforcement must be one of warn, require_approval, block when present');
+    }
+  },
+  delegation_constraint: (rules, addError) => {
+    // Authority attenuation for composed subagents (parent:child ids). All
+    // fields optional except the matcher pair; only present checks enforce.
+    if (rules.parent !== undefined && (typeof rules.parent !== 'string' || rules.parent.length === 0 || rules.parent.length > 128)) {
+      addError('delegation_constraint rules.parent must be a non-empty string (<=128 chars) or omitted (treated as "*")');
+    }
+    if (rules.child_types !== undefined && (!Array.isArray(rules.child_types) || rules.child_types.length === 0
+      || !rules.child_types.every((t) => typeof t === 'string' && t.length > 0 && t.length <= 64))) {
+      addError('delegation_constraint rules.child_types must be a non-empty array of strings (<=64 chars) when present');
+    }
+    if (rules.max_risk_score !== undefined && (typeof rules.max_risk_score !== 'number' || rules.max_risk_score < 0 || rules.max_risk_score > 100)) {
+      addError('delegation_constraint rules.max_risk_score must be a number 0-100');
+    }
+    for (const key of ['allowed_action_types', 'blocked_action_types']) {
+      if (rules[key] !== undefined && rules[key] !== null
+        && (!Array.isArray(rules[key]) || !rules[key].every((t) => typeof t === 'string' && t.length > 0 && t.length <= 128))) {
+        addError(`delegation_constraint rules.${key} must be null or an array of non-empty strings`);
+      }
+    }
+    if (rules.blocked_path_globs !== undefined
+      && (!Array.isArray(rules.blocked_path_globs) || !rules.blocked_path_globs.every((p) => typeof p === 'string' && p.length > 0 && p.length <= 256))) {
+      addError('delegation_constraint rules.blocked_path_globs must be an array of non-empty glob strings (<=256 chars)');
+    }
+    if (rules.max_depth !== undefined && (!Number.isInteger(rules.max_depth) || rules.max_depth < 1 || rules.max_depth > 8)) {
+      addError('delegation_constraint rules.max_depth must be an integer 1-8');
+    }
+    if (rules.escalate_action !== undefined && !['require_approval', 'block'].includes(rules.escalate_action)) {
+      addError('delegation_constraint rules.escalate_action must be require_approval or block (attenuation only tightens)');
+    }
+    if (rules.require_verified_parent !== undefined && typeof rules.require_verified_parent !== 'boolean') {
+      addError('delegation_constraint rules.require_verified_parent must be a boolean');
     }
   },
 };

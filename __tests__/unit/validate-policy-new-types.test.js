@@ -109,3 +109,55 @@ describe('validatePolicy — wire-format tolerance', () => {
     expect(r.valid).toBe(false);
   });
 });
+
+describe('validatePolicy — delegation_constraint', () => {
+  it('accepts a full valid rules object', () => {
+    const r = validatePolicy(base('delegation_constraint', {
+      parent: 'claude-code',
+      child_types: ['explore', 'builder'],
+      max_risk_score: 60,
+      allowed_action_types: ['read'],
+      blocked_action_types: ['deploy'],
+      blocked_path_globs: ['**/.env*', 'prod/**'],
+      max_depth: 2,
+      escalate_action: 'require_approval',
+      require_verified_parent: true,
+    }));
+    expect(r.valid).toBe(true);
+  });
+
+  it('accepts an empty rules object (every field optional)', () => {
+    const r = validatePolicy(base('delegation_constraint', {}));
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects escalate_action: allow (attenuation only tightens)', () => {
+    const r = validatePolicy(base('delegation_constraint', { escalate_action: 'allow' }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects max_risk_score above 100', () => {
+    const r = validatePolicy(base('delegation_constraint', { max_risk_score: 101 }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects max_risk_score below 0', () => {
+    const r = validatePolicy(base('delegation_constraint', { max_risk_score: -1 }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects blocked_path_globs containing a non-string', () => {
+    const r = validatePolicy(base('delegation_constraint', { blocked_path_globs: ['prod/**', 123] }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects child_types: [] (must be non-empty when present)', () => {
+    const r = validatePolicy(base('delegation_constraint', { child_types: [] }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('leaves unknown-type behavior unchanged (a genuinely unknown policy_type still 400s)', () => {
+    const r = validatePolicy(base('not_a_real_policy_type', { parent: '*' }));
+    expect(r.valid).toBe(false);
+  });
+});
