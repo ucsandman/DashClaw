@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, type ElementType } from 'react';
 import { useParams } from 'next/navigation';
 import {
   Clock, HelpCircle, Search, ShieldCheck, ShieldAlert, Info,
-  LayoutPanelLeft, ExternalLink, Package, IdCard
+  LayoutPanelLeft, ExternalLink, Package, IdCard,
+  CheckCircle2, Ban, AlertTriangle,
 } from 'lucide-react';
 import PageLayout from '../../components/PageLayout';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -20,6 +21,18 @@ import AssumptionsTab from './_components/AssumptionsTab';
 import SignalsTab from './_components/SignalsTab';
 import EvidenceTab from './_components/EvidenceTab';
 import ReplaySidebar from './_components/ReplaySidebar';
+
+// Containment Verdicts lifecycle chip — containment_status is a separate
+// column from action.status (an action can be 'completed' and still be
+// 'contained'/'awaiting_promotion'/'promoted'/'discarded'). 'awaiting_promotion'
+// is the one state that needs an operator, hence the brand-orange cue; every
+// other state pairs an icon with the label so status is never color-only.
+const CONTAINMENT_CHIP: Record<string, { variant: string; label: string; icon: ElementType }> = {
+  contained: { variant: 'info', label: 'Contained', icon: Info },
+  awaiting_promotion: { variant: 'brand', label: 'Awaiting promotion', icon: AlertTriangle },
+  promoted: { variant: 'success', label: 'Promoted', icon: CheckCircle2 },
+  discarded: { variant: 'default', label: 'Discarded', icon: Ban },
+};
 
 export default function DecisionReplayPage() {
   const params = useParams();
@@ -201,6 +214,24 @@ export default function DecisionReplayPage() {
       maturity="stable"
       actions={
         <div className="flex items-center gap-3">
+          {action.containment_status && CONTAINMENT_CHIP[action.containment_status] && (() => {
+            const chip = CONTAINMENT_CHIP[action.containment_status];
+            if (!chip) return null;
+            const ChipIcon = chip.icon;
+            return (
+              <div
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                  chip.variant === 'brand' ? 'bg-brand/10 border-brand/20 text-brand' :
+                  chip.variant === 'success' ? 'bg-success-subtle border-success/20 text-success' :
+                  chip.variant === 'info' ? 'bg-info-subtle border-blue-500/20 text-info' :
+                  'bg-white/5 border-white/10 text-tertiary'
+                }`}
+                title={`Containment status: ${chip.label}`}
+              >
+                <ChipIcon size={12} /> {chip.label}
+              </div>
+            );
+          })()}
           {action.verified ? (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-success-subtle border border-success/20 text-[10px] font-bold text-success uppercase tracking-wider" title="Decision cryptographically signed by agent">
               <ShieldCheck size={12} /> Verified Agent

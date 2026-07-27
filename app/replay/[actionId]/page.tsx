@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ElementType } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import {
   ShieldCheck, ShieldAlert, Zap, Clock, Info, ExternalLink,
-  ChevronRight, ArrowRight, Code, Copy, Check, X
+  ChevronRight, ArrowRight, Code, Copy, Check, X,
+  CheckCircle2, Ban, AlertTriangle,
 } from 'lucide-react';
 import { formatCost, formatTokens } from '../../lib/formatCost';
 import { Badge } from '../../components/ui/Badge';
@@ -42,7 +43,21 @@ interface ActionData {
   cost_estimate: number;
   tokens_in: number;
   tokens_out: number;
+  containment_status: string | null;
+  containment_ref: string | null;
 }
+
+// Containment Verdicts lifecycle — containment_status is a separate column
+// from action.status (a completed action can still be sitting in
+// 'contained'/'awaiting_promotion'/'promoted'/'discarded'). 'awaiting_promotion'
+// is the one state that needs an operator, hence the brand-orange cue; every
+// other state pairs an icon with the label so status is never color-only.
+const CONTAINMENT_CHIP: Record<string, { tone: string; label: string; icon: ElementType }> = {
+  contained: { tone: 'text-info border-blue-500/30 bg-info-subtle', label: 'Contained', icon: Info },
+  awaiting_promotion: { tone: 'text-brand border-brand/30 bg-brand/10', label: 'Awaiting promotion', icon: AlertTriangle },
+  promoted: { tone: 'text-success border-success/30 bg-success-subtle', label: 'Promoted', icon: CheckCircle2 },
+  discarded: { tone: 'text-tertiary border-white/10 bg-white/5', label: 'Discarded', icon: Ban },
+};
 
 // Evidence-first guard: the server-classified `act` a caller attached
 // to guard, redacted and capped before persistence. Excerpt fields only —
@@ -165,6 +180,8 @@ export default function PublicReplayPage() {
         cost_estimate: data.action.cost_estimate,
         tokens_in: data.action.tokens_in,
         tokens_out: data.action.tokens_out,
+        containment_status: data.action.containment_status || null,
+        containment_ref: data.action.containment_ref || null,
       });
 
       setDefense(data.agent_defense || null);
@@ -291,6 +308,19 @@ export default function PublicReplayPage() {
                 <span className="text-[10px] font-mono text-disabled tracking-tight">{action.action_id}</span>
               </div>
               <div className="flex items-center gap-1.5">
+                {action.containment_status && CONTAINMENT_CHIP[action.containment_status] && (() => {
+                  const chip = CONTAINMENT_CHIP[action.containment_status];
+                  if (!chip) return null;
+                  const ChipIcon = chip.icon;
+                  return (
+                    <div
+                      className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-widest ${chip.tone}`}
+                      title={`Containment status: ${chip.label}`}
+                    >
+                      <ChipIcon size={10} /> {chip.label}
+                    </div>
+                  );
+                })()}
                 {action.verified ? (
                   <div className="flex items-center gap-1 text-[9px] font-bold text-success/80 uppercase tracking-widest">
                     <ShieldCheck size={10} /> Verified Identity

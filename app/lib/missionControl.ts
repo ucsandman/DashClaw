@@ -40,6 +40,11 @@ export function isPriorityEvent(event: Row): boolean {
   if (PRIORITY_CATEGORIES.has(event.category)) return true;
   if (event.category === 'outcome' && !SUCCESS_STATUSES.has(event.status)) return true;
   if (event.category === 'decision' && ['failed', 'pending_approval'].includes(event.status)) return true;
+  // Containment Verdicts: an action sitting in 'awaiting_promotion' needs an
+  // operator's promote/discard verdict same as a pending_approval action —
+  // containment_status is a separate column from status, so it can't be
+  // caught by the check above.
+  if (event.category === 'decision' && event.containmentStatus === 'awaiting_promotion') return true;
   return false;
 }
 
@@ -71,10 +76,15 @@ export function buildActionEvent(action: Row): MissionEvent {
   const confidence = asNumber(action.confidence, null);
   const isMonitor = isRoutineMonitorAction({ ...action, status, risk_score: riskScore });
   const summary = action.output_summary || action.error_message || action.input_summary || null;
+  // Containment Verdicts: a separate lifecycle column from `status` — an
+  // action can be 'completed' and still be sitting in 'awaiting_promotion',
+  // waiting on an operator's promote/discard verdict.
+  const containmentStatus = action.containment_status || null;
 
   let emphasis = 60;
   if (status === 'failed') emphasis = 100;
   else if (status === 'pending_approval') emphasis = 95;
+  else if (containmentStatus === 'awaiting_promotion') emphasis = 95;
   else if ((riskScore as number) >= 85) emphasis = 92;
   else if (status === 'running') emphasis = isMonitor ? 24 : 70;
   else if (status === 'completed') emphasis = isMonitor ? 22 : 66;
@@ -95,6 +105,7 @@ export function buildActionEvent(action: Row): MissionEvent {
     outputSummary: summary,
     riskScore,
     confidence,
+    containmentStatus,
     startedAt: action.timestamp_start || action.created_at || null,
     endedAt: action.timestamp_end || null,
     timestamp: action.timestamp_end || action.timestamp_start || action.created_at || new Date().toISOString(),

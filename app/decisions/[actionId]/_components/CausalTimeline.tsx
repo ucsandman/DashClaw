@@ -39,14 +39,19 @@ export default function CausalTimeline({ action, guardDecision, assumptions, tra
             <div className={`z-10 mt-1 h-4 w-4 rounded-full border-4 border-surface-secondary shadow-[0_0_0_1px_var(--color-border)] ${
               guardDecision?.decision === 'allow' ? 'bg-status-success' :
               guardDecision?.decision === 'block' ? 'bg-status-error' :
-              guardDecision?.decision === 'require_approval' ? 'bg-status-warning' : 'bg-zinc-500'
+              guardDecision?.decision === 'require_approval' ? 'bg-status-warning' :
+              guardDecision?.decision === 'allow_contained' ? 'bg-status-info' : 'bg-zinc-500'
             }`} />
             <div className="flex-1">
               <div className="text-[10px] font-semibold text-disabled uppercase tracking-widest mb-1">Policy Evaluation</div>
               {guardDecision ? (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2">
-                    <Badge variant={getStatusVariant(guardDecision.decision === 'allow' ? 'completed' : guardDecision.decision === 'block' ? 'failed' : 'running')} size="xs">
+                    <Badge variant={getStatusVariant(
+                      guardDecision.decision === 'allow' ? 'completed' :
+                      guardDecision.decision === 'block' ? 'failed' :
+                      guardDecision.decision === 'allow_contained' ? 'pending' : 'running'
+                    )} size="xs">
                       {guardDecision.decision.toUpperCase()}
                     </Badge>
                     {guardDecision.reason && <span className="text-xs text-secondary">{guardDecision.reason}</span>}

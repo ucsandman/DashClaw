@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef, type ElementType } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import PageLayout from '../components/PageLayout';
@@ -73,6 +73,18 @@ const statusTextMap: Record<string, string> = {
 const DECISION_TO_STATUS: Record<string, string> = {
   block: 'blocked',
   require_approval: 'pending_approval',
+};
+
+// Containment Verdicts lifecycle chip — containment_status is a separate
+// column from action.status, so it renders alongside the status dot/outcome
+// badge rather than replacing them. 'awaiting_promotion' is the state that
+// needs an operator, hence the brand-orange cue; every other state pairs an
+// icon with the label so status is never color-only.
+const CONTAINMENT_CHIP: Record<string, { variant: string; label: string; icon: ElementType }> = {
+  contained: { variant: 'info', label: 'Contained', icon: Info },
+  awaiting_promotion: { variant: 'brand', label: 'Awaiting promotion', icon: AlertTriangle },
+  promoted: { variant: 'success', label: 'Promoted', icon: CheckCircle2 },
+  discarded: { variant: 'default', label: 'Discarded', icon: Ban },
 };
 
 // One-shot read of the supported /decisions URL params. Lazy state seeds so
@@ -743,6 +755,17 @@ function DecisionsLedgerInner() {
                             {action.outcome_status && action.outcome_status !== 'pending' && (
                               <OutcomeBadge status={action.outcome_status} />
                             )}
+                            {action.containment_status && CONTAINMENT_CHIP[action.containment_status] && (() => {
+                              const chip = CONTAINMENT_CHIP[action.containment_status];
+                              if (!chip) return null;
+                              const ChipIcon = chip.icon;
+                              return (
+                                <Badge variant={chip.variant} size="xs">
+                                  <ChipIcon size={10} className="mr-1 inline" />
+                                  {chip.label}
+                                </Badge>
+                              );
+                            })()}
                             {action.cost_estimate > 0 && (
                               <div className="flex flex-col items-end">
                                 <span className="font-mono text-[11px] tabular-nums text-secondary">

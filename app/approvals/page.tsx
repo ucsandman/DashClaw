@@ -23,6 +23,7 @@ import { EntityLink } from '../components/context-menu/EntityLink';
 import ApprovalFloodBanner from '../components/ApprovalFloodBanner';
 import PlanReviewCard from './_components/PlanReviewCard';
 import LivePlansSection from './_components/LivePlansSection';
+import ContainmentSection from './_components/ContainmentSection';
 
 type BannerTone = 'neutral' | 'warning';
 
@@ -59,6 +60,7 @@ export default function ApprovalsPage() {
   const [expiredActions, setExpiredActions] = useState<any[]>([]);
   const [pendingPlans, setPendingPlans] = useState<Array<{ plan: any; steps: any[] }>>([]);
   const [livePlans, setLivePlans] = useState<Array<{ plan: any; steps: any[] }>>([]);
+  const [awaitingContainment, setAwaitingContainment] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [clearingExpired, setClearingExpired] = useState(false);
@@ -139,12 +141,30 @@ export default function ApprovalsPage() {
     } catch { /* pending/live plans are additive; the actions inbox must not break on this */ }
   }, [fetchPlanList, fetchPlanDetails]);
 
+  // Containment Verdicts: actions an agent staged instead of executing,
+  // awaiting an operator's promote/discard verdict. Additive like the plan
+  // fetches above — a failure here must never break the approvals inbox.
+  const fetchAwaitingContainment = useCallback(async () => {
+    try {
+      const agentQs = agentId ? `&agent_id=${encodeURIComponent(agentId)}` : '';
+      const res = await fetch(`/api/actions?containment_status=awaiting_promotion&limit=50${agentQs}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setAwaitingContainment(data.actions || []);
+    } catch { /* additive surface; the actions inbox must not break on this */ }
+  }, [agentId]);
+
   useEffect(() => {
     fetchPending();
     fetchPendingPlans();
-    const interval = setInterval(() => { fetchPending({ silent: true }); fetchPendingPlans(); }, 10000); // Fallback poll
+    fetchAwaitingContainment();
+    const interval = setInterval(() => {
+      fetchPending({ silent: true });
+      fetchPendingPlans();
+      fetchAwaitingContainment();
+    }, 10000); // Fallback poll
     return () => clearInterval(interval);
-  }, [fetchPending, fetchPendingPlans]);
+  }, [fetchPending, fetchPendingPlans, fetchAwaitingContainment]);
 
   // Realtime: clear instantly when an approval is resolved anywhere (another
   // channel, /approve) rather than waiting up to 10s for the poll.
@@ -156,6 +176,7 @@ export default function ApprovalsPage() {
     }
     if (event === 'action.created' || event === 'action.updated') {
       fetchPendingPlans();
+      fetchAwaitingContainment();
     }
   });
 
@@ -295,6 +316,12 @@ export default function ApprovalsPage() {
           plans={livePlans}
           canDecide={canDecide}
           onResolved={() => { fetchPendingPlans(); fetchPending({ silent: true }); }}
+        />
+
+        <ContainmentSection
+          actions={awaitingContainment}
+          canDecide={canDecide}
+          onResolvedAction={() => { fetchAwaitingContainment(); fetchPending({ silent: true }); }}
         />
 
         {pendingActions.length > 0 && isAdmin && (
