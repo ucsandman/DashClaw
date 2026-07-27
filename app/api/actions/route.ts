@@ -50,6 +50,7 @@ export async function GET(request: Request) {
     const action_type = searchParams.get('action_type') || undefined;
     const risk_min = searchParams.get('risk_min') || undefined;
     const outcome_status = searchParams.get('outcome_status') || undefined;
+    const containment_status = searchParams.get('containment_status') || undefined;
     // Optional rolling window (1-365 days). Scopes the returned `total` and
     // `stats` too — the activity narrative reads that windowed total instead
     // of a LIMIT-capped buffer length.
@@ -116,6 +117,7 @@ export async function GET(request: Request) {
       action_type,
       risk_min,
       outcome_status,
+      containment_status,
       days,
       expired_after,
       limit,

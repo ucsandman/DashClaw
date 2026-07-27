@@ -150,6 +150,39 @@ describe('/api/actions GET', () => {
     );
   });
 
+  it('forwards containment_status to listActions', async () => {
+    mockListActions.mockResolvedValue({ actions: [], total: 0, stats: {} });
+
+    await GET(makeRequest('http://localhost/api/actions?containment_status=awaiting_promotion', {
+      headers: { 'x-org-id': 'org_1' },
+    }));
+
+    expect(mockListActions).toHaveBeenCalledWith(
+      mockSql,
+      'org_1',
+      expect.objectContaining({
+        containment_status: 'awaiting_promotion',
+      })
+    );
+  });
+
+  it('forwards an unrecognized containment_status value unchanged (route does not validate filter enums — matches existing status/action_type behavior)', async () => {
+    mockListActions.mockResolvedValue({ actions: [], total: 0, stats: {} });
+
+    const res = await GET(makeRequest('http://localhost/api/actions?containment_status=not_a_real_value', {
+      headers: { 'x-org-id': 'org_1' },
+    }));
+
+    expect(res.status).toBe(200);
+    expect(mockListActions).toHaveBeenCalledWith(
+      mockSql,
+      'org_1',
+      expect.objectContaining({
+        containment_status: 'not_a_real_value',
+      })
+    );
+  });
+
   it('caps limit at 200', async () => {
     mockListActions.mockResolvedValue({ actions: [], total: 0, stats: {} });
 
