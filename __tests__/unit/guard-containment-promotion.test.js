@@ -64,14 +64,11 @@ function guardCall(act) {
 }
 
 describe('containment promotion grant — single-use, act-hash-bound (via evaluateGuard)', () => {
-  const originalGuardLlmKey = process.env.GUARD_LLM_KEY;
-
   beforeEach(() => {
     vi.clearAllMocks();
     __resetGuardCaches();
     mockScanSensitiveData.mockImplementation((text) => ({ findings: [], redacted: text, clean: true }));
     process.env.GUARD_LLM_KEY = 'mock-key-for-unit-tests';
-    process.env.GUARD_LLM_KEY = process.env.GUARD_LLM_KEY ?? originalGuardLlmKey;
   });
 
   it('case 1: a matching synthetic grant downgrades the raise to allow, crediting BOTH builtins', async () => {
@@ -95,6 +92,14 @@ describe('containment promotion grant — single-use, act-hash-bound (via evalua
     expect(lookup).toBeDefined();
     expect(lookup.text).toContain('act_content_hash IS NULL OR act_content_hash =');
     expect(lookup.values).toContain(computeActContentHash(act));
+    // Pin the action_type bound param too: a partial regression that deletes
+    // the fold-guard (d4a99405) but keeps the OR-clause's action_type check
+    // would swap context.action_type to 'apply' before this lookup runs,
+    // breaking the real Postgres match — but this mock returns grantRows
+    // unconditionally regardless of the bound action_type, so only an
+    // explicit assertion on the bound value catches that regression.
+    expect(lookup.values).toContain('containment_promote');
+    expect(lookup.values).not.toContain('apply');
   });
 
   it('case 2: the grant is single-use — a second identical call with no matching row (consumed) stays require_approval', async () => {
@@ -142,10 +147,9 @@ describe('containment promotion grant — single-use, act-hash-bound (via evalua
       taggedCalls.push({ text, values });
       if (/FROM guard_policies/i.test(text)) return Promise.resolve([]);
       if (text.includes('FROM action_records')) {
-        // act_content_hash is the 5th interpolated value in the query
-        // (org_id, agent_id, declared_goal, actionType, retryActHash — see
-        // applyOperatorApprovalGrant's template). Extract it by position
-        // rather than assuming, so this genuinely reads what the guard
+        // Find the retry's bound act-hash value by matching against the two
+        // known candidate hashes (not by position — the query interpolates
+        // several other values too) so this genuinely reads what the guard
         // computed for THIS retry's act.
         const retryHashParam = values.find((v) => v === mutatedHash || v === approvedHash || v === null);
         const rowMatches = retryHashParam === approvedHash; // stored row's hash
