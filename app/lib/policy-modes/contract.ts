@@ -120,6 +120,16 @@ export function buildContract(
       case 'block_action_type':
         view.blocks.push(s(`action is one of: ${listTypes(rules.action_types)}`));
         break;
+      case 'delegation_constraint': {
+        const parent = typeof rules.parent === 'string' && rules.parent !== '*' ? rules.parent : 'any parent';
+        const childTypes = Array.isArray(rules.child_types) ? rules.child_types : [];
+        const childLabel = childTypes.length > 0 && !childTypes.includes('*') ? listTypes(childTypes) : 'any type';
+        const riskPart = typeof rules.max_risk_score === 'number' ? ` above risk ${rules.max_risk_score}` : '';
+        const txt = `a subagent spawned by ${parent} (${childLabel}) acts${riskPart}`;
+        if (rules.escalate_action === 'block') view.blocks.push(s(txt));
+        else view.interrupts.push(s(txt));
+        break;
+      }
       case 'allow_grant': {
         const at = String(rules.action_type ?? '');
         const tp = rules.target_prefix == null ? null : String(rules.target_prefix);

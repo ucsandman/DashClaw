@@ -220,6 +220,15 @@ function describeRule(row: any, rules: Record<string, any>): React.ReactNode {
       return <>{ruleVerb(rules.action)} actions touching protected paths</>;
     case 'webhook_check':
       return <>Call an external webhook before allowing the action</>;
+    case 'delegation_constraint': {
+      const parent = rules.parent || '*';
+      const childTypes = Array.isArray(rules.child_types) && rules.child_types.length > 0 ? rules.child_types : ['*'];
+      const riskPart = typeof rules.max_risk_score === 'number' ? <> &mdash; risk &le; {rules.max_risk_score}</> : null;
+      const blockedPart = Array.isArray(rules.blocked_action_types) && rules.blocked_action_types.length > 0
+        ? <>, no {joinCodes(rules.blocked_action_types)}</>
+        : null;
+      return <>Constrain <Code>{`${parent}:${childTypes.join('|')}`}</Code>{riskPart}{blockedPart}</>;
+    }
     default:
       return <>{buildPolicySummary(decompilePolicyForm(row))}</>;
   }

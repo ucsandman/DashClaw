@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import {
   ChevronDown, Rocket, TriangleAlert, ShieldAlert, Ban, Timer, Globe,
-  MessageSquare, BadgeCheck, Fingerprint, Shield, type LucideIcon,
+  MessageSquare, BadgeCheck, Fingerprint, Shield, GitFork, type LucideIcon,
 } from 'lucide-react';
 import type { PolicySummary } from '../lib/modesClient';
 import { SHIELDS, matchShieldsToPolicies, buildShieldPayload } from '../lib/shields';
@@ -13,7 +13,7 @@ import styles from '../policies.module.css';
 /**
  * Section 4: the "presets & shields" quick-add row. A mode writes a tagged batch
  * of rules; each shield is one canned rule. Both land in the ledger below with a
- * source tag — this is where their relationship becomes literal. All nine shields
+ * source tag — this is where their relationship becomes literal. All ten shields
  * are visible at first paint (no hidden disclosure).
  */
 
@@ -32,6 +32,7 @@ const SHIELD_ICONS: Record<string, LucideIcon> = {
   outbound_gate: MessageSquare,
   non_fabrication_guard: BadgeCheck,
   evidence_required: Fingerprint,
+  subagent_constraint: GitFork,
 };
 
 const LEVEL: Record<string, { cls?: string; label: string; sub: string }> = {

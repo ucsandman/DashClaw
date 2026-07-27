@@ -12,7 +12,7 @@ describe('buildPolicySummary', () => {
     expect(s.modes).toEqual([]);
     expect(s.enforcement).toEqual({ total: 0, warn: 0, require_approval: 0, block: 0 });
     expect(s.rules).toEqual([]);
-    expect(s.shields).toHaveLength(9); // full catalog, all off (secret_guard shield retired with semantic_check)
+    expect(s.shields).toHaveLength(10); // full catalog, all off (secret_guard shield retired with semantic_check; incl. Subagent Constraint)
     expect(s.shields.every((sh) => sh.on === false)).toBe(true);
     expect(s.agents.total).toBe(47);
   });

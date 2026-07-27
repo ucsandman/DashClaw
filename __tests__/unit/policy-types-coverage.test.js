@@ -24,6 +24,7 @@ const FORMS = {
   protected_path: { name: 'PP', type: 'protected_path', protectedPaths: ['**/auth/**', '**/secrets/**'], action: 'require_approval', agentIds: [] },
   agent_allowlist: { name: 'Envelope', type: 'agent_allowlist', allowedActionTypes: ['read', 'search'], action: 'warn', agentIds: [] },
   require_evidence: { name: 'Evidence', type: 'require_evidence', actionTypes: ['deploy'], enforcement: 'require_approval', agentIds: [] },
+  delegation_constraint: { name: 'Subagent', type: 'delegation_constraint', parent: '*', childTypes: ['*'], maxRiskScore: 60, escalateAction: 'require_approval', agentIds: [] },
 };
 
 describe('policy type coverage (UI ↔ backend contract)', () => {

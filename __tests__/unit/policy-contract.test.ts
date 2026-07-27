@@ -37,10 +37,12 @@ describe('buildContract', () => {
     const grant = c.grants[0];
     if (!grant) throw new Error('grant not found');
     expect(grant.label).toBe('api → api.stripe.com');
-    // claude-code's new delegation_constraint policy has no dedicated contract
-    // bucket yet, so it falls into `custom` alongside the fixture's own
-    // custom rule — the default fallback for any unrecognized policy_type.
-    expect(c.custom).toHaveLength(2);
+    // claude-code's delegation_constraint policy now has a dedicated contract
+    // sentence (interrupts, since its default escalate_action is
+    // require_approval) — only the fixture's own unrecognized policy_type
+    // falls into `custom`.
+    expect(c.custom).toHaveLength(1);
+    expect(c.interrupts.some((s) => s.text.includes('subagent'))).toBe(true);
   });
 
   it('reports ungoverned when no active policies', () => {

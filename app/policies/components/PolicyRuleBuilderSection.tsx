@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 
 const inputClass = 'w-full rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm text-white placeholder-zinc-600 focus:border-brand/50 focus:outline-none';
@@ -129,6 +129,194 @@ function ActionTypePicker({ selected, options, onChange, label, hint }: ActionTy
         >
           Add
         </button>
+      </div>
+    </div>
+  );
+}
+
+interface DelegationConstraintFieldsProps {
+  form: any;
+  onChange: (field: string, value: any) => void;
+}
+
+// Scoped delegation constraints (app/lib/guard/policy.ts) attenuate a spawned
+// subagent's authority relative to its parent — the rule only fires on
+// composed identities (`parent:child`, the ':' delimiter DashClaw reserves
+// for subagent spawns). This branch has no other data-fetch precedent in the
+// file, so it owns a small local useEffect (mirrors ActionTypePicker owning
+// its own local state above) that fetches /api/agents once on mount and
+// offers observed composed ids as one-click prefill chips. Free-text entry
+// for parent/child types stays available whether or not the fetch succeeds.
+function DelegationConstraintFields({ form, onChange }: DelegationConstraintFieldsProps) {
+  const [observedIds, setObservedIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/agents')
+      .then((res) => (res.ok ? res.json() : { agents: [] }))
+      .then((data: { agents?: Array<{ agent_id?: string }> }) => {
+        if (cancelled) return;
+        const composed = (Array.isArray(data.agents) ? data.agents : [])
+          .map((a) => a.agent_id)
+          .filter((id): id is string => typeof id === 'string' && id.includes(':'));
+        setObservedIds([...new Set(composed)]);
+      })
+      .catch(() => {
+        // free-text entry still works without the observed roster
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const applyObservedId = (id: string) => {
+    const sep = id.indexOf(':');
+    if (sep <= 0) return;
+    onChange('parent', id.slice(0, sep));
+    onChange('childTypes', id.slice(sep + 1).split(':').filter(Boolean));
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-tertiary">
+        Caps what a spawned subagent may do relative to its parent. Fires only for composed{' '}
+        <code className="text-secondary">parent:child</code> identities — plain, non-delegated agents
+        are always unaffected.
+      </p>
+
+      {observedIds.length > 0 && (
+        <div>
+          <label className="block text-xs text-secondary mb-2">Observed subagent identities</label>
+          <div className="flex flex-wrap gap-2">
+            {observedIds.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => applyObservedId(id)}
+                className="px-2.5 py-1 rounded-md text-xs bg-surface-tertiary text-secondary border border-border hover:text-white transition-colors"
+              >
+                {id}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs text-secondary mb-1">Parent (agent id, or * for any)</label>
+          <input
+            aria-label="Delegation parent"
+            type="text"
+            value={form.parent}
+            onChange={(event) => onChange('parent', event.target.value)}
+            placeholder="*"
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-secondary mb-1">Max risk score (0-100)</label>
+          <input
+            aria-label="Delegation max risk score"
+            type="number"
+            min="0"
+            max="100"
+            value={form.maxRiskScore}
+            onChange={(event) => {
+              const value = event.target.value === ''
+                ? ''
+                : Math.max(0, Math.min(100, parseInt(event.target.value, 10) || 0));
+              onChange('maxRiskScore', value);
+            }}
+            className={inputClass}
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs text-secondary mb-1">Child types (one per line, or * for any)</label>
+        <textarea
+          aria-label="Delegation child types"
+          value={(form.childTypes || []).join('\n')}
+          onChange={(event) => onChange('childTypes', event.target.value.split('\n'))}
+          placeholder={'*'}
+          rows={2}
+          className={inputClass}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs text-secondary mb-1">Allowed action types (one per line, optional)</label>
+          <textarea
+            aria-label="Delegation allowed action types"
+            value={(form.allowedActionTypes || []).join('\n')}
+            onChange={(event) => onChange('allowedActionTypes', event.target.value.split('\n'))}
+            placeholder={'read\nsearch'}
+            rows={3}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-secondary mb-1">Blocked action types (one per line, optional)</label>
+          <textarea
+            aria-label="Delegation blocked action types"
+            value={(form.blockedActionTypes || []).join('\n')}
+            onChange={(event) => onChange('blockedActionTypes', event.target.value.split('\n'))}
+            placeholder={'deploy\nmigrate'}
+            rows={3}
+            className={inputClass}
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs text-secondary mb-1">Blocked path globs (one per line, optional)</label>
+        <textarea
+          aria-label="Delegation blocked path globs"
+          value={(form.blockedPathGlobs || []).join('\n')}
+          onChange={(event) => onChange('blockedPathGlobs', event.target.value.split('\n'))}
+          placeholder={'**/secrets/**\nmiddleware.js'}
+          rows={3}
+          className={inputClass}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-xs text-secondary mb-1">Max spawn depth (optional)</label>
+          <input
+            aria-label="Delegation max depth"
+            type="number"
+            min="1"
+            max="8"
+            value={form.maxDepth}
+            onChange={(event) => onChange('maxDepth', event.target.value === '' ? '' : parseInt(event.target.value, 10) || 1)}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-secondary mb-1">On violation</label>
+          <select
+            aria-label="Delegation escalate action"
+            value={form.escalateAction}
+            onChange={(event) => onChange('escalateAction', event.target.value)}
+            className={selectClass}
+          >
+            <option value="require_approval">Require Approval</option>
+            <option value="block">Block</option>
+          </select>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-white sm:mt-5">
+          <input
+            aria-label="Require verified parent"
+            type="checkbox"
+            checked={!!form.requireVerifiedParent}
+            onChange={(event) => onChange('requireVerifiedParent', event.target.checked)}
+            className="h-4 w-4 accent-brand"
+          />
+          Require verified parent
+        </label>
       </div>
     </div>
   );
@@ -580,6 +768,10 @@ export default function PolicyRuleBuilderSection({
             </div>
           </div>
         </div>
+      )}
+
+      {form.type === 'delegation_constraint' && (
+        <DelegationConstraintFields form={form} onChange={onChange} />
       )}
 
     </>

@@ -254,6 +254,46 @@ describe('policyFormModel — full-type characterization', () => {
       .toEqual({ paths: ['x'], action: 'require_approval' });
   });
 
+  it('compiles delegation_constraint (omits empty optional fields)', () => {
+    expect(rulesOf({ type: 'delegation_constraint', parent: '*', childTypes: ['*'], maxRiskScore: 60, escalateAction: 'require_approval', agentIds: [] }))
+      .toEqual({ parent: '*', child_types: ['*'], escalate_action: 'require_approval', require_verified_parent: false, max_risk_score: 60 });
+    expect(rulesOf({
+      type: 'delegation_constraint',
+      parent: 'claude-code',
+      childTypes: ['explore', ''],
+      maxRiskScore: '',
+      allowedActionTypes: ['read'],
+      blockedActionTypes: ['deploy'],
+      blockedPathGlobs: ['**/secrets/**'],
+      maxDepth: 2,
+      escalateAction: 'block',
+      requireVerifiedParent: true,
+      agentIds: [],
+    })).toEqual({
+      parent: 'claude-code',
+      child_types: ['explore'],
+      escalate_action: 'block',
+      require_verified_parent: true,
+      allowed_action_types: ['read'],
+      blocked_action_types: ['deploy'],
+      blocked_path_globs: ['**/secrets/**'],
+      max_depth: 2,
+    });
+  });
+
+  it('round-trips delegation_constraint through decompile', () => {
+    const payload = compilePolicyPayload({
+      type: 'delegation_constraint', parent: 'claude-code', childTypes: ['explore'],
+      maxRiskScore: 60, escalateAction: 'require_approval', agentIds: [],
+    });
+    const form = decompilePolicyForm({ ...payload, rules: payload.rules });
+    expect(form.type).toBe('delegation_constraint');
+    expect(form.parent).toBe('claude-code');
+    expect(form.childTypes).toEqual(['explore']);
+    expect(form.maxRiskScore).toBe(60);
+    expect(JSON.parse(compilePolicyPayload(form).rules)).toEqual(JSON.parse(payload.rules));
+  });
+
   it('carries inline test recipes through as the last rules key', () => {
     const payload = compilePolicyPayload({ type: 'risk_threshold', threshold: 50, action: 'warn', tests: [{ name: 't' }], agentIds: [] });
     const parsed = JSON.parse(payload.rules);
@@ -272,6 +312,8 @@ describe('policyFormModel — full-type characterization', () => {
       .toBe('Require approval for deploy actions when the branch is stale or diverged and more than 2 commits behind.');
     expect(buildPolicySummary({ type: 'protected_path', protectedPaths: ['auth/', 'x'], action: 'block', agentIds: [] }))
       .toBe('Block actions that touch 2 protected path patterns.');
+    expect(buildPolicySummary({ type: 'delegation_constraint', parent: 'claude-code', childTypes: ['explore'], maxRiskScore: 60, agentIds: [] }))
+      .toBe('Constrain claude-code:explore to risk ≤ 60.');
     expect(buildPolicySummary({ type: 'unknown_type', agentIds: [] })).toBe('Configure a policy rule.');
   });
 });

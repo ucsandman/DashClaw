@@ -35,6 +35,16 @@ const DEFAULT_FORM_STATE = {
   // allow_grant
   actionType: '',
   targetPrefix: '',
+  // delegation_constraint (Subagent Constraint) — allowedActionTypes is shared
+  // with agent_allowlist above.
+  parent: '*',
+  childTypes: ['*'],
+  maxRiskScore: 60,
+  blockedActionTypes: [],
+  blockedPathGlobs: [],
+  maxDepth: '',
+  escalateAction: 'require_approval',
+  requireVerifiedParent: false,
   // optional inline test recipes (A1): [{ name, input, expect: { decision } }]
   tests: [],
 };
@@ -58,6 +68,7 @@ export const POLICY_TYPE_OPTIONS = [
   { value: 'protected_path', label: 'Protected Path', desc: 'Warn or require approval when an action touches sensitive paths (auth, secrets, billing, middleware, …)' },
   { value: 'agent_allowlist', label: 'Agent Allowlist', desc: 'Warn (or escalate) when an agent uses an action type outside its observed safe envelope' },
   { value: 'require_evidence', label: 'Evidence Required', desc: 'Escalate guard calls that declare intent without attaching the actual act (command, request, statement, or file write)' },
+  { value: 'delegation_constraint', label: 'Subagent Constraint', desc: 'Cap what a spawned subagent may do — risk ceiling, action types, paths, depth' },
 ];
 
 function cleanString(value) {
@@ -267,6 +278,37 @@ const POLICY_TYPE_HANDLERS = {
       return `${verb} ${actionListText(form.actionTypes)} guard calls that declare intent without attaching the actual act${scoped}.`;
     },
   },
+  // Scoped delegation constraints (app/lib/guard/policy.ts) — a no-op for
+  // non-composed callers, so most fields are optional and are OMITTED from
+  // the compiled rules when empty (an empty allowed_action_types array would
+  // read as "nothing is allowed" to the evaluator, not "unconfigured").
+  delegation_constraint: {
+    compile: (form) => {
+      const rules = {
+        parent: cleanString(form.parent) || '*',
+        child_types: cleanStringList(form.childTypes).length > 0 ? cleanStringList(form.childTypes) : ['*'],
+        escalate_action: form.escalateAction === 'block' ? 'block' : 'require_approval',
+        require_verified_parent: !!form.requireVerifiedParent,
+      };
+      if (hasValue(form.maxRiskScore)) rules.max_risk_score = Number(form.maxRiskScore) || 0;
+      const allowed = cleanStringList(form.allowedActionTypes);
+      if (allowed.length > 0) rules.allowed_action_types = allowed;
+      const blocked = cleanStringList(form.blockedActionTypes);
+      if (blocked.length > 0) rules.blocked_action_types = blocked;
+      const globs = cleanStringList(form.blockedPathGlobs);
+      if (globs.length > 0) rules.blocked_path_globs = globs;
+      if (hasValue(form.maxDepth)) rules.max_depth = Math.max(1, Math.min(8, Number(form.maxDepth) || 1));
+      return rules;
+    },
+    summary: (form, scoped) => {
+      const parent = cleanString(form.parent) || '*';
+      const childTypes = cleanStringList(form.childTypes);
+      const childLabel = childTypes.length > 0 ? childTypes.join('|') : '*';
+      const risk = hasValue(form.maxRiskScore) ? Number(form.maxRiskScore) || 0 : null;
+      const riskPart = risk != null ? ` to risk ≤ ${risk}` : '';
+      return `Constrain ${parent}:${childLabel}${riskPart}${scoped}.`;
+    },
+  },
 };
 
 // --- Form state -> stored policy payload (compile) ---
@@ -335,6 +377,14 @@ export function decompilePolicyForm(policy) {
     targetPrefix: orVal(rules.target_prefix, ''),
     protectedPaths: arrOr(rules.paths, DEFAULT_FORM_STATE.protectedPaths),
     allowedActionTypes: arrOr(rules.allowed_action_types, DEFAULT_FORM_STATE.allowedActionTypes),
+    parent: orVal(rules.parent, DEFAULT_FORM_STATE.parent),
+    childTypes: arrOr(rules.child_types, DEFAULT_FORM_STATE.childTypes),
+    maxRiskScore: coalesce(rules.max_risk_score, DEFAULT_FORM_STATE.maxRiskScore),
+    blockedActionTypes: arrOr(rules.blocked_action_types, DEFAULT_FORM_STATE.blockedActionTypes),
+    blockedPathGlobs: arrOr(rules.blocked_path_globs, DEFAULT_FORM_STATE.blockedPathGlobs),
+    maxDepth: coalesce(rules.max_depth, DEFAULT_FORM_STATE.maxDepth),
+    escalateAction: orVal(rules.escalate_action, DEFAULT_FORM_STATE.escalateAction),
+    requireVerifiedParent: rules.require_verified_parent !== undefined ? !!rules.require_verified_parent : DEFAULT_FORM_STATE.requireVerifiedParent,
     tests: arrOr(rules.tests, []),
     agentIds: parseAgentIds(policy),
   };

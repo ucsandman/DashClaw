@@ -51,7 +51,7 @@ describe('GET /api/policies/summary', () => {
     const data = await res.json();
     expect(data.governed).toBe(false);
     expect(data.primaryMode).toBeNull();
-    expect(data.shields).toHaveLength(9); // full catalog (secret_guard shield retired with semantic_check), incl. v4.63.0 Evidence Required
+    expect(data.shields).toHaveLength(10); // full catalog (secret_guard shield retired with semantic_check), incl. v4.63.0 Evidence Required + Subagent Constraint
   });
 
   it('synthesizes the current mode, agent count, and pending approvals', async () => {

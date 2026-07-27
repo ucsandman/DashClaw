@@ -71,6 +71,14 @@ export const SHIELDS = [
     policyType: 'require_evidence',
     defaultRules: { action_types: [], enforcement: 'require_approval' },
   },
+  {
+    id: 'subagent_constraint',
+    name: 'Subagent Constraint',
+    description: 'Escalate when any spawned subagent exceeds risk 60',
+    icon: 'GitFork',
+    policyType: 'delegation_constraint',
+    defaultRules: { parent: '*', child_types: ['*'], max_risk_score: 60, escalate_action: 'require_approval' },
+  },
 ];
 
 /**
