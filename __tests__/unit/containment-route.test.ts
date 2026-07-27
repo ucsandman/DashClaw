@@ -147,6 +147,35 @@ describe('POST /api/actions/[actionId]/containment', () => {
     expect(mockResolveContainment).toHaveBeenCalled();
   });
 
+  it('returns 409 CONTAINMENT_REF_MISSING when promoting a ref-less row, without mutating or minting a grant', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      agent_id: 'agent_1', created_by: 'user_2', containment_status: 'awaiting_promotion', containment_ref: null,
+    });
+
+    const res = await POST(postReq({ verdict: 'promote' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(data.error).toBe('CONTAINMENT_REF_MISSING');
+    expect(mockResolveContainment).not.toHaveBeenCalled();
+    expect(mockCreateActionRecord).not.toHaveBeenCalled();
+  });
+
+  it('discard is allowed on a ref-less row (no ref requirement)', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      agent_id: 'agent_1', created_by: 'user_2', containment_status: 'awaiting_promotion', containment_ref: null,
+    });
+    const updated = { action_id: 'act_123', containment_status: 'discarded' };
+    mockResolveContainment.mockResolvedValueOnce(updated);
+
+    const res = await POST(postReq({ verdict: 'discard' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.action).toEqual(updated);
+    expect(mockCreateActionRecord).not.toHaveBeenCalled();
+  });
+
   it('returns 409 CONTAINMENT_NOT_AWAITING when resolveContainment races to null', async () => {
     mockGetActionStatus.mockResolvedValueOnce({
       agent_id: 'agent_1', created_by: 'user_2', containment_status: 'awaiting_promotion', containment_ref: 'ref/x',

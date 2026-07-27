@@ -85,6 +85,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
       );
     }
 
+    // SECURITY/CORRECTNESS: promote mints a pre-approved grant row whose act
+    // is built from containment_ref — a ref-less awaiting_promotion row (the
+    // stop/PATCH-side flip does not require a ref) must not reach
+    // resolveContainment for promote, or the row is left 'promoted' with no
+    // valid grant ever created (String(null) would silently persist the
+    // literal act `git merge --no-ff null`, hashed and running). Checked
+    // BEFORE any mutation — same unpromotable-state class as
+    // CONTAINMENT_NOT_AWAITING; discard has no such requirement.
+    const containmentRef = action.containment_ref;
+    if (verdict === 'promote' && (typeof containmentRef !== 'string' || containmentRef.length === 0)) {
+      return NextResponse.json({ error: 'CONTAINMENT_REF_MISSING' }, { status: 409 });
+    }
+
     const updated = await resolveContainment(sql, orgId, actionId, { verdict, resolvedBy: userId });
     // Zero-row return — another operator resolved it between our read above
     // and this UPDATE (same race shape as approvals' recordApproval).
@@ -109,7 +122,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
         agent_id: action.agent_id as string | null | undefined,
         action_type: 'containment_promote',
         declared_goal: buildPromotionGoal(actionId),
-        act: buildPromotionAct(String(action.containment_ref)),
+        act: buildPromotionAct(containmentRef as string),
         risk_score: 20,
         reversible: true,
         reasoning: `Operator promoted contained action ${actionId}`,
