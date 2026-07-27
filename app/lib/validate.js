@@ -588,6 +588,11 @@ const POLICY_TYPE_VALIDATORS = {
     // fields optional except the matcher pair; only present checks enforce.
     if (rules.parent !== undefined && (typeof rules.parent !== 'string' || rules.parent.length === 0 || rules.parent.length > 128)) {
       addError('delegation_constraint rules.parent must be a non-empty string (<=128 chars) or omitted (treated as "*")');
+    } else if (typeof rules.parent === 'string' && rules.parent.includes(':')) {
+      // The evaluator compares parent against the BASE segment of a composed
+      // id — a parent containing ':' can never match, so an active policy
+      // would silently govern nothing. Fail the write instead.
+      addError('delegation_constraint rules.parent must be a base agent id (no ":") — constraints match the segment before the first colon');
     }
     if (rules.child_types !== undefined && (!Array.isArray(rules.child_types) || rules.child_types.length === 0
       || !rules.child_types.every((t) => typeof t === 'string' && t.length > 0 && t.length <= 64))) {

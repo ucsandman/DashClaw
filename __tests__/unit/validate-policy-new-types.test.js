@@ -136,6 +136,12 @@ describe('validatePolicy — delegation_constraint', () => {
     expect(r.valid).toBe(false);
   });
 
+  it('rejects a composed parent (contains ":") — it could never match, so the policy would silently govern nothing', () => {
+    const r = validatePolicy(base('delegation_constraint', { parent: 'claude-code:explore' }));
+    expect(r.valid).toBe(false);
+    expect(r.errors.join(' ')).toMatch(/base agent id/);
+  });
+
   it('rejects max_risk_score above 100', () => {
     const r = validatePolicy(base('delegation_constraint', { max_risk_score: 101 }));
     expect(r.valid).toBe(false);
