@@ -1561,6 +1561,48 @@ async function main() {
       `status=${actRevoked.status} plan=${actRevoked.json?.plan?.status}`);
   }
 
+  // ---------------------------------------------------------------- AG ----
+  // Scoped delegation constraints (governed-autonomy feature 2). Live proof:
+  // a composed child trips the constraint; the bare parent does not.
+  console.log('\nAG. scoped delegation constraints...');
+  {
+    const parent = agentFor('dc');
+    const child = `${parent}:explore`;
+    const pid = await createPolicy('dc-ceiling', 'delegation_constraint',
+      { parent, child_types: ['*'], max_risk_score: 40, escalate_action: 'require_approval' }, [parent, child]);
+    const childHigh = await api('POST', '/api/guard', {
+      action_type: 'smoke.risky', declared_goal: `dc child high ${RUN}`, agent_id: child, risk_score: 75,
+    });
+    check('AG1', 'composed child above ceiling → require_approval + constraint matched',
+      childHigh.json?.decision === 'require_approval' && (childHigh.json?.matched_policies || []).includes(pid),
+      `decision=${childHigh.json?.decision}`);
+    const childLow = await api('POST', '/api/guard', {
+      action_type: 'smoke.read', declared_goal: `dc child low ${RUN}`, agent_id: child, risk_score: 5,
+    });
+    check('AG2', 'composed child under ceiling → constraint not matched',
+      !(childLow.json?.matched_policies || []).includes(pid),
+      `decision=${childLow.json?.decision}`);
+    const parentHigh = await api('POST', '/api/guard', {
+      action_type: 'smoke.risky', declared_goal: `dc parent high ${RUN}`, agent_id: parent, risk_score: 75,
+    });
+    check('AG3', 'bare parent is never affected (no-op for non-composed)',
+      !(parentHigh.json?.matched_policies || []).includes(pid),
+      `decision=${parentHigh.json?.decision} matched=${JSON.stringify(parentHigh.json?.matched_policies)}`);
+    const deep = await api('POST', '/api/guard', {
+      action_type: 'smoke.read', declared_goal: `dc deep ${RUN}`, agent_id: `${child}:sub`, risk_score: 5,
+    });
+    // depth check needs its own policy (max_depth 1):
+    const pid2 = await createPolicy('dc-depth', 'delegation_constraint',
+      { parent, child_types: ['*'], max_depth: 1, escalate_action: 'block' }, [parent, child, `${child}:sub`]);
+    const deep2 = await api('POST', '/api/guard', {
+      action_type: 'smoke.read', declared_goal: `dc deep2 ${RUN}`, agent_id: `${child}:sub`, risk_score: 5,
+    });
+    check('AG4', 'depth 2 with max_depth 1 → block',
+      deep2.json?.decision === 'block' && (deep2.json?.matched_policies || []).includes(pid2),
+      `decision=${deep2.json?.decision}`);
+    void deep; // first deep call predates pid2 — not asserted
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

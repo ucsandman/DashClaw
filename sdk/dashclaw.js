@@ -950,6 +950,23 @@ class DashClaw {
     });
   }
 
+  /**
+   * POST /api/policies — Create a delegation_constraint policy: cap what a
+   * composed subagent (parent:child identity) may do. Thin wrapper over the
+   * policy-create endpoint so attenuation has a first-class verb.
+   * @param {object} rules - { parent?, child_types?, max_risk_score?, allowed_action_types?, blocked_action_types?, blocked_path_globs?, max_depth?, escalate_action?, require_verified_parent? }
+   * @param {object} [opts] - { name?, agent_ids? }
+   */
+  async createDelegationConstraint(rules, opts = {}) {
+    return this._post('/api/policies', {
+      name: opts.name || 'Delegation constraint',
+      policy_type: 'delegation_constraint',
+      rules,
+      active: true,
+      ...(opts.agent_ids ? { agent_ids: opts.agent_ids } : {}),
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Team Tasks — multi-agent /team run tracking (fleets-and-teams amendment)
   // ---------------------------------------------------------------------------

@@ -847,6 +847,24 @@ class DashClaw:
             payload["yaml"] = yaml
         return self._request("/api/policies/import", method="POST", body=payload)
 
+    def create_delegation_constraint(self, rules, name=None, agent_ids=None):
+        """POST /api/policies — Create a delegation_constraint policy: cap what a
+        composed subagent (parent:child identity) may do. Thin wrapper over the
+        policy-create endpoint so attenuation has a first-class verb.
+        rules: { parent?, child_types?, max_risk_score?, allowed_action_types?,
+            blocked_action_types?, blocked_path_globs?, max_depth?,
+            escalate_action?, require_verified_parent? }
+        """
+        payload = {
+            "name": name or "Delegation constraint",
+            "policy_type": "delegation_constraint",
+            "rules": rules,
+            "active": True,
+        }
+        if agent_ids is not None:
+            payload["agent_ids"] = agent_ids
+        return self._request("/api/policies", "POST", json=payload)
+
     # --- Agent Pairing ---
 
     def create_pairing(self, public_key_pem, algorithm="RSASSA-PKCS1-v1_5", agent_name=None):
