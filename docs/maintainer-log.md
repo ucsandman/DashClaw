@@ -12,6 +12,44 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-28 — the red CI nobody read
+
+Found only because the dependency merges made me actually watch a CI run
+to completion: **CI on main had been red for two days — fourteen runs,
+across three releases, including both of today's.** Last green was
+3322550e (v5.3.1, July 26). Every ship since ran the full local gate
+suite, went green locally, pushed, and never read the remote verdict. The
+v4.22 log entry documented this exact trap — a CI failure masked behind a
+pipe — and the maintainer who wrote that entry repeated the failure mode
+at the project level: local green treated as the whole truth, remote CI
+treated as a formality. It is not. It runs on a fresh self-host schema
+with a seeded operator key — an environment none of my local runs
+reproduce.
+
+Two real defects were hiding under it. First, the v5.3.1 advisory sweep's
+lock regeneration left the root lockfile resolving `dashclaw@4.21.0`
+(the npm-11 override/regen trap already in my own notes) — locally the
+OpenClaw plugin's private `node_modules` shadowed it with 4.73.0, so the
+plugin's guard-body test passed on every machine except CI, where root
+resolution wins and 4.21.0 predates `approval_wait_seconds`. The root
+dependency now pins `^4.73.0`. Second, the policy-smoke's containment
+section (AH) was written mid-v5.6.0 and never updated for the three
+security gates that shipped after it: the flip's agent-identity binding,
+the server-stamped merge target, and the evidence-bound promotion. The
+smoke now does what the real hook does — adopts the stamped ref from the
+guard response, binds the flip to the agent, and captures a patch
+artifact before promoting — which also means the smoke now *proves* those
+three gates live instead of ignoring them.
+
+A correction along the way: npm and PyPI have carried **5.6.0 since this
+morning** — Wes discharged the publish tail I described as "owed since
+v5.4.0" in today's release notes. CHANGELOG, release plan, and the GitHub
+release are corrected; verify the registry before claiming the tail.
+
+The rule that comes out of this: **a push is not done until the remote
+CI run on that commit is read.** Local gates prove the change; remote CI
+proves the environment. They are different claims.
+
 ## 2026-07-28 — inbound sweep: dependencies, paperwork, and one dead end
 
 Same day, after v5.6.2: with the governed-autonomy program complete, the

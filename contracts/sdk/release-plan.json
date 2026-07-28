@@ -2,7 +2,7 @@
   "node": {
     "current_version": "5.6.2",
     "next_bump": "none",
-    "reason": "doc-comment-only change in 5.6.2 (containment.ref on the guard JSDoc, reissued flag + full-row shape on resolveContainment, listContained enrichment fields) - no runtime behavior change; the republish owed since 5.4.0 (plan methods + 5.5.0 delegation wrappers + 5.6.0 containment methods, 39 methods) should land at 5.6.2 via release:sdks and will carry these doc fixes.",
+    "reason": "doc-comment-only change in 5.6.2 (containment.ref on the guard JSDoc, reissued flag + full-row shape on resolveContainment, listContained enrichment fields) - no runtime behavior change. npm latest is 5.6.0 (published 2026-07-28, discharging the 5.4.0-5.6.0 tail); republishing at 5.6.2 is optional and would only carry these doc fixes.",
     "domains": [
       "platform"
     ]
@@ -10,7 +10,7 @@
   "python": {
     "current_version": "5.6.2",
     "next_bump": "none",
-    "reason": "docstring-only change in 5.6.2 (resolve_containment reissued flag + full-row shape, list_contained enrichment fields) - no runtime behavior change; the republish owed since 5.4.0 (plan methods + 5.5.0 delegation wrappers + 5.6.0 containment methods, 59 methods) should land at 5.6.2 via release:sdks and will carry these doc fixes.",
+    "reason": "docstring-only change in 5.6.2 (resolve_containment reissued flag + full-row shape, list_contained enrichment fields) - no runtime behavior change. PyPI latest is 5.6.0 (published 2026-07-28, discharging the 5.4.0-5.6.0 tail); republishing at 5.6.2 is optional and would only carry these doc fixes.",
     "domains": [
       "platform"
     ]

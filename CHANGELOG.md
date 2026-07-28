@@ -62,9 +62,10 @@ Containment hardening — closes every recorded follow-up from the v5.6.0 ship.
   `listContained`/`list_contained`. `docs/architecture/runtime-api.md`
   describes the instance-namespaced ref derivation.
 
-No SDK *code* changed (doc comments only), but both SDK packages are due for
-republish at this number regardless — the credential-gated publish tail has
-been owed since v5.4.0.
+No SDK *code* changed (doc comments only). Correction to this entry's first
+published form: npm and PyPI both carry **5.6.0** (published 2026-07-28, which
+discharged the tail that had been owed since v5.4.0) — only the optional
+doc-comment republish at 5.6.2 remains.
 
 ## [5.6.1] — 2026-07-28
 

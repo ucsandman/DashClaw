@@ -1697,21 +1697,54 @@ async function main() {
     const recorded = await api('POST', '/api/guard?record=true', {
       agent_id: agent, action_type: 'smoke.write', declared_goal: `containment lifecycle write ${RUN}`,
       risk_score: 60, act: fileAct, client_capabilities: ['allow_contained'],
+      harness_session_id: `smoke-${RUN}`,
     });
     const containedActionId = recorded.json?.action_id;
-    check('AH5', 'guard record=true creates the contained action row',
-      recorded.json?.recorded === true && recorded.json?.decision === 'allow_contained' && Boolean(containedActionId),
-      `recorded=${recorded.json?.recorded} decision=${recorded.json?.decision} action_id=${containedActionId}`);
+    // v5.6.1: the merge target is stamped server-side at record time (derived
+    // from harness_session_id) and returned in the guard response — the flip
+    // below must ADOPT it, exactly as the real hook does. A made-up client
+    // ref now fails the flip's WHERE gate with a 409 by design.
+    const containmentRef = recorded.json?.containment?.ref;
+    check('AH5', 'guard record=true creates the contained action row with a server-stamped containment ref',
+      recorded.json?.recorded === true && recorded.json?.decision === 'allow_contained'
+        && Boolean(containedActionId)
+        && typeof containmentRef === 'string' && /^dashclaw\/contained-[A-Za-z0-9-]{1,64}$/.test(containmentRef),
+      `recorded=${recorded.json?.recorded} decision=${recorded.json?.decision} action_id=${containedActionId} ref=${containmentRef}`);
 
-    const containmentRef = `dashclaw/contained-smoke-${RUN}`;
-    const patched = containedActionId
+    // The flip requires an attributable agent identity (v5.6.0, IMPORTANT 5)
+    // and the server-stamped ref (v5.6.1) — both part of the claim.
+    const patched = containedActionId && containmentRef
       ? await api('PATCH', `/api/actions/${containedActionId}`, {
+          agent_id: agent,
           containment_status: 'awaiting_promotion', containment_ref: containmentRef,
         })
       : { status: 0, json: null };
-    check('AH5', 'PATCH flips the action to awaiting_promotion with a containment_ref',
-      patched.status === 200 && patched.json?.action?.containment_status === 'awaiting_promotion',
-      `status=${patched.status} containment_status=${patched.json?.action?.containment_status}`);
+    check('AH5', 'agent-bound PATCH flips the action to awaiting_promotion, keeping the stamped containment_ref',
+      patched.status === 200 && patched.json?.action?.containment_status === 'awaiting_promotion'
+        && patched.json?.action?.containment_ref === containmentRef,
+      `status=${patched.status} containment_status=${patched.json?.action?.containment_status} ref=${patched.json?.action?.containment_ref}`);
+
+    // Evidence binding (v5.6.0 final fix wave): promotion requires a reviewed
+    // patch artifact whose content.ref matches the stamped merge target —
+    // no artifact → 409 CONTAINMENT_NO_EVIDENCE, mismatched ref → 409
+    // CONTAINMENT_REF_MISMATCH. Capture the diff the way the PostToolUse hook
+    // does, so the promote below proves the evidence-bound path end to end.
+    const evidence = containedActionId && containmentRef
+      ? await api('POST', '/api/artifacts', {
+          artifact_type: 'patch',
+          name: `containment diff ${RUN}`,
+          source_action_id: containedActionId,
+          source_agent_id: agent,
+          content_json: {
+            ref: containmentRef,
+            stat: ' src/containment-smoke.ts | 1 +',
+            diff: '--- a/src/containment-smoke.ts\n+++ b/src/containment-smoke.ts\n@@ -0,0 +1 @@\n+x',
+          },
+        })
+      : { status: 0, json: null };
+    check('AH5', 'captured diff artifact binds the reviewed evidence to the stamped ref',
+      evidence.status === 201 && Boolean(evidence.json?.artifact?.artifact_id),
+      `status=${evidence.status} artifact_id=${evidence.json?.artifact?.artifact_id}`);
 
     const promoted = containedActionId
       ? await api('POST', `/api/actions/${containedActionId}/containment`, { verdict: 'promote' })
