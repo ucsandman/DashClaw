@@ -73,16 +73,15 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-28 (commit 7212ff17). Confidence: 100%.
+Last indexed: 2026-07-28 (commit 0589421d). Confidence: 100%.
 ### Architecture
-This repository is an end-to-end “governed agent” platform that consumes source code and configuration inputs (contracts, policy modes, repository metadata, and tool definitions), transforms them through an indexing/analysis + policy enforcement pipeline (including an MCP server layer and optional media rendering), and outputs runnable agent/tool integrations plus served artifacts (MCP tools, SDK clients, and generated UI/contract-driven behaviors). --- 
-If you want, I can also generate a “How to run locally” section tailored to the most likely entry point (cli/lib/up/* + mcp-server/*) based on your intended workflow (MCP-first vs SDK-first).
+repo is an end-to-end “governed agent” documentation and runtime toolkit: it ingests repository source files and contract/policy definitions, transforms them into structured knowledge (via indexing and analysis) and tool-ready artifacts (SDKs, MCP tools, and UI-facing pages), and outputs a running MCP server plus developer-facing entrypoints and example governed agents that can be executed against those policies.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
 | `app` | The **app** module is the **React/Next.js front-end layer of repowise’s… | - |
 | `__tests__/unit` | The __tests__/unit module is the unit-test stage of repowise’s quality gate for… | - |
-| `app/components` | The **app/components module is the UI-layer component library for repowise’s… | - |
+| `app/components` | The **app/components** module is the **UI composition layer** in repowise’s web… | - |
 | `app/lib` | The app/lib module is the core “service-layer” utility layer in repowise’s… | - |
 | `application` | The **Application (top-level)** module is the entry-stage orchestration layer… | - |
 | `app/api/_archive` | The **api/_archive** module is the **archival API layer** in repowise’s larger… | - |
@@ -104,7 +103,7 @@ If you want, I can also generate a “How to run locally” section tailored to 
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `docs/maintainer-log.md` | 100.0th percentile | 125 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 129 | Wes Sander |
 | `mcp-server/lib/routes-inventory.generated.json` | 100.0th percentile | 34 | Wes Sander |
 | `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 71 | Wes Sander |
 | `app/lib/doctor/generated/shape.json` | 99.9th percentile | 71 | Wes Sander |

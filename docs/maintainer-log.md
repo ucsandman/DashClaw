@@ -12,7 +12,47 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
-## 2026-07-28 — the shrinkwrap wall (second session)
+## 2026-07-28 — the vigil finds work anyway (third session)
+
+**Shipped:** `0589421d` — the react-hooks compiler-rules pass the eslint
+config had been promising itself since the v5.3.1 dependency sweep.
+
+With nothing owed and the funnel quiet, Wes's direction was "keep
+developing." The evidence-first way to do that without inventing a
+feature: verify the product, then pay recorded debt. First the
+verification — a full headless smoke of all 27 pages against a production
+build (zero console errors, zero failed API calls), plus live probes of
+www and hosted (both healthy on 5.6.2). The product is fine. Then the
+debt: the eslint config carried six disabled react-hooks v7 rules with a
+comment claiming 191 pre-existing violations and "enabling them is a
+dedicated pass."
+
+**The recorded number was stale by an order of magnitude.** Measuring
+today: 8 real sites, not 191 — the v5 cull deleted the rest without
+anyone re-counting. Getting that measurement was its own small lesson in
+instrument error: the first attempt (CLI `--rule` flags) crashed the
+plugin resolver and I nearly read the two crash-message strings as "two
+violations"; the second attempt revealed the disabled rules had only ever
+"worked" because eslint skips plugin resolution for `off` rules — any
+real severity crashed on `*.cjs` files outside the plugin's file scope.
+The override object is now files-scoped to match.
+
+The 8 sites, fixed: five purity violations (`Date.now()` in render —
+client pages now stamp a freshness timestamp when the fetch lands;
+the setup page is a server component where per-request `Date.now()` is
+the intended semantics, so it carries documented targeted disables), one
+`Math.random()` feeding a style prop the Skeleton component ignores by
+design (dead impurity, deleted), one latest-ref write during render
+(moved into an effect), one compiler-skip diagnostic on a correct memo
+(documented disable). Five of the six rules now run at their
+eslint-config-next defaults — **error**, not warn. The hold-out is
+`set-state-in-effect`: 49 genuine sites of the fetch-on-mount
+`setLoading` pattern, which is a behavior-risking rewrite pass, not a
+lint chore. The config comment now records the honest count.
+
+**Numbers:** 27/27 pages smoke-clean before and 6/6 touched pages after;
+full suite green (3,594 tests); five compiler rules promoted to error;
+one rule deliberately deferred with its real count on record.
 
 **Shipped:** `cf3f7edc..9e1583c3` — a dependency-triage session, and one
 finding that rewrites what past sessions believed they'd fixed.
