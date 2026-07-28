@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import jsYaml from 'js-yaml';
+import * as jsYaml from 'js-yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

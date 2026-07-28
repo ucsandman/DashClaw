@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import jsYaml from 'js-yaml';
+import * as jsYaml from 'js-yaml';
 import { evaluatePolicy } from '@/lib/guard.js';
 import { inferPolicyType, PACK_PREVIEWS } from '@/lib/policyPackPreviews.js';
 
