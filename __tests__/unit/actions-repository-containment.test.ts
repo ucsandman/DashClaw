@@ -207,6 +207,24 @@ describe('listActions — containment_status filter', () => {
     expect(listText).toContain('containment_status =');
     expect(listParams).toContain('contained');
   });
+
+  // SECURITY LOW (2026-07-27 pre-ship sweep): containment_status must be
+  // allowlisted against the four lifecycle values, mirroring outcome_status.
+  it('drops an invalid containment_status value instead of passing it through to SQL', async () => {
+    const sql = makeSql([]);
+    await listActions(sql, 'org_1', { containment_status: "'; DROP TABLE action_records; --" });
+    const fragmentCall = sql.calls.find((c) => /AND containment_status =/i.test(c.text));
+    expect(fragmentCall).toBeUndefined();
+  });
+
+  it('accepts each of the four valid lifecycle values', async () => {
+    for (const status of ['contained', 'awaiting_promotion', 'promoted', 'discarded']) {
+      const sql = makeSql([]);
+      await listActions(sql, 'org_1', { containment_status: status });
+      const fragmentCall = sql.calls.find((c) => /AND containment_status =/i.test(c.text));
+      expect(fragmentCall?.values).toContain(status);
+    }
+  });
 });
 
 describe('listActions — SELECT projection includes containment columns', () => {

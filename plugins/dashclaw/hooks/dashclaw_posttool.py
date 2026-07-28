@@ -527,6 +527,36 @@ def _git_diff_payload(worktree, cap_bytes, base_sha=None):
     return diff_text, truncated, stat_text, untracked
 
 
+# SECURITY (2026-07-27 pre-ship sweep, MEDIUM): the contained diff/stat is
+# uploaded to the server as a `patch` artifact for HUMAN review -- unlike the
+# act payload, this text was never gated by the guard's own redaction and
+# could contain whatever secret-shaped string the agent's mutation touched
+# (an API key committed to a file, an env var echoed into a diff hunk).
+# Mirrors dashclaw_pretool.py's _ACT_SCRUB_PATTERNS/_ACT_SCRUB_KV bit for bit
+# (duplicated, not imported -- same parity convention as the SDKs' scrub_act;
+# pretool.py is a sibling hook script, not a shared package). Scrubbing only
+# the UPLOADED copy is correct and sufficient: the merge itself (`git merge
+# --no-ff <containment_ref>`) replays the local worktree's real commits, so
+# redacting this artifact never changes what actually lands in the repo --
+# it only protects what a human reviewer sees rendered on /approvals.
+_ACT_SCRUB_PATTERNS = [
+    (re.compile(r"oc_live_[A-Za-z0-9_-]+"), "[REDACTED]"),
+    (re.compile(r"sk-[A-Za-z0-9_-]{10,}"), "[REDACTED]"),
+    (re.compile(r"ghp_[A-Za-z0-9]{20,}"), "[REDACTED]"),
+    (re.compile(r"Bearer\s+[A-Za-z0-9._-]+", re.IGNORECASE), "Bearer [REDACTED]"),
+]
+_ACT_SCRUB_KV = re.compile(r"(password|token|secret)\s*=\s*[^\s&\"']+", re.IGNORECASE)
+
+
+def _scrub_act_text(text):
+    """Mask secret-looking substrings before the text leaves the machine."""
+    if not text:
+        return text
+    for pattern, replacement in _ACT_SCRUB_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return _ACT_SCRUB_KV.sub(lambda m: m.group(1) + "=[REDACTED]", text)
+
+
 def _maybe_post_containment_diff(action_id, ref, worktree, base_sha=None):
     """Commit the worktree's contained mutation onto the containment branch
     (F1), then upload the resulting diff as a `patch` artifact and flip the
@@ -579,8 +609,8 @@ def _maybe_post_containment_diff(action_id, ref, worktree, base_sha=None):
             return False
         diff_text, truncated, stat_text, untracked = payload
         content_json = {
-            "diff": diff_text,
-            "stat": stat_text,
+            "diff": _scrub_act_text(diff_text),
+            "stat": _scrub_act_text(stat_text),
             "ref": ref,
             "truncated": truncated,
         }

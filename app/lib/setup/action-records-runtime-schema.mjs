@@ -51,6 +51,26 @@ export const ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS = [
 
 export const ACTION_RECORDS_RUNTIME_COLUMNS = ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS.map((column) => column.name);
 
+// Containment Verdicts (drizzle/0064): DB-layer CHECK enforcing the four
+// lifecycle values. The drizzle migration path already carries this
+// (DROP CONSTRAINT IF EXISTS + ADD CONSTRAINT, idempotent) -- a DB
+// provisioned via POST /api/setup/migrate got the containment_status COLUMN
+// above without this CHECK (2026-07-27 pre-ship sweep, SECURITY LOW). No
+// other action_records column has a runtime-reconciled constraint yet; this
+// is the first, added in the same idempotent add-if-missing style as the
+// columns/indexes below.
+export const ACTION_RECORDS_RUNTIME_CONSTRAINT_DEFINITIONS = [
+  {
+    name: 'action_records_containment_status_check',
+    dropSql: 'ALTER TABLE "action_records" DROP CONSTRAINT IF EXISTS "action_records_containment_status_check"',
+    addSql:
+      'ALTER TABLE "action_records" ADD CONSTRAINT "action_records_containment_status_check" ' +
+      'CHECK ("containment_status" IS NULL OR "containment_status" IN (\'contained\', \'awaiting_promotion\', \'promoted\', \'discarded\'))',
+  },
+];
+
+export const ACTION_RECORDS_RUNTIME_CONSTRAINTS = ACTION_RECORDS_RUNTIME_CONSTRAINT_DEFINITIONS.map((c) => c.name);
+
 export const ACTION_RECORDS_RUNTIME_INDEX_DEFINITIONS = [
   {
     name: 'action_records_action_id_idx',

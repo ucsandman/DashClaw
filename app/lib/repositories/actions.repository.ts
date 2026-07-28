@@ -496,6 +496,12 @@ function parseListActionsFilters(filters: ListActionsFilters): ParsedListActions
     offset = 0,
   } = filters;
   const validOutcomes = new Set(['pending', 'completed', 'partial', 'failed', 'lost_confirmation']);
+  // SECURITY LOW (2026-07-27 pre-ship sweep): containment_status wasn't
+  // allowlisted like outcome_status above -- mirror the same pattern so an
+  // arbitrary client-supplied value can't reach the SQL fragment unvalidated.
+  // Matches the four lifecycle values the drizzle/0064 CHECK constraint
+  // enforces (contained -> awaiting_promotion -> promoted|discarded).
+  const validContainmentStatuses = new Set(['contained', 'awaiting_promotion', 'promoted', 'discarded']);
   // Rolling window: the cutoff is computed once here so the list, countQuery,
   // and statsQuery all scope identically (the windowed `total` is what makes
   // the activity narrative truthful — it is NOT a buffer length).
@@ -508,7 +514,7 @@ function parseListActionsFilters(filters: ListActionsFilters): ParsedListActions
     status,
     exclude_status,
     action_type,
-    containment_status,
+    containment_status: validContainmentStatuses.has(containment_status as string) ? (containment_status as string) : undefined,
     outcomeFilter: validOutcomes.has(outcome_status as string) ? (outcome_status as string) : null,
     parsedRiskMin: Number.isFinite(Number(risk_min)) ? Number(risk_min) : null,
     sinceIso: clampedDays != null ? new Date(Date.now() - clampedDays * 86_400_000).toISOString() : null,

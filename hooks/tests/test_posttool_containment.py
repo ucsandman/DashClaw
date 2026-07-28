@@ -477,6 +477,37 @@ class TestPosttoolContainmentDiff(unittest.TestCase):
         # The commit still happened even though base_sha was missing.
         self.assertEqual(_git_log_count(worktree), 2)
 
+    def test_diff_with_secret_shaped_string_is_redacted_in_posted_artifact(self):
+        """SECURITY (2026-07-27 pre-ship sweep, MEDIUM): the diff/stat text is
+        for HUMAN review only -- the same _ACT_SCRUB patterns applied to act
+        payloads must scrub a secret-shaped string before it leaves the
+        machine in a containment-diff artifact. Redacting the uploaded copy
+        is safe because the merge itself replays the local worktree's real
+        commits -- scrubbing never touches what actually lands in the repo."""
+        tool_use_id = "post-cont-tu-010"
+        action_id = "act-cont-010"
+        ref = "dashclaw/contained-sess-010"
+        fake_sk_token = "sk-" + "FAKETESTTOKEN1234567890"
+        worktree, base_sha = _make_worktree_with_new_file(
+            name="config.env",
+            content=fake_sk_token + "\nAWS_SECRET_ACCESS_KEY=not-a-real-value-test-fixture\n",
+        )
+        self.addCleanup(_rm_worktree, worktree)
+        _write_contained_action(tool_use_id, action_id, ref, worktree, self.base_url, base_sha=base_sha)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
+
+        code, _, err = _run_hook(
+            {"tool_use_id": tool_use_id, "tool_response": {"output": "wrote file"}},
+            self._env(),
+        )
+        self.assertEqual(code, 0, msg=err)
+
+        artifacts = self._artifact_posts()
+        self.assertEqual(len(artifacts), 1)
+        content = artifacts[0]["body"]["content_json"]
+        self.assertNotIn(fake_sk_token, content["diff"])
+        self.assertIn("[REDACTED]", content["diff"])
+
     def test_diff_over_cap_is_truncated(self):
         tool_use_id = "post-cont-tu-002"
         action_id = "act-cont-002"

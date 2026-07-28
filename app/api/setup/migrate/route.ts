@@ -10,6 +10,7 @@ import { redactErrorDetail } from '../../../lib/apiErrors';
 import {
   ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS,
   ACTION_RECORDS_RUNTIME_INDEX_DEFINITIONS,
+  ACTION_RECORDS_RUNTIME_CONSTRAINT_DEFINITIONS,
 } from '../../../lib/setup/action-records-runtime-schema.mjs';
 import { splitSqlStatements } from '../../../lib/setup/sql-statements.mjs';
 
@@ -18,6 +19,8 @@ export {
   ACTION_RECORDS_RUNTIME_COLUMNS,
   ACTION_RECORDS_RUNTIME_INDEX_DEFINITIONS,
   ACTION_RECORDS_RUNTIME_INDEXES,
+  ACTION_RECORDS_RUNTIME_CONSTRAINT_DEFINITIONS,
+  ACTION_RECORDS_RUNTIME_CONSTRAINTS,
 } from '../../../lib/setup/action-records-runtime-schema.mjs';
 
 async function reconcileActionRecordsRuntimeSchema(sql: any) {
@@ -33,6 +36,17 @@ async function reconcileActionRecordsRuntimeSchema(sql: any) {
     try {
       await sql.unsafe(index.sql);
     } catch { /* best-effort: index drift is caught by the setup validator */ }
+  }
+
+  // SECURITY LOW (2026-07-27 pre-ship sweep): the drizzle migration path
+  // carries a CHECK constraint on containment_status; this runtime path
+  // provisioned the column without it. Same idempotent drop-then-add idiom
+  // as drizzle/0064_containment_verdicts.sql.
+  for (const constraint of ACTION_RECORDS_RUNTIME_CONSTRAINT_DEFINITIONS) {
+    try {
+      await sql.unsafe(constraint.dropSql);
+      await sql.unsafe(constraint.addSql);
+    } catch { /* best-effort: constraint reconciliation should never block setup */ }
   }
 }
 

@@ -41,7 +41,11 @@
       "reconciled_indexes": [
         "action_records_action_id_idx",
         "action_records_org_timestamp_idx"
-      ]
+      ],
+      "reconciled_constraints": [
+        "action_records_containment_status_check"
+      ],
+      "_reconciled_constraints_note": "Added 2026-07-27 pre-ship sweep: the drizzle/0064 CHECK on containment_status was not mirrored in this runtime-migration path, so a DB provisioned via POST /api/setup/migrate got the column without the constraint. check-schema-setup.mjs does not yet validate a constraints list (only reconciled_columns/reconciled_indexes) -- this entry documents the reconciliation live in app/api/setup/migrate/route.ts's reconcileActionRecordsRuntimeSchema."
     }
   }
 }
