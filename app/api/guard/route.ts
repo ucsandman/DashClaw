@@ -91,7 +91,7 @@ async function recordRunningAction(
   // an attacker-controllable ref for a row that carries this stamp.
   if (result.decision === 'allow_contained') {
     record.containment_status = 'contained';
-    record.containment_ref = result.containment?.ref ?? buildContainmentRef(data.harness_session_id);
+    record.containment_ref = result.containment?.ref ?? buildContainmentRef(data.harness_session_id, data.containment_instance);
   }
 
   const action_id = `act_${crypto.randomUUID()}`;
@@ -276,6 +276,11 @@ export async function POST(request: Request) {
     // guard evaluation — these are attribution-only fields.
     data.harness_session_id = boundedIdField(body?.harness_session_id);
     data.subagent_uuid = boundedIdField(body?.subagent_uuid);
+    // Containment instance discriminator (co-installed hook instances): rides
+    // into buildContainmentRef so two installations sharing a harness session
+    // never collide on the same worktree branch. Sanitized again (alnum ≤16)
+    // in safeInstanceSegment before it touches a ref.
+    data.containment_instance = boundedIdField(body?.containment_instance);
     // Client enforcement posture (attribution-only, like the fleet fields
     // above): rides in the persisted decision context so signals/doctor can
     // surface agents whose hooks observe but do not enforce.

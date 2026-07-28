@@ -13,6 +13,59 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.6.2] — 2026-07-28
+
+Containment hardening — closes every recorded follow-up from the v5.6.0 ship.
+
+### Fixed
+- **Co-installed hook instances no longer collide on the containment
+  worktree.** Two DashClaw hook installations firing for the same harness
+  session (e.g. global `~/.claude` hooks plus a project's local hooks) used to
+  derive the same branch/worktree name; the second instance's
+  `git worktree add` failed and its containment permanently interrupted. The
+  hook now sends its instance discriminator (`containment_instance`,
+  `sha256(base_url|agent_id)[:12]` — the same suffix that already namespaces
+  its tempdir state files) on the guard payload, and the server folds it into
+  the stamped ref: `dashclaw/contained-<session>-<instance>`, capped at 64
+  chars so every existing ref-shape validator still matches. The hook's local
+  fallback derives identically (parity-tested on both sides); an absent or
+  invalid discriminator keeps the legacy derivation byte-for-byte.
+- **`/approvals` no longer fires one artifact fetch per contained action on
+  mount.** `GET /api/actions?containment_status=...` now enriches each row
+  with batched evidence state from a single `DISTINCT ON` query —
+  `containment_has_evidence` and `containment_evidence_ref` — so the
+  Promote-gating check is in place with zero per-card requests and the full
+  diff loads lazily on first expand. If enrichment ever degrades the card
+  falls back to the previous eager fetch; the server-side
+  `CONTAINMENT_NO_EVIDENCE` / `CONTAINMENT_REF_MISMATCH` gates remain
+  authoritative.
+- **Containment verdict responses now carry the same `action` shape on every
+  path.** The re-issue path returned a 9-column status subset while
+  first-promote/discard returned the full row; re-issue now re-fetches and
+  returns the full row (`reissued: true` still marks it).
+
+### Added
+- **The `/explain` guard simulator can now produce `allow_contained`** — a
+  "contain file-scoped work" policy toggle (only available alongside the
+  approval policy, mirroring the real `contain_above` validator), a
+  containable action type, and the "skew only tightens" explanation when a
+  non-file-scoped action lands in the containment band and interrupts
+  instead.
+- `resolveContainment` org-mismatch regression test (the operator-side flip's
+  WHERE gate), plus tests for server-ref adoption and malformed-server-ref
+  fallback in the hook.
+
+### Docs
+- SDK JSDoc/docstring drift fixed in both SDKs: `containment.ref` on the
+  guard response (added v5.6.1 but undocumented), the `reissued` flag on
+  `resolveContainment`, and the new list-enrichment fields on
+  `listContained`/`list_contained`. `docs/architecture/runtime-api.md`
+  describes the instance-namespaced ref derivation.
+
+No SDK *code* changed (doc comments only), but both SDK packages are due for
+republish at this number regardless — the credential-gated publish tail has
+been owed since v5.4.0.
+
 ## [5.6.1] — 2026-07-28
 
 ### Security

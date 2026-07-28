@@ -13,6 +13,11 @@ interface ContainmentAction {
   declared_goal: string;
   containment_ref: string | null;
   timestamp_start: string;
+  // Batched evidence state from GET /api/actions?containment_status=... —
+  // present when the list was enriched (one query for all cards), absent when
+  // enrichment degraded and the card must fetch evidence itself.
+  containment_has_evidence?: boolean;
+  containment_evidence_ref?: string | null;
 }
 
 interface PatchArtifactContent {
@@ -65,9 +70,15 @@ export default function ContainmentCard({
   // be disabled when there is no patch artifact behind this card — a
   // promotable row with nothing captured is exactly the class the
   // posttool-hook fix above closes server-side; this is the belt-and-
-  // suspenders UI check. Fetching eagerly on mount (not just on "View diff")
-  // means that check is in place before the operator ever has a chance to
-  // click Promote, not only after they happen to expand the diff.
+  // suspenders UI check. The evidence state now arrives batched on the list
+  // row itself (containment_has_evidence / containment_evidence_ref — one
+  // query for every card instead of one artifact fetch per card on mount),
+  // so the check is in place before the operator can click Promote without
+  // any per-card request; the full diff loads lazily on first expand. When
+  // the list was NOT enriched (degraded server path), fall back to the
+  // original eager per-card fetch so the gate still precedes the button.
+  const enriched = typeof action.containment_has_evidence === 'boolean';
+
   const loadDiff = async () => {
     setDiffLoading(true);
     try {
@@ -88,11 +99,15 @@ export default function ContainmentCard({
   };
 
   useEffect(() => {
-    loadDiff();
+    if (!enriched) loadDiff();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [action.action_id]);
 
-  const toggleExpand = () => setExpanded((prev) => !prev);
+  const toggleExpand = () => {
+    const next = !expanded;
+    setExpanded(next);
+    if (next && !diffLoaded && !diffLoading) loadDiff();
+  };
 
   const submit = async (verdict: 'promote' | 'discard') => {
     try {
@@ -119,13 +134,19 @@ export default function ContainmentCard({
 
   const diffLines = patchContent?.diff ? patchContent.diff.split('\n') : [];
 
+  // Evidence state: prefer the freshly fetched artifact once loaded; before
+  // that, the batched list enrichment answers both questions with no request.
+  const evidenceKnown = diffLoaded || enriched;
+  const hasEvidence = diffLoaded ? Boolean(patchContent) : Boolean(action.containment_has_evidence);
+  const evidenceRef = diffLoaded ? patchContent?.ref : action.containment_evidence_ref ?? undefined;
+
   // SECURITY (2026-07-27): bind the promoted ref to the REVIEWED evidence —
   // belt-and-suspenders UI check mirroring the server-side
   // CONTAINMENT_REF_MISMATCH gate. containment_ref is the merge target;
-  // patchContent.ref is what the operator is actually looking at above. If
-  // they differ (including the artifact predating ref capture, so ref is
+  // evidenceRef is the branch the captured diff actually describes. If they
+  // differ (including the artifact predating ref capture, so ref is
   // undefined), Promote is disabled before the operator can click it.
-  const refMismatch = Boolean(diffLoaded && patchContent && action.containment_ref && patchContent.ref !== action.containment_ref);
+  const refMismatch = Boolean(evidenceKnown && hasEvidence && action.containment_ref && evidenceRef !== action.containment_ref);
 
   return (
     <Card data-entity-type="decision" data-entity-id={action.action_id} data-entity-status="awaiting_promotion" hover={false}>
@@ -195,7 +216,7 @@ export default function ContainmentCard({
 
         {error && <p className="mb-3 text-xs text-error">{error}</p>}
 
-        {diffLoaded && !patchContent && (
+        {evidenceKnown && !hasEvidence && (
           <p className="mb-3 text-xs text-warning">
             No diff artifact captured for this action — Promote is disabled to avoid merging nothing.
           </p>
@@ -210,9 +231,9 @@ export default function ContainmentCard({
         <div className="flex items-center gap-2">
           <button
             onClick={() => submit('promote')}
-            disabled={busy || !canDecide || (diffLoaded && !patchContent) || refMismatch}
+            disabled={busy || !canDecide || (evidenceKnown && !hasEvidence) || refMismatch}
             title={
-              diffLoaded && !patchContent
+              evidenceKnown && !hasEvidence
                 ? 'No diff artifact captured — nothing to merge'
                 : refMismatch
                   ? 'Reviewed diff targets a different branch than this action\'s merge target'

@@ -111,6 +111,20 @@ describe('/api/guard?record=true — containment_status stamp', () => {
     expect(payload.data.containment_ref).toBe('dashclaw/contained-abc-123-x');
   });
 
+  it('folds the client containment_instance into the fallback-derived ref (co-installed instance namespacing)', async () => {
+    mockEvaluateGuard.mockResolvedValue({
+      decision: 'allow_contained', reasons: [], warnings: [], matched_policies: [], risk_score: 10,
+    });
+
+    await post({
+      action_type: 'apply', declared_goal: 'edit a file', agent_id: 'agt_1',
+      harness_session_id: 'sess-1', containment_instance: 'abc123def456',
+    });
+
+    const [, payload] = mockCreateActionRecord.mock.calls[0];
+    expect(payload.data.containment_ref).toBe('dashclaw/contained-sess-1-abc123def456');
+  });
+
   it('does not stamp containment_status for every other decision (allow)', async () => {
     mockEvaluateGuard.mockResolvedValue({
       decision: 'allow', reasons: [], warnings: [], matched_policies: [], risk_score: 10,

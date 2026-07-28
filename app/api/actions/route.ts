@@ -30,6 +30,7 @@ import {
   sweepExpiredApprovals,
 } from '../../lib/repositories/actions.repository';
 import { getModelPricing, getSettings } from '../../lib/repositories/settings.repository';
+import { getLatestPatchRefs } from '../../lib/repositories/artifacts.repository';
 import { guardDecisionExists } from '../../lib/repositories/guard.repository';
 import crypto from 'crypto';
 
@@ -124,8 +125,33 @@ export async function GET(request: Request) {
       offset,
     });
 
+    // Containment lists carry their evidence state inline: one batched query
+    // for the newest patch artifact per action, instead of /approvals firing
+    // one artifact fetch per ContainmentCard on mount. `containment_has_evidence`
+    // gates Promote client-side (belt-and-suspenders — the verdict route's
+    // CONTAINMENT_NO_EVIDENCE / CONTAINMENT_REF_MISMATCH gates stay
+    // authoritative); `containment_evidence_ref` is the reviewed diff's ref.
+    // Best-effort: an enrichment failure degrades to the un-enriched list
+    // (cards then fetch evidence themselves), never a failed page.
+    // Gate on the same allowlist parseListActionsFilters applies — an invalid
+    // containment_status never applied the filter, so it must not trigger a
+    // pointless enrichment query over unrelated rows either.
+    const containmentFilterApplied = ['contained', 'awaiting_promotion', 'promoted', 'discarded'].includes(containment_status ?? '');
+    let actions = result.actions;
+    if (containmentFilterApplied && actions.length > 0) {
+      try {
+        const patchRefs = await getLatestPatchRefs(sql, orgId, actions.map((a) => String(a.action_id)));
+        actions = actions.map((a) => {
+          const patch = patchRefs[String(a.action_id)];
+          return { ...a, containment_has_evidence: Boolean(patch), containment_evidence_ref: patch?.ref ?? null };
+        });
+      } catch (err) {
+        console.warn('[ACTIONS GET] containment evidence enrichment failed:', (err as Error)?.message);
+      }
+    }
+
     return NextResponse.json({
-      actions: result.actions,
+      actions,
       total: result.total,
       stats: result.stats,
       lastUpdated: new Date().toISOString()

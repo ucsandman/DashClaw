@@ -23,6 +23,7 @@ const {
   mockGetOrgRole,
   mockGetUserId,
   mockGetActionStatus,
+  mockGetActionRecord,
   mockResolveContainment,
   mockCreateActionRecord,
   mockStampPromotionApproval,
@@ -34,6 +35,7 @@ const {
   mockGetOrgRole: vi.fn(() => 'admin'),
   mockGetUserId: vi.fn(() => 'user_1'),
   mockGetActionStatus: vi.fn(),
+  mockGetActionRecord: vi.fn(),
   mockResolveContainment: vi.fn(),
   mockCreateActionRecord: vi.fn(),
   mockStampPromotionApproval: vi.fn(),
@@ -49,6 +51,7 @@ vi.mock('@/lib/org.js', () => ({
 }));
 vi.mock('@/lib/repositories/actions.repository.js', () => ({
   getActionStatus: mockGetActionStatus,
+  getActionRecord: mockGetActionRecord,
   resolveContainment: mockResolveContainment,
   createActionRecord: mockCreateActionRecord,
   stampPromotionApproval: mockStampPromotionApproval,
@@ -79,6 +82,9 @@ describe('POST /api/actions/[actionId]/containment', () => {
     // to clear the evidence-binding check override this with a matching
     // `content.ref`.
     mockListArtifacts.mockResolvedValue({ artifacts: [] });
+    // Default: the re-issue path's full-row re-fetch finds nothing, so it
+    // falls back to the getActionStatus subset; re-issue shape tests override.
+    mockGetActionRecord.mockResolvedValue(null);
   });
 
   function mockPatchArtifact(ref: string | undefined) {
@@ -315,6 +321,33 @@ describe('POST /api/actions/[actionId]/containment', () => {
     expect(payload.data.act).toEqual(buildPromotionAct('dashclaw/contained-act_123'));
     expect(mockStampPromotionApproval).toHaveBeenCalledWith(mockGetSql, 'org_test', data.promotion_action_id, 'user_1');
     expect(mockResolveContainment).not.toHaveBeenCalled();
+  });
+
+  // Recorded follow-up from the v5.6.0 ship: the re-issue path returned the
+  // 9-column getActionStatus subset while every other verdict path returns
+  // the full row — the response `action` shape must be the full row.
+  it('re-issue responds with the full re-fetched action row, not the status subset', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      agent_id: 'agent_1', created_by: 'user_2', containment_status: 'promoted',
+      containment_ref: 'dashclaw/contained-act_123',
+    });
+    mockPatchArtifact('dashclaw/contained-act_123');
+    const fullRow = {
+      action_id: 'act_123', agent_id: 'agent_1', declared_goal: 'refactor the parser',
+      containment_status: 'promoted', containment_ref: 'dashclaw/contained-act_123',
+      containment_resolved_by: 'user_9', risk_score: 55,
+    };
+    mockGetActionRecord.mockResolvedValueOnce(fullRow);
+    mockFindUnconsumedPromotionGrant.mockResolvedValueOnce({ action_id: 'act_promo_old' });
+    mockStampPromotionApproval.mockResolvedValueOnce({ action_id: 'act_promo_old', approved_by: 'user_1' });
+
+    const res = await POST(postReq({ verdict: 'promote' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.reissued).toBe(true);
+    expect(mockGetActionRecord).toHaveBeenCalledWith(mockGetSql, 'org_test', 'act_123');
+    expect(data.action).toEqual(fullRow);
   });
 
   it('discard verdict on an already-promoted action still 409s (re-issue only applies to promote)', async () => {

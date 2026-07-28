@@ -213,11 +213,19 @@ export function LoopWalkthrough() {
 
 const BAND_WARN = 40; // real band: >= 40 is elevated
 const BAND_HIGH = 70; // real band: >= 70 is high risk
+// Illustrative contain_above: on a require_approval policy, risk in
+// [CONTAIN_AT, BAND_HIGH) stages file-scoped work in a worktree instead of
+// interrupting (real rule: rules.contain_above < threshold, RFC containment-verdicts).
+const CONTAIN_AT = 55;
 
-const SIM_ACTION_TYPES: Record<string, { base: number; label: string }> = {
+// `containable` mirrors server-side eligibility (isContainableAct): only a
+// provably file-scoped act can be staged in a worktree. Deletes, payments,
+// deploys, and messages have effects outside the working tree, so they are
+// never containable — in the band they interrupt instead (skew tightens).
+const SIM_ACTION_TYPES: Record<string, { base: number; label: string; containable?: boolean }> = {
   'data.read': { base: 10, label: 'Read data' },
   'message.send': { base: 25, label: 'Send a message' },
-  'file.write': { base: 30, label: 'Write a file' },
+  'file.write': { base: 30, label: 'Write a file', containable: true },
   'file.delete': { base: 55, label: 'Delete files' },
   'payment.create': { base: 60, label: 'Create a payment' },
   deploy: { base: 65, label: 'Deploy' },
@@ -260,10 +268,25 @@ function assessRisk({
   return { score, signals };
 }
 
-function decideFromScore(score: number, requireApprovalHighRisk: boolean): Decision {
-  if (score >= BAND_HIGH) return requireApprovalHighRisk ? 'require_approval' : 'block';
-  if (score >= BAND_WARN) return 'warn';
-  return 'allow';
+function decideFromScore(
+  score: number,
+  requireApprovalHighRisk: boolean,
+  containPolicy: boolean,
+  containable: boolean,
+): { decision: Decision; containNote: string | null } {
+  if (score >= BAND_HIGH) return { decision: requireApprovalHighRisk ? 'require_approval' : 'block', containNote: null };
+  // Containment band — only meaningful on an interrupt policy (the real
+  // validator enforces contain_above < threshold + action require_approval),
+  // and an ineligible act in the band interrupts instead: skew only tightens.
+  if (requireApprovalHighRisk && containPolicy && score >= CONTAIN_AT) {
+    if (containable) return { decision: 'allow_contained', containNote: null };
+    return {
+      decision: 'require_approval',
+      containNote: `Risk ${score} is in the containment band [${CONTAIN_AT}, ${BAND_HIGH}), but this action isn't file-scoped — containment only ever loosens for work a worktree can stage, so it interrupts instead.`,
+    };
+  }
+  if (score >= BAND_WARN) return { decision: 'warn', containNote: null };
+  return { decision: 'allow', containNote: null };
 }
 
 const DECISION_EXPLAIN: Record<Decision, string> = {
@@ -285,6 +308,7 @@ export function GuardSimulator() {
   const [production, setProduction] = useState(false);
   const [trust, setTrust] = useState(50);
   const [approvalPolicy, setApprovalPolicy] = useState(true);
+  const [containPolicy, setContainPolicy] = useState(false);
 
   const { score, signals } = assessRisk({
     actionType,
@@ -293,7 +317,8 @@ export function GuardSimulator() {
     production,
     trust,
   });
-  const decision = decideFromScore(score, approvalPolicy);
+  const containable = Boolean(SIM_ACTION_TYPES[actionType]?.containable);
+  const { decision, containNote } = decideFromScore(score, approvalPolicy, containPolicy, containable);
   const trustLabel = trust < 34 ? 'new / erratic' : trust < 67 ? 'established' : 'long, clean history';
   const fillClass = score >= BAND_HIGH ? 'bg-status-error' : score >= BAND_WARN ? 'bg-status-warning' : 'bg-status-success';
 
@@ -329,12 +354,25 @@ export function GuardSimulator() {
           <input type="checkbox" checked={approvalPolicy} onChange={(e) => setApprovalPolicy(e.target.checked)} /> Policy: high risk
           requires human approval
         </label>
+        <label
+          className={`flex items-center gap-2 text-[13px] ${approvalPolicy ? 'text-text-tertiary' : 'text-text-tertiary/50'}`}
+          title={approvalPolicy ? undefined : 'contain_above only exists on a require_approval policy'}
+        >
+          <input
+            type="checkbox"
+            checked={containPolicy && approvalPolicy}
+            disabled={!approvalPolicy}
+            onChange={(e) => setContainPolicy(e.target.checked)}
+          />{' '}
+          Policy: contain file-scoped work above {CONTAIN_AT} (worktree staging)
+        </label>
       </form>
       <div className={`${card} p-5`} aria-live="polite">
         <div className={metaLabel}>Decision</div>
         <div className="my-2.5">
           <DecisionChip decision={decision} />
           <p className="mt-2 text-sm text-text-secondary">{DECISION_EXPLAIN[decision]}</p>
+          {containNote && <p className="mt-2 text-sm text-text-secondary">{containNote}</p>}
         </div>
         <div className={`${metaLabel} mt-3.5`}>Risk score</div>
         <div className="my-2.5">

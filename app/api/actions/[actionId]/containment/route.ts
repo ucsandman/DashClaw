@@ -13,6 +13,7 @@ import { getOrgId, getOrgRole, getUserId } from '../../../../lib/org';
 import { apiErrorResponse } from '../../../../lib/apiErrors';
 import {
   getActionStatus,
+  getActionRecord,
   resolveContainment,
   createActionRecord,
   stampPromotionApproval,
@@ -181,6 +182,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
       // Already 'promoted' — resolveContainment's WHERE-gate only matches
       // awaiting_promotion, so this branch never calls it; containment_status
       // is left exactly as-is (still 'promoted').
+      //
+      // Response-shape consistency: the other verdict paths return the full
+      // row resolveContainment's RETURNING * produces; `action` here is the
+      // 9-column getActionStatus subset, so re-fetch the full row (falling
+      // back to the subset only if the row vanished mid-request).
+      const fullAction = (await getActionRecord(sql, orgId, actionId)) ?? action;
       const existingGrant = await findUnconsumedPromotionGrant(
         sql,
         orgId,
@@ -193,7 +200,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
         // still in flight) — re-stamp its 15-minute approval window instead
         // of minting a second grant row for the same containment_ref.
         await stampPromotionApproval(sql, orgId, String(existingGrant.action_id), userId);
-        return NextResponse.json({ action, promotion_action_id: existingGrant.action_id, reissued: true });
+        return NextResponse.json({ action: fullAction, promotion_action_id: existingGrant.action_id, reissued: true });
       }
       // Grant was consumed (a merge attempt ran — succeeded, or hit a
       // conflict and needs re-authorization) — mint a fresh grant, same as
@@ -201,7 +208,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
       const promotionActionId = await mintPromotionGrant(
         `Operator re-promoted contained action ${actionId} (prior grant consumed)`
       );
-      return NextResponse.json({ action, promotion_action_id: promotionActionId, reissued: true });
+      return NextResponse.json({ action: fullAction, promotion_action_id: promotionActionId, reissued: true });
     }
 
     const updated = await resolveContainment(sql, orgId, actionId, { verdict, resolvedBy: userId });

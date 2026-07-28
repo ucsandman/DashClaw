@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shapeArtifact } from '../../app/lib/repositories/artifacts.repository.js';
+import { shapeArtifact, getLatestPatchRefs } from '../../app/lib/repositories/artifacts.repository.js';
 
 describe('shapeArtifact', () => {
   it('shapes a raw row into an artifact object', () => {
@@ -50,5 +50,51 @@ describe('shapeArtifact', () => {
 
   it('returns null for null input', () => {
     expect(shapeArtifact(null)).toBeNull();
+  });
+});
+
+describe('getLatestPatchRefs', () => {
+  const makeSql = (rows) => {
+    const calls = [];
+    return {
+      calls,
+      query: (text, params) => {
+        calls.push({ text, params });
+        return Promise.resolve(rows);
+      },
+    };
+  };
+
+  it('returns {} without querying when the id list is empty', async () => {
+    const sql = makeSql([]);
+    const out = await getLatestPatchRefs(sql, 'org_1', []);
+    expect(out).toEqual({});
+    expect(sql.calls).toHaveLength(0);
+  });
+
+  it('one batched DISTINCT ON query, newest patch per action, ref parsed from content_json', async () => {
+    const sql = makeSql([
+      { source_action_id: 'act_1', content_json: '{"ref":"dashclaw/contained-s1","diff":"..."}' },
+      { source_action_id: 'act_2', content_json: '{"diff":"no ref captured"}' },
+    ]);
+    const out = await getLatestPatchRefs(sql, 'org_1', ['act_1', 'act_2', 'act_3']);
+    expect(sql.calls).toHaveLength(1);
+    expect(sql.calls[0].text).toContain('DISTINCT ON (source_action_id)');
+    expect(sql.calls[0].text).toContain("artifact_type = 'patch'");
+    expect(sql.calls[0].params).toEqual(['org_1', ['act_1', 'act_2', 'act_3']]);
+    // act_1: evidence with a ref; act_2: evidence predating ref capture;
+    // act_3: no patch artifact at all -> key absent (distinguishes "no
+    // evidence" from "evidence without a ref").
+    expect(out).toEqual({
+      act_1: { ref: 'dashclaw/contained-s1' },
+      act_2: { ref: null },
+    });
+    expect(out.act_3).toBeUndefined();
+  });
+
+  it('malformed content_json degrades to ref null, never a throw', async () => {
+    const sql = makeSql([{ source_action_id: 'act_1', content_json: 'not-json' }]);
+    const out = await getLatestPatchRefs(sql, 'org_1', ['act_1']);
+    expect(out).toEqual({ act_1: { ref: null } });
   });
 });

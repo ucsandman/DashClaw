@@ -896,7 +896,14 @@ def _ensure_containment_worktree(session_id, server_ref=None):
         ref = server_ref
         branch_seg = ref[len("dashclaw/contained-"):]
     else:
-        branch_seg = _safe_branch_segment(session_id)
+        # Local fallback (server predates ref stamping): mirror of the server's
+        # buildContainmentRef WITH the instance discriminator — session segment
+        # truncated so segment + '-' + suffix stays within the 64-char cap the
+        # ref-shape regexes enforce. Keeps co-installed instances on distinct
+        # branches even against an old server.
+        inst = _INSTANCE_STATE_SUFFIX
+        seg = _safe_branch_segment(session_id)[: 64 - len(inst) - 1].rstrip("-")
+        branch_seg = seg + "-" + inst
         ref = "dashclaw/contained-" + branch_seg
     worktree_path = os.path.join(root, ".dashclaw", "contained", branch_seg)
 
@@ -928,6 +935,12 @@ def _attach_client_capabilities(context, tool_name):
     if not _is_git_repo():
         return
     context["client_capabilities"] = ["allow_contained"]
+    # Instance discriminator: the server folds this into the containment ref it
+    # stamps (buildContainmentRef), so two co-installed hook instances firing
+    # for the SAME harness session get DISTINCT branches/worktrees instead of
+    # the second `git worktree add` failing forever. Same suffix that already
+    # namespaces this instance's tempdir state files.
+    context["containment_instance"] = _INSTANCE_STATE_SUFFIX
 
 
 def _relative_to_repo(path, root):

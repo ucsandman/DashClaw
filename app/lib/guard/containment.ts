@@ -50,8 +50,31 @@ export function safeBranchSegment(sessionId: unknown): string {
   return cleaned.slice(0, 64) || 'session';
 }
 
-export function buildContainmentRef(sessionId: unknown): string {
-  return `dashclaw/contained-${safeBranchSegment(sessionId)}`;
+/**
+ * Instance discriminator (co-installed hook instances): the hook's
+ * `_INSTANCE_STATE_SUFFIX` (sha256(base_url|agent_id)[:12]), sent as
+ * `containment_instance` on the guard payload. Two hook installations firing
+ * for the SAME harness session (global ~/.claude hooks + a project's local
+ * hooks) would otherwise derive the SAME branch/worktree — the second
+ * instance's `git worktree add` fails and its containment permanently
+ * interrupts. Sanitized to alnum ≤16; anything else means "no discriminator"
+ * (legacy hook), which keeps the pre-suffix derivation byte-for-byte.
+ */
+export function safeInstanceSegment(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const cleaned = value.replace(/[^A-Za-z0-9]/g, '').slice(0, 16);
+  return cleaned || null;
+}
+
+export function buildContainmentRef(sessionId: unknown, instance?: unknown): string {
+  const inst = safeInstanceSegment(instance);
+  const base = safeBranchSegment(sessionId);
+  if (!inst) return `dashclaw/contained-${base}`;
+  // Cap the combined segment at 64 chars — the ref-shape regexes on the PATCH
+  // flip route, the hook, and the CLI all enforce {1,64}, and the segment
+  // doubles as the worktree directory name.
+  const seg = base.slice(0, 64 - inst.length - 1).replace(/-+$/, '');
+  return `dashclaw/contained-${seg}-${inst}`;
 }
 
 export function finalizeContainment(
@@ -76,8 +99,16 @@ export function finalizeContainment(
   // Server-derived merge target (security follow-up, RFC 2026-07-06): the ref
   // is computed HERE — from the harness session id already on the payload —
   // never accepted from a later client flip, so a containment flip carries no
-  // attacker-controllable merge target.
-  return { containment: { status: 'contained', basis: eligibility.basis, ref: buildContainmentRef(context.harness_session_id) } };
+  // attacker-controllable merge target. The instance discriminator namespaces
+  // co-installed hook instances; it is client-supplied but only selects the
+  // caller's own ref namespace (the session id segment always was).
+  return {
+    containment: {
+      status: 'contained',
+      basis: eligibility.basis,
+      ref: buildContainmentRef(context.harness_session_id, context.containment_instance),
+    },
+  };
 }
 
 export function buildPromotionGoal(containedActionId: string): string {

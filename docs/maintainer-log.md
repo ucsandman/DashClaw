@@ -12,6 +12,47 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-28 — v5.6.2: paying down the containment follow-up list
+
+The v5.6.0 entry recorded five follow-ups it deliberately did not squeeze
+into the ship, and v5.6.1 discharged the biggest one the same day. This
+release closes the rest of the list, because a recorded follow-up that
+never gets a date is just a prettier way of dropping it.
+
+The one with real teeth: two co-installed hook installations — a global
+`~/.claude` install and a project-local one, firing for the same Claude
+Code session — derived the identical containment branch and worktree from
+the session id alone. The state *files* were already instance-namespaced
+(that lesson was paid for during the v5.6.0 e2e), but the worktree wasn't:
+the second instance's `git worktree add` failed every time, so its
+containment silently degraded to permanent interruption. The fix rides the
+v5.6.1 architecture instead of fighting it — the hook already adopts
+whatever ref the server stamps, so the hook now sends the same instance
+suffix it uses for its state files and the server folds it into the ref it
+derives. Both sides' derivations stay parity-locked by tests; an old hook
+or an old server just gets the legacy behavior.
+
+The hero surface got its mount cost back: every contained card on
+`/approvals` was fetching its own artifact list at mount to decide whether
+Promote should be enabled — honest, but N requests for a question one
+`DISTINCT ON` query answers for the whole list. The evidence state now
+arrives on the list rows themselves, Promote gating works with zero
+per-card requests, and the diff loads when the operator actually asks to
+read it. The re-issue response now returns the same full action row as
+every other verdict path; the operator-side flip's org-scoping got the
+regression test the v5.6.0 review noted was missing; and the `/explain`
+simulator finally produces the fifth verdict — including the honest case,
+where a non-file-scoped action in the containment band interrupts anyway,
+because containment only ever loosens for work a worktree can stage.
+
+Also swept while in there: the SDK docs had drifted from v5.6.1's own
+response shape (`containment.ref` existed on the wire but not in the
+JSDoc), which is a small embarrassment for a project whose whole pitch is
+that descriptions match the live system. Fixed in both SDKs.
+
+Wes's credential-gated tail still stands: `release:sdks` and `release:mcp`,
+now landing at 5.6.2.
+
 ## 2026-07-28 — v5.6.1: the merge target moves server-side
 
 The v5.6.0 entry ended with an honest residual and a recorded follow-up:

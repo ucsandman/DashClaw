@@ -632,14 +632,22 @@ class DashClaw:
 
         verdict: "promote" | "discard". Response is
         {"action": {...}, "promotion_action_id": "..."} on promote,
-        {"action": {...}} on discard.
+        {"action": {...}} on discard; "action" is the full action row on
+        every path, and "reissued": True marks a re-promote of an
+        already-promoted action (grant re-stamp or fresh mint).
         """
         if verdict not in ("promote", "discard"):
             raise ValueError("verdict must be either 'promote' or 'discard'")
         return self._request(f"/api/actions/{action_id}/containment", method="POST", body={"verdict": verdict})
 
     def list_contained(self, status="awaiting_promotion", limit=None):
-        """List actions by containment status (default: awaiting_promotion)."""
+        """List actions by containment status (default: awaiting_promotion).
+
+        Rows are enriched with batched evidence state:
+        "containment_has_evidence" (a patch artifact exists) and
+        "containment_evidence_ref" (the ref the newest captured diff
+        describes).
+        """
         return self.get_actions(containment_status=status, limit=limit)
 
     def _record_tracked_failure(self, action_id, start_time, error):

@@ -183,6 +183,68 @@ describe('/api/actions GET', () => {
     );
   });
 
+  // Containment lists carry batched evidence state (one query for the whole
+  // list instead of /approvals firing one artifact fetch per card on mount).
+  it('enriches containment-filtered lists with containment_has_evidence / containment_evidence_ref', async () => {
+    mockListActions.mockResolvedValue({
+      actions: [
+        { action_id: 'act_1', containment_ref: 'dashclaw/contained-s1' },
+        { action_id: 'act_2', containment_ref: 'dashclaw/contained-s2' },
+      ],
+      total: 2,
+      stats: {},
+    });
+    // The only .query in this path is getLatestPatchRefs' DISTINCT ON batch.
+    mockSql.query.mockResolvedValueOnce([
+      { source_action_id: 'act_1', content_json: '{"ref":"dashclaw/contained-s1"}' },
+    ]);
+
+    const res = await GET(makeRequest('http://localhost/api/actions?containment_status=awaiting_promotion', {
+      headers: { 'x-org-id': 'org_1' },
+    }));
+    const data = await res.json();
+
+    expect(mockSql.query).toHaveBeenCalledTimes(1);
+    expect(mockSql.query.mock.calls[0][0]).toContain('DISTINCT ON (source_action_id)');
+    expect(mockSql.query.mock.calls[0][1]).toEqual(['org_1', ['act_1', 'act_2']]);
+    expect(data.actions[0].containment_has_evidence).toBe(true);
+    expect(data.actions[0].containment_evidence_ref).toBe('dashclaw/contained-s1');
+    // No patch artifact at all for act_2.
+    expect(data.actions[1].containment_has_evidence).toBe(false);
+    expect(data.actions[1].containment_evidence_ref).toBeNull();
+  });
+
+  it('does not run the evidence enrichment for unfiltered or invalid-filter lists', async () => {
+    mockListActions.mockResolvedValue({ actions: [defaultAction], total: 1, stats: {} });
+    const res1 = await GET(makeRequest('http://localhost/api/actions', { headers: { 'x-org-id': 'org_1' } }));
+    const data1 = await res1.json();
+    expect(data1.actions[0].containment_has_evidence).toBeUndefined();
+
+    mockListActions.mockResolvedValue({ actions: [defaultAction], total: 1, stats: {} });
+    await GET(makeRequest('http://localhost/api/actions?containment_status=not_a_real_value', {
+      headers: { 'x-org-id': 'org_1' },
+    }));
+    expect(mockSql.query).not.toHaveBeenCalled();
+  });
+
+  it('a failed enrichment degrades to the un-enriched list, never a 500', async () => {
+    mockListActions.mockResolvedValue({
+      actions: [{ action_id: 'act_1', containment_ref: 'dashclaw/contained-s1' }],
+      total: 1,
+      stats: {},
+    });
+    mockSql.query.mockRejectedValueOnce(new Error('artifacts table on fire'));
+
+    const res = await GET(makeRequest('http://localhost/api/actions?containment_status=awaiting_promotion', {
+      headers: { 'x-org-id': 'org_1' },
+    }));
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.actions).toHaveLength(1);
+    expect(data.actions[0].containment_has_evidence).toBeUndefined();
+  });
+
   it('caps limit at 200', async () => {
     mockListActions.mockResolvedValue({ actions: [], total: 0, stats: {} });
 

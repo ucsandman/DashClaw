@@ -11,6 +11,7 @@ import {
   createActionRecord,
   listActions,
   findUnconsumedPromotionGrant,
+  getActionRecord,
 } from '../../app/lib/repositories/actions.repository';
 import { buildPromotionGoal } from '../../app/lib/guard/containment';
 
@@ -131,6 +132,35 @@ describe('resolveContainment', () => {
   it('wrong prior status (not awaiting_promotion) returns null', async () => {
     const sql = makeSql([[]]);
     const row = await resolveContainment(sql, 'org_1', 'act_1', { verdict: 'promote', resolvedBy: 'op_1' });
+    expect(row).toBeNull();
+  });
+
+  // Recorded follow-up from the v5.6.0 ship: org scoping was asserted for
+  // setContainmentAwaiting but never for the operator-side flip. org_id is
+  // part of the WHERE-gate-as-legality-check — a verdict against another
+  // org's action must resolve nothing.
+  it('org mismatch returns null — org_id is part of the WHERE gate', async () => {
+    const sql = makeSql([[]]);
+    const row = await resolveContainment(sql, 'org_other', 'act_1', { verdict: 'promote', resolvedBy: 'op_1' });
+    expect(row).toBeNull();
+    expect(sql.calls[0]!.text).toContain('org_id =');
+    expect(sql.calls[0]!.values).toContain('org_other');
+  });
+});
+
+describe('getActionRecord', () => {
+  it('returns the full row scoped by org_id + action_id', async () => {
+    const sql = makeSql([[{ action_id: 'act_1', containment_status: 'promoted', declared_goal: 'g' }]]);
+    const row = await getActionRecord(sql, 'org_1', 'act_1');
+    expect(row?.action_id).toBe('act_1');
+    expect(sql.calls[0]!.text).toContain('SELECT * FROM action_records');
+    expect(sql.calls[0]!.text).toContain('org_id =');
+    expect(sql.calls[0]!.values).toEqual(['act_1', 'org_1']);
+  });
+
+  it('org mismatch returns null', async () => {
+    const sql = makeSql([[]]);
+    const row = await getActionRecord(sql, 'org_other', 'act_1');
     expect(row).toBeNull();
   });
 });

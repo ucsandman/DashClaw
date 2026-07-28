@@ -376,7 +376,7 @@ class DashClaw {
    *   verification_status: 'verified'|'unverified'|'expired'|'failed'|'unknown_issuer',
    *   agent_id: string|null,
    *   agent_name: string|null,
-   *   containment?: { status: 'contained', basis: string },
+   *   containment?: { status: 'contained', basis: string, ref: string },
    * }>}
    *
    * `allow_contained` (Containment Verdicts, RFC 2026-07-06): a provably
@@ -588,8 +588,11 @@ class DashClaw {
    * action awaiting promotion (admin credential required).
    * @param {string} actionId
    * @param {'promote'|'discard'} verdict
-   * @returns {Promise<{action: object, promotion_action_id?: string}>}
-   *   promotion_action_id is present only when verdict is 'promote'.
+   * @returns {Promise<{action: object, promotion_action_id?: string, reissued?: boolean}>}
+   *   promotion_action_id is present only when verdict is 'promote'; `action`
+   *   is the full action row on every path. reissued=true marks a re-promote
+   *   of an already-promoted action (grant re-stamp or fresh mint after the
+   *   prior grant was consumed/expired).
    * @throws {TypeError} if verdict is not 'promote' or 'discard' — checked
    *   before any HTTP request is made.
    */
@@ -602,7 +605,9 @@ class DashClaw {
 
   /**
    * GET /api/actions?containment_status=... — List actions by containment
-   * status.
+   * status. Rows are enriched with batched evidence state:
+   * `containment_has_evidence` (a patch artifact exists) and
+   * `containment_evidence_ref` (the ref the newest captured diff describes).
    * @param {object} [opts] - { status = 'awaiting_promotion', limit? }
    */
   async listContained(opts = {}) {

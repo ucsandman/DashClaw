@@ -141,7 +141,7 @@ describe('/api/guard', () => {
       expect(mockEvaluateGuard).toHaveBeenCalledWith(
         'org_1',
         // verification_status defaults to 'unverified' when no Authorization header is provided (Phase 2)
-        { action_type: 'read', verification_status: 'unverified', replay_status: 'not_applicable', jti: null, act_status: 'not_applicable', act_hash: null, harness_session_id: null, subagent_uuid: null, enforcement_mode: null },
+        { action_type: 'read', verification_status: 'unverified', replay_status: 'not_applicable', jti: null, act_status: 'not_applicable', act_hash: null, harness_session_id: null, subagent_uuid: null, containment_instance: null, enforcement_mode: null },
         mockSql,
         { includeSignals: true, computeSignals: expect.any(Function) }
       );
@@ -158,7 +158,7 @@ describe('/api/guard', () => {
       expect(mockEvaluateGuard).toHaveBeenCalledWith(
         'org_42',
         // verification_status defaults to 'unverified' when no Authorization header is provided (Phase 2)
-        { action_type: 'deploy', risk_score: 50, verification_status: 'unverified', replay_status: 'not_applicable', jti: null, act_status: 'not_applicable', act_hash: null, harness_session_id: null, subagent_uuid: null, enforcement_mode: null },
+        { action_type: 'deploy', risk_score: 50, verification_status: 'unverified', replay_status: 'not_applicable', jti: null, act_status: 'not_applicable', act_hash: null, harness_session_id: null, subagent_uuid: null, containment_instance: null, enforcement_mode: null },
         mockSql,
         { includeSignals: false, computeSignals: null },
       );

@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.6.1",
+    "current_version": "5.6.2",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.6.1 - version advances per the unified model but the SDK is NOT republished at this number; the 5.6.0 republish (resolveContainment + listContained, 39 methods, plus unpublished 5.4.0 plan + 5.5.0 delegation methods) is still owed via release:sdks and will land at 5.6.1.",
+    "reason": "doc-comment-only change in 5.6.2 (containment.ref on the guard JSDoc, reissued flag + full-row shape on resolveContainment, listContained enrichment fields) - no runtime behavior change; the republish owed since 5.4.0 (plan methods + 5.5.0 delegation wrappers + 5.6.0 containment methods, 39 methods) should land at 5.6.2 via release:sdks and will carry these doc fixes.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.6.1",
+    "current_version": "5.6.2",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.6.1 - version advances per the unified model but the SDK is NOT republished at this number; the 5.6.0 republish (resolve_containment + list_contained, 59 methods, plus unpublished 5.4.0 plan + 5.5.0 delegation methods) is still owed via release:sdks and will land at 5.6.1.",
+    "reason": "docstring-only change in 5.6.2 (resolve_containment reissued flag + full-row shape, list_contained enrichment fields) - no runtime behavior change; the republish owed since 5.4.0 (plan methods + 5.5.0 delegation wrappers + 5.6.0 containment methods, 59 methods) should land at 5.6.2 via release:sdks and will carry these doc fixes.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.6.1 is the recorded security follow-up to Containment Verdicts: containment_ref is stamped server-side at guard ?record=true time (derived from the payload's harness_session_id), returned in the guard response, adopted by the hook for the worktree branch, and the awaiting_promotion flip can no longer overwrite it - a conflicting client ref 409s.",
+  "reason": "5.6.2 closes the recorded v5.6.0 follow-up list: instance-namespaced containment refs (co-installed hook instances no longer collide on the worktree branch), batched containment evidence on the actions list (no per-card artifact fetches on /approvals), full-row re-issue responses, resolveContainment org-scoping coverage, and the /explain simulator producing allow_contained.",
   "domains": [
     "platform"
   ]

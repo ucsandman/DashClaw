@@ -214,6 +214,12 @@ class TestPretoolContainment(unittest.TestCase):
             tempfile.gettempdir(), "dashclaw_last_action_" + self._instance_suffix() + "_" + tool_use_id
         )
 
+    def _contained_seg(self, session_id):
+        # Local-fallback branch segment (server sent no containment.ref):
+        # session id + "-" + instance suffix, mirroring
+        # _ensure_containment_worktree's co-installed-instance namespacing.
+        return session_id + "-" + self._instance_suffix()
+
     # -----------------------------------------------------------------------
     # 1. Worktree created + exclude line + instructive deny (Write, rewrite off)
     # -----------------------------------------------------------------------
@@ -244,13 +250,13 @@ class TestPretoolContainment(unittest.TestCase):
         self.assertEqual(code, 2, "instructive deny exits 2; stderr=%s" % stderr)
         self.assertIn("containment ref", stderr)
 
-        expected_worktree = os.path.join(repo, ".dashclaw", "contained", session_id)
+        expected_worktree = os.path.join(repo, ".dashclaw", "contained", self._contained_seg(session_id))
         self.assertIn(expected_worktree, stderr)
         self.assertTrue(os.path.isdir(expected_worktree), "worktree directory should exist on disk")
 
         wt_list = _worktree_list(repo)
         self.assertIn(expected_worktree.replace("\\", "/"), wt_list.replace("\\", "/"))
-        self.assertIn("dashclaw/contained-" + session_id, wt_list)
+        self.assertIn("dashclaw/contained-" + self._contained_seg(session_id), wt_list)
 
         exclude_path = os.path.join(repo, ".git", "info", "exclude")
         self.assertTrue(os.path.isfile(exclude_path))
@@ -265,7 +271,7 @@ class TestPretoolContainment(unittest.TestCase):
         with open(self._action_state_path(tool_use_id), encoding="utf-8") as f:
             state = json.loads(f.read())
         self.assertEqual(state["action_id"], "act-contained-1")
-        self.assertEqual(state["containment_ref"], "dashclaw/contained-" + session_id)
+        self.assertEqual(state["containment_ref"], "dashclaw/contained-" + self._contained_seg(session_id))
         self.assertEqual(state["containment_worktree"], expected_worktree)
 
         # F1: base_sha (the worktree's HEAD at creation) is recorded so
@@ -378,7 +384,7 @@ class TestPretoolContainment(unittest.TestCase):
         )
         self.assertEqual(code2, 2)
 
-        expected_worktree = os.path.join(repo, ".dashclaw", "contained", session_id)
+        expected_worktree = os.path.join(repo, ".dashclaw", "contained", self._contained_seg(session_id))
         self.assertIn(expected_worktree, stderr1)
         self.assertIn(expected_worktree, stderr2, "second call must reuse the SAME worktree path")
 
@@ -440,6 +446,9 @@ class TestPretoolContainment(unittest.TestCase):
         self.assertEqual(code, 0)
         body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][-1]["body"]
         self.assertEqual(body.get("client_capabilities"), ["allow_contained"])
+        # Instance discriminator rides alongside the capability so the server
+        # can namespace the containment ref per co-installed hook instance.
+        self.assertEqual(body.get("containment_instance"), self._instance_suffix())
 
     def test_capability_advertised_for_write_tool(self):
         """Same gating matrix, a second containable tool (Write, not Bash)."""
@@ -577,7 +586,7 @@ class TestPretoolContainment(unittest.TestCase):
         self.assertEqual(out["permissionDecision"], "allow")
         self.assertIn("permissionDecisionReason", out)
 
-        expected_worktree = os.path.join(repo, ".dashclaw", "contained", session_id)
+        expected_worktree = os.path.join(repo, ".dashclaw", "contained", self._contained_seg(session_id))
         expected_path = os.path.join(expected_worktree, "sub", "bar.txt")
         updated = out["updatedInput"]
         self.assertEqual(updated["file_path"], expected_path)
@@ -754,12 +763,81 @@ class TestPretoolContainment(unittest.TestCase):
         )
 
         self.assertEqual(code, 2, "instructive deny exits 2; stderr=%s" % stderr)
-        expected_worktree = os.path.join(repo, ".dashclaw", "contained", session_id)
+        expected_worktree = os.path.join(repo, ".dashclaw", "contained", self._contained_seg(session_id))
         self.assertTrue(os.path.isdir(expected_worktree))
 
         with open(self._action_state_path(tool_use_id), encoding="utf-8") as f:
             state = json.loads(f.read())
-        self.assertEqual(state["containment_ref"], "dashclaw/contained-" + session_id)
+        self.assertEqual(state["containment_ref"], "dashclaw/contained-" + self._contained_seg(session_id))
+
+    # -----------------------------------------------------------------------
+    # Server-stamped ref adoption (v5.6.1): when the guard response carries
+    # containment.ref, the hook creates the branch/worktree under the SERVER's
+    # name — including a server-namespaced instance suffix — instead of the
+    # local fallback derivation.
+    # -----------------------------------------------------------------------
+
+    def test_server_stamped_ref_names_the_branch_and_worktree(self):
+        repo = self._new_repo()
+        session_id = "sess-adopt-" + uuid.uuid4().hex[:8]
+        tool_use_id = "tu-adopt-" + uuid.uuid4().hex[:8]
+        self._action_state_path(tool_use_id)
+        server_ref = "dashclaw/contained-%s-%s" % (session_id, self._instance_suffix())
+
+        self.log.guard_response = {
+            "decision": "allow_contained",
+            "recorded": True,
+            "action_id": "act-adopt-1",
+            "containment": {"status": "contained", "basis": "file", "ref": server_ref},
+        }
+
+        code, _, stderr = _run_hook(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": os.path.join(repo, "foo.txt"), "content": "hello"},
+                "tool_use_id": tool_use_id,
+                "session_id": session_id,
+            },
+            self._env(repo, DASHCLAW_CONTAINMENT_REWRITE="0"),
+        )
+
+        self.assertEqual(code, 2, "instructive deny exits 2; stderr=%s" % stderr)
+        expected_worktree = os.path.join(
+            repo, ".dashclaw", "contained", server_ref[len("dashclaw/contained-"):]
+        )
+        self.assertTrue(os.path.isdir(expected_worktree))
+        self.assertIn(server_ref, _worktree_list(repo))
+        with open(self._action_state_path(tool_use_id), encoding="utf-8") as f:
+            state = json.loads(f.read())
+        self.assertEqual(state["containment_ref"], server_ref)
+
+    def test_malformed_server_ref_falls_back_to_local_derivation(self):
+        repo = self._new_repo()
+        session_id = "sess-malref-" + uuid.uuid4().hex[:8]
+        tool_use_id = "tu-malref-" + uuid.uuid4().hex[:8]
+        self._action_state_path(tool_use_id)
+
+        self.log.guard_response = {
+            "decision": "allow_contained",
+            "recorded": True,
+            "action_id": "act-malref-1",
+            "containment": {"status": "contained", "basis": "file", "ref": "refs/heads/main; rm -rf /"},
+        }
+
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": os.path.join(repo, "foo.txt"), "content": "hello"},
+                "tool_use_id": tool_use_id,
+                "session_id": session_id,
+            },
+            self._env(repo, DASHCLAW_CONTAINMENT_REWRITE="0"),
+        )
+
+        self.assertEqual(code, 2)
+        with open(self._action_state_path(tool_use_id), encoding="utf-8") as f:
+            state = json.loads(f.read())
+        self.assertEqual(state["containment_ref"], "dashclaw/contained-" + self._contained_seg(session_id))
 
 
 if __name__ == "__main__":

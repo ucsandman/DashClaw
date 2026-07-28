@@ -151,6 +151,35 @@ export async function listArtifacts(
   };
 }
 
+/**
+ * Newest 'patch' artifact per action, reduced to its evidence ref — one query
+ * for the whole /approvals containment list instead of one artifact fetch per
+ * card. A key is present only when a patch artifact exists for that action;
+ * ref is null when the artifact predates ref capture (content has no ref).
+ */
+export async function getLatestPatchRefs(
+  sql: SqlTag,
+  orgId: string,
+  actionIds: string[],
+): Promise<Record<string, { ref: string | null }>> {
+  if (actionIds.length === 0) return {};
+  const rows = await sql.query(
+    `SELECT DISTINCT ON (source_action_id) source_action_id, content_json
+     FROM artifacts
+     WHERE org_id = $1 AND artifact_type = 'patch' AND source_action_id = ANY($2)
+     ORDER BY source_action_id, created_at DESC`,
+    [orgId, actionIds],
+  );
+  const out: Record<string, { ref: string | null }> = {};
+  for (const row of rows) {
+    const content = safeJsonParse(row.content_json) as { ref?: unknown } | null;
+    out[String(row.source_action_id)] = {
+      ref: content && typeof content.ref === 'string' ? content.ref : null,
+    };
+  }
+  return out;
+}
+
 export async function getArtifact(
   sql: SqlTag,
   orgId: string,

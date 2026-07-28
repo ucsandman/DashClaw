@@ -41,6 +41,15 @@ describe('finalizeContainment (negotiation matrix)', () => {
     const out = finalizeContainment({ ...fileAct, client_capabilities: ['allow_contained'] } as any, acc, rb);
     expect(out.containment?.ref).toBe('dashclaw/contained-session');
   });
+  it('containment_instance on the context namespaces the ref (co-installed instances)', () => {
+    const { acc, rb } = mk('allow_contained', {});
+    const out = finalizeContainment(
+      { ...fileAct, client_capabilities: ['allow_contained'], harness_session_id: 'abc-123', containment_instance: 'deadbeef1234' } as any,
+      acc,
+      rb,
+    );
+    expect(out.containment?.ref).toBe('dashclaw/contained-abc-123-deadbeef1234');
+  });
   it('not advertised → require_approval + downgrade note (skew only tightens)', () => {
     const { acc, rb } = mk('allow_contained', {});
     finalizeContainment(fileAct as any, acc, rb);
@@ -95,6 +104,34 @@ describe('buildContainmentRef', () => {
   it('produces the exact ref shape the hook creates and the flip route validates', () => {
     expect(buildContainmentRef('6f9c2b1e-uuid')).toBe('dashclaw/contained-6f9c2b1e-uuid');
     expect(buildContainmentRef(null)).toBe('dashclaw/contained-session');
+  });
+
+  // Co-installed-instance namespacing: the hook sends its
+  // _INSTANCE_STATE_SUFFIX as containment_instance; the ref folds it in so two
+  // installations sharing a harness session get distinct branches/worktrees.
+  it('appends a sanitized instance discriminator when provided', () => {
+    expect(buildContainmentRef('sess-1', 'abc123def456')).toBe('dashclaw/contained-sess-1-abc123def456');
+  });
+  it('absent/invalid instance keeps the legacy derivation byte-for-byte', () => {
+    expect(buildContainmentRef('sess-1', undefined)).toBe('dashclaw/contained-sess-1');
+    expect(buildContainmentRef('sess-1', '')).toBe('dashclaw/contained-sess-1');
+    expect(buildContainmentRef('sess-1', 42)).toBe('dashclaw/contained-sess-1');
+    expect(buildContainmentRef('sess-1', '!!!')).toBe('dashclaw/contained-sess-1');
+  });
+  it('strips non-alnum chars from the instance and caps it at 16', () => {
+    expect(buildContainmentRef('s', 'a-b.c/d')).toBe('dashclaw/contained-s-abcd');
+    expect(buildContainmentRef('s', 'x'.repeat(40))).toBe(`dashclaw/contained-s-${'x'.repeat(16)}`);
+  });
+  it('keeps the combined segment within the 64-char ref regex (python parity: seg[:64-len(inst)-1].rstrip("-"))', () => {
+    const inst = 'abc123def456';
+    const ref = buildContainmentRef('a'.repeat(80), inst);
+    expect(ref).toBe(`dashclaw/contained-${'a'.repeat(64 - inst.length - 1)}-${inst}`);
+    expect(ref.slice('dashclaw/contained-'.length)).toMatch(/^[A-Za-z0-9-]{1,64}$/);
+    // A truncation boundary landing on a dash must not produce a double dash
+    // start… it may produce interior dashes, but trailing dashes are stripped
+    // before the suffix joins.
+    const dashBoundary = buildContainmentRef('a'.repeat(50) + '-'.repeat(10), inst);
+    expect(dashBoundary).toBe(`dashclaw/contained-${'a'.repeat(50)}-${inst}`);
   });
 });
 

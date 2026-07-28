@@ -11,6 +11,9 @@ interface ContainmentAction {
   declared_goal: string;
   containment_ref: string | null;
   timestamp_start: string;
+  // Batched evidence state from the enriched actions list (see ContainmentCard).
+  containment_has_evidence?: boolean;
+  containment_evidence_ref?: string | null;
 }
 
 // Diff artifacts are cumulative session-branch state, keyed by

@@ -114,6 +114,20 @@ export async function hasAction(sql: SqlClient, orgId: string, actionId: string)
   return rows.length > 0;
 }
 
+/**
+ * Bare full action row (no relations). The containment route's re-issue path
+ * uses this so every containment verdict response carries the same full-row
+ * `action` shape resolveContainment's RETURNING * produces on the other paths.
+ */
+export async function getActionRecord(sql: SqlClient, orgId: string, actionId: string): Promise<Row | null> {
+  const rows = await sql`
+    SELECT * FROM action_records
+    WHERE action_id = ${actionId} AND org_id = ${orgId}
+    LIMIT 1
+  `;
+  return rows[0] || null;
+}
+
 export async function getActionStatus(sql: SqlClient, orgId: string, actionId: string): Promise<Row | null> {
   const rows = await sql`
     SELECT status, agent_id, model, action_type, approval_expires_at, created_at, created_by,
