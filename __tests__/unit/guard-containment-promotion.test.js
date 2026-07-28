@@ -40,12 +40,12 @@ const REF = 'dashclaw/contained-1';
  * action_records' catches it. Unmatched queries (guard_policies,
  * guard_decisions insert, risk_templates, org halt, etc.) resolve to [].
  */
-function makeSql({ grantRows = [] } = {}) {
+function makeSql({ grantRows = [], policyRows = [] } = {}) {
   const taggedCalls = [];
   const sql = (strings, ...values) => {
     const text = String.raw({ raw: strings }, ...Array(values.length).fill('?'));
     taggedCalls.push({ text, values });
-    if (/FROM guard_policies/i.test(text)) return Promise.resolve([]); // no org policies — containment_promote is a builtin raise, not policy-driven
+    if (/FROM guard_policies/i.test(text)) return Promise.resolve(policyRows);
     if (text.includes('FROM action_records')) return Promise.resolve(grantRows);
     return Promise.resolve([]);
   };
@@ -174,5 +174,107 @@ describe('containment promotion grant — single-use, act-hash-bound (via evalua
     // per-retry.
     expect(lookup.values).toContain(mutatedHash);
     expect(lookup.values).not.toContain(approvedHash);
+  });
+});
+
+// IMPORTANT 2 (final fix wave, 2026-07-27) / Locked Decision 5: "promote
+// click grants exactly one" must hold even when the org has an allow_grant
+// policy or an approved plan step that happens to name action_type
+// containment_promote — neither may stand in for the single-use promote
+// grant. Only applyOperatorApprovalGrant (the promote click itself) may ever
+// downgrade this raise.
+describe('containment_promote is excluded from allow_grant and plan-step grants', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    __resetGuardCaches();
+    mockScanSensitiveData.mockImplementation((text) => ({ findings: [], redacted: text, clean: true }));
+    process.env.GUARD_LLM_KEY = 'mock-key-for-unit-tests';
+  });
+
+  it('an allow_grant policy naming containment_promote does NOT downgrade the raise', async () => {
+    const act = buildPromotionAct(REF);
+    const allowGrantPolicy = {
+      id: 'gp_allow_containment',
+      name: 'Allow containment merges',
+      policy_type: 'allow_grant',
+      rules: JSON.stringify({ action_type: 'containment_promote' }),
+    };
+    const sql = makeSql({ grantRows: [], policyRows: [allowGrantPolicy] });
+
+    const res = await evaluateGuard('org_1', guardCall(act), sql);
+
+    expect(res.decision).toBe('require_approval');
+    expect(res.matched_policies).toContain('builtin:containment_promote');
+    expect(res.matched_policies).not.toContain('gp_allow_containment');
+  });
+
+  it('an approved plan step naming containment_promote does NOT downgrade the raise (plan_authorization_steps is never even queried)', async () => {
+    const act = buildPromotionAct(REF);
+    const taggedCalls = [];
+    const sql = (strings, ...values) => {
+      const text = String.raw({ raw: strings }, ...Array(values.length).fill('?'));
+      taggedCalls.push({ text, values });
+      if (/FROM guard_policies/i.test(text)) return Promise.resolve([]);
+      if (/plan_authorization_steps/i.test(text)) {
+        // If this ever fires, the containment_promote guard regressed — a
+        // consumable row here would otherwise downgrade to allow.
+        return Promise.resolve([{
+          step_id: 'ps_step1', plan_id: 'pa_plan1', seq: 1, reviewed_by: 'wes@example.com',
+          act_content_hash: null, total_steps: 1,
+        }]);
+      }
+      if (text.includes('FROM action_records')) return Promise.resolve([]);
+      return Promise.resolve([]);
+    };
+    sql.query = async () => [];
+    sql.taggedCalls = taggedCalls;
+
+    const res = await evaluateGuard('org_1', guardCall(act), sql);
+
+    expect(res.decision).toBe('require_approval');
+    expect(res.matched_policies).toContain('builtin:containment_promote');
+    expect(res.matched_policies).not.toContain('builtin:plan_grant');
+    expect(taggedCalls.some((c) => /plan_authorization_steps/i.test(c.text))).toBe(false);
+  });
+
+  // IMPORTANT 6 minor (final fix wave, 2026-07-27): foldEvidenceIntoContext's
+  // containment_promote carve-out (evaluate.ts ~line 842) keeps the mismatch
+  // MODIFIER (evidence still raises risk) while suppressing only the
+  // action_type SWAP, so the sentinel stays visible to the builtin raise and
+  // the grant lookup's action_type predicate (Task 8's governed-merge-bypass
+  // finding). This is the branch's worst catch and was untested at this seam.
+  it('foldEvidenceIntoContext keeps the mismatch modifier + evidence_mismatch:true but never swaps action_type away from containment_promote', async () => {
+    const act = buildPromotionAct(REF);
+    const sql = makeSql({ grantRows: [], policyRows: [] }); // no grant — proves the raise (not a downgrade) is what's under test
+
+    const res = await evaluateGuard('org_1', guardCall(act), sql);
+
+    // The canonical merge act's derived base_risk (35) exceeds
+    // containment_promote's 'other'-floor declared base (20), so evidence
+    // MUST be graded as a mismatch — a false here would mean the mismatch
+    // detection itself regressed, making the rest of this test vacuous.
+    expect(res.evidence_mismatch).toBe(true);
+    // The type swap must be suppressed: the raise below only fires on
+    // action_type === 'containment_promote' (or declared_action_type as a
+    // defense-in-depth backup) — matched_policies proves the sentinel was
+    // still recognized as containment_promote, not silently swapped to
+    // whatever the evidence classifier derived from the shell command.
+    expect(res.decision).toBe('require_approval');
+    expect(res.matched_policies).toContain('builtin:containment_promote');
+  });
+
+  it('the operator-approval promotion grant (the promote click itself) still downgrades to allow', async () => {
+    const act = buildPromotionAct(REF);
+    const grantRow = {
+      action_id: 'act_promo_1',
+      approved_by: 'user_admin_1',
+      act_content_hash: computeActContentHash(act),
+    };
+    const sql = makeSql({ grantRows: [grantRow], policyRows: [] });
+
+    const res = await evaluateGuard('org_1', guardCall(act), sql);
+
+    expect(res.decision).toBe('allow');
+    expect(res.matched_policies).toContain('builtin:operator_approval');
   });
 });

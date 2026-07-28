@@ -285,6 +285,15 @@ async function runLocalPolicies(
  * to allow. It can NEVER override block — blocks are absolute.
  */
 function applyAllowGrants(policies: PolicyRow[], context: GuardEvalContext, acc: GuardAccumulator): void {
+  // Final fix-wave IMPORTANT 2 (2026-07-27) / Locked Decision 5
+  // (RFC containment-verdicts): "promote click grants exactly one" — an
+  // operator-configured allow_grant policy must never be able to authorize a
+  // containment merge. Without this guard, an allow_grant policy simply
+  // naming action_type containment_promote would downgrade EVERY merge for
+  // EVERY contained action into standing, pre-emptive authorization —
+  // exactly the ungoverned-merge outcome the builtin containment_promote
+  // raise exists to prevent.
+  if (context.action_type === 'containment_promote') return;
   if (acc.highestDecision !== 'warn' && acc.highestDecision !== 'require_approval') return;
   for (const policy of policies) {
     if (policy.policy_type !== 'allow_grant') continue;
@@ -428,6 +437,14 @@ export type PlanGrantInfo = { plan_id: string; step_id: string; seq: number; pre
 
 async function applyPlanStepGrant(deps: GuardPhaseDeps, acc: GuardAccumulator): Promise<PlanGrantInfo | null> {
   const { context, sql, orgId } = deps;
+  // Final fix-wave IMPORTANT 2 (2026-07-27) / Locked Decision 5
+  // (RFC containment-verdicts): same reasoning as applyAllowGrants above —
+  // an operator-approved plan step must never stand in for the promote
+  // click's single-use grant. A containment_promote action is never a
+  // legitimate plan step in the first place (it's the synthetic merge row
+  // minted by the containment route, not something a plan ever proposes),
+  // so this excludes it from both the deny-check and consumption phases.
+  if (context.action_type === 'containment_promote') return null;
   const declaredGoal = context.declared_goal || '';
   const actHash = computeActContentHash(context.act);
   // V2: the entry guard used to require context.action_type unconditionally,
