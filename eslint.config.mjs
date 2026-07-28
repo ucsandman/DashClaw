@@ -7,17 +7,18 @@ import nextVitals from 'eslint-config-next/core-web-vitals'
 const eslintConfig = defineConfig([
   ...nextVitals,
   {
-    // react-hooks v7 (pulled in by eslint-config-next 16) ships new
-    // compiler-era rules the codebase was never gated on (191 pre-existing
-    // sites, dominated by fetch-in-useEffect). Off for parity with the old
-    // gate; enabling them is a dedicated pass, not a dependency bump.
+    // react-hooks v7 compiler-era rules: five of the six formerly-disabled
+    // rules were fixed repo-wide and now run at their eslint-config-next
+    // defaults (error). The one hold-out is set-state-in-effect — 49
+    // pre-existing sites, dominated by the fetch-on-mount setLoading
+    // pattern; rewriting them is a dedicated behavior-risking pass, not a
+    // lint chore. Scoped to the same files as the config object that
+    // defines the react-hooks plugin — an unscoped override also matches
+    // *.cjs, where the plugin is absent and any non-'off' severity
+    // crashes eslint.
+    files: ['**/*.{js,jsx,mjs,ts,tsx,mts,cts}'],
     rules: {
       'react-hooks/set-state-in-effect': 'off',
-      'react-hooks/purity': 'off',
-      'react-hooks/refs': 'off',
-      'react-hooks/static-components': 'off',
-      'react-hooks/immutability': 'off',
-      'react-hooks/preserve-manual-memoization': 'off',
     },
   },
   {

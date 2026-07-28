@@ -1,8 +1,5 @@
 interface SkeletonProps {
   className?: string;
-  // Accepted by callers (e.g. ListSkeleton) but intentionally not applied —
-  // matches the original JS behavior where the prop was passed and ignored.
-  style?: React.CSSProperties;
 }
 
 export function Skeleton({ className = '' }: SkeletonProps) {
@@ -28,7 +25,7 @@ export function ListSkeleton({ rows = 3 }: ListSkeletonProps) {
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex items-center gap-3">
           <Skeleton className="h-4 w-4 rounded" />
-          <Skeleton className="h-4 flex-1" style={{ maxWidth: `${70 + Math.random() * 30}%` }} />
+          <Skeleton className="h-4 flex-1" />
         </div>
       ))}
     </div>

@@ -299,7 +299,8 @@ export default async function SetupPage() {
   // what "fresh" means. A canary that stopped reporting is itself a warn.
   const liveRun = liveCanary.run;
   const liveRunStale = liveRun
-    ? Date.now() - Date.parse(liveRun.finished_at) > LIVE_CANARY_STALE_MS
+    ? // eslint-disable-next-line react-hooks/purity -- server component: staleness is evaluated per request, there is no client re-render for this to destabilize
+      Date.now() - Date.parse(liveRun.finished_at) > LIVE_CANARY_STALE_MS
     : false;
   const liveStatus = liveCanary.error
     ? 'warn'
@@ -329,6 +330,7 @@ export default async function SetupPage() {
   // "stale" for the badge (we cannot prove enforcement held), but rendered
   // with its own message so it's never confused with an actually-stale probe.
   const livenessRun = enforcementLiveness.run;
+  // eslint-disable-next-line react-hooks/purity -- server component: liveness is evaluated per request, same shared derivation the API route calls with Date.now()
   const livenessState = deriveEnforcementLivenessState(livenessRun, Date.now());
   const livenessStatus = enforcementLiveness.error
     ? 'warn'

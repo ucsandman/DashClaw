@@ -24,6 +24,9 @@ export default function AuditLogPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // "now" is stamped when a fetch lands, not read during render — relative
+  // times measure against the data's freshness and keep render pure.
+  const [now, setNow] = useState(() => Date.now());
 
   // Filters
   const [actionFilter, setActionFilter] = useState('all');
@@ -37,6 +40,7 @@ export default function AuditLogPage() {
 
   const fetchLogs = useCallback(async (reset = false) => {
     try {
+      setNow(Date.now());
       if (reset) {
         setLoading(true);
         offsetRef.current = 0;
@@ -137,7 +141,6 @@ export default function AuditLogPage() {
   };
 
   const formatRelativeTime = (dateStr: any) => {
-    const now = Date.now();
     const then = new Date(dateStr).getTime();
     const diff = now - then;
 

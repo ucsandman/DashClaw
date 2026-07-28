@@ -722,7 +722,9 @@ export default function TriageInbox({ onChanged, onCount }: TriageInboxProps) {
   // ----- pending count reported up (ref keeps onCount out of the dep list) -----
   const pending = items.filter((it) => !resolutions[it.key]).length;
   const onCountRef = useRef(onCount);
-  onCountRef.current = onCount;
+  useEffect(() => {
+    onCountRef.current = onCount;
+  }, [onCount]);
   useEffect(() => {
     onCountRef.current?.(pending);
   }, [pending]);

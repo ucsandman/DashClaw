@@ -100,6 +100,7 @@ export default function NotificationCenter() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- compiler diagnostic only: it cannot prove this memo, but the [] deps are correct (reads only the stable setState and platform globals)
   const addNotification = useCallback((type: string, message: string, title = 'DashClaw') => {
     const newNotif: NotificationItem = {
       id: Date.now(),

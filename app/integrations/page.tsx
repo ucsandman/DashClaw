@@ -68,6 +68,9 @@ export default function IntegrationsPage() {
   const [settings, setSettings] = useState<Record<string, SettingEntry>>({});
   const [agentConnections, setAgentConnections] = useState<AgentConnection[]>([]);
   const [healthData, setHealthData] = useState<Record<string, HealthEntry>>({});
+  // Stamped when health data lands, not read during render — the relative
+  // "last checked" label measures against data freshness and keeps render pure.
+  const [healthFetchedAt, setHealthFetchedAt] = useState(() => Date.now());
   const [refreshingHealth, setRefreshingHealth] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,6 +132,7 @@ export default function IntegrationsPage() {
       if (res.ok) {
         const data = await res.json();
         setHealthData(data.health || {});
+        setHealthFetchedAt(Date.now());
       }
     } catch (err) {
       console.warn('[integrations] fetchHealth failed:', (err as Error)?.message || err);
@@ -147,6 +151,7 @@ export default function IntegrationsPage() {
       }
       const data = await res.json();
       setHealthData(data.health || {});
+      setHealthFetchedAt(Date.now());
     } catch (err) {
       setRefreshError((err as Error).message || 'Refresh failed');
     } finally {
@@ -304,7 +309,7 @@ export default function IntegrationsPage() {
       if (t > latest) latest = t;
     }
     if (!latest) return null;
-    const diffSec = Math.max(0, Math.round((Date.now() - latest) / 1000));
+    const diffSec = Math.max(0, Math.round((healthFetchedAt - latest) / 1000));
     if (diffSec < 60) return `${diffSec}s ago`;
     if (diffSec < 3600) return `${Math.round(diffSec / 60)}m ago`;
     if (diffSec < 86400) return `${Math.round(diffSec / 3600)}h ago`;
