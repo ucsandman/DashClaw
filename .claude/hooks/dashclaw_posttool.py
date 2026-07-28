@@ -536,12 +536,22 @@ def _maybe_post_containment_diff(action_id, ref, worktree, base_sha=None):
     A commit failure (as opposed to "nothing to commit", the idempotent
     common case) is treated the same as a diff-compute failure: skip BOTH the
     artifact upload and the status flip so an operator can never promote a
-    change that was never actually captured. The action stays 'contained' --
-    the Stop hook's awaiting-promotion sweep will still flip its status (no
-    artifact) as a backstop, and the change stays reviewable later via
-    `dashclaw contained diff` (CLI). Fail-silent end to end."""
+    change that was never actually captured. The action stays 'contained';
+    the change stays reviewable later via `dashclaw contained diff` (CLI)
+    once a retry succeeds. Fail-silent end to end.
+
+    Returns True only when the commit landed AND the diff artifact was
+    posted -- i.e. capture fully succeeded. Final fix-wave IMPORTANT 3
+    (2026-07-27): the caller uses this to gate _append_contained_turn_action,
+    which feeds the Stop hook's awaiting-promotion sweep. Previously that
+    sweep ran unconditionally and could flip a capture-failed action to
+    awaiting_promotion anyway -- reintroducing exactly the class the F1 fix
+    above closed (a promotable card on /approvals with no diff artifact
+    behind it, so Promote is a silent no-op merge). A failed capture must
+    leave the action 'contained' with NO backstop path to awaiting_promotion
+    until a retry actually captures something."""
     if not ref or not worktree:
-        return
+        return False
     try:
         if not _git_add_and_commit(worktree, action_id):
             _log_always(
@@ -549,7 +559,7 @@ def _maybe_post_containment_diff(action_id, ref, worktree, base_sha=None):
                 "git add/commit failed in " + worktree + " for " + action_id
                 + " — leaving contained for stop-hook retry",
             )
-            return
+            return False
         cap = _containment_diff_cap_bytes()
         payload = _git_diff_payload(worktree, cap, base_sha)
         if payload is None:
@@ -558,7 +568,7 @@ def _maybe_post_containment_diff(action_id, ref, worktree, base_sha=None):
                 "containment diff computation failed for " + action_id
                 + " — leaving contained for stop-hook retry",
             )
-            return
+            return False
         diff_text, truncated, stat_text, untracked = payload
         content_json = {
             "diff": diff_text,
@@ -580,16 +590,34 @@ def _maybe_post_containment_diff(action_id, ref, worktree, base_sha=None):
             "source_action_id": action_id,
             "content_json": content_json,
         })
-        _patch_action(action_id, {"containment_status": "awaiting_promotion", "containment_ref": ref})
+        # IMPORTANT 5 (final fix wave, 2026-07-27): the server now binds this
+        # transition to the caller's own agent_id (WHERE-gated in
+        # setContainmentAwaiting) — without it in the body, an org-key-only
+        # caller has no attributable identity and the PATCH 403s.
+        _patch_action(action_id, {
+            "containment_status": "awaiting_promotion",
+            "containment_ref": ref,
+            "agent_id": AGENT_ID,
+        })
+        return True
     except Exception as e:
         _log_always("containment_diff_failed", "action_id=" + action_id + " " + type(e).__name__ + ": " + str(e))
+        return False
 
 
 def _append_contained_turn_action(session_id, action_id, ref):
     """Append "<action_id>\\t<ref>" to the per-session contained-turn log so
     the Stop hook's awaiting-promotion sweep can flip this action even if the
-    PATCH above failed or never landed. Cleared by the Stop hook at end of
-    turn (dashclaw_agent_intel.stop_state). Best-effort; never raises.
+    containment_status PATCH above failed or never landed. Cleared by the
+    Stop hook at end of turn (dashclaw_agent_intel.stop_state). Best-effort;
+    never raises.
+
+    CALLER CONTRACT (final fix-wave IMPORTANT 3, 2026-07-27): only call this
+    when _maybe_post_containment_diff returned True (commit landed + diff
+    artifact posted). This log is a backstop for a failed PATCH, not a
+    backstop for a failed CAPTURE -- appending unconditionally would let the
+    Stop hook flip a capture-failed action to awaiting_promotion with no
+    diff artifact behind it (a promotable card that merges nothing).
 
     Uses the shared stop_state.contained_turn_path (not a local path build) so
     this WRITER and dashclaw_stop.py's READER always agree on the
@@ -775,10 +803,16 @@ def main():
     # No-op for ordinary (non-contained) actions.
     containment_ref = state.get("containment_ref")
     if containment_ref:
-        _maybe_post_containment_diff(
+        captured = _maybe_post_containment_diff(
             action_id, containment_ref, state.get("containment_worktree"), state.get("containment_base_sha")
         )
-        _append_contained_turn_action(data.get("session_id") or "", action_id, containment_ref)
+        # IMPORTANT 3 (final fix wave, 2026-07-27): only feed the Stop hook's
+        # awaiting-promotion backstop sweep when capture actually succeeded —
+        # see _append_contained_turn_action's caller contract above. A failed
+        # commit/diff must leave the action 'contained' with no path to
+        # awaiting_promotion until a retry actually captures something.
+        if captured:
+            _append_contained_turn_action(data.get("session_id") or "", action_id, containment_ref)
 
     # Clean up temp file
     _cleanup_temp(tool_use_id)

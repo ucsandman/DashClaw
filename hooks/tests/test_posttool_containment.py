@@ -121,6 +121,31 @@ def _cleanup_temp_action(tool_use_id, base_url, agent_id="claude-code"):
         pass
 
 
+def _contained_turn_path(session_id, base_url, agent_id="claude-code"):
+    # Mirrors dashclaw_agent_intel.stop_state.contained_turn_path, which
+    # _append_contained_turn_action calls directly (test_stop_containment.py
+    # has the identical helper for the Stop-hook side of this same file).
+    return os.path.join(
+        tempfile.gettempdir(),
+        "dashclaw_contained_turn_" + _instance_suffix(base_url, agent_id) + "_" + session_id,
+    )
+
+
+def _read_contained_turn_actions(session_id, base_url, agent_id="claude-code"):
+    try:
+        with open(_contained_turn_path(session_id, base_url, agent_id), "r", encoding="utf-8") as f:
+            return [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        return []
+
+
+def _safe_remove_path(path):
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+
+
 def _run_hook(stdin_data, env_overrides=None, timeout=15):
     env = os.environ.copy()
     for key in list(env.keys()):
@@ -483,6 +508,70 @@ class TestPosttoolContainmentDiff(unittest.TestCase):
 
         self.assertEqual(self._artifact_posts(), [])
         self.assertEqual(self._containment_patches(), [])
+
+    # -----------------------------------------------------------------------
+    # IMPORTANT 3 (final fix wave, 2026-07-27): the turn-action log that
+    # feeds the Stop hook's awaiting-promotion backstop sweep must only be
+    # written when capture actually succeeded -- otherwise the backstop
+    # itself flips a capture-failed action to awaiting_promotion with no
+    # diff artifact behind it (a promotable card that merges nothing).
+    # -----------------------------------------------------------------------
+
+    def test_forced_commit_failure_leaves_no_turn_action_entry(self):
+        """A bad worktree path fails _git_add_and_commit (the same fixture
+        test_git_diff_failure_skips_artifact_and_flip uses). The Stop hook's
+        awaiting-promotion sweep reads the turn-action log for this session
+        -- it must find nothing, or it would flip this action anyway."""
+        tool_use_id = "post-cont-tu-007"
+        action_id = "act-cont-007"
+        ref = "dashclaw/contained-sess-007"
+        session_id = "sess-cont-007"
+        nonexistent_worktree = os.path.join(tempfile.gettempdir(), "dashclaw_test_no_such_worktree_007")
+        _write_contained_action(tool_use_id, action_id, ref, nonexistent_worktree, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
+        self.addCleanup(_safe_remove_path, _contained_turn_path(session_id, self.base_url))
+
+        code, _, err = _run_hook(
+            {
+                "tool_use_id": tool_use_id,
+                "session_id": session_id,
+                "tool_response": {"output": "wrote file"},
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0, msg=err)
+
+        self.assertEqual(self._artifact_posts(), [])
+        self.assertEqual(
+            _read_contained_turn_actions(session_id, self.base_url), [],
+            "a failed commit must never feed the Stop-hook awaiting-promotion backstop",
+        )
+
+    def test_successful_capture_appends_the_turn_action_entry(self):
+        """The success path (existing behavior) still appends -- this is the
+        control proving the assertion above is discriminating, not vacuous."""
+        tool_use_id = "post-cont-tu-008"
+        action_id = "act-cont-008"
+        ref = "dashclaw/contained-sess-008"
+        session_id = "sess-cont-008"
+        worktree, base_sha = _make_worktree_with_staged_change()
+        self.addCleanup(_rm_worktree, worktree)
+        _write_contained_action(tool_use_id, action_id, ref, worktree, self.base_url, base_sha=base_sha)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
+        self.addCleanup(_safe_remove_path, _contained_turn_path(session_id, self.base_url))
+
+        code, _, err = _run_hook(
+            {
+                "tool_use_id": tool_use_id,
+                "session_id": session_id,
+                "tool_response": {"output": "wrote file"},
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0, msg=err)
+
+        entries = _read_contained_turn_actions(session_id, self.base_url)
+        self.assertEqual(entries, [action_id + "\t" + ref])
 
     # -----------------------------------------------------------------------
     # Non-contained action: zero artifact calls (regression proof)

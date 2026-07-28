@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, X, GitMerge, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -61,28 +61,38 @@ export default function ContainmentCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const toggleExpand = async () => {
-    const next = !expanded;
-    setExpanded(next);
-    if (next && !diffLoaded) {
-      setDiffLoading(true);
-      try {
-        const res = await fetch(`/api/actions/${action.action_id}/artifacts`);
-        if (res.ok) {
-          const data = await res.json();
-          const patch = (data.artifacts || []).find((a: any) => a.artifact_type === 'patch');
-          setPatchContent(patch?.content ?? null);
-        } else {
-          setPatchContent(null);
-        }
-      } catch {
+  // IMPORTANT 3 defense-in-depth (final fix wave, 2026-07-27): Promote must
+  // be disabled when there is no patch artifact behind this card — a
+  // promotable row with nothing captured is exactly the class the
+  // posttool-hook fix above closes server-side; this is the belt-and-
+  // suspenders UI check. Fetching eagerly on mount (not just on "View diff")
+  // means that check is in place before the operator ever has a chance to
+  // click Promote, not only after they happen to expand the diff.
+  const loadDiff = async () => {
+    setDiffLoading(true);
+    try {
+      const res = await fetch(`/api/actions/${action.action_id}/artifacts`);
+      if (res.ok) {
+        const data = await res.json();
+        const patch = (data.artifacts || []).find((a: any) => a.artifact_type === 'patch');
+        setPatchContent(patch?.content ?? null);
+      } else {
         setPatchContent(null);
-      } finally {
-        setDiffLoading(false);
-        setDiffLoaded(true);
       }
+    } catch {
+      setPatchContent(null);
+    } finally {
+      setDiffLoading(false);
+      setDiffLoaded(true);
     }
   };
+
+  useEffect(() => {
+    loadDiff();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [action.action_id]);
+
+  const toggleExpand = () => setExpanded((prev) => !prev);
 
   const submit = async (verdict: 'promote' | 'discard') => {
     try {
@@ -139,6 +149,7 @@ export default function ContainmentCard({
         <button
           type="button"
           onClick={toggleExpand}
+          aria-expanded={expanded}
           className="mb-2 inline-flex items-center gap-1 text-xs font-medium text-tertiary transition-colors hover:text-secondary"
         >
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -176,10 +187,17 @@ export default function ContainmentCard({
 
         {error && <p className="mb-3 text-xs text-error">{error}</p>}
 
+        {diffLoaded && !patchContent && (
+          <p className="mb-3 text-xs text-warning">
+            No diff artifact captured for this action — Promote is disabled to avoid merging nothing.
+          </p>
+        )}
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => submit('promote')}
-            disabled={busy || !canDecide}
+            disabled={busy || !canDecide || (diffLoaded && !patchContent)}
+            title={diffLoaded && !patchContent ? 'No diff artifact captured — nothing to merge' : undefined}
             className="inline-flex items-center gap-1.5 rounded-lg border border-success/20 bg-success-subtle px-3 py-1.5 text-sm font-medium text-success transition-colors hover:bg-success/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Check size={16} /> Promote
