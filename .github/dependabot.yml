@@ -49,6 +49,12 @@ updates:
       - dependency-name: "jsdom"
         update-types:
           - "version-update:semver-major"
+      # TypeScript 7 (the native compiler) is unsupported by typescript-eslint
+      # (lint hard-errors: "typescript-eslint does not support TS 7.0").
+      # Adopt it intentionally when the lint toolchain supports it.
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
 
   - package-ecosystem: "github-actions"
     directory: "/"
