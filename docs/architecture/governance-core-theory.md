@@ -428,6 +428,14 @@ payload v, continue as k. A governed runtime is a **handler** G with signature
         block               → G⟦ k(refused) ⟧          -- continuation runs, effect does NOT
         require_approval    → suspend; on grant → as allow; on deny/expiry → as block
 
+**Known gap: this case statement is four-arm, `allow_contained` (§0.3, §6) has
+no arm here.** Its effect model does not fit the two shapes above — it is
+neither an immediate `effect(op, v)` nor a `suspend`/resume; it discharges the
+effect *and* defers finality (stage now, promote-or-discard later, itself a
+second governed operation). Formalizing that arm and its interaction with the
+handler-composition theorem below is a dedicated pass, deliberately not
+attempted here.
+
 with the side condition that `guard` itself is decided at the audit boundary
 (every branch persists a `guard_decisions` row first — the D2 contract: an
 unaudited decision is never returned).
