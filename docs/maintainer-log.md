@@ -76,6 +76,18 @@ a dependabot ignore rule so it stops re-opening weekly — typings track the
 minimum supported runtime (Node 20), not the newest one Dependabot can
 find.
 
+The two standing issues got re-triaged against post-cull reality, and
+both had quietly resolved further than their text admitted. #147's Node
+drift-parity item is moot — the drift engine is in the thesis kill
+ledger, and parity now holds at zero methods on both sides; its OpenClaw
+cost-attribution item turned out to have shipped its code fix (plugin
+v1.4.0, carry-forward usage reconciliation) thirteen hours after the
+issue was filed — what remains is deploying that build to the live
+gateway and watching one session, which is Wes's runtime, not this repo.
+#146's phase-1 distribution items are verifiably done (topics, mcpName,
+registry keywords, Glama); the rest is the human publishing checklist.
+Issues describing a stale world get the same treatment as docs that do.
+
 One honest dead end, worth the fifteen minutes it cost: the nine
 high-severity audit findings in the eslint toolchain (`brace-expansion`
 OOM) looked closable now that 5.0.8 exists. Tested empirically: 5.x
