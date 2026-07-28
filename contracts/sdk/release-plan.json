@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.5.0",
+    "current_version": "5.6.0",
     "next_bump": "none",
-    "reason": "v5.5.0 adds createDelegationConstraint (37 methods; 5.4.0 plan methods also unpublished) — SDK source changed; REPUBLISH owed via release:sdks.",
+    "reason": "v5.6.0 adds resolveContainment + listContained (39 methods; 5.4.0 plan + 5.5.0 delegation methods also unpublished) - SDK source changed; REPUBLISH owed via release:sdks.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.5.0",
+    "current_version": "5.6.0",
     "next_bump": "none",
-    "reason": "v5.5.0 adds create_delegation_constraint (57 methods; 5.4.0 plan methods also unpublished) — SDK source changed; REPUBLISH owed via release:sdks.",
+    "reason": "v5.6.0 adds resolve_containment + list_contained (59 methods; 5.4.0 plan + 5.5.0 delegation methods also unpublished) - SDK source changed; REPUBLISH owed via release:sdks.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.3.0 retires the livingcode subsystem: the Python organism package, /livingcode dashboard, doctor shape/drift checks, the platform-intelligence skill + download, and the MCP routes inventory are removed; a trimmed refresh-bundles script keeps the three hand-authored download bundles current. CLI 0.9.1 and MCP server 3.0.2 carry the matching doctor-category and route-drift-check changes.",
+  "reason": "5.6.0 ships Containment Verdicts: the allow_contained decision rung, the risk_threshold contain_above band, the containment lifecycle on action_records (migration 0064), the operator promote/discard route, hook-side worktree staging with patch artifacts, and the dashclaw contained CLI group.",
   "domains": [
     "platform",
     "node",

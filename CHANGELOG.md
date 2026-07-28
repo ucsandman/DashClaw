@@ -13,6 +13,70 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.6.0] — 2026-07-28
+
+### Added
+- **Containment Verdicts — risky-but-reversible work proceeds inside a
+  worktree, and the operator ratifies a diff instead of blocking a run.**
+  A fifth guard decision, `allow_contained`, sits between `warn` and
+  `require_approval` on the severity ladder. A `risk_threshold` policy gains
+  an optional `contain_above` band (integer, strictly below the interrupt
+  threshold, only on `require_approval` policies): a score inside the band
+  returns `allow_contained` when the server can prove the act is
+  file-scoped, and `require_approval` when it cannot. The Claude Code
+  PreToolUse hook redirects `Edit`/`Write`/`MultiEdit` into a per-session
+  git worktree (`.dashclaw/contained/<session>` on branch
+  `dashclaw/contained-<session>`) via `hookSpecificOutput.updatedInput`;
+  `Bash` always takes an instructive deny. PostToolUse commits the staged
+  work on the containment branch and uploads the cumulative diff as a
+  `patch` artifact; the operator reviews that diff on **/approvals** and
+  clicks **Promote** or **Discard**. Promotion mints a single-use,
+  act-hash-bound, 15-minute operator grant for exactly
+  `git merge --no-ff <ref>`, which `dashclaw contained apply` consumes —
+  and re-issue is available from the decision detail page when the window
+  lapses or a merge conflicts. Surface: +1 route, +2 Node / +2 Python SDK
+  methods (`resolveContainment` / `listContained`, Node 39 / Python 59),
+  +1 CLI command group (`dashclaw contained list|diff|apply`), migration
+  0064. RFC `docs/rfcs/2026-07-06-containment-verdicts.md` (governed-autonomy
+  program, feature 3 of 3 — completes the program).
+
+### Security
+- **Capability negotiation makes version skew tighten, never loosen.** A
+  caller receives `allow_contained` only when it advertises
+  `client_capabilities: ['allow_contained']`; every other caller — old
+  hooks, both SDKs, the MCP server, direct API clients — receives
+  `require_approval` in its place, with
+  `risk_breakdown._containment.downgraded_to_interrupt` recording the
+  substitution. Eligibility is enforced server-side and is not a hook
+  courtesy: HTTP, SQL, payments and deploys are never containable, and a
+  shell act qualifies only when the evidence classifier grades it clean
+  file-ops with no network git subcommand.
+- **Six adversarial findings were closed before this shipped.** A guard
+  bypass where evidence-folding rewrote the `containment_promote` sentinel
+  to `apply` and silently disabled the governed-merge rail; a promote path
+  that would mint a pre-approved grant for `git merge --no-ff null` when no
+  ref was recorded; a grant-laundering path where an agent-planted
+  `containment_promote` row could receive a real operator signature on an
+  arbitrary act (the lookup now binds agent, canonical act hash and
+  approver, and the action type is reserved at creation); `allow_grant` and
+  plan-step grants that could authorize a merge without the Promote click;
+  a backstop that flipped an action to awaiting-promotion after the diff
+  capture had actually failed; and unredacted file content in the uploaded
+  diff (the existing hook-side scrubber now runs over it).
+- **Promotion is bound to the evidence the operator actually read.** The
+  promote path requires the newest `patch` artifact's recorded ref to equal
+  the action's `containment_ref` (`409 CONTAINMENT_REF_MISMATCH`) and
+  refuses to promote an action with no captured diff at all
+  (`409 CONTAINMENT_NO_EVIDENCE`); the review card disables Promote in both
+  cases while leaving Discard available. This closes the cross-agent flip in
+  which one org-key holder redirects the merge target of another agent's
+  contained action. It is **not** a defense against a fabricated artifact
+  from a compromised hook or credential holder — that remains the
+  pre-existing limit stated in
+  `docs/architecture/enforcement-boundary.md`, and the follow-up that would
+  remove the attacker-controllable target entirely is to stamp
+  `containment_ref` server-side at guard record time.
+
 ## [5.5.0] — 2026-07-26
 
 ### Added

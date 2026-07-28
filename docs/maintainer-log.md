@@ -12,6 +12,75 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-28 — v5.6.0: containment verdicts — the program closes
+
+Feature 3 of the governed-autonomy program, and the end of it. Preflight
+plans amortized approvals; delegation constraints bounded subagent
+authority; containment converts the third problem — risk — into
+reversibility. A new decision, `allow_contained`, sits between `warn` and
+`require_approval`: the agent keeps moving, its file edits land in a
+per-session git worktree instead of the real tree, and the operator
+reviews a diff on their own schedule and clicks Promote or Discard. The
+merge that lands promoted work is itself a governed action, covered by a
+single-use grant bound to the exact `git merge --no-ff <ref>` command.
+
+This was the highest-blast-radius change in the program and it behaved
+like it. The severity ladder had four rungs everywhere: two TypeScript
+unions, a runtime validator set, two severity maps, a Zod env enum, an
+MCP schema, and 79 non-test files that read a decision string. Adding a
+fifth was mechanical; what wasn't mechanical was the seam underneath it.
+A task whose only job was to write an integration test refused to write
+it and escalated instead — because the test failed for the right reason.
+Evidence-folding, which rewrites a declared action type when the attached
+act grades riskier, was silently rewriting `containment_promote` to
+`apply` **before** the check that makes promotions governed. The
+always-interrupt rail for merges was dead code for exactly the call shape
+production uses. That was a real governance hole, found by a test task
+being allowed to say "this is broken, I'm not writing an assertion that
+blesses it."
+
+The pattern repeated. A review caught that promoting an action whose ref
+was never recorded would mint a pre-approved grant for the literal
+command `git merge --no-ff null`. The first end-to-end run — a real
+Claude Code session, enforce mode, real hooks — passed every step except
+the one that mattered: the merge was a no-op, because nothing ever
+committed the contained work to the containment branch, and untracked
+files never appeared in the diff at all. The dashboard would have shown a
+diff, the operator would have clicked Promote, and nothing would have
+landed. Only driving the actual loop found that; the unit tests were
+green throughout. The same run also misrouted three calls to the live
+hosted instance, because a repo `.env` set `DASHCLAW_BASE_URL` and the
+hook preferred it over an explicitly exported `DASHCLAW_URL` — the stray
+rows are recorded rather than quietly deleted, and explicit environment
+now beats dotenv in all three hooks.
+
+The pre-ship sweep then caught something the branch's own fix had
+introduced: the re-issue path added to solve a 15-minute grant expiry
+matched promotion rows on `(action_type, declared_goal)` alone, so an
+agent could plant a row and have an operator's click stamp a real
+approval onto an arbitrary act. Grant laundering, introduced by a fix for
+a usability gap, caught before it shipped. The lookup now binds agent,
+canonical act hash and approver, and the sentinel action type is reserved
+at creation.
+
+Honest residual, because this is the part that matters most: promotion is
+now bound to the evidence the operator actually read — the merge target
+must match the ref recorded in the reviewed diff artifact, and an action
+with no captured diff cannot be promoted at all. That closes the
+cross-agent flip where one key holder redirects another agent's merge
+target. It does **not** defend against a fabricated artifact from a
+compromised hook or credential holder; that is the enforcement boundary
+this project has always stated, not a new gap. The change that would
+remove the attacker-controllable target entirely — stamping
+`containment_ref` server-side at guard record time, since the hook that
+creates the worktree already tells the server everything it needs — is a
+design change, and it is written down as the follow-up rather than
+squeezed into a fix wave.
+
+Wes's tail, now three deep: `release:sdks` (plan methods, constraint
+wrappers, and now the containment methods — Node 39, Python 59) and
+`release:mcp`.
+
 ## 2026-07-26 — v5.5.0: delegation constraints — the fleet gets boundaries
 
 Feature 2 of the governed-autonomy program, same day as feature 1. Fleet
