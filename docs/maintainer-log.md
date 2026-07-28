@@ -74,6 +74,19 @@ on npm (dist-tag latest), `dashclaw 5.6.2` on PyPI, MCP server 3.0.2. The
 root lockfile was synced to 5.6.2 in the same pass, closing the
 local-lock-vs-fresh-CI-resolution gap that class of bug lives in.
 
+*Same-day update 2 — issue re-triage:* closed #147 as obsolete — both of
+its remaining items (Node drift parity, OpenClaw cost attribution) were
+deliberately dissolved by the v5 cull (kill-ledger Wave 10 removed drift
+from both SDKs; the cost/usage surface went with x402/finops — cost
+attribution lives on the CostClaw track now). Re-verified #146's
+distribution playbook live and corrected its stale numbers: GitHub topics
+and Glama are done, punkpeye PR #9313 still waits upstream, and the one
+real gap found is **MCP-registry drift** — the registry serves 1.0.3 while
+npm serves 3.0.2 and the repo sits at 3.1.0. `server.json` is synced to
+3.1.0 on main; one credential-gated `npm run release:mcp` (Wes) publishes
+npm + registry in a single idempotent run. That's the only step owed
+anywhere, and it's human-held by design.
+
 ---
 
 ## 2026-07-28 — the red CI nobody read
