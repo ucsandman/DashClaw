@@ -36,6 +36,13 @@ updates:
       - dependency-name: "redis"
         update-types:
           - "version-update:semver-major"
+      # @types/node must track the MINIMUM supported runtime (engines: Node
+      # 20+, CI runs 20/24) — a major typings bump past that lets code
+      # type-check against Node APIs the supported runtimes don't have.
+      # Bump it intentionally when the supported Node floor moves.
+      - dependency-name: "@types/node"
+        update-types:
+          - "version-update:semver-major"
 
   - package-ecosystem: "github-actions"
     directory: "/"
