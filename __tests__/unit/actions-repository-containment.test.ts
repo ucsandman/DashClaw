@@ -8,7 +8,6 @@ import { describe, it, expect } from 'vitest';
 import {
   setContainmentAwaiting,
   resolveContainment,
-  listAwaitingPromotion,
   createActionRecord,
   listActions,
   findUnconsumedPromotionGrant,
@@ -117,45 +116,43 @@ describe('resolveContainment', () => {
   });
 });
 
-describe('listAwaitingPromotion', () => {
-  it('orders newest-first, matching listActions (timestamp_start DESC)', async () => {
-    const sql = makeSql([[
-      { action_id: 'act_2', timestamp_start: '2026-07-27T01:00:00Z' },
-      { action_id: 'act_1', timestamp_start: '2026-07-26T01:00:00Z' },
-    ]]);
-    const rows = await listAwaitingPromotion(sql, 'org_1', 50);
-    expect(rows).toHaveLength(2);
-    expect(sql.calls[0]!.text).toContain('ORDER BY timestamp_start DESC');
-    expect(sql.calls[0]!.text).toContain("containment_status = 'awaiting_promotion'");
-  });
-
-  it('caps the limit at 200 regardless of a larger requested value', async () => {
-    const sql = makeSql([[]]);
-    await listAwaitingPromotion(sql, 'org_1', 9999);
-    expect(sql.calls[0]!.values).toContain(200);
-  });
-
-  it('floors an invalid/zero limit at 1 and falls back to 50 when non-numeric', async () => {
-    const sql = makeSql([[]]);
-    await listAwaitingPromotion(sql, 'org_1', 'not-a-number');
-    expect(sql.calls[0]!.values).toContain(50);
-  });
-});
-
 describe('findUnconsumedPromotionGrant', () => {
-  it('matches on action_type + the canonical declared_goal, unconsumed only', async () => {
+  it('matches on action_type + the canonical declared_goal + agent_id + act_content_hash, unconsumed + approved only', async () => {
     const sql = makeSql([[{ action_id: 'act_promo_1', approval_grant_used_at: null }]]);
-    const row = await findUnconsumedPromotionGrant(sql, 'org_1', 'act_1');
+    const row = await findUnconsumedPromotionGrant(sql, 'org_1', 'act_1', 'agent_1', 'hash_abc');
     expect(row?.action_id).toBe('act_promo_1');
     expect(sql.calls[0]!.text).toContain("action_type = 'containment_promote'");
     expect(sql.calls[0]!.text).toContain('approval_grant_used_at IS NULL');
+    expect(sql.calls[0]!.text).toContain('approved_by IS NOT NULL');
+    expect(sql.calls[0]!.text).toContain('agent_id IS NOT DISTINCT FROM');
+    expect(sql.calls[0]!.text).toContain('act_content_hash IS NOT DISTINCT FROM');
     expect(sql.calls[0]!.values).toContain(buildPromotionGoal('act_1'));
+    expect(sql.calls[0]!.values).toContain('agent_1');
+    expect(sql.calls[0]!.values).toContain('hash_abc');
   });
 
   it('returns null when no unconsumed grant exists (already consumed or never minted)', async () => {
     const sql = makeSql([[]]);
-    const row = await findUnconsumedPromotionGrant(sql, 'org_1', 'act_1');
+    const row = await findUnconsumedPromotionGrant(sql, 'org_1', 'act_1', 'agent_1', 'hash_abc');
     expect(row).toBeNull();
+  });
+
+  // SECURITY (grant-laundering fix, 2026-07-27): a planted row sharing the
+  // canonical declared_goal but a different agent_id or act must not be
+  // findable — this is the guard against stamping a real operator approval
+  // onto an attacker-chosen act via the re-issue path.
+  it('a planted row with a different agent_id is not matched (query scopes by agent_id)', async () => {
+    const sql = makeSql([[]]);
+    const row = await findUnconsumedPromotionGrant(sql, 'org_1', 'act_1', 'agent_real', 'hash_real');
+    expect(row).toBeNull();
+    expect(sql.calls[0]!.values).toContain('agent_real');
+  });
+
+  it('scopes by the exact act_content_hash so a different act never matches', async () => {
+    const sql = makeSql([[]]);
+    await findUnconsumedPromotionGrant(sql, 'org_1', 'act_1', 'agent_1', 'hash_expected');
+    expect(sql.calls[0]!.values).toContain('hash_expected');
+    expect(sql.calls[0]!.values).not.toContain('hash_planted');
   });
 });
 

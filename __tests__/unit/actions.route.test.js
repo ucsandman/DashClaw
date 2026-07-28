@@ -271,6 +271,25 @@ describe('/api/actions POST', () => {
     });
   });
 
+  describe('reserved action_type (grant-laundering fix, 2026-07-27)', () => {
+    it('rejects a client-supplied action_type of containment_promote with 400 RESERVED_ACTION_TYPE, without touching guard/DB', async () => {
+      mockValidateActionRecord.mockReturnValue({
+        valid: true,
+        data: { ...validBody, action_type: 'containment_promote' },
+        errors: [],
+      });
+      const res = await POST(makeRequest('http://localhost/api/actions', {
+        headers: { 'x-org-id': 'org_1' },
+        body: { ...validBody, action_type: 'containment_promote' },
+      }));
+      const data = await res.json();
+      expect(res.status).toBe(400);
+      expect(data.code).toBe('RESERVED_ACTION_TYPE');
+      expect(mockEvaluateGuard).not.toHaveBeenCalled();
+      expect(mockCreateActionRecord).not.toHaveBeenCalled();
+    });
+  });
+
   it('returns 201 for a valid action with allow decision', async () => {
     const res = await POST(makeRequest('http://localhost/api/actions', {
       headers: { 'x-org-id': 'org_1' },

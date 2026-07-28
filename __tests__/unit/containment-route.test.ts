@@ -8,6 +8,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeRequest as rawRequest } from '../helpers.js';
 import { buildPromotionGoal, buildPromotionAct } from '../../app/lib/guard/containment';
+import { computeActContentHash } from '../../app/lib/act-content-hash';
 
 function makeRequest(
   url: string,
@@ -262,7 +263,13 @@ describe('POST /api/actions/[actionId]/containment', () => {
     expect(res.status).toBe(200);
     expect(data.reissued).toBe(true);
     expect(data.promotion_action_id).toBe('act_promo_old');
-    expect(mockFindUnconsumedPromotionGrant).toHaveBeenCalledWith(mockGetSql, 'org_test', 'act_123');
+    expect(mockFindUnconsumedPromotionGrant).toHaveBeenCalledWith(
+      mockGetSql,
+      'org_test',
+      'act_123',
+      'agent_1',
+      computeActContentHash(buildPromotionAct('dashclaw/contained-act_123')),
+    );
     expect(mockStampPromotionApproval).toHaveBeenCalledTimes(1);
     expect(mockStampPromotionApproval).toHaveBeenCalledWith(mockGetSql, 'org_test', 'act_promo_old', 'user_1');
     expect(mockCreateActionRecord).not.toHaveBeenCalled();

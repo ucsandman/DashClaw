@@ -321,22 +321,6 @@ export async function stampPromotionApproval(
 }
 
 /**
- * Rows currently awaiting an operator promote/discard verdict, newest-first —
- * ordering matches listActions (timestamp_start DESC) so the /approvals
- * Containment section sorts consistently with every other list on the page.
- */
-export async function listAwaitingPromotion(sql: SqlClient, orgId: string, limit: number | string = 50): Promise<Row[]> {
-  const capped = Math.max(1, Math.min(Number(limit) || 50, 200));
-  return sql`
-    SELECT * FROM action_records
-    WHERE org_id = ${orgId}
-      AND containment_status = 'awaiting_promotion'
-    ORDER BY timestamp_start DESC
-    LIMIT ${capped}
-  `;
-}
-
-/**
  * Final fix-wave CRITICAL 1 (2026-07-27): the synthetic containment_promote
  * grant row minted by a promote verdict expires in 15 minutes and is
  * single-use — with no re-issue path, every promote-to-merge gap wider than
@@ -348,11 +332,26 @@ export async function listAwaitingPromotion(sql: SqlClient, orgId: string, limit
  * the grant itself is built — action_type + goal is the tuple that
  * identifies "the promotion grant for THIS contained action", exactly as
  * applyOperatorApprovalGrant matches it during consumption.
+ *
+ * SECURITY fix-wave (2026-07-27, grant laundering): action_type + declared_goal
+ * alone is a tuple any org API key can plant via POST /api/actions (a row with
+ * an ARBITRARY act) — a later re-issue would find that planted row and
+ * `stampPromotionApproval` would stamp a real operator signature onto an
+ * attacker-chosen act. Narrow the lookup to rows THIS flow could actually have
+ * minted: the same agent_id the contained action carries, the exact act
+ * content hash `mintPromotionGrant` would have produced for this
+ * containment_ref (computeActContentHash(buildPromotionAct(...))), and a row
+ * that has already been through the create+stamp path (approved_by IS NOT
+ * NULL) — a freshly planted row is never pre-approved. (POST /api/actions also
+ * now rejects a client-supplied action_type of 'containment_promote' outright,
+ * so this is defense in depth, not the only gate.)
  */
 export async function findUnconsumedPromotionGrant(
   sql: SqlClient,
   orgId: string,
   containedActionId: string,
+  agentId: string | null | undefined,
+  actContentHash: string | null,
 ): Promise<Row | null> {
   const declaredGoal = buildPromotionGoal(containedActionId);
   const rows = await sql`
@@ -360,6 +359,9 @@ export async function findUnconsumedPromotionGrant(
     WHERE org_id = ${orgId}
       AND action_type = 'containment_promote'
       AND declared_goal = ${declaredGoal}
+      AND agent_id IS NOT DISTINCT FROM ${agentId ?? null}
+      AND act_content_hash IS NOT DISTINCT FROM ${actContentHash}
+      AND approved_by IS NOT NULL
       AND approval_grant_used_at IS NULL
     ORDER BY created_at DESC
     LIMIT 1

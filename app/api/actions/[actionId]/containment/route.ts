@@ -19,6 +19,7 @@ import {
   findUnconsumedPromotionGrant,
 } from '../../../../lib/repositories/actions.repository';
 import { buildPromotionGoal, buildPromotionAct } from '../../../../lib/guard/containment';
+import { computeActContentHash } from '../../../../lib/act-content-hash';
 
 /**
  * POST /api/actions/[actionId]/containment
@@ -141,7 +142,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
       // Already 'promoted' — resolveContainment's WHERE-gate only matches
       // awaiting_promotion, so this branch never calls it; containment_status
       // is left exactly as-is (still 'promoted').
-      const existingGrant = await findUnconsumedPromotionGrant(sql, orgId, actionId);
+      const existingGrant = await findUnconsumedPromotionGrant(
+        sql,
+        orgId,
+        actionId,
+        action.agent_id as string | null | undefined,
+        computeActContentHash(buildPromotionAct(containmentRef as string)),
+      );
       if (existingGrant) {
         // Grant was never consumed (merge never ran, or a prior merge is
         // still in flight) — re-stamp its 15-minute approval window instead

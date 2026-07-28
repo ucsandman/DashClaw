@@ -147,6 +147,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 });
     }
 
+    // SECURITY (grant-laundering fix, 2026-07-27): 'containment_promote' is a
+    // governance sentinel minted ONLY by POST /api/actions/[actionId]/containment
+    // (via createActionRecord called directly on the repository, never through
+    // this route). Accepting it here would let any org API key plant a row
+    // with an attacker-chosen act under the canonical declared_goal for some
+    // contained action — a later operator re-issue could then stamp a real
+    // approval onto that planted row (see findUnconsumedPromotionGrant). The
+    // guard's evidence-first fold never derives INTO this type either
+    // (evaluate.ts only swaps action_type OUT of it), so rejecting a
+    // client-declared value here has no legitimate-path cost.
+    if (data.action_type === 'containment_promote') {
+      return NextResponse.json(
+        {
+          error: 'action_type "containment_promote" is reserved for the containment promotion flow and cannot be created directly',
+          code: 'RESERVED_ACTION_TYPE',
+        },
+        { status: 400 },
+      );
+    }
+
     // Fleet attribution (v4.3): the pretool hook stamps the harness session uuid
     // (fan-out grouping key) on every record, and the subagent instance uuid on
     // a leaf call. Threaded through the validator's field bag so both the normal
