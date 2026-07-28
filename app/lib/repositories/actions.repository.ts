@@ -891,7 +891,11 @@ interface CreateActionPayload {
 function createActionInsertValues(payload: CreateActionPayload) {
   const { data, riskScore, costEstimate, signature, verified, timestamp_start } = payload;
   return {
-    agent_id: data.agent_id,
+    // `?? null` (not orNull): the strict self-host postgres driver REJECTS an
+    // undefined bind outright (UNDEFINED_VALUE) while Neon silently coerces —
+    // the exact class the 2026-06 approvals 500 and the 2026-07-28 promote
+    // 500 both came from. Nullish-coalesce (not ||) so legitimate 0s persist.
+    agent_id: data.agent_id ?? null,
     agent_name: orNull(data.agent_name),
     swarm_id: orNull(data.swarm_id),
     parent_action_id: orNull(data.parent_action_id),
@@ -915,7 +919,7 @@ function createActionInsertValues(payload: CreateActionPayload) {
     timestamp_start,
     timestamp_end: orNull(data.timestamp_end),
     duration_ms: orNull(data.duration_ms),
-    cost_estimate: costEstimate,
+    cost_estimate: costEstimate ?? null,
     tokens_in: orDefault(data.tokens_in, 0),
     tokens_out: orDefault(data.tokens_out, 0),
     model: orNull(data.model),

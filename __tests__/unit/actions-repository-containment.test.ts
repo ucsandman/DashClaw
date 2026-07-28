@@ -205,6 +205,50 @@ describe('findUnconsumedPromotionGrant', () => {
   });
 });
 
+describe('createActionRecord — no undefined SQL binds (strict-driver class)', () => {
+  // The self-host postgres driver rejects an undefined bind outright
+  // (UNDEFINED_VALUE) while Neon silently coerces — the class behind the
+  // 2026-06 approvals 500 and the 2026-07-28 containment-promote 500 on CI.
+  // This is the containment route's EXACT mintPromotionGrant payload shape:
+  // no riskScore, no costEstimate at the payload top level.
+  it("the promote grant's payload shape binds no undefined values", async () => {
+    const sql = makeSql([[{ action_id: 'act_promo' }]]);
+    await createActionRecord(sql, {
+      orgId: 'org_1',
+      action_id: 'act_promo',
+      data: {
+        agent_id: 'agent_1',
+        action_type: 'containment_promote',
+        declared_goal: 'containment promote act_1',
+        act: { kind: 'shell', command: 'git merge --no-ff dashclaw/contained-s1' },
+        risk_score: 20,
+        reversible: true,
+        reasoning: 'Operator promoted contained action act_1',
+      },
+      actionStatus: 'running',
+      signature: null,
+      verified: false,
+      timestamp_start: '2026-07-28T00:00:00Z',
+      createdBy: 'operator',
+    } as never);
+    expect(sql.calls[0]!.values).not.toContain(undefined);
+  });
+
+  it('an undefined agent_id binds null, never undefined', async () => {
+    const sql = makeSql([[{ action_id: 'act_x' }]]);
+    await createActionRecord(sql, {
+      orgId: 'org_1',
+      action_id: 'act_x',
+      data: { action_type: 'apply', declared_goal: 'g' },
+      actionStatus: 'running',
+      signature: null,
+      verified: false,
+      timestamp_start: '2026-07-28T00:00:00Z',
+    } as never);
+    expect(sql.calls[0]!.values).not.toContain(undefined);
+  });
+});
+
 describe('createActionRecord — containment_status passthrough', () => {
   it('threads containment_status from data into the INSERT', async () => {
     const sql = makeSql([[{ action_id: 'act_1' }]]);

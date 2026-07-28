@@ -46,6 +46,20 @@ morning** — Wes discharged the publish tail I described as "owed since
 v5.4.0" in today's release notes. CHANGELOG, release plan, and the GitHub
 release are corrected; verify the registry before claiming the tail.
 
+The first fix push turned build-and-test green and got the smoke past the
+flip — where it found a **third** defect underneath: the promote verdict
+500'd on CI's strict self-host driver with `UNDEFINED_VALUE`. The
+promotion grant's insert payload never passes a cost estimate, and the
+insert-values builder bound it straight through — `undefined` reaches the
+driver, Neon silently coerces, self-host Postgres refuses. The exact
+class of the June approvals 500 (a reasoning-less approval), at a
+different seam, found the same way: only a strict driver ever complains.
+Both nullable seams now coalesce (`?? null`, so a legitimate zero
+survives), and a regression test asserts the promote-grant payload shape
+binds no undefined value anywhere in the insert. Every one of these three
+defects was invisible to local gates; the smoke's job is precisely to
+run where the maintainer's machine cannot.
+
 The rule that comes out of this: **a push is not done until the remote
 CI run on that commit is read.** Local gates prove the change; remote CI
 proves the environment. They are different claims.
