@@ -541,6 +541,11 @@ function buildPromotionAct(containmentRef) {
   return { kind: 'shell', command: `git merge --no-ff ${containmentRef}` };
 }
 
+// Mirrors hooks/dashclaw_pretool.py _safe_branch_segment: branch_seg is
+// alnum+dash, max 64 chars. Used as a defensive assertion before `git merge`
+// / `git worktree remove` in cmdContainedApply below.
+const CONTAINMENT_REF_PATTERN = /^dashclaw\/contained-[A-Za-z0-9-]{1,64}$/;
+
 // Mirrors hooks/dashclaw_pretool.py _ensure_containment_worktree: ref is
 // "dashclaw/contained-<branch_seg>"; the worktree lives at
 // .dashclaw/contained/<branch_seg> relative to the repo root. Returned as a
@@ -679,6 +684,17 @@ async function cmdContainedApply() {
   const ref = action.containment_ref;
   if (!ref) {
     console.error(`Error: ${actionId} is promoted but has no containment_ref recorded — cannot merge.`);
+    process.exitCode = 1;
+    return;
+  }
+  // LOW (2026-07-27) defensive assertion: the server is the only writer of
+  // containment_ref today (regex-validated at creation, hooks/dashclaw_pretool.py
+  // _safe_branch_segment), so this is belt-and-suspenders, not the primary
+  // guard. It keeps the CLI safe against `git merge --no-ff <ref>` /
+  // `git worktree remove` running against an arbitrary string if a future
+  // writer ever skips that server-side check.
+  if (!CONTAINMENT_REF_PATTERN.test(ref)) {
+    console.error(`Error: containment_ref "${ref}" does not match the expected pattern (dashclaw/contained-<id>) — refusing to merge.`);
     process.exitCode = 1;
     return;
   }

@@ -114,6 +114,15 @@ Nothing here reaches past the boundary this ADR draws: containment converts
 a mechanical block-or-proceed choice into a mechanical stage-or-proceed one,
 on hook-cooperating harnesses only.
 
+**Second-person-gate caveat:** the `operator` identity is exempt from
+separation-of-duties on the containment resolve route (mirrors the accepted
+approvals precedent), since containment's threat model cares precisely about
+who can promote staged work. A hook that authenticates with the bootstrap
+`DASHCLAW_API_KEY` acts as `operator`, so it can self-promote its own
+contained actions and `SELF_APPROVAL_FORBIDDEN` never fires. For containment
+to have a real second-person gate, hooks should authenticate with a
+database-backed `api_keys` credential instead of the bootstrap operator key.
+
 ## Hardening defaults (graduated with this ADR, v3.6)
 
 - `DASHCLAW_JTI_REPLAY_PROTECTION` defaults **`required`** (was

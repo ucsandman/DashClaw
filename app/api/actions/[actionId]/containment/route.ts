@@ -18,6 +18,7 @@ import {
   stampPromotionApproval,
   findUnconsumedPromotionGrant,
 } from '../../../../lib/repositories/actions.repository';
+import { listArtifacts } from '../../../../lib/repositories/artifacts.repository';
 import { buildPromotionGoal, buildPromotionAct } from '../../../../lib/guard/containment';
 import { computeActContentHash } from '../../../../lib/act-content-hash';
 
@@ -106,6 +107,44 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
     const containmentRef = action.containment_ref;
     if (verdict === 'promote' && (typeof containmentRef !== 'string' || containmentRef.length === 0)) {
       return NextResponse.json({ error: 'CONTAINMENT_REF_MISSING' }, { status: 409 });
+    }
+
+    // SECURITY (2026-07-27): bind the promoted ref to the REVIEWED evidence.
+    // Without this, containment_ref (the merge target) and the patch artifact
+    // (what the operator actually read before clicking Promote) are
+    // independent — an org-key holder could flip a DIFFERENT agent's action
+    // and stamp a containment_ref that the reviewed diff never described.
+    // The patch artifact's `content_json.ref` is written by the honest
+    // PostToolUse hook at capture time, so requiring it to match
+    // action.containment_ref binds the grant to what was actually reviewed.
+    // No artifact at all is the same "capture failure must never yield a
+    // promotable action" class as CONTAINMENT_REF_MISSING above, so it also
+    // refuses promotion (409 CONTAINMENT_NO_EVIDENCE) rather than silently
+    // promoting unreviewed work. Applies to both the first-promote path and
+    // the re-issue path below (this check runs before either); discard is
+    // deliberately exempt — an operator must always be able to throw work
+    // away regardless of evidence state.
+    if (verdict === 'promote') {
+      const { artifacts: patchArtifacts } = await listArtifacts(sql, orgId, {
+        action_id: actionId,
+        artifact_type: 'patch',
+        limit: 1,
+      });
+      const patchArtifact = patchArtifacts[0] as Record<string, unknown> | undefined;
+      if (!patchArtifact) {
+        return NextResponse.json({ error: 'CONTAINMENT_NO_EVIDENCE' }, { status: 409 });
+      }
+      const patchContent = patchArtifact.content as { ref?: string } | null | undefined;
+      const evidenceRef = patchContent && typeof patchContent === 'object' ? patchContent.ref : undefined;
+      if (evidenceRef !== containmentRef) {
+        return NextResponse.json(
+          {
+            error: 'CONTAINMENT_REF_MISMATCH',
+            message: "The reviewed diff describes a different branch than this action's merge target.",
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // Shared by the first-promote path and the re-issue-after-consumed path:

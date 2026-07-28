@@ -27,6 +27,7 @@ const {
   mockCreateActionRecord,
   mockStampPromotionApproval,
   mockFindUnconsumedPromotionGrant,
+  mockListArtifacts,
 } = vi.hoisted(() => ({
   mockGetSql: vi.fn(),
   mockGetOrgId: vi.fn(() => 'org_test'),
@@ -37,6 +38,7 @@ const {
   mockCreateActionRecord: vi.fn(),
   mockStampPromotionApproval: vi.fn(),
   mockFindUnconsumedPromotionGrant: vi.fn(),
+  mockListArtifacts: vi.fn(),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockGetSql }));
@@ -51,6 +53,9 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   createActionRecord: mockCreateActionRecord,
   stampPromotionApproval: mockStampPromotionApproval,
   findUnconsumedPromotionGrant: mockFindUnconsumedPromotionGrant,
+}));
+vi.mock('@/lib/repositories/artifacts.repository.js', () => ({
+  listArtifacts: mockListArtifacts,
 }));
 
 const { POST } = await import('@/api/actions/[actionId]/containment/route.js');
@@ -70,7 +75,15 @@ describe('POST /api/actions/[actionId]/containment', () => {
     mockGetOrgId.mockReturnValue('org_test');
     mockGetOrgRole.mockReturnValue('admin');
     mockGetUserId.mockReturnValue('user_1');
+    // Default: no patch artifact captured. Tests that need the promote path
+    // to clear the evidence-binding check override this with a matching
+    // `content.ref`.
+    mockListArtifacts.mockResolvedValue({ artifacts: [] });
   });
+
+  function mockPatchArtifact(ref: string | undefined) {
+    mockListArtifacts.mockResolvedValueOnce({ artifacts: [{ content: { ref } }] });
+  }
 
   it('rejects non-admin roles with 403', async () => {
     mockGetOrgRole.mockReturnValueOnce('viewer');
@@ -184,6 +197,7 @@ describe('POST /api/actions/[actionId]/containment', () => {
     mockGetActionStatus.mockResolvedValueOnce({
       agent_id: 'agent_1', created_by: 'user_2', containment_status: 'awaiting_promotion', containment_ref: 'ref/x',
     });
+    mockPatchArtifact('ref/x');
     mockResolveContainment.mockResolvedValueOnce(null);
 
     const res = await POST(postReq({ verdict: 'promote' }), { params });
@@ -217,6 +231,7 @@ describe('POST /api/actions/[actionId]/containment', () => {
       agent_id: 'agent_1', created_by: 'user_2', containment_status: 'awaiting_promotion',
       containment_ref: 'dashclaw/contained-act_123',
     });
+    mockPatchArtifact('dashclaw/contained-act_123');
     const updated = { action_id: 'act_123', containment_status: 'promoted' };
     mockResolveContainment.mockResolvedValueOnce(updated);
     mockCreateActionRecord.mockResolvedValueOnce({ action_id: 'act_promo_1' });
@@ -254,6 +269,7 @@ describe('POST /api/actions/[actionId]/containment', () => {
       agent_id: 'agent_1', created_by: 'user_2', containment_status: 'promoted',
       containment_ref: 'dashclaw/contained-act_123',
     });
+    mockPatchArtifact('dashclaw/contained-act_123');
     mockFindUnconsumedPromotionGrant.mockResolvedValueOnce({ action_id: 'act_promo_old' });
     mockStampPromotionApproval.mockResolvedValueOnce({ action_id: 'act_promo_old', approved_by: 'user_1' });
 
@@ -281,6 +297,7 @@ describe('POST /api/actions/[actionId]/containment', () => {
       agent_id: 'agent_1', created_by: 'user_2', containment_status: 'promoted',
       containment_ref: 'dashclaw/contained-act_123',
     });
+    mockPatchArtifact('dashclaw/contained-act_123');
     mockFindUnconsumedPromotionGrant.mockResolvedValueOnce(null);
     mockCreateActionRecord.mockResolvedValueOnce({ action_id: 'act_promo_new' });
     mockStampPromotionApproval.mockResolvedValueOnce({ action_id: 'act_promo_new', approved_by: 'user_1' });
@@ -326,6 +343,74 @@ describe('POST /api/actions/[actionId]/containment', () => {
     expect(res.status).toBe(409);
     expect(data.error).toBe('CONTAINMENT_NOT_AWAITING');
     expect(mockFindUnconsumedPromotionGrant).not.toHaveBeenCalled();
+  });
+
+  // SECURITY (2026-07-27): bind the promoted ref to the REVIEWED evidence —
+  // containment_ref and the patch artifact's content.ref must agree before
+  // any grant is minted or re-issued.
+  it('returns 409 CONTAINMENT_NO_EVIDENCE when no patch artifact exists, without mutating or minting a grant', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      agent_id: 'agent_1', created_by: 'user_2', containment_status: 'awaiting_promotion',
+      containment_ref: 'dashclaw/contained-act_123',
+    });
+    // beforeEach default: mockListArtifacts resolves { artifacts: [] }
+
+    const res = await POST(postReq({ verdict: 'promote' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(data.error).toBe('CONTAINMENT_NO_EVIDENCE');
+    expect(mockResolveContainment).not.toHaveBeenCalled();
+    expect(mockCreateActionRecord).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 CONTAINMENT_REF_MISMATCH when the patch artifact ref differs from containment_ref, without mutating or minting a grant', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      agent_id: 'agent_1', created_by: 'user_2', containment_status: 'awaiting_promotion',
+      containment_ref: 'dashclaw/contained-act_123',
+    });
+    mockPatchArtifact('dashclaw/contained-someone-else');
+
+    const res = await POST(postReq({ verdict: 'promote' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(data.error).toBe('CONTAINMENT_REF_MISMATCH');
+    expect(mockResolveContainment).not.toHaveBeenCalled();
+    expect(mockCreateActionRecord).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 CONTAINMENT_REF_MISMATCH on a re-issue (already-promoted) when the evidence no longer matches', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      agent_id: 'agent_1', created_by: 'user_2', containment_status: 'promoted',
+      containment_ref: 'dashclaw/contained-act_123',
+    });
+    mockPatchArtifact('dashclaw/contained-someone-else');
+
+    const res = await POST(postReq({ verdict: 'promote' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(data.error).toBe('CONTAINMENT_REF_MISMATCH');
+    expect(mockFindUnconsumedPromotionGrant).not.toHaveBeenCalled();
+    expect(mockCreateActionRecord).not.toHaveBeenCalled();
+  });
+
+  it('discard is unaffected by missing or mismatched evidence (no artifact check on discard)', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      agent_id: 'agent_1', created_by: 'user_2', containment_status: 'awaiting_promotion',
+      containment_ref: 'dashclaw/contained-act_123',
+    });
+    // beforeEach default: mockListArtifacts resolves { artifacts: [] } — must not matter for discard.
+    const updated = { action_id: 'act_123', containment_status: 'discarded' };
+    mockResolveContainment.mockResolvedValueOnce(updated);
+
+    const res = await POST(postReq({ verdict: 'discard' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.action).toEqual(updated);
+    expect(mockListArtifacts).not.toHaveBeenCalled();
   });
 
   it('returns 500 on unexpected error', async () => {

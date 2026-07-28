@@ -119,6 +119,14 @@ export default function ContainmentCard({
 
   const diffLines = patchContent?.diff ? patchContent.diff.split('\n') : [];
 
+  // SECURITY (2026-07-27): bind the promoted ref to the REVIEWED evidence —
+  // belt-and-suspenders UI check mirroring the server-side
+  // CONTAINMENT_REF_MISMATCH gate. containment_ref is the merge target;
+  // patchContent.ref is what the operator is actually looking at above. If
+  // they differ (including the artifact predating ref capture, so ref is
+  // undefined), Promote is disabled before the operator can click it.
+  const refMismatch = Boolean(diffLoaded && patchContent && action.containment_ref && patchContent.ref !== action.containment_ref);
+
   return (
     <Card data-entity-type="decision" data-entity-id={action.action_id} data-entity-status="awaiting_promotion" hover={false}>
       <CardContent className="pt-5">
@@ -193,11 +201,23 @@ export default function ContainmentCard({
           </p>
         )}
 
+        {refMismatch && (
+          <p className="mb-3 text-xs text-warning">
+            Reviewed diff targets a different branch than this action&apos;s merge target — Promote is disabled.
+          </p>
+        )}
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => submit('promote')}
-            disabled={busy || !canDecide || (diffLoaded && !patchContent)}
-            title={diffLoaded && !patchContent ? 'No diff artifact captured — nothing to merge' : undefined}
+            disabled={busy || !canDecide || (diffLoaded && !patchContent) || refMismatch}
+            title={
+              diffLoaded && !patchContent
+                ? 'No diff artifact captured — nothing to merge'
+                : refMismatch
+                  ? 'Reviewed diff targets a different branch than this action\'s merge target'
+                  : undefined
+            }
             className="inline-flex items-center gap-1.5 rounded-lg border border-success/20 bg-success-subtle px-3 py-1.5 text-sm font-medium text-success transition-colors hover:bg-success/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Check size={16} /> Promote
