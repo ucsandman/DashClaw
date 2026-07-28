@@ -43,6 +43,12 @@ updates:
       - dependency-name: "@types/node"
         update-types:
           - "version-update:semver-major"
+      # jsdom 30 requires Node ^22.22.2+ (engines) — incompatible with the
+      # Node 20 floor for the same reason as @types/node above. Bump it
+      # intentionally when the supported Node floor moves.
+      - dependency-name: "jsdom"
+        update-types:
+          - "version-update:semver-major"
 
   - package-ecosystem: "github-actions"
     directory: "/"
