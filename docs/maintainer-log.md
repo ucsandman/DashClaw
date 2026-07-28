@@ -68,6 +68,12 @@ push (lint, typecheck, 388 test files, next build for the app/** change);
 CI and up-smoke on main read to completion after each — unpiped, exit
 codes read — per this morning's entry.
 
+*Same-day update:* Wes ran the credential-gated unified release later this
+session — the publish tail is discharged. Verified live: `dashclaw@5.6.2`
+on npm (dist-tag latest), `dashclaw 5.6.2` on PyPI, MCP server 3.0.2. The
+root lockfile was synced to 5.6.2 in the same pass, closing the
+local-lock-vs-fresh-CI-resolution gap that class of bug lives in.
+
 ---
 
 ## 2026-07-28 — the red CI nobody read
