@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-07-26
+last-verified: 2026-07-27
 doc-type: architecture
 ---
 
@@ -75,6 +75,7 @@ These routes define the minimum DashClaw category. They are stable or runtime-cr
 | `/api/actions/:actionId/outcome` | Durable terminal outcome | One-shot `pending -> completed/partial/failed`; `lost_confirmation` is system-owned. |
 | `/api/actions/:actionId/trace` | Action trace | Read-only evidence path. |
 | `/api/actions/:actionId/graph` | Execution graph | Nodes and edges around an action, assumptions, and trace data. |
+| `/api/actions/:actionId/containment` | Operator promote/discard verdict on a contained action | `POST { verdict: 'promote' \| 'discard' }` (operator-authenticated, mirrors approvals auth). Promote creates a governed `containment_promote` action that merges the staged worktree diff. Backs the `allow_contained` guard verdict — see `docs/architecture/runtime-api.md`. |
 | `/api/approvals/:actionId` | Human approval decision | Also reachable via legacy rewrite `/api/actions/:id/approve`. |
 | `/api/assumptions` | Reasoning integrity records | Assumption tracking linked to actions. |
 | `/api/signals` | Runtime/anomaly signals | Signal listing and detection outputs. |
@@ -193,7 +194,7 @@ DashClaw ships a Node SDK and a Python SDK. The DEPRECATED `dashclaw/legacy` sub
 | Canonical Node SDK | `import { DashClaw } from 'dashclaw'` from `sdk/dashclaw.js` | npm package `dashclaw`; the SDK for all work (version tracked in `sdk/package.json`). |
 | Python SDK | `sdk-python/dashclaw/client.py` | Broad Python surface with route-contract parity for critical domains. |
 
-The canonical Node SDK currently exposes **37 public methods** in `sdk/dashclaw.js` and the Python SDK **57** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
+The canonical Node SDK currently exposes **39 public methods** in `sdk/dashclaw.js` and the Python SDK **59** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
 
 - core governance: `guard`, `createAction`, `updateOutcome`, `getAction`, `approveAction`, `getPendingApprovals`, `waitForApproval`, `recordAssumption`
 - durable finality: `reportActionOutcome`, `getActionOutcome`, `reportActionSuccess`, `reportActionFailure`, `reportActionPartial`, `deriveIdempotencyKey`

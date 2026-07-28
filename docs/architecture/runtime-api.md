@@ -15,6 +15,8 @@ A fully governed action usually follows this flow:
 
 `PATCH /api/actions/:actionId` still exists for legacy lifecycle updates, but the current durable-finality path is `POST /api/actions/:actionId/outcome` plus `GET /api/actions/:actionId/outcome` for polling.
 
+One decision from step 1 forks the loop instead of following it straight through: `allow_contained` (see [Containment Verdicts](#containment-verdicts-allow_contained) below) records the action as usual, but the "doing this" happens inside a staged worktree — the lifecycle is record -> diff artifact -> `awaiting_promotion` -> promote (governed merge) or discard, in place of a synchronous approve/deny.
+
 ## Plan authorization (preflight)
 
 Long-horizon runs amortize approvals: `POST /api/plans` submits an ordered
@@ -54,7 +56,7 @@ expires with the TTL regardless.
 
 ### 1. Guard (`POST /api/guard`)
 
-Evaluates active guard policies for a proposed action. It does not execute the action. It returns `allow`, `warn`, `block`, or `require_approval`.
+Evaluates active guard policies for a proposed action. It does not execute the action. It returns `allow`, `warn`, `allow_contained`, `require_approval`, or `block`.
 
 Risk scores are computed server-side from structured fields such as `action_type`, `reversible`, `systems_touched`, and `declared_goal`. The agent-supplied `risk_score` is advisory. DashClaw takes the max of the server heuristic, any active org risk-template score, and the agent-reported score, then may apply predictive-risk adjustment when enabled. Two calibration guarantees hold in the predictive layer: high velocity alone never raises risk (the +5 velocity term only amplifies a demonstrated failure rate), and the optional LLM adjustment (±20) is only consulted when *server-side* evidence crosses the threshold — an inflated agent-reported score can raise the final score but never recruits the LLM amplifier. The response returns `risk_score` (authoritative/effective), `agent_risk_score` (raw agent-supplied value, or `null`), and `risk_breakdown` — the full derivation ledger (`base` + `modifiers` -> `server_total`; `template`; `client_reported`; `effective`; `predictive` split into `statistical_adjustment` and `llm`; `final`). The same breakdown is persisted with the decision and exposed on `GET /api/actions/:id` under `guard_decision.risk_breakdown`, so every escalation is explainable after the fact.
 
@@ -76,7 +78,7 @@ Prompt-injection scanning runs against `declared_goal` before guard evaluation a
 **Response:**
 ```json
 {
-  "decision": "allow | warn | block | require_approval",
+  "decision": "allow | warn | allow_contained | require_approval | block",
   "decision_id": "act_gd_...",
   "action_id": "act_gd_...",
   "reason": "Risk score exceeds org threshold",
@@ -116,6 +118,16 @@ Worked example: a `Constrain subagents` policy sets `{ parent: '*', child_types:
 The evaluator fires only on composed identities — an `agent_id` containing the reserved `:` delimiter. Provenance-mode callers (a base `agent_id` plus `intel.subagent`) are documented **out of v1 scope**; only the composed-id calling convention is constrained today. Attenuation only tightens: this policy type can escalate a decision to `require_approval` or `block`, but it has no grant path of its own. Like every other raiser (risk calibration, other policies), a `require_approval` it produces can still be covered by an operator-sanctioned grant — `allow_grant`, a plan grant, or an operator approval; `block` remains absolute.
 
 Attenuation is enforced against the identity the caller *asserts* in `agent_id`, not a cryptographically verified one. Combine `require_verified_parent: true` with the Phase-2 JWKS identity system for a cryptographic claim rather than a self-reported one.
+
+#### Containment Verdicts (`allow_contained`)
+
+A fifth decision sits between `warn` and `require_approval`: **execute now, but staged.** A `risk_threshold` policy may set `rules.contain_above` (must be strictly below `rules.threshold`); a score landing in `[contain_above, threshold)` returns `allow_contained` instead of `require_approval` — but only when the server can prove the act is eligible. Eligible today: `Edit`/`Write`/`MultiEdit` file mutations and clean (non-network) shell acts inside a git repository. HTTP calls, SQL against live databases, payments, message sends, and deploys are never eligible — an ineligible act falls back to `require_approval` even if the score is in band.
+
+**Capability negotiation is non-negotiable.** A caller only ever receives `allow_contained` if it advertised `context.client_capabilities: ['allow_contained']` on the guard call. A caller that does not advertise gets `require_approval` instead, with `risk_breakdown._containment: { downgraded_to_interrupt: true }` — version skew only tightens, never loosens. The bare Node and Python SDKs do not advertise the capability by default (a bare SDK caller has no worktree machinery to stage into); only hook-cooperating harnesses (Claude Code, Codex) that implement the redirect opt in.
+
+**Lifecycle.** `action_records.containment_status` moves `null -> contained -> awaiting_promotion -> promoted | discarded`. On a contained mutation the hook stages the effect into a per-session git worktree (`.dashclaw/contained/<session_id>`, branch `dashclaw/contained-<session_id>`) instead of the working tree, then posts the resulting diff as an artifact (`artifact_type: 'patch'`, capped by `DASHCLAW_CONTAINMENT_DIFF_CAP_BYTES`, default 1.5MB) linked to the action. An operator reviews the diff on `/approvals` (Containment tab) and clicks **Promote** or **Discard** — `POST /api/actions/:actionId/containment { verdict: 'promote' | 'discard' }` (operator-authenticated). Promotion is itself governed: it creates a synthetic, pre-approved `containment_promote` action whose act is the exact `git merge --no-ff <containment_ref>` command, act-hash-bound and single-use, so the merge that lands staged effects into the real tree goes through guard like everything else. `dashclaw contained list|diff|apply` is the CLI-side counterpart the agent/developer runs to execute an already-promoted merge.
+
+`block` is never emitted or reached via containment — containment only ever replaces what would otherwise be `require_approval`.
 
 ### 2. Actions (`POST /api/actions`)
 
@@ -286,7 +298,7 @@ The signing key is the DashClaw instance's own Ed25519 key — generated and sto
 
 ## Minimal SDK Flow
 
-The canonical Node SDK is `dashclaw` on npm (version tracked in `sdk/package.json`). The canonical SDK file `sdk/dashclaw.js` exposes 37 public methods across the core runtime and extension surfaces (verify with `npm run sdk:count`).
+The canonical Node SDK is `dashclaw` on npm (version tracked in `sdk/package.json`). The canonical SDK file `sdk/dashclaw.js` exposes 39 public methods across the core runtime and extension surfaces (verify with `npm run sdk:count`).
 
 The minimal governance loop uses only a small subset:
 

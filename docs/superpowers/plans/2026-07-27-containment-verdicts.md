@@ -748,7 +748,7 @@ if (result.decision === 'allow_contained') record.containment_status = 'containe
 
 ## Decision Log (filled at execution time)
 
-- `REWRITE_SUPPORTED`: _pending Task 1 spike_
+- `REWRITE_SUPPORTED`: **true** (2026-07-27, Claude Code v2.1.220, headless `claude -p` + Write tool: hook emitted `hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', permissionDecisionReason, updatedInput: {...full replacement...} }` on stdout with exit 0 — `redirected.txt` written, `target.txt` never created). Task 9 default: `DASHCLAW_CONTAINMENT_REWRITE=1`. Caveat held from research: single-hook config only; multi-hook interference reports exist upstream — the instructive-deny fallback remains in the hook for Bash and for `DASHCLAW_CONTAINMENT_REWRITE=0`.
 - Deviations: _record every plan-vs-code divergence here as you hit it_
 
 ## Self-review notes

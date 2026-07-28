@@ -110,15 +110,18 @@ flowchart LR
     A[Agent decides<br/>to call a tool] --> B{Guard scores<br/>the act vs<br/>your policies}
     B -->|allow / warn| C[Tool runs]
     B -->|block| D[Hard stop<br/>fail-closed, hook exit 2]
+    B -->|allow_contained| F[Staged in a worktree<br/>diff awaits promote/discard]
     B -->|require_approval| E[Action frozen]
     E -->|approve, from anywhere| C
     E -->|deny| D
+    F -->|promote| C
+    F -->|discard| D
     C --> L[(Signed, replayable<br/>audit row)]
     D --> L
     L -.-> P[Liveness probe re-drives<br/>the seam and verdicts by<br/>execution, never the ledger]
 ```
 
-The decision lattice is `allow < warn < require_approval < block`. Join is `max`; a `block` is absolute and cannot be downgraded in the ledger.
+The decision lattice is `allow < warn < allow_contained < require_approval < block`. Join is `max`; a `block` is absolute and cannot be downgraded in the ledger. `allow_contained` only ever reaches a caller that advertised `client_capabilities: ['allow_contained']`; an older client sees `require_approval` instead (version skew only tightens).
 
 > [!IMPORTANT]
 > **Enforcement is mechanically real only where DashClaw sits in the seam between decide and execute:** the Claude Code, Codex, and Hermes PreToolUse hooks (fail-closed, exit-2 on block), the OpenClaw gateway, and `dashclaw_invoke`. Everywhere else (bare SDK, API, and MCP callers, desktop chat) governance is **cooperative**: the caller consults guard and honors the decision, every call is still recorded, and a block is never downgraded in the ledger. DashClaw does not claim universal hard enforcement, and this README never will. Per-surface table: [`docs/architecture/enforcement-boundary.md`](docs/architecture/enforcement-boundary.md).
@@ -215,7 +218,7 @@ echo '{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_use_id":"t
 
 Every instance also serves Streamable HTTP MCP at `/api/mcp`. For Claude Desktop, add that URL as a custom connector (Settings, Connectors); OAuth auto-discovers, no key in the UI.
 
-**SDKs.** `npm install dashclaw` (Node 18+) or `pip install dashclaw` (Python 3.7+). The **37-method canonical Node surface** covers guard, record, assumptions, approvals, durable-execution finality, security scanning, sessions and the action graph, pairing, risk signals, policy simulation, plan authorization, delegation constraints, and team tasks. The **Python SDK exposes 57 methods**, plus CrewAI and AutoGen integrations.
+**SDKs.** `npm install dashclaw` (Node 18+) or `pip install dashclaw` (Python 3.7+). The **39-method canonical Node surface** covers guard, record, assumptions, approvals, durable-execution finality, security scanning, sessions and the action graph, pairing, risk signals, policy simulation, plan authorization, delegation constraints, containment verdicts, and team tasks. The **Python SDK exposes 59 methods**, plus CrewAI and AutoGen integrations.
 
 **REST.** Every primitive is HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](docs/openapi/critical-stable.openapi.json); the full inventory (**123 routes**: 39 stable, 17 beta, 67 experimental) is in [`docs/api-inventory.md`](docs/api-inventory.md). Webhooks: `decision.created`, `action.created`, `lost_confirmation`, configurable per org.
 

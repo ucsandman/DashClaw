@@ -30,11 +30,14 @@ the code corrects the natural framing of the problem:
    macros that expand into ordinary policies (`app/lib/policy-modes/compile.ts`);
    the evaluator never reads the `_mode` tag.
 3. **Decision composition is already a join-semilattice.** `DECISION_SEVERITY =
-   {allow:0, warn:1, require_approval:2, block:3}` with `raiseDecision` as join
-   (`app/lib/guard/internal.ts:6-10`, `app/lib/guard/evaluate.ts:102-104`).
-   Exactly two sanctioned downgrades exist — `allow_grant` and the single-use
-   operator-approval grant — and both are structurally unable to touch `block`
-   (`evaluate.ts:271`, `evaluate.ts:331`).
+   {allow:0, warn:1, allow_contained:2, require_approval:3, block:4}` with
+   `raiseDecision` as join (`app/lib/guard/internal.ts:6-10`,
+   `app/lib/guard/evaluate.ts:102-104`). `allow_contained` (added v5.6,
+   `docs/rfcs/2026-07-06-containment-verdicts.md`) is a capability-negotiated
+   fifth element between `warn` and `require_approval`; it does not change the
+   downgrade analysis below. Exactly two sanctioned downgrades exist —
+   `allow_grant` and the single-use operator-approval grant — and both are
+   structurally unable to touch `block` (`evaluate.ts:271`, `evaluate.ts:331`).
 4. **The feedback stream for calibration already exists.** Every
    `require_approval` interruption resolves to `approved` (status `running`,
    `approved_by` stamped), `denied` (status `failed`), or `expired` (no human
@@ -565,15 +568,19 @@ but not obviously worth it while the automaton is this small.
 
 ## 6. Decision algebra and information flow — formalizing what the code already is
 
-**The decision lattice.** D = {allow < warn < require_approval < block} is a
-finite total order, hence a complete lattice; join ⊔ = max. The code's merge
+**The decision lattice.** D = {allow < warn < allow_contained < require_approval < block}
+is a finite total order, hence a complete lattice; join ⊔ = max. The code's merge
 IS this join: `raiseDecision` (`evaluate.ts:102-104`), `moreSevereResult`
 (`policy.ts:357-361`), webhook escalation (`isWebhookEscalation`). Since ⊔ is
 associative, commutative, idempotent, and block is the top element, policy
 composition is order-insensitive and block-dominant **by algebra, not by
 convention** — adding any policy can only raise the outcome (monotonicity),
 which is also why policy *addition* is safe to automate in the tighten
-direction (§1) while *removal* is not.
+direction (§1) while *removal* is not. `allow_contained`'s insertion is a pure
+relabeling of the total order (§0.3); it introduces no new join behavior —
+containment's own capability-negotiation and eligibility gates are evaluated
+*before* this lattice is consulted (`app/lib/guard/containment.ts`), never as
+part of the join itself.
 
 **Grants as guarded retractions.** The two downgrades are partial functions
 g: {warn, require_approval} → {allow}, undefined on block, applied in a fixed

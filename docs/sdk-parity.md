@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: SDK Lead
-last-verified: 2026-07-26
+last-verified: 2026-07-27
 doc-type: architecture
 ---
 
@@ -13,9 +13,9 @@ As of v5.0.0, both SDKs converge on the **governance core** — the intercept �
 decide → approve → prove loop and its directly supporting calls. The SDKs are no
 longer an agent-platform surface.
 
-- `dashclaw` (Node) is the canonical SDK: **37 governance-core methods**.
+- `dashclaw` (Node) is the canonical SDK: **39 governance-core methods**.
 - `dashclaw` (Python) exposes the same core plus a few read/admin conveniences:
-  **57 methods**.
+  **59 methods**.
 - The `dashclaw/legacy` Node compatibility subpath was **removed in v5.0.0**
   (its removal was announced with the v4.4.x deprecation notice).
 
@@ -26,8 +26,8 @@ and `_`-private methods) and gated by `scripts/check-doc-counts.mjs --strict`.
 
 | Surface | Entry point | Role |
 |---|---|---|
-| Node SDK | `sdk/dashclaw.js` / `import { DashClaw } from 'dashclaw'` | Canonical governance-core SDK (37 methods) |
-| Python SDK | `sdk-python/dashclaw/client.py` | Governance core + read/admin conveniences (57 methods) |
+| Node SDK | `sdk/dashclaw.js` / `import { DashClaw } from 'dashclaw'` | Canonical governance-core SDK (39 methods) |
+| Python SDK | `sdk-python/dashclaw/client.py` | Governance core + read/admin conveniences (59 methods) |
 
 ## Governance-core surface (both SDKs)
 
@@ -44,6 +44,13 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
   `getSessionEvents`.
 - **Plans (preflight authorization)**: `submitPlan`, `getPlan`, `listPlans`,
   `resolvePlan`, `waitForPlanReview`.
+- **Containment (`allow_contained` verdicts)**: `resolveContainment` /
+  `resolve_containment`, `listContained` / `list_contained` — operator
+  promote/discard and status reads. Neither SDK advertises
+  `client_capabilities: ['allow_contained']` by default, so a bare SDK caller
+  never receives the verdict itself; these methods manage rows that reached
+  `awaiting_promotion` some other way (a capability-aware hook, or the
+  dashboard).
 - **Pairing (enrollment)**: `createPairing`, `waitForPairing`.
 - **Security**: `scanPromptInjection`.
 - **Policies**: `createDelegationConstraint` / `create_delegation_constraint` — convenience
@@ -70,6 +77,7 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
 | Action outcome (durable execution finality) | Yes | Yes | `POST/GET /api/actions/:id/outcome` + cron sweep + `lost_confirmation` signal + SDK wrappers. Full parity. |
 | Sessions / action graph | Yes | Yes | Canonical. |
 | Plans (preflight authorization) | Yes | Yes | `submitPlan`/`submit_plan`, `getPlan`/`get_plan`, `listPlans`/`list_plans`, `resolvePlan`/`resolve_plan`, `waitForPlanReview`/`wait_for_plan_review`. Full parity (5 Node + 5 Python). |
+| Containment (`allow_contained` verdicts) | Yes | Yes | `resolveContainment`/`resolve_containment`, `listContained`/`list_contained`. Full parity (2 Node + 2 Python). Neither SDK sets `client_capabilities: ['allow_contained']` in v1 — only hook-cooperating harnesses opt in. |
 | Assumptions | Record | Record + read/validate | `recordAssumption` at parity; `get_assumption` / `validate_assumption` are Python-only. Invalidated assumptions surface as the `assumption_drift` signal. |
 | Signals | Yes | Yes | Canonical. |
 | Security (prompt injection) | Yes | Yes | `POST /api/security/prompt-injection`. |

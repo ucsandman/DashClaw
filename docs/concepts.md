@@ -14,7 +14,7 @@ Everything in DashClaw reduces to four records:
 
 | Primitive | What it is | Created by |
 |---|---|---|
-| **Guard decision** | The answer to "can I do this?" — `allow`, `warn`, `block`, or `require_approval`, with a risk score and the matched policies | `POST /api/guard` |
+| **Guard decision** | The answer to "can I do this?" — `allow`, `warn`, `allow_contained`, `require_approval`, or `block`, with a risk score and the matched policies | `POST /api/guard` |
 | **Action** | The ledger entry for "I am doing this" — declared goal, risk, systems touched, lifecycle status | `POST /api/actions` |
 | **Assumption** | A belief the action depends on ("staging tests passed") — auditable, and invalidatable by an operator later | `POST /api/assumptions` |
 | **Outcome** | The terminal result — `completed`, `partial`, or `failed`, one-shot and durable | `POST /api/actions/:id/outcome` |
@@ -28,10 +28,11 @@ guard  →  record  →  (wait for approval)  →  do the work  →  outcome
 
 Assumptions attach anywhere between record and outcome. The full HTTP contract for these four endpoints is [architecture/runtime-api.md](./architecture/runtime-api.md); the same loop in SDK form is [agent-bootstrap.md](./agent-bootstrap.md).
 
-## Decisions: the four verdicts
+## Decisions: the five verdicts
 
 - **`allow`** — proceed.
 - **`warn`** — proceed, but the decision carries warnings and lands in the ledger flagged.
+- **`allow_contained`** — proceed now, but staged: a provably file-scoped act runs inside an isolated git worktree instead of the working tree, and a human promotes or discards the diff later. Negotiated — only a caller that advertised `client_capabilities: ['allow_contained']` ever receives it; an older or non-cooperating caller gets `require_approval` instead (version skew only tightens). See [Containment Verdicts](./architecture/runtime-api.md#containment-verdicts-allow_contained).
 - **`require_approval`** — the action is held (`status: pending_approval`) until a human approves or denies it, from any approval surface.
 - **`block`** — do not proceed. **A block is never downgraded** — not by approval, not by grant, not by the maintainer. This is a charter invariant ([MAINTAINER.md](../MAINTAINER.md)).
 

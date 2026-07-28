@@ -20,7 +20,7 @@ DashClaw mirrors the lifecycle of a governed decision:
 - **Approvals** — Human-in-the-loop approval queue, active interventions, and live decision stream.
 - **Decision Replay** — Visual causal chain visualization of single agent decisions.
 - **Agent Governance Profile** — Dedicated dossiers for every agent (posture, active policies, permissions).
-- **Behavior Guard** — Policy enforcement before agents act (allow / warn / block / require_approval).
+- **Behavior Guard** — Policy enforcement before agents act (allow / warn / allow_contained / block / require_approval). `allow_contained` is capability-negotiated: proceed staged in a worktree, a human promotes or discards the diff.
 - **Risk Signals** — Automatic detection of dangerous behavior patterns (autonomy spikes, failure loops).
 - **Assumption Tracking** — Log what agents believe; validate or invalidate later to detect drift.
 - **Compliance Mapping** — SOC 2, ISO 27001, GDPR, NIST AI RMF, IMDA Agentic.

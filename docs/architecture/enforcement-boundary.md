@@ -98,6 +98,22 @@ defeat a lying *developer or process*, which can fabricate the payload
 wholesale; only credential custody (the capability-registry row above) is
 mechanical against that adversary. Copy must not claim otherwise.
 
+## Containment: the productive use of the mechanical seam (added v5.6)
+
+`allow_contained` (`docs/rfcs/2026-07-06-containment-verdicts.md`) does not
+widen this ADR's boundary — it is the constructive use of the same seam the
+table above already describes. The hook redirects an eligible tool call into
+a staged git worktree instead of letting it hit the working tree, which is
+only possible on the rows already marked **Mechanical**: something DashClaw
+controls sits between "the model decides" and "the tool executes." A
+harness that does not cooperate at that seam cannot stage anything, so it
+simply never advertises `client_capabilities: ['allow_contained']` — the
+server's negotiation rule then emits `require_approval` in its place, the
+same decision that surface would have received before containment existed.
+Nothing here reaches past the boundary this ADR draws: containment converts
+a mechanical block-or-proceed choice into a mechanical stage-or-proceed one,
+on hook-cooperating harnesses only.
+
 ## Hardening defaults (graduated with this ADR, v3.6)
 
 - `DASHCLAW_JTI_REPLAY_PROTECTION` defaults **`required`** (was
