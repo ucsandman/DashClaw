@@ -30,6 +30,7 @@ class _RequestLog:
     def __init__(self):
         self.requests = []
         self._lock = threading.Lock()
+        self.artifact_fail_status = None
 
     def add(self, method, path, body):
         with self._lock:
@@ -43,12 +44,27 @@ class _RequestLog:
         with self._lock:
             self.requests.clear()
 
+    def set_artifact_fail_status(self, status):
+        """Force the next (and every subsequent, until cleared) POST
+        /api/artifacts response to return this HTTP status instead of 200 --
+        simulates a 409/413/500 artifact upload failure."""
+        with self._lock:
+            self.artifact_fail_status = status
+
+    def clear_artifact_fail_status(self):
+        with self._lock:
+            self.artifact_fail_status = None
+
+    def get_artifact_fail_status(self):
+        with self._lock:
+            return self.artifact_fail_status
+
 
 def _make_handler(log):
     class Handler(BaseHTTPRequestHandler):
-        def _respond(self, payload):
+        def _respond(self, payload, status=200):
             resp = json.dumps(payload).encode()
-            self.send_response(200)
+            self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(resp)))
             self.end_headers()
@@ -64,6 +80,10 @@ def _make_handler(log):
             length = int(self.headers.get("Content-Length", 0))
             raw = self.rfile.read(length) if length else b""
             log.add("POST", self.path, json.loads(raw) if raw else None)
+            fail_status = log.get_artifact_fail_status() if self.path == "/api/artifacts" else None
+            if fail_status:
+                self._respond({"error": "forced failure"}, status=fail_status)
+                return
             self._respond({"artifact": {"artifact_id": "art_test"}})
 
         def log_message(self, fmt, *args):
@@ -254,6 +274,7 @@ class TestPosttoolContainmentDiff(unittest.TestCase):
 
     def setUp(self):
         self.log.clear()
+        self.log.clear_artifact_fail_status()
 
     def _env(self, **extra):
         env = {"DASHCLAW_BASE_URL": self.base_url, "DASHCLAW_API_KEY": "test-key-123"}
@@ -508,6 +529,54 @@ class TestPosttoolContainmentDiff(unittest.TestCase):
 
         self.assertEqual(self._artifact_posts(), [])
         self.assertEqual(self._containment_patches(), [])
+
+    # -----------------------------------------------------------------------
+    # Artifact POST failure (not a legitimately empty diff, not a git
+    # failure): the commit landed but the upload itself failed (409/413/500/
+    # network). Final fix-wave IMPORTANT 1 (2026-07-27): _post_artifact now
+    # returns a bool so _maybe_post_containment_diff can gate its success
+    # return on the upload actually landing, instead of always returning True
+    # once git succeeded.
+    # -----------------------------------------------------------------------
+
+    def test_artifact_post_failure_skips_flip_and_turn_action(self):
+        """A 500 from POST /api/artifacts must not let capture succeed
+        silently: no containment_status PATCH (no promotable card with no
+        diff behind it) and no turn-action log entry (no Stop-hook backstop
+        flip either). The commit still lands (F1's guarantee is independent
+        of upload success) and the hook still exits 0 (fail-silent)."""
+        tool_use_id = "post-cont-tu-009"
+        action_id = "act-cont-009"
+        ref = "dashclaw/contained-sess-009"
+        session_id = "sess-cont-009"
+        worktree, base_sha = _make_worktree_with_staged_change()
+        self.addCleanup(_rm_worktree, worktree)
+        _write_contained_action(tool_use_id, action_id, ref, worktree, self.base_url, base_sha=base_sha)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
+        self.addCleanup(_safe_remove_path, _contained_turn_path(session_id, self.base_url))
+
+        self.log.set_artifact_fail_status(500)
+        self.addCleanup(self.log.clear_artifact_fail_status)
+
+        code, _, err = _run_hook(
+            {
+                "tool_use_id": tool_use_id,
+                "session_id": session_id,
+                "tool_response": {"output": "wrote file"},
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0, msg=err)
+
+        self.assertEqual(_git_log_count(worktree), 2, "the mutation still commits despite the failed upload")
+        self.assertEqual(
+            self._containment_patches(), [],
+            "a failed artifact upload must not flip containment_status to awaiting_promotion",
+        )
+        self.assertEqual(
+            _read_contained_turn_actions(session_id, self.base_url), [],
+            "a failed artifact upload must never feed the Stop-hook awaiting-promotion backstop",
+        )
 
     # -----------------------------------------------------------------------
     # IMPORTANT 3 (final fix wave, 2026-07-27): the turn-action log that

@@ -706,7 +706,10 @@ async function cmdContainedApply() {
   }
 
   if (decision.decision === 'require_approval') {
-    console.error('Promote in the dashboard first (or the 15-minute approval window expired — re-promote for a fresh grant).');
+    console.error(
+      'Promote in the dashboard first (or the 15-minute approval window expired).\n' +
+      `Re-issue the merge grant at ${baseUrl}/decisions/${actionId}`
+    );
     process.exitCode = 1;
     return;
   }
@@ -723,8 +726,8 @@ async function cmdContainedApply() {
     if (err.stdout) process.stdout.write(err.stdout);
     if (err.stderr) process.stderr.write(err.stderr);
     console.error(
-      '\nMerge failed — grant consumed. Resolve manually and commit, ' +
-      'or re-promote from the dashboard for a fresh grant.'
+      '\nMerge failed. Grant consumed. Resolve manually and commit, or re-issue the merge grant at ' +
+      `${baseUrl}/decisions/${actionId}`
     );
     process.exitCode = 1;
     return;

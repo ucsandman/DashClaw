@@ -372,7 +372,12 @@ def _patch_action(action_id, body):
 
 def _post_artifact(body):
     """POST /api/artifacts. Fail-silent like every posttool path: logs and
-    returns on any failure, never raises."""
+    returns on any failure, never raises. Returns True only when the POST
+    landed with a 2xx response -- False on any HTTP error (409/413/etc.) or
+    network failure. Callers that gate a "captured" outcome on the artifact
+    actually existing (final fix-wave IMPORTANT 1, 2026-07-27) must check
+    this return value instead of assuming the fail-silent logging means the
+    post succeeded."""
     url = BASE_URL + "/api/artifacts"
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
@@ -386,10 +391,13 @@ def _post_artifact(body):
     )
     try:
         request_with_retry(req, timeout=3)
+        return True
     except urllib.error.HTTPError as e:
         _log_always("artifact_post_failed", "HTTP " + str(e.code))
+        return False
     except Exception as e:
         _log_always("artifact_post_failed", type(e).__name__ + ": " + str(e))
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -584,12 +592,19 @@ def _maybe_post_containment_diff(action_id, ref, worktree, base_sha=None):
                 "computed as `git diff HEAD` instead of the cumulative base..HEAD "
                 "range and may be empty once the mutation is committed."
             )
-        _post_artifact({
+        posted = _post_artifact({
             "artifact_type": "patch",
             "name": "containment-diff-" + action_id,
             "source_action_id": action_id,
             "content_json": content_json,
         })
+        if not posted:
+            _log_always(
+                "containment_artifact_post_failed",
+                "artifact POST failed for " + action_id
+                + " — leaving contained for stop-hook retry",
+            )
+            return False
         # IMPORTANT 5 (final fix wave, 2026-07-27): the server now binds this
         # transition to the caller's own agent_id (WHERE-gated in
         # setContainmentAwaiting) — without it in the body, an org-key-only
