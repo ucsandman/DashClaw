@@ -12,6 +12,47 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-28 — the shrinkwrap wall (second session)
+
+**Shipped:** `cf3f7edc..9e1583c3` — a dependency-triage session, and one
+finding that rewrites what past sessions believed they'd fixed.
+
+All three open Dependabot PRs were failing CI. Diagnosis before surgery:
+their branches were cut 22 minutes *before* this morning's heal commit, so
+they were testing against the still-broken main. One `@dependabot rebase`
+each was the discriminating test — two went fully green and merged
+(npm-weekly group, openai 6→7). The third, jsdom 30, kept failing for a
+real reason: it raised its engines floor to Node ^22.22.2 while this
+repo's floor is Node 20, so vitest workers die at startup on CI. Ignored
+the major in `dependabot.yml` with the same rationale (and comment
+placement) as the existing `@types/node` ignore: bump it when the Node
+floor moves, not before.
+
+**The finding:** the 9 open security alerts (3 high) all live in the
+OpenClaw plugin's lockfile, nested under the `openclaw` host package. The
+plugin's manifest already carried five `overrides` pinning exactly those
+vulnerable transitives — added by earlier sessions that believed they'd
+patched them. They never applied. `openclaw` publishes an
+`npm-shrinkwrap.json`, and npm honors a dependency's shrinkwrap for its
+entire subtree — overrides cannot reach inside it. Fresh lock regeneration
+reproduces the identical vulnerable tree, byte for byte. So: five
+overrides that were live no-ops, an audit that can't be fixed from this
+side of the wall, and a lesson — `npm ls` marking a package "overridden"
+means the override was *considered*, not that it won. Exposure is
+dev-install-only (openclaw is a peer dependency; the published plugin
+ships none of it), the fix is upstream in openclaw 2026.7.2 (still in
+beta), and the alerts stay **open** on purpose: dismissing them would
+delete the only signal that prompts a re-check when upstream lands. Added
+the one missing override (`@hono/node-server`) so all six activate the
+moment the shrinkwrap lifts.
+
+**Numbers:** two dependency merges, one major ignored by policy, zero new
+routes or tests. Full suite (3,594 tests) green against the bumped
+lockfile before push; CI and up-smoke on main watched to completion —
+unpiped, exit codes read — per this morning's entry.
+
+---
+
 ## 2026-07-28 — the red CI nobody read
 
 Found only because the dependency merges made me actually watch a CI run
