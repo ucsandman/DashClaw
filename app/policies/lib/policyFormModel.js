@@ -3,6 +3,11 @@ const DEFAULT_FORM_STATE = {
   type: 'risk_threshold',
   action: 'block',
   threshold: 80,
+  // Containment band (RFC containment-verdicts, Locked Decision 10) — optional,
+  // risk_threshold-only. '' means unset (no band); carried through compile/
+  // decompile the same way `tests` is, so an editor round-trip never silently
+  // destroys it (IMPORTANT 4, final fix wave 2026-07-27).
+  containAbove: '',
   actionTypes: [],
   maxActions: 50,
   windowMinutes: 60,
@@ -146,9 +151,20 @@ function serializeAgentIds(agentIds) {
 // avoids two parallel type tables drifting apart.
 const POLICY_TYPE_HANDLERS = {
   risk_threshold: {
-    compile: (form) => ({ threshold: Number(form.threshold) || 0, action: form.action }),
-    summary: (form, scoped) =>
-      `${actionVerb(form.action)} actions when risk is ${Number(form.threshold) || 0} or higher${scoped}.`,
+    compile: (form) => {
+      const rules = { threshold: Number(form.threshold) || 0, action: form.action };
+      // Containment band (Locked Decision 10): omitted entirely when unset,
+      // matching every other optional field in this file — a stored `null`
+      // would read as "band starts at risk 0" to the evaluator, not
+      // "unconfigured".
+      if (hasValue(form.containAbove)) rules.contain_above = Number(form.containAbove) || 0;
+      return rules;
+    },
+    summary: (form, scoped) => {
+      const base = `${actionVerb(form.action)} actions when risk is ${Number(form.threshold) || 0} or higher${scoped}.`;
+      if (!hasValue(form.containAbove)) return base;
+      return `${base} Below that, contain (execute in an isolated worktree for operator promote/discard) once risk reaches ${Number(form.containAbove) || 0}.`;
+    },
   },
   require_approval: {
     compile: (form) => ({ action_types: form.actionTypes || [], action: 'require_approval' }),
@@ -356,6 +372,7 @@ export function decompilePolicyForm(policy) {
     type: policyType,
     action: orVal(rules.action, 'block'),
     threshold: coalesce(rules.threshold, DEFAULT_FORM_STATE.threshold),
+    containAbove: coalesce(rules.contain_above, DEFAULT_FORM_STATE.containAbove),
     actionTypes: arrOr(rules.action_types, []),
     maxActions: orVal(rules.max_actions, DEFAULT_FORM_STATE.maxActions),
     windowMinutes: orVal(rules.window_minutes, DEFAULT_FORM_STATE.windowMinutes),

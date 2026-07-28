@@ -620,6 +620,18 @@ export default function Ledger({
   };
 
   const handleSave = async () => {
+    // IMPORTANT 4 (final fix wave, 2026-07-27): client-side check for the
+    // containment band's own invariant (Locked Decision 10) — the server
+    // validator (app/lib/validate.js) is the backstop of record if this is
+    // ever bypassed, but a same-page message beats a round-trip 400.
+    if (
+      form.type === 'risk_threshold'
+      && form.containAbove !== '' && form.containAbove != null
+      && !(Number(form.containAbove) >= 0 && Number(form.containAbove) < Number(form.threshold))
+    ) {
+      setEditorError('Contain-above must be 0 or higher and strictly below the risk threshold.');
+      return;
+    }
     setSaving(true);
     setEditorError(null);
     try {
@@ -784,7 +796,24 @@ export default function Ledger({
                   </div>
                 </td>
                 <td><SourceBadge source={c.source} /></td>
-                <td><Bucket bucket={c.bucket} /></td>
+                <td>
+                  <Bucket bucket={c.bucket} />
+                  {/* IMPORTANT 4 (final fix wave, 2026-07-27): a risk_threshold
+                      policy carrying a containment band still bucket
+                      as its real primary action (require_approval) — this
+                      never lies about that — but the operator can't see the
+                      band exists anywhere else in this ledger, so surface it
+                      as a second, smaller chip alongside. */}
+                  {typeof c.rules.contain_above === 'number' && (
+                    <span
+                      className={`${styles.bucket} ${styles.bkContained}`}
+                      title={`Contains below risk ${c.rules.contain_above}`}
+                    >
+                      <span className={styles.dot} style={{ background: 'currentColor' }} />
+                      Contain
+                    </span>
+                  )}
+                </td>
                 <td><ThresholdCell item={c} onChanged={afterChange} /></td>
                 <td className="num"><FiredCell fired={c.fired30d} maxFired={maxFired} lastFiredAt={c.lastFiredAt} /></td>
                 <td className="num">

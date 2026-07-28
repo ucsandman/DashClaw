@@ -294,6 +294,26 @@ describe('policyFormModel — full-type characterization', () => {
     expect(JSON.parse(compilePolicyPayload(form).rules)).toEqual(JSON.parse(payload.rules));
   });
 
+  // IMPORTANT 4 (final fix wave, 2026-07-27): contain_above must round-trip
+  // through compile/decompile exactly like rules.tests does above — an
+  // editor round-trip on a containment policy must never silently destroy
+  // its band.
+  it('omits contain_above from the compiled rules when unset (default form state)', () => {
+    const payload = compilePolicyPayload({ type: 'risk_threshold', threshold: 80, action: 'require_approval', agentIds: [] });
+    expect(JSON.parse(payload.rules)).toEqual({ threshold: 80, action: 'require_approval' });
+  });
+
+  it('round-trips risk_threshold contain_above through decompile', () => {
+    const payload = compilePolicyPayload({
+      type: 'risk_threshold', threshold: 80, action: 'require_approval', containAbove: 50, agentIds: [],
+    });
+    expect(JSON.parse(payload.rules)).toEqual({ threshold: 80, action: 'require_approval', contain_above: 50 });
+
+    const form = decompilePolicyForm({ ...payload, rules: payload.rules });
+    expect(form.containAbove).toBe(50);
+    expect(JSON.parse(compilePolicyPayload(form).rules)).toEqual(JSON.parse(payload.rules));
+  });
+
   it('carries inline test recipes through as the last rules key', () => {
     const payload = compilePolicyPayload({ type: 'risk_threshold', threshold: 50, action: 'warn', tests: [{ name: 't' }], agentIds: [] });
     const parsed = JSON.parse(payload.rules);

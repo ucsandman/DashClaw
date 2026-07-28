@@ -382,6 +382,39 @@ export default function PolicyRuleBuilderSection({
               ))}
             </select>
           </div>
+
+          {/* Containment band (RFC containment-verdicts, Locked Decision 10)
+              — only meaningful on an interrupt policy: it carves a lower
+              band that executes contained (isolated worktree, operator
+              promote/discard) instead of interrupting outright. IMPORTANT 4
+              (final fix wave, 2026-07-27). */}
+          {form.action === 'require_approval' && (
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-secondary mb-1">
+                Contain below the interrupt threshold (optional)
+              </label>
+              <input
+                aria-label="Contain Above"
+                type="number"
+                min="0"
+                max={Math.max(0, (Number(form.threshold) || 0) - 1)}
+                placeholder="e.g. 50 — unset means no containment band"
+                value={form.containAbove}
+                onChange={(event) => {
+                  const value = event.target.value === ''
+                    ? ''
+                    : Math.max(0, Math.min(100, parseInt(event.target.value, 10) || 0));
+                  onChange('containAbove', value);
+                }}
+                className={inputClass}
+              />
+              <p className="mt-1 text-[11px] text-tertiary">
+                Risk scores from this value up to (but below) the threshold execute in an isolated
+                worktree for one-click operator Promote/Discard, instead of interrupting the agent.
+                Must be lower than the threshold above.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
