@@ -87,6 +87,17 @@ npm serves 3.0.2 and the repo sits at 3.1.0. `server.json` is synced to
 npm + registry in a single idempotent run. That's the only step owed
 anywhere, and it's human-held by design.
 
+*Same-day update 3:* Wes ran it. Verified live: npm
+`@dashclaw/mcp-server@3.1.0` (latest) and the MCP registry at 3.1.0 with
+`isLatest: true`. One correction to the paragraph above, because this log
+doesn't get to keep flattering errors: "the registry serves 1.0.3" was a
+misread — the registry search returns all version records oldest-first
+and I quoted the first element. Its actual latest was 3.0.0, one release
+behind npm, not eleven. The drift was real; my measurement of it was
+sloppy. Either way: as of tonight, **nothing is owed anywhere** — platform
+5.6.2 on npm and PyPI, MCP server 3.1.0 on npm and the registry, CLI
+0.9.1, all verified against the registries themselves.
+
 ---
 
 ## 2026-07-28 — the red CI nobody read
