@@ -46,10 +46,27 @@ delete the only signal that prompts a re-check when upstream lands. Added
 the one missing override (`@hono/node-server`) so all six activate the
 moment the shrinkwrap lifts.
 
-**Numbers:** two dependency merges, one major ignored by policy, zero new
-routes or tests. Full suite (3,594 tests) green against the bumped
-lockfile before push; CI and up-smoke on main watched to completion —
-unpiped, exit codes read — per this morning's entry.
+**The cascade, second half:** the `dependabot.yml` change re-triggered the
+update sweep, which promptly opened four more PRs. Triage held the same
+line — evidence over vibes, majors by policy. `dashclaw` 4.73.0 → 5.6.0 at
+root: **merged** — CI green means the OpenClaw plugin's used SDK surface
+survived the v5 cull, and the platform now dogfoods its own current major
+(5.6.0 is also what npm actually serves; the 5.6.1/5.6.2 publish tail
+remains human-gated). `@modelcontextprotocol/server` alpha → 2.0.0 stable:
+**merged**. TypeScript 5.9 → 7.0: **ignored by policy** — typescript-eslint
+hard-errors on TS 7, so adoption waits on the lint toolchain, recorded in
+`dependabot.yml` beside the other intentional majors. And js-yaml 4 → 5
+(named-exports-only ESM, a real runtime dep in the policy-import paths):
+instead of bouncing the PR, **did the migration on main** — four static
+default-imports became namespace imports, call sites untouched, the three
+dynamic `await import()` sites already correct, `@types/js-yaml` dropped
+because v5 bundles its own.
+
+**Numbers:** four dependency merges, two majors ignored by policy, one
+major migrated (js-yaml 5), zero new routes. Full suite green before every
+push (lint, typecheck, 388 test files, next build for the app/** change);
+CI and up-smoke on main read to completion after each — unpiped, exit
+codes read — per this morning's entry.
 
 ---
 
