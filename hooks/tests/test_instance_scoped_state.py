@@ -33,6 +33,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 _HOOKS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _PRETOOL_SCRIPT = os.path.join(_HOOKS_DIR, "dashclaw_pretool.py")
 _POSTTOOL_SCRIPT = os.path.join(_HOOKS_DIR, "dashclaw_posttool.py")
+_STOP_SCRIPT = os.path.join(_HOOKS_DIR, "dashclaw_stop.py")
 
 
 class _RequestLog:
@@ -122,11 +123,64 @@ def _run_posttool(stdin_data, env, timeout=15):
     return proc.returncode, proc.stdout.decode("utf-8", "replace"), proc.stderr.decode("utf-8", "replace")
 
 
+def _run_stop(stdin_data, env, timeout=15):
+    proc = subprocess.run(
+        [sys.executable, _STOP_SCRIPT],
+        input=json.dumps(stdin_data).encode("utf-8"),
+        capture_output=True,
+        timeout=timeout,
+        env=env,
+    )
+    return proc.returncode, proc.stdout.decode("utf-8", "replace"), proc.stderr.decode("utf-8", "replace")
+
+
+def _instance_suffix(base_url, agent_id):
+    return hashlib.sha256((base_url + "|" + agent_id).encode("utf-8")).hexdigest()[:12]
+
+
 def _expected_state_path(base_url, agent_id, tool_use_id):
     """Mirror of dashclaw_pretool.py/dashclaw_posttool.py's
     _INSTANCE_STATE_SUFFIX + _action_state_path formula."""
-    suffix = hashlib.sha256((base_url + "|" + agent_id).encode("utf-8")).hexdigest()[:12]
-    return os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + suffix + "_" + tool_use_id)
+    return os.path.join(
+        tempfile.gettempdir(), "dashclaw_last_action_" + _instance_suffix(base_url, agent_id) + "_" + tool_use_id
+    )
+
+
+def _expected_contained_turn_path(base_url, agent_id, session_id):
+    """Mirror of dashclaw_agent_intel.stop_state.contained_turn_path with the
+    instance suffix dashclaw_posttool.py (writer) / dashclaw_stop.py (reader)
+    both derive."""
+    return os.path.join(
+        tempfile.gettempdir(),
+        "dashclaw_contained_turn_" + _instance_suffix(base_url, agent_id) + "_" + session_id,
+    )
+
+
+def _expected_contained_posted_path(base_url, agent_id, session_id):
+    return os.path.join(
+        tempfile.gettempdir(),
+        "dashclaw_contained_posted_" + _instance_suffix(base_url, agent_id) + "_" + session_id,
+    )
+
+
+def _write_transcript(entries):
+    fd, path = tempfile.mkstemp(suffix=".jsonl", prefix="dashclaw_instance_state_test_")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        for e in entries:
+            f.write(json.dumps(e) + "\n")
+    return path
+
+
+def _assistant_entry(uuid, text):
+    return {
+        "type": "assistant",
+        "uuid": uuid,
+        "message": {
+            "model": "opus",
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+            "content": [{"type": "text", "text": text}],
+        },
+    }
 
 
 class TestInstanceScopedActionState(unittest.TestCase):
@@ -315,6 +369,150 @@ class TestInstanceScopedActionState(unittest.TestCase):
         )
         self.assertEqual(code_c, 0, msg=err_c)
         self.assertEqual(self.log.get_all(), [], "instance C must find no state and PATCH nothing")
+
+    def test_unset_agent_id_pairs_across_pretool_and_posttool(self):
+        """DASHCLAW_AGENT_ID unset entirely (not even ""), on both the
+        pretool call that writes state and the posttool call that reads it --
+        both must resolve the same "claude-code" default and derive the
+        identical hash, so a completely unconfigured agent_id is still a
+        matched pair, not an accidental third "instance"."""
+        workspace = tempfile.mkdtemp(prefix="dashclaw-instance-state-")
+        self.addCleanup(lambda: __import__("shutil").rmtree(workspace, ignore_errors=True))
+        tool_use_id = "tu-collide-shared-4"
+        session_id = "sess-collide-shared-4"
+
+        env = self._base_env("agent-a", workspace)
+        del env["DASHCLAW_AGENT_ID"]  # not just empty -- entirely absent, like an un-configured install
+        expected_path = self._track(_expected_state_path(self.base_url, "claude-code", tool_use_id))
+
+        code, _, err = _run_pretool(
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "echo hi"},
+                "tool_use_id": tool_use_id,
+                "session_id": session_id,
+            },
+            env,
+        )
+        self.assertEqual(code, 0, msg=err)
+        self.assertTrue(os.path.isfile(expected_path), "pretool must resolve to the 'claude-code' default hash")
+
+        self.log.clear()
+        code2, _, err2 = _run_posttool(
+            {"tool_use_id": tool_use_id, "tool_response": {"output": "done"}},
+            env,
+        )
+        self.assertEqual(code2, 0, msg=err2)
+        patches = [r for r in self.log.get_all() if r["method"] == "PATCH"]
+        self.assertEqual(len(patches), 1, "posttool must resolve to the SAME 'claude-code' default hash as pretool")
+        self.assertEqual(patches[0]["path"], "/api/actions/act-claude-code")
+
+
+class TestInstanceScopedStopSweep(unittest.TestCase):
+    """F2 follow-up: the Stop hook's awaiting-promotion sweep reads/clears a
+    session-scoped contained-turn log + dedup-keys file. Two co-installed
+    instances sharing a session_id (the exact 2026-07-27 incident shape) must
+    never sweep, consume, or clear each other's contained actions."""
+
+    server: HTTPServer
+    server_thread: threading.Thread
+    log: _RequestLog
+    base_url: str
+
+    @classmethod
+    def setUpClass(cls):
+        cls.log = _RequestLog()
+        port = _find_free_port()
+        cls.server = HTTPServer(("127.0.0.1", port), _make_handler(cls.log))
+        cls.server_thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.server_thread.start()
+        cls.base_url = "http://127.0.0.1:%d" % port
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server_thread.join(timeout=5)
+
+    def setUp(self):
+        self.log.clear()
+        self._cleanup_paths = []
+
+    def tearDown(self):
+        for p in self._cleanup_paths:
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+
+    def _track(self, path):
+        self._cleanup_paths.append(path)
+        return path
+
+    def _stop_env(self, agent_id):
+        env = os.environ.copy()
+        for key in list(env.keys()):
+            if key.startswith("DASHCLAW_"):
+                del env[key]
+        env["DASHCLAW_DISABLE_DOTENV"] = "1"
+        env.update({
+            "DASHCLAW_BASE_URL": self.base_url,
+            "DASHCLAW_API_KEY": "test-key-123",
+            "DASHCLAW_AGENT_ID": agent_id,
+            "DASHCLAW_CODE_SESSIONS_ENABLED": "0",
+        })
+        return env
+
+    def _awaiting_patches(self):
+        return [
+            r for r in self.log.get_all()
+            if r["method"] == "PATCH"
+            and isinstance(r["body"], dict)
+            and r["body"].get("containment_status") == "awaiting_promotion"
+        ]
+
+    def test_stop_sweep_reads_only_its_own_instance_turn_log(self):
+        session_id = "sess-collide-stop-1"
+        transcript = _write_transcript([
+            {"type": "user", "uuid": "u1", "message": {"role": "user", "content": "go"}},
+            _assistant_entry("a1", "All done."),
+        ])
+        self.addCleanup(lambda: os.path.exists(transcript) and os.remove(transcript))
+
+        path_a = self._track(_expected_contained_turn_path(self.base_url, "agent-a", session_id))
+        path_b = self._track(_expected_contained_turn_path(self.base_url, "agent-b", session_id))
+        self._track(_expected_contained_posted_path(self.base_url, "agent-a", session_id))
+        self._track(_expected_contained_posted_path(self.base_url, "agent-b", session_id))
+        self.assertNotEqual(path_a, path_b)
+
+        with open(path_a, "w", encoding="utf-8") as f:
+            f.write("act-stop-a\tdashclaw/contained-a\n")
+        with open(path_b, "w", encoding="utf-8") as f:
+            f.write("act-stop-b\tdashclaw/contained-b\n")
+
+        code_a, _, err_a = _run_stop(
+            {"session_id": session_id, "transcript_path": transcript}, self._stop_env("agent-a")
+        )
+        self.assertEqual(code_a, 0, msg=err_a)
+
+        patches_a = self._awaiting_patches()
+        self.assertEqual(len(patches_a), 1, "instance A's sweep must PATCH only its own contained action")
+        self.assertEqual(patches_a[0]["path"], "/api/actions/act-stop-a")
+
+        # A's sweep consumed (cleared) only its OWN contained-turn log.
+        self.assertFalse(os.path.isfile(path_a), "instance A's contained-turn log is cleared after its sweep")
+        self.assertTrue(os.path.isfile(path_b), "instance B's contained-turn log must be untouched by A's sweep")
+        with open(path_b, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "act-stop-b\tdashclaw/contained-b\n", "B's log content must be unchanged")
+
+        # B's own sweep still finds (and flips) its own action.
+        self.log.clear()
+        code_b, _, err_b = _run_stop(
+            {"session_id": session_id, "transcript_path": transcript}, self._stop_env("agent-b")
+        )
+        self.assertEqual(code_b, 0, msg=err_b)
+        patches_b = self._awaiting_patches()
+        self.assertEqual(len(patches_b), 1)
+        self.assertEqual(patches_b[0]["path"], "/api/actions/act-stop-b")
 
 
 if __name__ == "__main__":

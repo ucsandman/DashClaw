@@ -175,19 +175,34 @@ def append_posted_deviation_keys(session_id, keys):
 # these pairs, PATCHes containment_status=awaiting_promotion for each
 # (idempotent per session via the posted-keys file below, mirroring the
 # assumption/deviation pattern above), then clears the per-turn log.
+#
+# instance_suffix (F2 follow-up, 2026-07-27 incident): both files are keyed
+# only by session_id, which -- like the tool_use_id-keyed action-state file --
+# is shared across two co-installed hook chains firing for the SAME Claude
+# Code session. Callers pass the same short hash of (resolved BASE_URL +
+# AGENT_ID) dashclaw_pretool.py/dashclaw_posttool.py derive for their own
+# instance-scoped state, so two installs never read or clear each other's
+# turn log / dedup keys. Defaults to "" (unnamespaced) only so a caller that
+# genuinely has no instance context still gets a valid path; every real
+# caller in this repo (dashclaw_posttool.py, dashclaw_stop.py) passes one.
 # ---------------------------------------------------------------------------
 
-def contained_turn_path(session_id):
+def _instance_prefix(prefix, instance_suffix):
+    return prefix + (instance_suffix + "_" if instance_suffix else "")
+
+
+def contained_turn_path(session_id, instance_suffix=""):
     return os.path.join(
-        tempfile.gettempdir(), "dashclaw_contained_turn_" + safe_session_id(session_id)
+        tempfile.gettempdir(),
+        _instance_prefix("dashclaw_contained_turn_", instance_suffix) + safe_session_id(session_id),
     )
 
 
-def read_contained_turn_actions(session_id):
+def read_contained_turn_actions(session_id, instance_suffix=""):
     """(action_id, containment_ref) pairs appended this turn. Dedups by
     action_id (first ref wins); [] on any read failure."""
     try:
-        with open(contained_turn_path(session_id), encoding="utf-8") as f:
+        with open(contained_turn_path(session_id, instance_suffix), encoding="utf-8") as f:
             lines = f.readlines()
     except Exception:
         return []
@@ -206,32 +221,33 @@ def read_contained_turn_actions(session_id):
     return out
 
 
-def clear_contained_turn_actions(session_id):
+def clear_contained_turn_actions(session_id, instance_suffix=""):
     try:
-        os.remove(contained_turn_path(session_id))
+        os.remove(contained_turn_path(session_id, instance_suffix))
     except Exception:
         pass
 
 
-def contained_posted_path(session_id):
+def contained_posted_path(session_id, instance_suffix=""):
     return os.path.join(
-        tempfile.gettempdir(), "dashclaw_contained_posted_" + safe_session_id(session_id)
+        tempfile.gettempdir(),
+        _instance_prefix("dashclaw_contained_posted_", instance_suffix) + safe_session_id(session_id),
     )
 
 
-def read_posted_containment_keys(session_id):
+def read_posted_containment_keys(session_id, instance_suffix=""):
     try:
-        with open(contained_posted_path(session_id), encoding="utf-8") as f:
+        with open(contained_posted_path(session_id, instance_suffix), encoding="utf-8") as f:
             return {ln.strip() for ln in f if ln.strip()}
     except Exception:
         return set()
 
 
-def append_posted_containment_keys(session_id, keys):
+def append_posted_containment_keys(session_id, keys, instance_suffix=""):
     if not keys:
         return
     try:
-        with open(contained_posted_path(session_id), "a", encoding="utf-8") as f:
+        with open(contained_posted_path(session_id, instance_suffix), "a", encoding="utf-8") as f:
             for key in keys:
                 f.write(key + "\n")
     except Exception:

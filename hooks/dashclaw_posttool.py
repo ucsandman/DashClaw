@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 # Import the shared HTTP retry helper from the sibling intel package.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dashclaw_agent_intel.http_client import request_with_retry
-from dashclaw_agent_intel.stop_state import safe_session_id as _safe_session_id
+from dashclaw_agent_intel.stop_state import contained_turn_path as _contained_turn_path
 
 # ---------------------------------------------------------------------------
 # Load .env file (C:/Projects/DashClaw/.env) before reading config.
@@ -440,7 +440,11 @@ def _git_add_and_commit(worktree, action_id):
     silent no-op that printed "Already up to date." and left `notes.md` out
     of the main tree). `--no-verify` keeps the user's own pre-commit hooks
     from blocking or mutating a contained commit; the `-c` identity flags
-    make the commit succeed even when the repo has no configured git user.
+    make the commit succeed even when the repo has no configured git user;
+    `-c commit.gpgsign=false` keeps a machine with `commit.gpgsign=true` set
+    globally from silently blocking on a missing/locked GPG key here (a
+    contained promotion commit is machine-internal bookkeeping, not something
+    that needs -- or should require -- the operator's signing key).
 
     Returns True on success, INCLUDING the idempotent "nothing to commit"
     case (a rerun after an earlier commit this session already captured
@@ -455,6 +459,7 @@ def _git_add_and_commit(worktree, action_id):
         [
             "-c", "user.name=dashclaw-containment",
             "-c", "user.email=containment@dashclaw.local",
+            "-c", "commit.gpgsign=false",
             "commit", "--no-verify", "-m", "contained: " + action_id,
         ],
         cwd=worktree,
@@ -584,10 +589,15 @@ def _append_contained_turn_action(session_id, action_id, ref):
     """Append "<action_id>\\t<ref>" to the per-session contained-turn log so
     the Stop hook's awaiting-promotion sweep can flip this action even if the
     PATCH above failed or never landed. Cleared by the Stop hook at end of
-    turn (dashclaw_agent_intel.stop_state). Best-effort; never raises."""
+    turn (dashclaw_agent_intel.stop_state). Best-effort; never raises.
+
+    Uses the shared stop_state.contained_turn_path (not a local path build) so
+    this WRITER and dashclaw_stop.py's READER always agree on the
+    instance-namespaced path (F2 follow-up, 2026-07-27 incident) -- both
+    derive the identical suffix from their own resolved BASE_URL + AGENT_ID."""
     if not session_id or not action_id or not ref:
         return
-    path = os.path.join(tempfile.gettempdir(), "dashclaw_contained_turn_" + _safe_session_id(session_id))
+    path = _contained_turn_path(session_id, _INSTANCE_STATE_SUFFIX)
     try:
         with open(path, "a", encoding="utf-8") as f:
             f.write(action_id + "\t" + ref + "\n")

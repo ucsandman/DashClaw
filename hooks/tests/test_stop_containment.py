@@ -10,6 +10,7 @@ posted-keys file, mirroring _capture_deviations.
 Mirrors the subprocess + mock-HTTP-server harness of test_stop_deviations.py.
 """
 
+import hashlib
 import json
 import os
 import socket
@@ -96,12 +97,25 @@ def _cursor_path(session_id):
     return os.path.join(tempfile.gettempdir(), "dashclaw_stop_cursor_" + session_id)
 
 
-def _contained_turn_path(session_id):
-    return os.path.join(tempfile.gettempdir(), "dashclaw_contained_turn_" + session_id)
+def _instance_suffix(base_url, agent_id="claude-code"):
+    # Mirrors dashclaw_stop.py's _INSTANCE_STATE_SUFFIX: sha256(BASE_URL + "|"
+    # + AGENT_ID)[:12] (F2 follow-up). Tests never set DASHCLAW_AGENT_ID, so
+    # the hook resolves it to the "claude-code" default.
+    return hashlib.sha256((base_url + "|" + agent_id).encode("utf-8")).hexdigest()[:12]
 
 
-def _contained_posted_path(session_id):
-    return os.path.join(tempfile.gettempdir(), "dashclaw_contained_posted_" + session_id)
+def _contained_turn_path(session_id, base_url, agent_id="claude-code"):
+    return os.path.join(
+        tempfile.gettempdir(),
+        "dashclaw_contained_turn_" + _instance_suffix(base_url, agent_id) + "_" + session_id,
+    )
+
+
+def _contained_posted_path(session_id, base_url, agent_id="claude-code"):
+    return os.path.join(
+        tempfile.gettempdir(),
+        "dashclaw_contained_posted_" + _instance_suffix(base_url, agent_id) + "_" + session_id,
+    )
 
 
 def _write_turn_actions(session_id, action_ids):
@@ -110,9 +124,9 @@ def _write_turn_actions(session_id, action_ids):
             f.write(aid + "\n")
 
 
-def _write_contained_turn_actions(session_id, pairs):
+def _write_contained_turn_actions(session_id, pairs, base_url, agent_id="claude-code"):
     """pairs: list of (action_id, ref)."""
-    with open(_contained_turn_path(session_id), "w", encoding="utf-8") as f:
+    with open(_contained_turn_path(session_id, base_url, agent_id), "w", encoding="utf-8") as f:
         for action_id, ref in pairs:
             f.write(action_id + "\t" + ref + "\n")
 
@@ -190,11 +204,11 @@ class TestStopContainmentSweep(unittest.TestCase):
         if action_ids:
             _write_turn_actions(session_id, action_ids)
         if contained_pairs:
-            _write_contained_turn_actions(session_id, contained_pairs)
+            _write_contained_turn_actions(session_id, contained_pairs, self.base_url)
         self.addCleanup(_safe_remove, _turn_path(session_id))
         self.addCleanup(_safe_remove, _cursor_path(session_id))
-        self.addCleanup(_safe_remove, _contained_turn_path(session_id))
-        self.addCleanup(_safe_remove, _contained_posted_path(session_id))
+        self.addCleanup(_safe_remove, _contained_turn_path(session_id, self.base_url))
+        self.addCleanup(_safe_remove, _contained_posted_path(session_id, self.base_url))
         return transcript
 
     def _awaiting_patches(self):
@@ -287,7 +301,7 @@ class TestStopContainmentSweep(unittest.TestCase):
         # per-turn contained log was re-populated, e.g. a retried hook run).
         self.log.clear()
         _write_turn_actions(session_id, ["act-cont-rerun"])
-        _write_contained_turn_actions(session_id, [("act-cont-rerun", "dashclaw/contained-sess-rerun")])
+        _write_contained_turn_actions(session_id, [("act-cont-rerun", "dashclaw/contained-sess-rerun")], self.base_url)
         _safe_remove(_cursor_path(session_id))
 
         code, _, err = _run_hook(

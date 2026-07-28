@@ -169,6 +169,14 @@ def _argv_agent_id():
 BASE_URL = _resolve_base_url(_BASE_URL_EXPLICIT, _URL_EXPLICIT).rstrip("/")
 API_KEY = os.environ.get("DASHCLAW_API_KEY") or ""
 AGENT_ID = _argv_agent_id() or os.environ.get("DASHCLAW_AGENT_ID") or "claude-code"
+
+# Short stable hash of (resolved BASE_URL + AGENT_ID) -- must match
+# dashclaw_pretool.py's / dashclaw_posttool.py's _INSTANCE_STATE_SUFFIX bit
+# for bit, since dashclaw_posttool.py is the WRITER of the contained-turn log
+# this hook's awaiting-promotion sweep reads (F2 follow-up: two co-installed
+# hook instances sharing a session_id must never sweep each other's contained
+# actions or dedup keys).
+_INSTANCE_STATE_SUFFIX = hashlib.sha256((BASE_URL + "|" + AGENT_ID).encode("utf-8")).hexdigest()[:12]
 # Opt-in: on text-only turns (tokens present but no tool calls → no action_ids)
 # create a synthetic `action_type='conversation'` action so the spend lands in
 # analytics instead of just in the orphan-tokens drift log. Default off to
@@ -551,19 +559,21 @@ def _patch_containment_awaiting(action_id, ref):
 
 def _flip_contained_to_awaiting(session_id):
     """Sweep this turn's contained action_ids to awaiting_promotion. Fail-
-    silent end to end; no-ops when the turn contained nothing."""
+    silent end to end; no-ops when the turn contained nothing. Reads/writes
+    only THIS instance's namespaced contained-turn log and dedup-keys file
+    (_INSTANCE_STATE_SUFFIX) -- never a co-installed instance's."""
     try:
-        pairs = _read_contained_turn_actions(session_id)
+        pairs = _read_contained_turn_actions(session_id, _INSTANCE_STATE_SUFFIX)
         if not pairs:
             return
-        posted = _read_posted_containment_keys(session_id)
+        posted = _read_posted_containment_keys(session_id, _INSTANCE_STATE_SUFFIX)
         new_keys = []
         for action_id, ref in pairs:
             if action_id in posted:
                 continue
             _patch_containment_awaiting(action_id, ref)
             new_keys.append(action_id)
-        _append_posted_containment_keys(session_id, new_keys)
+        _append_posted_containment_keys(session_id, new_keys, _INSTANCE_STATE_SUFFIX)
     except Exception as e:
         _log_hook_error("flip_contained_to_awaiting -> " + type(e).__name__ + ": " + str(e))
 
@@ -651,7 +661,7 @@ def main():
 
     _write_cursor(session_id, new_cursor)
     _clear_turn_actions(session_id)
-    _clear_contained_turn_actions(session_id)
+    _clear_contained_turn_actions(session_id, _INSTANCE_STATE_SUFFIX)
     sys.exit(0)
 
 
