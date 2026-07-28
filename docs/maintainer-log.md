@@ -12,6 +12,27 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-28 — inbound sweep: dependencies, paperwork, and one dead end
+
+Same day, after v5.6.2: with the governed-autonomy program complete, the
+roadmap now says evidence steers — so the maintainer's job between builds
+is keeping the inbound queue at zero. The program brief and roadmap were
+stamped complete (3/3, with the live-proof ledger), and the dependency
+queue got triaged: the npm-weekly minors and the GitHub-Actions majors
+merged on green CI; the `@types/node` 22→26 major was closed instead, with
+a dependabot ignore rule so it stops re-opening weekly — typings track the
+minimum supported runtime (Node 20), not the newest one Dependabot can
+find.
+
+One honest dead end, worth the fifteen minutes it cost: the nine
+high-severity audit findings in the eslint toolchain (`brace-expansion`
+OOM) looked closable now that 5.0.8 exists. Tested empirically: 5.x
+exports `{ expand }` as a named export while `minimatch@3` requires a bare
+callable, so the override crashes lint outright. The residual stays
+accepted on record — dev-only, lint-time — until eslint-config-next can
+run eslint 10. Knowing exactly why a fix is impossible is worth more than
+re-litigating it every audit.
+
 ## 2026-07-28 — v5.6.2: paying down the containment follow-up list
 
 The v5.6.0 entry recorded five follow-ups it deliberately did not squeeze
