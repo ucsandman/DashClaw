@@ -2,11 +2,17 @@
 
 import { useRef, useState } from 'react';
 
-type Decision = 'allow' | 'warn' | 'block' | 'require_approval';
+// Five verdicts (RFC containment-verdicts): allow_contained sits between
+// warn and require_approval — a capability-negotiated rung, not a fourth
+// alternative to it. Final fix-wave IMPORTANT 6 (2026-07-27): this local
+// type had drifted to four, teaching an inaccurate ladder on a marketing
+// surface.
+type Decision = 'allow' | 'warn' | 'allow_contained' | 'block' | 'require_approval';
 
 const DECISION_META: Record<Decision, { label: string; cls: string }> = {
   allow: { label: 'allow', cls: 'text-status-success bg-status-success-subtle' },
   warn: { label: 'warn', cls: 'text-status-warning bg-status-warning-subtle' },
+  allow_contained: { label: 'allow_contained', cls: 'text-brand bg-brand-subtle' },
   block: { label: 'block', cls: 'text-status-error bg-status-error-subtle' },
   require_approval: { label: 'require_approval', cls: 'text-status-info bg-status-info-subtle' },
 };
@@ -263,6 +269,8 @@ function decideFromScore(score: number, requireApprovalHighRisk: boolean): Decis
 const DECISION_EXPLAIN: Record<Decision, string> = {
   allow: 'Below the elevated band. The action proceeds and is recorded.',
   warn: 'Elevated. The action proceeds, but the decision and its signals go to the ledger and the risk feed.',
+  allow_contained:
+    'Between warn and require_approval, and only for a caller that negotiates support. A file-scoped action runs in an isolated worktree instead of the working tree; a human promotes (governed merge) or discards the staged diff from /approvals.',
   block: 'High risk with no approval path configured. The action is refused and recorded as blocked. Blocks are absolute.',
   require_approval:
     'High risk. Execution pauses until a human approves: dashboard, CLI, or chat. An approval covers the identical action for 15 minutes.',
