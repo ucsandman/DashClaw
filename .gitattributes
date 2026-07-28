@@ -3,6 +3,11 @@ docs/api-inventory.json text eol=lf
 docs/api-inventory.md text eol=lf
 docs/openapi/critical-stable.openapi.json text eol=lf
 
+# Hook sources are zipped verbatim into public/downloads/dashclaw-claude-code-hooks.zip
+# by scripts/refresh-bundles.mjs. A CRLF checkout makes every refresh rewrite the zip,
+# so the bundle flaps modified-but-unstaged and silently blocks pulls/pushes. Pin LF.
+hooks/**/*.py text eol=lf
+
 # >>> living-merge (managed: generated projections) >>>
 # Generated from scripts/living-merge/manifest.ts — do not edit by hand.
 # These paths are projections of source: never hand-merged, always regenerated.
