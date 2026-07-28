@@ -6,6 +6,7 @@ import { getSql as getDbSql } from '../../../lib/db';
 import { apiErrorResponse } from '../../../lib/apiErrors';
 import { validateActionOutcome } from '../../../lib/validate.js';
 import { getOrgId } from '../../../lib/org';
+import { resolveAgentIdentity } from '../../../lib/identity-resolution';
 import { EVENTS, publishOrgEvent } from '../../../lib/events';
 import { redactAny } from '../../../lib/security';
 import { estimateCost } from '../../../lib/billing';
@@ -31,6 +32,14 @@ function extractSpawnedAgentUuid(body: Record<string, unknown>): string | null {
   const value = (meta as Record<string, unknown>).spawned_agent_uuid;
   return typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : null;
 }
+
+// SECURITY (IMPORTANT 5, final fix wave 2026-07-27): the only shape
+// hooks/dashclaw_pretool.py's _ensure_containment_worktree ever produces
+// (dashclaw/contained-<branchSeg>, mirrored by cli/bin/dashclaw.js's
+// containmentWorktreePath). Rejecting anything else stops an attacker from
+// stamping an arbitrary ref that the operator's Promote later
+// act-hash-binds into `git merge --no-ff <ref>`.
+const CONTAINMENT_REF_RE = /^dashclaw\/contained-[A-Za-z0-9-]{1,64}$/;
 
 
 export async function GET(request: Request, { params }: { params: Promise<{ actionId: string }> }) {
@@ -103,13 +112,48 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
           { status: 400 },
         );
       }
+      // SECURITY (IMPORTANT 5): a ref, when present, must match the exact
+      // shape the hook/CLI ever produce — an operator's Promote later
+      // act-hash-binds this value into `git merge --no-ff <ref>`, so any
+      // other string is a forged merge target, not a legitimate containment
+      // branch.
+      if (typeof body.containment_ref === 'string' && body.containment_ref.length > 0
+        && !CONTAINMENT_REF_RE.test(body.containment_ref)) {
+        return NextResponse.json(
+          { error: 'containment_ref must match dashclaw/contained-<id>' },
+          { status: 400 },
+        );
+      }
+
+      // SECURITY (IMPORTANT 5): this transition must be bound to the
+      // action's OWN agent — without this, any caller holding the org's
+      // API key could flip an arbitrary action_id to awaiting_promotion and
+      // stamp any (now format-validated) ref onto it, which the operator's
+      // Promote would then merge. A JWKS-verified JWT's `sub` overrides the
+      // self-asserted body agent_id (same identity contract as every other
+      // action-creating route — see identity-resolution.ts); without either,
+      // there is no way to bind this transition to an agent, so it is
+      // rejected rather than silently trusting an unscoped caller.
+      const identity = await resolveAgentIdentity(request, {
+        agentId: typeof body.agent_id === 'string' ? body.agent_id : null,
+      });
+      if (!identity.agent_id) {
+        return NextResponse.json(
+          {
+            error: 'A containment transition requires an attributable agent identity (agent_id or a verified token)',
+            code: 'AGENT_IDENTITY_REQUIRED',
+          },
+          { status: 403 },
+        );
+      }
+
       // CAUTION: an empty-string ref must never reach setContainmentAwaiting —
       // its COALESCE(ref, containment_ref) would blank an existing ref for an
       // empty string (only null/undefined fall through the COALESCE).
       const containmentRef = typeof body.containment_ref === 'string' && body.containment_ref.length > 0
         ? body.containment_ref
         : undefined;
-      const flipped = await setContainmentAwaiting(sql, orgId, actionId, containmentRef);
+      const flipped = await setContainmentAwaiting(sql, orgId, actionId, identity.agent_id, containmentRef);
       if (!flipped) {
         return NextResponse.json({ error: 'Action not found or not in a contained state' }, { status: 409 });
       }

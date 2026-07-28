@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import {
   Clock, HelpCircle, Search, ShieldCheck, ShieldAlert, Info,
   LayoutPanelLeft, ExternalLink, Package, IdCard,
-  CheckCircle2, Ban, AlertTriangle,
+  CheckCircle2, Ban, AlertTriangle, RefreshCw,
 } from 'lucide-react';
 import PageLayout from '../../components/PageLayout';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -49,6 +49,7 @@ export default function DecisionReplayPage() {
   const [error, setError] = useState<string | null>(null);
   const [pendingOps, setPendingOps] = useState<Record<string, any>>({});
   const [invalidateReasons, setInvalidateReasons] = useState<Record<string, string>>({});
+  const [reissuing, setReissuing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = useCallback((msg: string) => {
@@ -120,6 +121,34 @@ export default function DecisionReplayPage() {
   useEffect(() => {
     if (actionId) fetchData();
   }, [actionId, fetchData]);
+
+  // Re-issue merge grant (CRITICAL 1, final fix wave 2026-07-27): the
+  // /approvals Containment section only shows rows still awaiting_promotion,
+  // so an already-`promoted` action whose 15-minute grant expired or was
+  // consumed by a failed merge has no path back through that surface. This
+  // hits the same POST /api/actions/[actionId]/containment route with
+  // verdict 'promote' — legal now for a 'promoted' action — to re-stamp or
+  // re-mint the grant.
+  const handleReissue = async () => {
+    setReissuing(true);
+    try {
+      const res = await fetch(`/api/actions/${actionId}/containment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verdict: 'promote' }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Re-issue failed (${res.status})`);
+      }
+      showToast('Merge grant re-issued — a fresh 15-minute approval window is open.');
+      fetchData();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Re-issue failed');
+    } finally {
+      setReissuing(false);
+    }
+  };
 
   const timelineEvents = useMemo(
     () => buildTimelineEvents({ action, guardDecision, assumptions }),
@@ -232,6 +261,17 @@ export default function DecisionReplayPage() {
               </div>
             );
           })()}
+          {action.containment_status === 'promoted' && (
+            <button
+              onClick={handleReissue}
+              disabled={reissuing}
+              title="Mint a fresh 15-minute merge-approval window for this promoted action"
+              className="flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded text-xs font-semibold text-secondary hover:bg-white/10 hover:text-white transition-all disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={reissuing ? 'motion-safe:animate-spin' : ''} />
+              {reissuing ? 'Re-issuing…' : 'Re-issue merge grant'}
+            </button>
+          )}
           {action.verified ? (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-success-subtle border border-success/20 text-[10px] font-bold text-success uppercase tracking-wider" title="Decision cryptographically signed by agent">
               <ShieldCheck size={12} /> Verified Agent

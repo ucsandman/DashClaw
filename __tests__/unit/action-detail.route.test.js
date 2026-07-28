@@ -8,6 +8,7 @@ const {
   mockGetActionWithRelations,
   mockUpdateActionOutcome,
   mockSetContainmentAwaiting,
+  mockResolveAgentIdentity,
   mockPublishOrgEvent,
   mockScanSensitiveData,
   mockScoreAndStoreActionEpisode,
@@ -20,6 +21,7 @@ const {
   mockGetActionWithRelations: vi.fn(),
   mockUpdateActionOutcome: vi.fn(),
   mockSetContainmentAwaiting: vi.fn(),
+  mockResolveAgentIdentity: vi.fn(),
   mockPublishOrgEvent: vi.fn(),
   mockScanSensitiveData: vi.fn(),
   mockScoreAndStoreActionEpisode: vi.fn(),
@@ -30,6 +32,7 @@ const {
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
 vi.mock('@/lib/validate.js', () => ({ validateActionOutcome: mockValidateActionOutcome }));
 vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_test' }));
+vi.mock('@/lib/identity-resolution.js', () => ({ resolveAgentIdentity: mockResolveAgentIdentity }));
 vi.mock('@/lib/events.js', () => ({
   EVENTS: { ACTION_UPDATED: 'action.updated' },
   publishOrgEvent: mockPublishOrgEvent,
@@ -80,6 +83,11 @@ describe('/api/actions/[actionId]', () => {
     mockScanSensitiveData.mockReturnValue({ clean: true, redacted: '', findings: [] });
     mockScoreAndStoreActionEpisode.mockResolvedValue(null);
     mockRecordLearningRecommendationEvents.mockResolvedValue(undefined);
+    // Default: no bearer token → self-asserted body agent_id echoed back,
+    // unverified (same contract as every other action-creating route).
+    mockResolveAgentIdentity.mockImplementation(async (_req, { agentId = null } = {}) => ({
+      agent_id: agentId, agent_name: null, verification_status: 'unverified', verified: false, jti: null, verification: null,
+    }));
   });
 
   describe('GET', () => {
@@ -216,36 +224,40 @@ describe('/api/actions/[actionId]', () => {
     // lives at POST /api/actions/[actionId]/containment).
     describe('containment transition (drizzle/0064)', () => {
       it('flips a contained action to awaiting_promotion and stamps the ref', async () => {
-        const flipped = { action_id: 'act_1', containment_status: 'awaiting_promotion', containment_ref: 'dashclaw/contained-act_1' };
+        const flipped = { action_id: 'act_1', containment_status: 'awaiting_promotion', containment_ref: 'dashclaw/contained-act-1' };
         mockSetContainmentAwaiting.mockResolvedValue(flipped);
 
-        const res = await PATCH(req({ containment_status: 'awaiting_promotion', containment_ref: 'dashclaw/contained-act_1' }), routeCtx);
+        const res = await PATCH(req({
+          containment_status: 'awaiting_promotion',
+          containment_ref: 'dashclaw/contained-act-1',
+          agent_id: 'agent_1',
+        }), routeCtx);
         const data = await res.json();
 
         expect(res.status).toBe(200);
         expect(data.action).toEqual(flipped);
-        expect(mockSetContainmentAwaiting).toHaveBeenCalledWith(mockSql, 'org_test', 'act_1', 'dashclaw/contained-act_1');
+        expect(mockSetContainmentAwaiting).toHaveBeenCalledWith(mockSql, 'org_test', 'act_1', 'agent_1', 'dashclaw/contained-act-1');
         expect(mockValidateActionOutcome).not.toHaveBeenCalled();
       });
 
       it('allows the status flip with no ref (ref omitted)', async () => {
         mockSetContainmentAwaiting.mockResolvedValue({ action_id: 'act_1', containment_status: 'awaiting_promotion' });
 
-        const res = await PATCH(req({ containment_status: 'awaiting_promotion' }), routeCtx);
+        const res = await PATCH(req({ containment_status: 'awaiting_promotion', agent_id: 'agent_1' }), routeCtx);
 
         expect(res.status).toBe(200);
-        expect(mockSetContainmentAwaiting).toHaveBeenCalledWith(mockSql, 'org_test', 'act_1', undefined);
+        expect(mockSetContainmentAwaiting).toHaveBeenCalledWith(mockSql, 'org_test', 'act_1', 'agent_1', undefined);
       });
 
       it('rejects any containment_status value other than awaiting_promotion with 400', async () => {
-        const res = await PATCH(req({ containment_status: 'promoted' }), routeCtx);
+        const res = await PATCH(req({ containment_status: 'promoted', agent_id: 'agent_1' }), routeCtx);
 
         expect(res.status).toBe(400);
         expect(mockSetContainmentAwaiting).not.toHaveBeenCalled();
       });
 
       it('rejects a containment_ref longer than 256 chars with 400', async () => {
-        const res = await PATCH(req({ containment_status: 'awaiting_promotion', containment_ref: 'x'.repeat(257) }), routeCtx);
+        const res = await PATCH(req({ containment_status: 'awaiting_promotion', containment_ref: 'x'.repeat(257), agent_id: 'agent_1' }), routeCtx);
 
         expect(res.status).toBe(400);
         expect(mockSetContainmentAwaiting).not.toHaveBeenCalled();
@@ -254,17 +266,49 @@ describe('/api/actions/[actionId]', () => {
       it('never passes an empty-string ref through — would blank an existing ref via COALESCE', async () => {
         mockSetContainmentAwaiting.mockResolvedValue({ action_id: 'act_1', containment_status: 'awaiting_promotion' });
 
-        await PATCH(req({ containment_status: 'awaiting_promotion', containment_ref: '' }), routeCtx);
+        await PATCH(req({ containment_status: 'awaiting_promotion', containment_ref: '', agent_id: 'agent_1' }), routeCtx);
 
-        expect(mockSetContainmentAwaiting).toHaveBeenCalledWith(mockSql, 'org_test', 'act_1', undefined);
+        expect(mockSetContainmentAwaiting).toHaveBeenCalledWith(mockSql, 'org_test', 'act_1', 'agent_1', undefined);
       });
 
-      it('returns 409 when the action is not in a contained state', async () => {
+      it('returns 409 when the action is not in a contained state (or owned by a different agent — the WHERE gate makes the two indistinguishable)', async () => {
         mockSetContainmentAwaiting.mockResolvedValue(null);
 
-        const res = await PATCH(req({ containment_status: 'awaiting_promotion' }), routeCtx);
+        const res = await PATCH(req({ containment_status: 'awaiting_promotion', agent_id: 'agent_1' }), routeCtx);
 
         expect(res.status).toBe(409);
+      });
+
+      // IMPORTANT 5 (final fix wave, 2026-07-27): binding + ref-format checks.
+      it('rejects with 403 AGENT_IDENTITY_REQUIRED when no agent_id is asserted and no token verifies', async () => {
+        const res = await PATCH(req({ containment_status: 'awaiting_promotion' }), routeCtx);
+        const data = await res.json();
+
+        expect(res.status).toBe(403);
+        expect(data.code).toBe('AGENT_IDENTITY_REQUIRED');
+        expect(mockSetContainmentAwaiting).not.toHaveBeenCalled();
+      });
+
+      it('rejects a containment_ref that does not match the dashclaw/contained-<id> shape with 400', async () => {
+        const res = await PATCH(req({
+          containment_status: 'awaiting_promotion',
+          containment_ref: 'refs/heads/main',
+          agent_id: 'agent_1',
+        }), routeCtx);
+
+        expect(res.status).toBe(400);
+        expect(mockSetContainmentAwaiting).not.toHaveBeenCalled();
+      });
+
+      it("a verified JWT's sub overrides a mismatched self-asserted body agent_id", async () => {
+        mockResolveAgentIdentity.mockResolvedValueOnce({
+          agent_id: 'agent_verified', agent_name: null, verification_status: 'verified', verified: true, jti: 'jti_1', verification: {},
+        });
+        mockSetContainmentAwaiting.mockResolvedValue({ action_id: 'act_1', containment_status: 'awaiting_promotion' });
+
+        await PATCH(req({ containment_status: 'awaiting_promotion', agent_id: 'agent_spoofed' }), routeCtx);
+
+        expect(mockSetContainmentAwaiting).toHaveBeenCalledWith(mockSql, 'org_test', 'act_1', 'agent_verified', undefined);
       });
     });
 

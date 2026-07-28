@@ -25,6 +25,7 @@ const {
   mockResolveContainment,
   mockCreateActionRecord,
   mockStampPromotionApproval,
+  mockFindUnconsumedPromotionGrant,
 } = vi.hoisted(() => ({
   mockGetSql: vi.fn(),
   mockGetOrgId: vi.fn(() => 'org_test'),
@@ -34,6 +35,7 @@ const {
   mockResolveContainment: vi.fn(),
   mockCreateActionRecord: vi.fn(),
   mockStampPromotionApproval: vi.fn(),
+  mockFindUnconsumedPromotionGrant: vi.fn(),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockGetSql }));
@@ -47,6 +49,7 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   resolveContainment: mockResolveContainment,
   createActionRecord: mockCreateActionRecord,
   stampPromotionApproval: mockStampPromotionApproval,
+  findUnconsumedPromotionGrant: mockFindUnconsumedPromotionGrant,
 }));
 
 const { POST } = await import('@/api/actions/[actionId]/containment/route.js');
@@ -240,6 +243,82 @@ describe('POST /api/actions/[actionId]/containment', () => {
 
     expect(mockStampPromotionApproval).toHaveBeenCalledTimes(1);
     expect(mockStampPromotionApproval).toHaveBeenCalledWith(mockGetSql, 'org_test', data.promotion_action_id, 'user_1');
+  });
+
+  // CRITICAL 1 (final fix wave, 2026-07-27): re-promoting an already-
+  // 'promoted' action must not 409 forever — it either re-stamps an
+  // unconsumed grant's approval window or mints a fresh one.
+  it('re-promote with an unconsumed prior grant re-stamps it (no new action row)', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      agent_id: 'agent_1', created_by: 'user_2', containment_status: 'promoted',
+      containment_ref: 'dashclaw/contained-act_123',
+    });
+    mockFindUnconsumedPromotionGrant.mockResolvedValueOnce({ action_id: 'act_promo_old' });
+    mockStampPromotionApproval.mockResolvedValueOnce({ action_id: 'act_promo_old', approved_by: 'user_1' });
+
+    const res = await POST(postReq({ verdict: 'promote' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.reissued).toBe(true);
+    expect(data.promotion_action_id).toBe('act_promo_old');
+    expect(mockFindUnconsumedPromotionGrant).toHaveBeenCalledWith(mockGetSql, 'org_test', 'act_123');
+    expect(mockStampPromotionApproval).toHaveBeenCalledTimes(1);
+    expect(mockStampPromotionApproval).toHaveBeenCalledWith(mockGetSql, 'org_test', 'act_promo_old', 'user_1');
+    expect(mockCreateActionRecord).not.toHaveBeenCalled();
+    expect(mockResolveContainment).not.toHaveBeenCalled();
+  });
+
+  it('re-promote after the prior grant was consumed mints a fresh grant row', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      agent_id: 'agent_1', created_by: 'user_2', containment_status: 'promoted',
+      containment_ref: 'dashclaw/contained-act_123',
+    });
+    mockFindUnconsumedPromotionGrant.mockResolvedValueOnce(null);
+    mockCreateActionRecord.mockResolvedValueOnce({ action_id: 'act_promo_new' });
+    mockStampPromotionApproval.mockResolvedValueOnce({ action_id: 'act_promo_new', approved_by: 'user_1' });
+
+    const res = await POST(postReq({ verdict: 'promote' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.reissued).toBe(true);
+    expect(typeof data.promotion_action_id).toBe('string');
+    expect(mockCreateActionRecord).toHaveBeenCalledTimes(1);
+    const [, payload] = mockCreateActionRecord.mock.calls[0]!;
+    expect(payload.data.action_type).toBe('containment_promote');
+    expect(payload.data.declared_goal).toBe(buildPromotionGoal('act_123'));
+    expect(payload.data.act).toEqual(buildPromotionAct('dashclaw/contained-act_123'));
+    expect(mockStampPromotionApproval).toHaveBeenCalledWith(mockGetSql, 'org_test', data.promotion_action_id, 'user_1');
+    expect(mockResolveContainment).not.toHaveBeenCalled();
+  });
+
+  it('discard verdict on an already-promoted action still 409s (re-issue only applies to promote)', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      agent_id: 'agent_1', created_by: 'user_2', containment_status: 'promoted',
+      containment_ref: 'dashclaw/contained-act_123',
+    });
+
+    const res = await POST(postReq({ verdict: 'discard' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(data.error).toBe('CONTAINMENT_NOT_AWAITING');
+    expect(mockFindUnconsumedPromotionGrant).not.toHaveBeenCalled();
+  });
+
+  it('a discarded action still 409s on promote (re-issue only applies from promoted)', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      agent_id: 'agent_1', created_by: 'user_2', containment_status: 'discarded',
+      containment_ref: 'dashclaw/contained-act_123',
+    });
+
+    const res = await POST(postReq({ verdict: 'promote' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(data.error).toBe('CONTAINMENT_NOT_AWAITING');
+    expect(mockFindUnconsumedPromotionGrant).not.toHaveBeenCalled();
   });
 
   it('returns 500 on unexpected error', async () => {

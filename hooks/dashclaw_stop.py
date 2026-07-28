@@ -553,8 +553,17 @@ def _capture_deviations(entries, last_uuid, session_id, cwd):
 def _patch_containment_awaiting(action_id, ref):
     """PATCH containment_status=awaiting_promotion, re-stamping ref defensively
     in case PostToolUse's own flip never landed (setContainmentAwaiting's
-    COALESCE leaves an already-set ref untouched either way)."""
-    _patch_action(action_id, {"containment_status": "awaiting_promotion", "containment_ref": ref})
+    COALESCE leaves an already-set ref untouched either way).
+
+    IMPORTANT 5 (final fix wave, 2026-07-27): the server binds this
+    transition to the caller's own agent_id (WHERE-gated in
+    setContainmentAwaiting) -- this hook's own AGENT_ID must be sent or the
+    PATCH 403s with no attributable identity."""
+    _patch_action(action_id, {
+        "containment_status": "awaiting_promotion",
+        "containment_ref": ref,
+        "agent_id": AGENT_ID,
+    })
 
 
 def _flip_contained_to_awaiting(session_id):

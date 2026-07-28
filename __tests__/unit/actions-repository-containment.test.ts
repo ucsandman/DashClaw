@@ -11,7 +11,9 @@ import {
   listAwaitingPromotion,
   createActionRecord,
   listActions,
+  findUnconsumedPromotionGrant,
 } from '../../app/lib/repositories/actions.repository';
+import { buildPromotionGoal } from '../../app/lib/guard/containment';
 
 type Row = Record<string, unknown>;
 
@@ -53,28 +55,39 @@ function makeQuerySqlMock(responses: Row[][]) {
 describe('setContainmentAwaiting', () => {
   it('legal flip (prior status contained) returns the updated row', async () => {
     const sql = makeSql([[{ action_id: 'act_1', containment_status: 'awaiting_promotion', containment_ref: 'dashclaw/contained-act_1' }]]);
-    const row = await setContainmentAwaiting(sql, 'org_1', 'act_1', 'dashclaw/contained-act_1');
+    const row = await setContainmentAwaiting(sql, 'org_1', 'act_1', 'agent_1', 'dashclaw/contained-act_1');
     expect(row?.containment_status).toBe('awaiting_promotion');
     expect(sql.calls[0]!.text).toContain("containment_status = 'contained'");
   });
 
   it('wrong prior status (e.g. already awaiting_promotion) returns null — WHERE gate fails', async () => {
     const sql = makeSql([[]]);
-    const row = await setContainmentAwaiting(sql, 'org_1', 'act_1', 'ref');
+    const row = await setContainmentAwaiting(sql, 'org_1', 'act_1', 'agent_1', 'ref');
     expect(row).toBeNull();
   });
 
   it('org mismatch returns null — org_id is part of the WHERE gate', async () => {
     const sql = makeSql([[]]);
-    const row = await setContainmentAwaiting(sql, 'org_other', 'act_1', 'ref');
+    const row = await setContainmentAwaiting(sql, 'org_other', 'act_1', 'agent_1', 'ref');
     expect(row).toBeNull();
     expect(sql.calls[0]!.text).toContain('org_id =');
     expect(sql.calls[0]!.values).toContain('org_other');
   });
 
+  // IMPORTANT 5 (final fix wave, 2026-07-27): agent_id is part of the
+  // WHERE-gate-as-legality-check, same as org_id — a caller asserting a
+  // different agent_id than the row's own must not be able to flip it.
+  it('agent_id mismatch returns null — agent_id is part of the WHERE gate', async () => {
+    const sql = makeSql([[]]);
+    const row = await setContainmentAwaiting(sql, 'org_1', 'act_1', 'agent_other', 'ref');
+    expect(row).toBeNull();
+    expect(sql.calls[0]!.text).toContain('agent_id =');
+    expect(sql.calls[0]!.values).toContain('agent_other');
+  });
+
   it('a null ref leaves containment_ref unchanged (COALESCE)', async () => {
     const sql = makeSql([[{ action_id: 'act_1' }]]);
-    await setContainmentAwaiting(sql, 'org_1', 'act_1');
+    await setContainmentAwaiting(sql, 'org_1', 'act_1', 'agent_1');
     expect(sql.calls[0]!.text).toContain('COALESCE(');
     expect(sql.calls[0]!.values).toContain(null);
   });
@@ -126,6 +139,23 @@ describe('listAwaitingPromotion', () => {
     const sql = makeSql([[]]);
     await listAwaitingPromotion(sql, 'org_1', 'not-a-number');
     expect(sql.calls[0]!.values).toContain(50);
+  });
+});
+
+describe('findUnconsumedPromotionGrant', () => {
+  it('matches on action_type + the canonical declared_goal, unconsumed only', async () => {
+    const sql = makeSql([[{ action_id: 'act_promo_1', approval_grant_used_at: null }]]);
+    const row = await findUnconsumedPromotionGrant(sql, 'org_1', 'act_1');
+    expect(row?.action_id).toBe('act_promo_1');
+    expect(sql.calls[0]!.text).toContain("action_type = 'containment_promote'");
+    expect(sql.calls[0]!.text).toContain('approval_grant_used_at IS NULL');
+    expect(sql.calls[0]!.values).toContain(buildPromotionGoal('act_1'));
+  });
+
+  it('returns null when no unconsumed grant exists (already consumed or never minted)', async () => {
+    const sql = makeSql([[]]);
+    const row = await findUnconsumedPromotionGrant(sql, 'org_1', 'act_1');
+    expect(row).toBeNull();
   });
 });
 

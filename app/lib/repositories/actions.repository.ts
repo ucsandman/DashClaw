@@ -2,6 +2,7 @@ import { OUTCOME_FIELDS } from '../validate.js';
 import { computeActContentHash } from '../act-content-hash';
 import { buildAgentDefense, type AgentDefense } from '../agent-defense';
 import { getGuardDecisionById } from './guardrails.repository';
+import { buildPromotionGoal } from '../guard/containment';
 
 type Row = Record<string, unknown>;
 
@@ -233,11 +234,22 @@ export async function markActionBlocked(sql: SqlClient, orgId: string, actionId:
  * Agent/hook-side flip: a contained action becomes awaiting_promotion once the
  * staged diff is ready for operator review. The containment_ref (worktree
  * branch) can be (re)stamped on the same call; a null ref leaves it unchanged.
+ *
+ * SECURITY (IMPORTANT 5, final fix wave 2026-07-27): `agentId` is the
+ * caller's own resolved identity (verified JWT, or self-asserted body
+ * agent_id — same identity contract every action-creating route uses) and is
+ * part of the WHERE gate, same as org_id. Without it, any caller holding the
+ * org's shared API key could race this flip on ANOTHER agent's action and
+ * stamp an arbitrary ref onto it — the WHERE-gate-as-legality-check pattern
+ * (like every other transition in this module) simply returns no rows for a
+ * mismatched agent, indistinguishable from "not found", so this never leaks
+ * whether a differently-owned action_id exists.
  */
 export async function setContainmentAwaiting(
   sql: SqlClient,
   orgId: string,
   actionId: string,
+  agentId: string,
   containmentRef?: string | null,
 ): Promise<Row | null> {
   const rows = await sql`
@@ -246,6 +258,7 @@ export async function setContainmentAwaiting(
         containment_ref = COALESCE(${containmentRef ?? null}, containment_ref)
     WHERE action_id = ${actionId}
       AND org_id = ${orgId}
+      AND agent_id = ${agentId}
       AND containment_status = 'contained'
     RETURNING *
   `;
@@ -321,6 +334,37 @@ export async function listAwaitingPromotion(sql: SqlClient, orgId: string, limit
     ORDER BY timestamp_start DESC
     LIMIT ${capped}
   `;
+}
+
+/**
+ * Final fix-wave CRITICAL 1 (2026-07-27): the synthetic containment_promote
+ * grant row minted by a promote verdict expires in 15 minutes and is
+ * single-use — with no re-issue path, every promote-to-merge gap wider than
+ * that window (or a merge conflict that already consumed the grant) leaves
+ * the ledger stuck at `promoted` with nothing able to ever merge. Look up
+ * whether an UNCONSUMED grant still exists for this contained action so the
+ * route can re-stamp its approval window instead of minting a duplicate row.
+ * Matches on the canonical declared_goal (buildPromotionGoal) the same way
+ * the grant itself is built — action_type + goal is the tuple that
+ * identifies "the promotion grant for THIS contained action", exactly as
+ * applyOperatorApprovalGrant matches it during consumption.
+ */
+export async function findUnconsumedPromotionGrant(
+  sql: SqlClient,
+  orgId: string,
+  containedActionId: string,
+): Promise<Row | null> {
+  const declaredGoal = buildPromotionGoal(containedActionId);
+  const rows = await sql`
+    SELECT * FROM action_records
+    WHERE org_id = ${orgId}
+      AND action_type = 'containment_promote'
+      AND declared_goal = ${declaredGoal}
+      AND approval_grant_used_at IS NULL
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+  return rows[0] || null;
 }
 
 interface RecordBulkApprovalsData {

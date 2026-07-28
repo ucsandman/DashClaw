@@ -583,10 +583,10 @@ async function cmdContainedList() {
   // npm package doesn't have yet (see cli/lib/api.js's doc comment) — go
   // straight through the raw endpoint instead of createClient().listContained().
   //
-  // Defensively re-filters client-side: as of this writing GET /api/actions
-  // does not read/forward the containment_status query param (a gap in the
-  // server route, out of scope for this CLI-only change — see task-12-report.md),
-  // so the raw response may include actions of every status.
+  // Defensively re-filters client-side: GET /api/actions forwards the
+  // containment_status query param to the repository (fixed in ade87aec),
+  // but this belt-and-suspenders filter stays in place against a server
+  // running an older build or a client-side proxy that drops query params.
   try {
     const { actions } = await apiRequest({ baseUrl, apiKey }, 'GET', '/api/actions', {
       query: { containment_status: 'awaiting_promotion' },
