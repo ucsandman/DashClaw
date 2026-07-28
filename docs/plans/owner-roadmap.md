@@ -36,17 +36,24 @@ Nothing time-gated remains open in this file.
 
 ## Forward direction (post-v5)
 
-The thesis's forward bet is **governed autonomy**: extending the exact
+The thesis's forward bet was **governed autonomy**: extending the exact
 intercept → decide → approve → prove loop to plans, delegation, and
-containment for long unattended runs. The three 2026-07-06 RFCs are **not**
-superseded by the cull — they are re-grounded on the thesis and remain the
-next direction, gated on the maintainer's judgment (and, where money is
-involved, on Wes):
+containment for long unattended runs. **That program is complete (3/3) as of
+2026-07-28:**
 
-- [Preflight plan authorization](../rfcs/2026-07-06-preflight-plan-authorization.md)
-- [Scoped delegation grants](../rfcs/2026-07-06-scoped-delegation-grants.md)
-- [Containment verdicts](../rfcs/2026-07-06-containment-verdicts.md)
-- Program brief: [`2026-07-06-governed-autonomy-program.md`](2026-07-06-governed-autonomy-program.md)
+- [Preflight plan authorization](../rfcs/2026-07-06-preflight-plan-authorization.md) — shipped v5.4.0
+- [Scoped delegation grants](../rfcs/2026-07-06-scoped-delegation-grants.md) — shipped v5.5.0
+- [Containment verdicts](../rfcs/2026-07-06-containment-verdicts.md) — shipped v5.6.0, hardened v5.6.1–v5.6.2
+- Program brief: [`2026-07-06-governed-autonomy-program.md`](2026-07-06-governed-autonomy-program.md) (marked complete)
+
+All three carry live proofs in the CI policy-smoke harness, per the
+claims-proven-live standard. With the program done and nothing time-gated
+open, the steering input is **evidence from real use** — the activation
+funnel recorded its first genuine stranger conversion on 2026-07-26 (n=2
+cohort), and the thesis's falsifiers are judged against that baseline. New
+build work needs either (a) a capability gap surfaced by an actual governed
+run, or (b) an adoption-evidence read that justifies it — not a fourth
+feature for its own sake. Where money is involved, Wes decides.
 
 Anything not on the thesis's loop (or directly supporting it) is out of scope
 by definition. Adding a surface back is a deliberate, recorded act that must

@@ -1,5 +1,16 @@
 # Governed Autonomy Program — build plan for three features
 
+> **STATUS: COMPLETE (3/3) — 2026-07-28.** Preflight Plan Authorization
+> shipped v5.4.0 (2026-07-26), Scoped Delegation Constraints shipped v5.5.0
+> (2026-07-26), Containment Verdicts shipped v5.6.0 (2026-07-28), followed by
+> two same-week hardening releases: v5.6.1 (server-stamped `containment_ref`)
+> and v5.6.2 (every remaining recorded follow-up — instance-namespaced refs,
+> batched /approvals evidence, full-row re-issue, simulator verdict). All
+> three features carry live proofs in the CI policy-smoke harness (plans AF1–,
+> delegation-constraint ceilings/depth, containment verdict + governed
+> promotion AH). This file is retained as the historical build plan; the
+> narrative record lives in `docs/maintainer-log.md`.
+
 > **For the executing session:** each feature has a full RFC in `docs/rfcs/`. Read the RFC first, then derive your own task-level TDD plan against the THEN-CURRENT code using superpowers:writing-plans — do not treat this file as the plan. This file owns sequencing, gates, and coordination.
 
 **Date:** 2026-07-06 · **Author:** principal-engineer session (feature exploration → top-3 selection, approved by Wes)
