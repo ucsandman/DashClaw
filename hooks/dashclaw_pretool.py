@@ -75,6 +75,38 @@ def _load_dotenv():
             break
         current = parent
 
+
+def _resolve_base_url(base_explicit, url_explicit):
+    """Resolve DASHCLAW_BASE_URL/DASHCLAW_URL with explicit-env-beats-dotenv
+    precedence: explicit BASE_URL > explicit URL > dotenv BASE_URL > dotenv
+    URL. `base_explicit`/`url_explicit` say whether the process env already
+    had that key set BEFORE _load_dotenv() ran (captured below).
+
+    Without this, a repo's own .env setting DASHCLAW_BASE_URL silently wins
+    over an explicitly-exported DASHCLAW_URL merely because BASE_URL is
+    checked first in the naive `BASE_URL or URL` fallback -- the 2026-07-27
+    incident that misrouted three hook-triggered calls to a hosted production
+    instance instead of the exported localhost URL."""
+    base_val = os.environ.get("DASHCLAW_BASE_URL") or ""
+    url_val = os.environ.get("DASHCLAW_URL") or ""
+    if base_explicit and base_val:
+        return base_val
+    if url_explicit and url_val:
+        if base_val and not base_explicit:
+            sys.stderr.write(
+                "[DashClaw] Explicit DASHCLAW_URL=%s overrides a .env-provided "
+                "DASHCLAW_BASE_URL=%s\n" % (url_val, base_val)
+            )
+        return url_val
+    return base_val or url_val
+
+
+# Captured BEFORE _load_dotenv() fills gaps, so _resolve_base_url can tell an
+# explicitly-exported value apart from one that only exists because dotenv
+# populated it.
+_BASE_URL_EXPLICIT = "DASHCLAW_BASE_URL" in os.environ
+_URL_EXPLICIT = "DASHCLAW_URL" in os.environ
+
 _load_dotenv()
 
 # ---------------------------------------------------------------------------
@@ -107,9 +139,20 @@ def _argv_agent_id():
     return ""
 
 
-BASE_URL = (os.environ.get("DASHCLAW_BASE_URL") or os.environ.get("DASHCLAW_URL") or "").rstrip("/")
+BASE_URL = _resolve_base_url(_BASE_URL_EXPLICIT, _URL_EXPLICIT).rstrip("/")
 API_KEY = os.environ.get("DASHCLAW_API_KEY") or ""
 AGENT_ID = _argv_agent_id() or os.environ.get("DASHCLAW_AGENT_ID") or "claude-code"
+
+# Short stable hash of (resolved BASE_URL + AGENT_ID), used to namespace this
+# hook installation's tempdir state files from any OTHER DashClaw hook
+# installation that fires for the SAME Claude Code tool_use_id / session_id on
+# this machine -- e.g. a user's global ~/.claude hooks racing a project's
+# local hooks under a different agent identity / base URL. Both pretool
+# (writer) and posttool (reader) derive this independently from their own
+# resolved env, so they only agree when they ARE the same installation.
+# (2026-07-27 incident: a co-installed instance consumed/overwrote the real
+# session's PostToolUse state file before it ever posted an artifact.)
+_INSTANCE_STATE_SUFFIX = hashlib.sha256((BASE_URL + "|" + AGENT_ID).encode("utf-8")).hexdigest()[:12]
 HOOK_MODE = os.environ.get("DASHCLAW_HOOK_MODE") or "enforce"
 WORKSPACE = os.environ.get("DASHCLAW_WORKSPACE") or os.getcwd()
 PERMISSION_MODE = os.environ.get("DASHCLAW_PERMISSION_MODE") or "danger"
@@ -546,6 +589,19 @@ def _subagent_id_segment(s):
 # Temp file for passing action_id to PostToolUse
 # ---------------------------------------------------------------------------
 
+def _action_state_path(tool_use_id):
+    # Instance-suffixed (F2, 2026-07-27 e2e proof): a tool_use_id is unique
+    # per Claude Code tool call, but TWO co-installed hook instances (e.g. a
+    # user's global ~/.claude hooks racing a project's local hooks under a
+    # different agent identity / base URL) both fire for that SAME tool call
+    # and would otherwise clobber each other's action_id here. posttool.py
+    # derives the identical suffix from its own resolved env, so only the
+    # matching installation's PostToolUse ever reads this file.
+    return os.path.join(
+        tempfile.gettempdir(), "dashclaw_last_action_" + _INSTANCE_STATE_SUFFIX + "_" + tool_use_id
+    )
+
+
 def write_action_id(tool_use_id, action_id):
     """Write action_id to a temp file keyed by tool_use_id.
 
@@ -556,7 +612,7 @@ def write_action_id(tool_use_id, action_id):
     record of which Claude Code tool calls correspond to which DashClaw
     action_records by the time Stop fires.
     """
-    path = os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id)
+    path = _action_state_path(tool_use_id)
     try:
         with open(path, "w", encoding="utf-8") as f:
             f.write(action_id)
@@ -737,46 +793,66 @@ def _safe_branch_segment(session_id):
 
 
 def _containment_session_state_path(session_id):
+    # Instance-suffixed (F2, 2026-07-27 e2e proof): two co-installed hook
+    # instances sharing this session_id must never read/write each other's
+    # worktree/ref/base_sha.
     return os.path.join(
         tempfile.gettempdir(),
-        "dashclaw_containment_session_" + _safe_session_id(session_id) + ".json",
+        "dashclaw_containment_session_" + _INSTANCE_STATE_SUFFIX + "_" + _safe_session_id(session_id) + ".json",
     )
 
 
 def _read_containment_session_state(session_id):
-    """Return (worktree_path, ref) from a prior contained call this session,
-    or None when there is no state yet or the worktree no longer exists."""
+    """Return (worktree_path, ref, base_sha) from a prior contained call this
+    session, or None when there is no state yet or the worktree no longer
+    exists. base_sha is None for state written by an older hook version that
+    predates F1 (no base_sha field) -- callers fall back accordingly."""
     path = _containment_session_state_path(session_id)
     try:
         with open(path, encoding="utf-8") as f:
             data = json.loads(f.read())
         worktree_path = data.get("worktree_path")
         ref = data.get("ref")
+        base_sha = data.get("base_sha")
     except Exception:
         return None
     if not worktree_path or not ref or not os.path.isdir(worktree_path):
         return None
-    return worktree_path, ref
+    return worktree_path, ref, base_sha
 
 
-def _write_containment_session_state(session_id, worktree_path, ref):
-    """Best-effort persist of (worktree_path, ref) so the next contained call
-    in this session reuses the worktree instead of adding a second one."""
+def _write_containment_session_state(session_id, worktree_path, ref, base_sha):
+    """Best-effort persist of (worktree_path, ref, base_sha) so the next
+    contained call in this session reuses the worktree instead of adding a
+    second one. base_sha (F1) is the worktree's HEAD at creation time, so
+    PostToolUse can later compute a cumulative `git diff base_sha HEAD`."""
     path = _containment_session_state_path(session_id)
     try:
         with open(path, "w", encoding="utf-8") as f:
-            f.write(json.dumps({"worktree_path": worktree_path, "ref": ref}))
+            f.write(json.dumps({"worktree_path": worktree_path, "ref": ref, "base_sha": base_sha}))
     except Exception:
         pass
+
+
+def _worktree_base_sha(worktree_path):
+    """`git -C <worktree_path> rev-parse HEAD`, or None on any failure."""
+    proc = _run_git(["rev-parse", "HEAD"], cwd=worktree_path, timeout=10)
+    if not proc or proc.returncode != 0:
+        return None
+    sha = proc.stdout.decode("utf-8", "replace").strip()
+    return sha or None
 
 
 def _ensure_containment_worktree(session_id):
     """Lazily create (once per session) or reuse the containment worktree.
 
-    Returns (worktree_path, ref), or None on any failure -- not a git repo,
-    repo root unresolvable, `git worktree add` failed. Callers MUST fail
-    toward interruption on None (invariant 5): a contained effect never
-    proceeds unstaged."""
+    Returns (worktree_path, ref, base_sha), or None on any failure -- not a
+    git repo, repo root unresolvable, `git worktree add` failed. Callers MUST
+    fail toward interruption on None (invariant 5): a contained effect never
+    proceeds unstaged. base_sha (F1) is recorded at creation time so
+    PostToolUse can later compute a cumulative diff against it; it is None
+    when `git rev-parse HEAD` itself fails (rare -- the worktree add above
+    already succeeded, so HEAD should resolve)."""
     if not _is_git_repo():
         return None
 
@@ -799,8 +875,9 @@ def _ensure_containment_worktree(session_id):
     if not proc or proc.returncode != 0:
         return None
 
-    _write_containment_session_state(session_id, worktree_path, ref)
-    return worktree_path, ref
+    base_sha = _worktree_base_sha(worktree_path)
+    _write_containment_session_state(session_id, worktree_path, ref, base_sha)
+    return worktree_path, ref, base_sha
 
 
 def _attach_client_capabilities(context, tool_name):
@@ -870,16 +947,20 @@ def _emit_contained_allow(updated_input, worktree_path, ref):
     sys.stdout.flush()
 
 
-def _write_containment_action_state(tool_use_id, action_id, containment_ref, worktree_path):
+def _write_containment_action_state(tool_use_id, action_id, containment_ref, worktree_path, base_sha=None):
     """Extend the pretool->posttool temp file (see write_action_id) with
     containment fields. PostToolUse (Task 10) parses this JSON shape to
     resolve a contained action's staged effect; ordinary allow/warn decisions
-    still write the bare action_id string PostToolUse reads today."""
-    path = os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id)
+    still write the bare action_id string PostToolUse reads today. base_sha
+    (F1) is the worktree's HEAD at creation time, so PostToolUse can diff the
+    cumulative range instead of missing new/untracked files with `git diff
+    HEAD` on an uncommitted worktree."""
+    path = _action_state_path(tool_use_id)
     payload = {
         "action_id": action_id or "",
         "containment_ref": containment_ref,
         "containment_worktree": worktree_path,
+        "containment_base_sha": base_sha,
     }
     try:
         with open(path, "w", encoding="utf-8") as f:
@@ -1121,8 +1202,8 @@ def handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_
         _write_containment_action_state(tool_use_id, action_id, None, None)
         sys.exit(2)
 
-    worktree_path, ref = ensured
-    _write_containment_action_state(tool_use_id, action_id, ref, worktree_path)
+    worktree_path, ref, base_sha = ensured
+    _write_containment_action_state(tool_use_id, action_id, ref, worktree_path, base_sha)
 
     if tool_name in ("Write", "Edit", "MultiEdit") and CONTAINMENT_REWRITE:
         root = _repo_root()

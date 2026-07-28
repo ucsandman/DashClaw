@@ -10,6 +10,7 @@ containment_status='awaiting_promotion' -- see app/api/actions/[actionId]/route.
 Mirrors the subprocess + mock-HTTP-server harness of test_posttool_integration.py.
 """
 
+import hashlib
 import json
 import os
 import shutil
@@ -81,26 +82,41 @@ def _find_free_port():
 # Temp-file helpers
 # ---------------------------------------------------------------------------
 
-def _action_state_path(tool_use_id):
-    return os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id)
+def _instance_suffix(base_url, agent_id="claude-code"):
+    # Mirrors dashclaw_posttool.py's _INSTANCE_STATE_SUFFIX: sha256(BASE_URL +
+    # "|" + AGENT_ID)[:12]. Tests never set DASHCLAW_AGENT_ID, so posttool.py
+    # resolves it to the "claude-code" default unless a test overrides it.
+    return hashlib.sha256((base_url + "|" + agent_id).encode("utf-8")).hexdigest()[:12]
 
 
-def _write_plain_action(tool_use_id, action_id):
+def _action_state_path(tool_use_id, base_url, agent_id="claude-code"):
+    return os.path.join(
+        tempfile.gettempdir(),
+        "dashclaw_last_action_" + _instance_suffix(base_url, agent_id) + "_" + tool_use_id,
+    )
+
+
+def _write_plain_action(tool_use_id, action_id, base_url, agent_id="claude-code"):
     """Mimic the ordinary (non-contained) pretool write: a bare action_id."""
-    with open(_action_state_path(tool_use_id), "w", encoding="utf-8") as f:
+    with open(_action_state_path(tool_use_id, base_url, agent_id), "w", encoding="utf-8") as f:
         f.write(action_id)
 
 
-def _write_contained_action(tool_use_id, action_id, ref, worktree):
+def _write_contained_action(tool_use_id, action_id, ref, worktree, base_url, agent_id="claude-code", base_sha=None):
     """Mimic Task 9's _write_containment_action_state JSON shape."""
-    payload = {"action_id": action_id, "containment_ref": ref, "containment_worktree": worktree}
-    with open(_action_state_path(tool_use_id), "w", encoding="utf-8") as f:
+    payload = {
+        "action_id": action_id,
+        "containment_ref": ref,
+        "containment_worktree": worktree,
+        "containment_base_sha": base_sha,
+    }
+    with open(_action_state_path(tool_use_id, base_url, agent_id), "w", encoding="utf-8") as f:
         f.write(json.dumps(payload))
 
 
-def _cleanup_temp_action(tool_use_id):
+def _cleanup_temp_action(tool_use_id, base_url, agent_id="claude-code"):
     try:
-        os.remove(_action_state_path(tool_use_id))
+        os.remove(_action_state_path(tool_use_id, base_url, agent_id))
     except FileNotFoundError:
         pass
 
@@ -131,7 +147,16 @@ def _run_git(args, cwd):
     subprocess.run(["git"] + args, cwd=cwd, capture_output=True, check=True)
 
 
-def _make_worktree_with_staged_change(marker_line="CONTAINED_CHANGE_MARKER"):
+def _git_output(args, cwd):
+    proc = subprocess.run(["git"] + args, cwd=cwd, capture_output=True, check=True, text=True)
+    return proc.stdout.strip()
+
+
+def _make_worktree_with_staged_change(marker_line="CONTAINED_CHANGE_MARKER", commit_first=True):
+    """Create a temp repo with an initial commit, then an uncommitted change
+    (staged when commit_first, since F1 always runs `git add -A` before the
+    diff regardless). Returns (tmpdir, base_sha) -- base_sha is the initial
+    commit, matching what dashclaw_pretool.py records at worktree creation."""
     tmpdir = tempfile.mkdtemp(prefix="dashclaw_test_containment_")
     _run_git(["init"], tmpdir)
     _run_git(["config", "user.email", "test@dashclaw.test"], tmpdir)
@@ -141,11 +166,37 @@ def _make_worktree_with_staged_change(marker_line="CONTAINED_CHANGE_MARKER"):
         f.write("original content\n")
     _run_git(["add", "."], tmpdir)
     _run_git(["commit", "-m", "init"], tmpdir)
+    base_sha = _git_output(["rev-parse", "HEAD"], tmpdir)
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write("original content\n" + marker_line + "\n")
+    if commit_first:
+        _run_git(["add", "."], tmpdir)
+    return tmpdir, base_sha
+
+
+def _make_worktree_with_new_file(name="notes.md", content="containment e2e proof\n"):
+    """Create a temp repo with an initial commit and a brand-new UNTRACKED
+    file (never staged) -- the exact e2e-proof shape (Write creating a file
+    that doesn't exist yet). Returns (tmpdir, base_sha)."""
+    tmpdir = tempfile.mkdtemp(prefix="dashclaw_test_containment_newfile_")
+    _run_git(["init"], tmpdir)
+    _run_git(["config", "user.email", "test@dashclaw.test"], tmpdir)
+    _run_git(["config", "user.name", "DashClaw Test"], tmpdir)
+    readme = os.path.join(tmpdir, "README.md")
+    with open(readme, "w", encoding="utf-8") as f:
+        f.write("repo\n")
     _run_git(["add", "."], tmpdir)
-    return tmpdir
+    _run_git(["commit", "-m", "init"], tmpdir)
+    base_sha = _git_output(["rev-parse", "HEAD"], tmpdir)
+
+    with open(os.path.join(tmpdir, name), "w", encoding="utf-8") as f:
+        f.write(content)
+    return tmpdir, base_sha
+
+
+def _git_log_count(cwd):
+    return len(_git_output(["log", "--format=%H"], cwd).splitlines())
 
 
 def _rm_worktree(path):
@@ -201,10 +252,10 @@ class TestPosttoolContainmentDiff(unittest.TestCase):
         tool_use_id = "post-cont-tu-001"
         action_id = "act-cont-001"
         ref = "dashclaw/contained-sess-001"
-        worktree = _make_worktree_with_staged_change()
+        worktree, base_sha = _make_worktree_with_staged_change()
         self.addCleanup(_rm_worktree, worktree)
-        _write_contained_action(tool_use_id, action_id, ref, worktree)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_contained_action(tool_use_id, action_id, ref, worktree, self.base_url, base_sha=base_sha)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, err = _run_hook(
             {
@@ -232,6 +283,11 @@ class TestPosttoolContainmentDiff(unittest.TestCase):
         self.assertEqual(patches[0]["body"]["containment_ref"], ref)
         self.assertEqual(patches[0]["body"]["containment_status"], "awaiting_promotion")
 
+        # F1: the mutation must actually be committed onto the containment
+        # branch, or `git merge --no-ff <ref>` at promotion time has nothing
+        # to merge (the 2026-07-27 e2e proof's "Already up to date." finding).
+        self.assertEqual(_git_log_count(worktree), 2, "init commit + one contained commit")
+
         # The ordinary outcome PATCH still fires alongside the containment one.
         outcome_patches = [
             r for r in self.log.get_all()
@@ -241,14 +297,148 @@ class TestPosttoolContainmentDiff(unittest.TestCase):
         self.assertEqual(len(outcome_patches), 1)
         self.assertEqual(outcome_patches[0]["body"]["status"], "completed")
 
+    def test_new_untracked_file_gets_a_real_diff_hunk_and_a_commit(self):
+        """F1's core regression proof: the e2e-proof shape exactly -- a brand
+        new (never `git add`ed) file. Before F1 this produced an empty
+        `content.diff` with only an `untracked` list and zero commits on the
+        containment branch; after F1 it must produce a proper `+++ b/...`
+        diff hunk, an empty (or absent) untracked list, and a real commit."""
+        tool_use_id = "post-cont-tu-005"
+        action_id = "act-cont-005"
+        ref = "dashclaw/contained-sess-005"
+        worktree, base_sha = _make_worktree_with_new_file()
+        self.addCleanup(_rm_worktree, worktree)
+        self.assertEqual(_git_log_count(worktree), 1, "only the init commit before PostToolUse runs")
+        _write_contained_action(tool_use_id, action_id, ref, worktree, self.base_url, base_sha=base_sha)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
+
+        code, _, err = _run_hook(
+            {"tool_use_id": tool_use_id, "tool_response": {"output": "wrote file"}},
+            self._env(),
+        )
+        self.assertEqual(code, 0, msg=err)
+
+        artifacts = self._artifact_posts()
+        self.assertEqual(len(artifacts), 1)
+        content = artifacts[0]["body"]["content_json"]
+        self.assertIn("+++ b/notes.md", content["diff"], "must be a real diff hunk, not an empty diff")
+        self.assertIn("containment e2e proof", content["diff"])
+        self.assertNotIn("untracked", content, "git add -A should have staged+committed the new file")
+
+        self.assertEqual(_git_log_count(worktree), 2, "the new file must be committed onto the containment branch")
+
+    def test_second_mutation_same_session_cumulative_diff_spans_base_to_head(self):
+        """A second contained mutation in the same session produces a SECOND
+        commit, and the artifact diff still spans the fixed base_sha..HEAD
+        range -- both files show up, not just the latest one."""
+        tool_use_id_1 = "post-cont-tu-006a"
+        action_id_1 = "act-cont-006a"
+        ref = "dashclaw/contained-sess-006"
+        worktree, base_sha = _make_worktree_with_new_file(name="one.txt", content="first file\n")
+        self.addCleanup(_rm_worktree, worktree)
+        _write_contained_action(tool_use_id_1, action_id_1, ref, worktree, self.base_url, base_sha=base_sha)
+        self.addCleanup(_cleanup_temp_action, tool_use_id_1, self.base_url)
+        code1, _, err1 = _run_hook(
+            {"tool_use_id": tool_use_id_1, "tool_response": {"output": "wrote one.txt"}},
+            self._env(),
+        )
+        self.assertEqual(code1, 0, msg=err1)
+        self.assertEqual(_git_log_count(worktree), 2)
+
+        # Second mutation: another new file, same worktree/branch, same base_sha.
+        with open(os.path.join(worktree, "two.txt"), "w", encoding="utf-8") as f:
+            f.write("second file\n")
+        tool_use_id_2 = "post-cont-tu-006b"
+        action_id_2 = "act-cont-006b"
+        _write_contained_action(tool_use_id_2, action_id_2, ref, worktree, self.base_url, base_sha=base_sha)
+        self.addCleanup(_cleanup_temp_action, tool_use_id_2, self.base_url)
+        code2, _, err2 = _run_hook(
+            {"tool_use_id": tool_use_id_2, "tool_response": {"output": "wrote two.txt"}},
+            self._env(),
+        )
+        self.assertEqual(code2, 0, msg=err2)
+        self.assertEqual(_git_log_count(worktree), 3, "init + two contained commits")
+
+        artifacts = self._artifact_posts()
+        self.assertEqual(len(artifacts), 2)
+        second_diff = artifacts[1]["body"]["content_json"]["diff"]
+        # Cumulative base..HEAD: BOTH files appear in the second artifact's diff.
+        self.assertIn("+++ b/one.txt", second_diff)
+        self.assertIn("+++ b/two.txt", second_diff)
+
+    def test_rerun_with_nothing_new_to_commit_still_posts(self):
+        """Idempotent rerun (e.g. the Stop hook's awaiting-promotion sweep, or
+        a duplicated PostToolUse invocation): once the mutation is already
+        committed, a second call finds "nothing to commit" -- not a failure --
+        and still posts the (unchanged, still non-empty) cumulative diff."""
+        tool_use_id = "post-cont-tu-007"
+        action_id = "act-cont-007"
+        ref = "dashclaw/contained-sess-007"
+        worktree, base_sha = _make_worktree_with_new_file()
+        self.addCleanup(_rm_worktree, worktree)
+        _write_contained_action(tool_use_id, action_id, ref, worktree, self.base_url, base_sha=base_sha)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
+
+        code1, _, err1 = _run_hook(
+            {"tool_use_id": tool_use_id, "tool_response": {"output": "wrote file"}},
+            self._env(),
+        )
+        self.assertEqual(code1, 0, msg=err1)
+        self.assertEqual(len(self._artifact_posts()), 1)
+        self.assertEqual(_git_log_count(worktree), 2)
+
+        # Rewrite the same state file (PostToolUse cleans it up after each
+        # run) and invoke again with nothing new in the worktree.
+        _write_contained_action(tool_use_id, action_id, ref, worktree, self.base_url, base_sha=base_sha)
+        code2, _, err2 = _run_hook(
+            {"tool_use_id": tool_use_id, "tool_response": {"output": "wrote file"}},
+            self._env(),
+        )
+        self.assertEqual(code2, 0, msg=err2)
+
+        # Honest behavior: "nothing to commit" is not a failure, so the
+        # second run still posts an artifact (same cumulative diff) instead
+        # of silently skipping.
+        self.assertEqual(len(self._artifact_posts()), 2, "idempotent rerun still posts")
+        self.assertEqual(_git_log_count(worktree), 2, "no new commit was created")
+        self.assertIn("containment e2e proof", self._artifact_posts()[1]["body"]["content_json"]["diff"])
+
+    def test_missing_base_sha_falls_back_and_notes_it(self):
+        """Older containment session state (written before F1) has no
+        base_sha. The hook must still commit the mutation (unconditional) but
+        fall back to `git diff HEAD` for the diff computation and flag the
+        fallback in the artifact content instead of silently returning an
+        empty diff with no explanation."""
+        tool_use_id = "post-cont-tu-008"
+        action_id = "act-cont-008"
+        ref = "dashclaw/contained-sess-008"
+        worktree, _base_sha = _make_worktree_with_new_file()
+        self.addCleanup(_rm_worktree, worktree)
+        _write_contained_action(tool_use_id, action_id, ref, worktree, self.base_url, base_sha=None)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
+
+        code, _, err = _run_hook(
+            {"tool_use_id": tool_use_id, "tool_response": {"output": "wrote file"}},
+            self._env(),
+        )
+        self.assertEqual(code, 0, msg=err)
+
+        artifacts = self._artifact_posts()
+        self.assertEqual(len(artifacts), 1)
+        content = artifacts[0]["body"]["content_json"]
+        self.assertIn("note", content)
+        self.assertIn("base_sha unavailable", content["note"])
+        # The commit still happened even though base_sha was missing.
+        self.assertEqual(_git_log_count(worktree), 2)
+
     def test_diff_over_cap_is_truncated(self):
         tool_use_id = "post-cont-tu-002"
         action_id = "act-cont-002"
         ref = "dashclaw/contained-sess-002"
-        worktree = _make_worktree_with_staged_change(marker_line="X" * 500)
+        worktree, base_sha = _make_worktree_with_staged_change(marker_line="X" * 500)
         self.addCleanup(_rm_worktree, worktree)
-        _write_contained_action(tool_use_id, action_id, ref, worktree)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_contained_action(tool_use_id, action_id, ref, worktree, self.base_url, base_sha=base_sha)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         cap = 40
         code, _, err = _run_hook(
@@ -279,8 +469,8 @@ class TestPosttoolContainmentDiff(unittest.TestCase):
         action_id = "act-cont-004"
         ref = "dashclaw/contained-sess-004"
         nonexistent_worktree = os.path.join(tempfile.gettempdir(), "dashclaw_test_no_such_worktree_xyz")
-        _write_contained_action(tool_use_id, action_id, ref, nonexistent_worktree)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_contained_action(tool_use_id, action_id, ref, nonexistent_worktree, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, err = _run_hook(
             {
@@ -301,8 +491,8 @@ class TestPosttoolContainmentDiff(unittest.TestCase):
     def test_non_contained_action_posts_no_artifact(self):
         tool_use_id = "post-cont-tu-003"
         action_id = "act-cont-003"
-        _write_plain_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_plain_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, err = _run_hook(
             {

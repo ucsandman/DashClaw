@@ -121,6 +121,32 @@ def _load_dotenv():
             break
         current = parent
 
+
+def _resolve_base_url(base_explicit, url_explicit):
+    """Resolve DASHCLAW_BASE_URL/DASHCLAW_URL with explicit-env-beats-dotenv
+    precedence: explicit BASE_URL > explicit URL > dotenv BASE_URL > dotenv
+    URL. Mirrors dashclaw_pretool.py's _resolve_base_url -- see there for the
+    2026-07-27 incident this fixes."""
+    base_val = os.environ.get("DASHCLAW_BASE_URL") or ""
+    url_val = os.environ.get("DASHCLAW_URL") or ""
+    if base_explicit and base_val:
+        return base_val
+    if url_explicit and url_val:
+        if base_val and not base_explicit:
+            sys.stderr.write(
+                "[DashClaw] Explicit DASHCLAW_URL=%s overrides a .env-provided "
+                "DASHCLAW_BASE_URL=%s\n" % (url_val, base_val)
+            )
+        return url_val
+    return base_val or url_val
+
+
+# Captured BEFORE _load_dotenv() fills gaps, so _resolve_base_url can tell an
+# explicitly-exported value apart from one that only exists because dotenv
+# populated it.
+_BASE_URL_EXPLICIT = "DASHCLAW_BASE_URL" in os.environ
+_URL_EXPLICIT = "DASHCLAW_URL" in os.environ
+
 _load_dotenv()
 
 # ---------------------------------------------------------------------------
@@ -140,7 +166,7 @@ def _argv_agent_id():
     return ""
 
 
-BASE_URL = (os.environ.get("DASHCLAW_BASE_URL") or os.environ.get("DASHCLAW_URL") or "").rstrip("/")
+BASE_URL = _resolve_base_url(_BASE_URL_EXPLICIT, _URL_EXPLICIT).rstrip("/")
 API_KEY = os.environ.get("DASHCLAW_API_KEY") or ""
 AGENT_ID = _argv_agent_id() or os.environ.get("DASHCLAW_AGENT_ID") or "claude-code"
 # Opt-in: on text-only turns (tokens present but no tool calls → no action_ids)

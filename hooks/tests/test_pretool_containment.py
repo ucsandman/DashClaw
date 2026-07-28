@@ -11,6 +11,7 @@ the whole temp directory (which contains the worktree, since it lives at
 Uses only the Python standard library.
 """
 
+import hashlib
 import json
 import os
 import shutil
@@ -177,7 +178,12 @@ class TestPretoolContainment(unittest.TestCase):
         for repo in self._repos:
             shutil.rmtree(repo, ignore_errors=True)
         for tool_use_id in self._tool_use_ids:
-            _cleanup_tempstate(os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id))
+            _cleanup_tempstate(self._action_state_path_no_track(tool_use_id))
+
+    def _action_state_path_no_track(self, tool_use_id):
+        return os.path.join(
+            tempfile.gettempdir(), "dashclaw_last_action_" + self._instance_suffix() + "_" + tool_use_id
+        )
 
     def _new_repo(self):
         repo = _make_repo()
@@ -196,9 +202,17 @@ class TestPretoolContainment(unittest.TestCase):
         env.update(extra)
         return env
 
+    def _instance_suffix(self):
+        # Mirrors dashclaw_pretool.py's _INSTANCE_STATE_SUFFIX: sha256(BASE_URL
+        # + "|" + AGENT_ID)[:12]. Every test uses self.base_url + "test-agent"
+        # (see _env below), so the suffix is constant per test-class run.
+        return hashlib.sha256((self.base_url + "|" + "test-agent").encode("utf-8")).hexdigest()[:12]
+
     def _action_state_path(self, tool_use_id):
         self._tool_use_ids.append(tool_use_id)
-        return os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id)
+        return os.path.join(
+            tempfile.gettempdir(), "dashclaw_last_action_" + self._instance_suffix() + "_" + tool_use_id
+        )
 
     # -----------------------------------------------------------------------
     # 1. Worktree created + exclude line + instructive deny (Write, rewrite off)
@@ -253,6 +267,65 @@ class TestPretoolContainment(unittest.TestCase):
         self.assertEqual(state["action_id"], "act-contained-1")
         self.assertEqual(state["containment_ref"], "dashclaw/contained-" + session_id)
         self.assertEqual(state["containment_worktree"], expected_worktree)
+
+        # F1: base_sha (the worktree's HEAD at creation) is recorded so
+        # PostToolUse can later diff the cumulative base..HEAD range.
+        expected_base_sha = _git(["rev-parse", "HEAD"], cwd=repo).stdout.strip()
+        self.assertEqual(state["containment_base_sha"], expected_base_sha)
+
+    # -----------------------------------------------------------------------
+    # 1b. base_sha stays fixed across reused-worktree calls (F1)
+    # -----------------------------------------------------------------------
+
+    def test_base_sha_recorded_and_stable_across_reuse(self):
+        repo = self._new_repo()
+        session_id = "sess-" + uuid.uuid4().hex[:8]
+        expected_base_sha = _git(["rev-parse", "HEAD"], cwd=repo).stdout.strip()
+
+        self.log.guard_response = {
+            "decision": "allow_contained",
+            "recorded": True,
+            "action_id": "act-basesha-1",
+            "containment": {"status": "contained", "basis": "file"},
+        }
+        tool_use_id_1 = "tu-basesha-1-" + uuid.uuid4().hex[:8]
+        self._action_state_path(tool_use_id_1)
+        code1, _, _ = _run_hook(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": os.path.join(repo, "one.txt"), "content": "one"},
+                "tool_use_id": tool_use_id_1,
+                "session_id": session_id,
+            },
+            self._env(repo, DASHCLAW_CONTAINMENT_REWRITE="0"),
+        )
+        self.assertEqual(code1, 2)
+        with open(self._action_state_path(tool_use_id_1), encoding="utf-8") as f:
+            state1 = json.loads(f.read())
+        self.assertEqual(state1["containment_base_sha"], expected_base_sha)
+
+        self.log.guard_response = {
+            "decision": "allow_contained",
+            "recorded": True,
+            "action_id": "act-basesha-2",
+            "containment": {"status": "contained", "basis": "file"},
+        }
+        tool_use_id_2 = "tu-basesha-2-" + uuid.uuid4().hex[:8]
+        self._action_state_path(tool_use_id_2)
+        code2, _, _ = _run_hook(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": os.path.join(repo, "two.txt"), "content": "two"},
+                "tool_use_id": tool_use_id_2,
+                "session_id": session_id,
+            },
+            self._env(repo, DASHCLAW_CONTAINMENT_REWRITE="0"),
+        )
+        self.assertEqual(code2, 2)
+        with open(self._action_state_path(tool_use_id_2), encoding="utf-8") as f:
+            state2 = json.loads(f.read())
+        # Same session -> reused worktree -> same base_sha recorded at creation.
+        self.assertEqual(state2["containment_base_sha"], expected_base_sha)
 
     # -----------------------------------------------------------------------
     # 2. Second contained call, same session -> worktree reused

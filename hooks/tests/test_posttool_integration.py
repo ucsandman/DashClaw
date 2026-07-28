@@ -7,6 +7,7 @@ structured outcome_metadata and 500-char summaries.
 Uses only the Python standard library.
 """
 
+import hashlib
 import json
 import os
 import socket
@@ -84,17 +85,31 @@ def _find_free_port() -> int:
 # Test helper
 # ---------------------------------------------------------------------------
 
-def _write_temp_action(tool_use_id: str, action_id: str):
+def _instance_suffix(base_url: str, agent_id: str = "claude-code") -> str:
+    # Mirrors dashclaw_posttool.py's _INSTANCE_STATE_SUFFIX: sha256(BASE_URL +
+    # "|" + AGENT_ID)[:12] (F2). Tests never set DASHCLAW_AGENT_ID, so the
+    # hook resolves it to the "claude-code" default.
+    return hashlib.sha256((base_url + "|" + agent_id).encode("utf-8")).hexdigest()[:12]
+
+
+def _action_state_path(tool_use_id: str, base_url: str, agent_id: str = "claude-code") -> str:
+    return os.path.join(
+        tempfile.gettempdir(),
+        "dashclaw_last_action_" + _instance_suffix(base_url, agent_id) + "_" + tool_use_id,
+    )
+
+
+def _write_temp_action(tool_use_id: str, action_id: str, base_url: str, agent_id: str = "claude-code"):
     """Write a temp file mimicking what PreToolUse writes."""
-    path = os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id)
+    path = _action_state_path(tool_use_id, base_url, agent_id)
     with open(path, "w") as f:
         f.write(action_id)
     return path
 
 
-def _cleanup_temp_action(tool_use_id: str):
+def _cleanup_temp_action(tool_use_id: str, base_url: str, agent_id: str = "claude-code"):
     """Remove the temp file if it exists."""
-    path = os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id)
+    path = _action_state_path(tool_use_id, base_url, agent_id)
     try:
         os.remove(path)
     except FileNotFoundError:
@@ -174,8 +189,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         """Successful tool response should PATCH with status=completed."""
         tool_use_id = "post-tu-001"
         action_id = "act-001"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -203,8 +218,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         """Output longer than 500 chars should be truncated."""
         tool_use_id = "post-tu-002"
         action_id = "act-002"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         long_output = "x" * 800
         code, _, _ = _run_hook(
@@ -232,8 +247,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         """tool_response with error field should PATCH status=failed with error_type."""
         tool_use_id = "post-tu-003"
         action_id = "act-003"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -257,8 +272,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         """Permission errors should be classified as 'permission'."""
         tool_use_id = "post-tu-004"
         action_id = "act-004"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -279,8 +294,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         """Not-found errors should be classified as 'not_found'."""
         tool_use_id = "post-tu-005"
         action_id = "act-005"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -301,8 +316,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         """Generic errors should be classified as 'runtime'."""
         tool_use_id = "post-tu-006"
         action_id = "act-006"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -327,8 +342,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         """Non-zero exit_code with no error field should be status=failed."""
         tool_use_id = "post-tu-007"
         action_id = "act-007"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -353,8 +368,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         """Exit code 0 should result in status=completed."""
         tool_use_id = "post-tu-008"
         action_id = "act-008"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -380,8 +395,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         """When both error field and exit_code are present, error field wins."""
         tool_use_id = "post-tu-009"
         action_id = "act-009"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -412,7 +427,7 @@ class TestPosttoolIntegration(unittest.TestCase):
         """If no pretool temp file exists, no PATCH should be sent."""
         tool_use_id = "post-tu-010-no-file"
         # Ensure no temp file exists
-        _cleanup_temp_action(tool_use_id)
+        _cleanup_temp_action(tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -435,8 +450,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         """Without BASE_URL/API_KEY, the hook should exit 0 silently."""
         tool_use_id = "post-tu-011"
         action_id = "act-011"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, stderr = _run_hook(
             {
@@ -459,7 +474,7 @@ class TestPosttoolIntegration(unittest.TestCase):
         """After processing, the temp file should be removed."""
         tool_use_id = "post-tu-012"
         action_id = "act-012"
-        tmp_path = _write_temp_action(tool_use_id, action_id)
+        tmp_path = _write_temp_action(tool_use_id, action_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -512,8 +527,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         """The PATCH request URL should target the correct action_id."""
         tool_use_id = "post-tu-013"
         action_id = "act-specific-id-42"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -537,8 +552,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         """Error messages longer than 500 chars should be truncated."""
         tool_use_id = "post-tu-014"
         action_id = "act-014"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         long_error = "Error: " + "z" * 600
         code, _, _ = _run_hook(
@@ -564,8 +579,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         """tool_response with stdout (no output) should use stdout for summary."""
         tool_use_id = "post-tu-015"
         action_id = "act-015"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -590,8 +605,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         """timestamp_end should be present and parseable as ISO datetime."""
         tool_use_id = "post-tu-016"
         action_id = "act-016"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -621,8 +636,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         row can be read-time joined against its leaf calls' subagent_uuid."""
         tool_use_id = "post-tu-agent-001"
         action_id = "act-agent-001"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -642,8 +657,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         is also read (`Task` is the pre-2.1.63 alias for `Agent`)."""
         tool_use_id = "post-tu-agent-002"
         action_id = "act-agent-002"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -663,8 +678,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         Agent/Task."""
         tool_use_id = "post-tu-workflow-001"
         action_id = "act-workflow-001"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -684,8 +699,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         (fail-soft), never set to null."""
         tool_use_id = "post-tu-agent-003"
         action_id = "act-agent-003"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {
@@ -706,8 +721,8 @@ class TestPosttoolIntegration(unittest.TestCase):
         spawn's outcome."""
         tool_use_id = "post-tu-bash-agentid"
         action_id = "act-bash-agentid"
-        _write_temp_action(tool_use_id, action_id)
-        self.addCleanup(_cleanup_temp_action, tool_use_id)
+        _write_temp_action(tool_use_id, action_id, self.base_url)
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
 
         code, _, _ = _run_hook(
             {

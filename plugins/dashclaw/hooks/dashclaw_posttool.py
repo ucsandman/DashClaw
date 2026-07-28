@@ -12,6 +12,7 @@ created by the PreToolUse hook. v2 adds richer outcome reporting:
 Never blocks. Always exits 0.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -79,14 +80,62 @@ def _load_dotenv():
             break
         current = parent
 
+
+def _resolve_base_url(base_explicit, url_explicit):
+    """Resolve DASHCLAW_BASE_URL/DASHCLAW_URL with explicit-env-beats-dotenv
+    precedence: explicit BASE_URL > explicit URL > dotenv BASE_URL > dotenv
+    URL. Mirrors dashclaw_pretool.py's _resolve_base_url -- see there for the
+    2026-07-27 incident this fixes. Both hooks must resolve identically so a
+    tool call governed under one BASE_URL isn't PATCHed against another."""
+    base_val = os.environ.get("DASHCLAW_BASE_URL") or ""
+    url_val = os.environ.get("DASHCLAW_URL") or ""
+    if base_explicit and base_val:
+        return base_val
+    if url_explicit and url_val:
+        if base_val and not base_explicit:
+            sys.stderr.write(
+                "[DashClaw] Explicit DASHCLAW_URL=%s overrides a .env-provided "
+                "DASHCLAW_BASE_URL=%s\n" % (url_val, base_val)
+            )
+        return url_val
+    return base_val or url_val
+
+
+# Captured BEFORE _load_dotenv() fills gaps, so _resolve_base_url can tell an
+# explicitly-exported value apart from one that only exists because dotenv
+# populated it.
+_BASE_URL_EXPLICIT = "DASHCLAW_BASE_URL" in os.environ
+_URL_EXPLICIT = "DASHCLAW_URL" in os.environ
+
 _load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
-BASE_URL = (os.environ.get("DASHCLAW_BASE_URL") or os.environ.get("DASHCLAW_URL") or "").rstrip("/")
+def _argv_agent_id():
+    # Mirrors dashclaw_pretool.py's _argv_agent_id: the harness integration
+    # that wires this hook may append `--agent-id <id>` to the command line.
+    # Needed here (not just for identity) so the instance-state hash below
+    # matches pretool's when a harness passes the flag to both.
+    argv = sys.argv[1:]
+    for i, arg in enumerate(argv):
+        if arg == "--agent-id" and i + 1 < len(argv):
+            return argv[i + 1].strip()
+        if arg.startswith("--agent-id="):
+            return arg.split("=", 1)[1].strip()
+    return ""
+
+
+BASE_URL = _resolve_base_url(_BASE_URL_EXPLICIT, _URL_EXPLICIT).rstrip("/")
 API_KEY = os.environ.get("DASHCLAW_API_KEY") or ""
+AGENT_ID = _argv_agent_id() or os.environ.get("DASHCLAW_AGENT_ID") or "claude-code"
+
+# Short stable hash of (resolved BASE_URL + AGENT_ID) -- must match
+# dashclaw_pretool.py's _INSTANCE_STATE_SUFFIX bit for bit so this reader only
+# ever finds the state its OWN installation's pretool wrote. See
+# dashclaw_pretool.py for the full rationale (2026-07-27 incident).
+_INSTANCE_STATE_SUFFIX = hashlib.sha256((BASE_URL + "|" + AGENT_ID).encode("utf-8")).hexdigest()[:12]
 # Set DASHCLAW_HOOK_DEBUG=1 in .env to capture PostToolUse invocation breadcrumbs
 # in <tempdir>/dashclaw_hook_errors.log. Useful for diagnosing why PostToolUse
 # isn't firing or is exiting early (missing tool_use_id, missing action_id, etc.)
@@ -381,18 +430,69 @@ def _run_git(args, cwd, timeout=15):
         return None
 
 
-def _git_diff_payload(worktree, cap_bytes):
+def _git_add_and_commit(worktree, action_id):
+    """Stage everything in the worktree and commit it under a dedicated
+    dashclaw-containment identity, so a contained mutation actually lands on
+    the containment branch's history and `git merge --no-ff <ref>` at
+    promotion time has something to merge (F1: the 2026-07-27 e2e proof found
+    zero commits on the containment branch -- a brand-new file was staged
+    into the worktree but never committed, so the "governed merge" was a
+    silent no-op that printed "Already up to date." and left `notes.md` out
+    of the main tree). `--no-verify` keeps the user's own pre-commit hooks
+    from blocking or mutating a contained commit; the `-c` identity flags
+    make the commit succeed even when the repo has no configured git user.
+
+    Returns True on success, INCLUDING the idempotent "nothing to commit"
+    case (a rerun after an earlier commit this session already captured
+    everything -- not a failure). Returns False only when `git add` or `git
+    commit` itself failed to run (git unreachable, bad worktree path,
+    timeout, or a real commit error) -- callers must treat that the same as
+    a diff-compute failure and skip the artifact + status flip."""
+    add_proc = _run_git(["add", "-A"], cwd=worktree)
+    if not add_proc or add_proc.returncode != 0:
+        return False
+    commit_proc = _run_git(
+        [
+            "-c", "user.name=dashclaw-containment",
+            "-c", "user.email=containment@dashclaw.local",
+            "commit", "--no-verify", "-m", "contained: " + action_id,
+        ],
+        cwd=worktree,
+    )
+    if not commit_proc:
+        return False
+    if commit_proc.returncode == 0:
+        return True
+    combined = (commit_proc.stdout + commit_proc.stderr).decode("utf-8", "replace").lower()
+    # "nothing to commit, working tree clean" is the idempotent common case
+    # (e.g. the Stop hook's awaiting-promotion sweep re-runs this after
+    # PostToolUse already committed + flipped it), not a failure.
+    return "nothing to commit" in combined
+
+
+def _git_diff_payload(worktree, cap_bytes, base_sha=None):
     """Return (diff_text, truncated, stat_text, untracked_paths) for the
-    worktree's changes relative to HEAD, or None if `git diff HEAD` itself
-    failed (missing git, bad worktree path, non-zero exit, timeout).
+    worktree's changes, or None if the `git diff` itself failed (missing
+    git, bad worktree path, non-zero exit, timeout).
+
+    When base_sha is given (F1 -- the worktree's HEAD at containment
+    creation time), the diff spans `base_sha..HEAD`: cumulative across every
+    commit this session's contained mutations produced, and correct for a
+    brand-new file (a plain `git diff HEAD` never shows an untracked file's
+    body). Falls back to `git diff HEAD` when base_sha is missing (older
+    containment session state written before F1) -- callers should note the
+    fallback in the artifact content, since after this function's caller
+    commits everything first, a plain `git diff HEAD` will typically be
+    empty.
 
     None is distinct from a legitimately empty diff: a zero-length diff after
-    a successful `git diff HEAD` (returncode 0) is a valid outcome (e.g. a
-    no-op edit) and returns normally with diff_text=""; only a failed
-    subprocess call returns None. Callers must not conflate the two --
-    treating a git failure as an empty diff would let an operator promote a
-    change that was never actually captured for review."""
-    diff_proc = _run_git(["diff", "HEAD"], cwd=worktree)
+    a successful `git diff` (returncode 0) is a valid outcome and returns
+    normally with diff_text=""; only a failed subprocess call returns None.
+    Callers must not conflate the two -- treating a git failure as an empty
+    diff would let an operator promote a change that was never actually
+    captured for review."""
+    diff_range = [base_sha, "HEAD"] if base_sha else ["HEAD"]
+    diff_proc = _run_git(["diff"] + diff_range, cwd=worktree)
     if not diff_proc or diff_proc.returncode != 0:
         return None
     diff_bytes = diff_proc.stdout
@@ -401,7 +501,7 @@ def _git_diff_payload(worktree, cap_bytes):
         diff_bytes = diff_bytes[:cap_bytes]
     diff_text = diff_bytes.decode("utf-8", "replace")
 
-    stat_proc = _run_git(["diff", "HEAD", "--stat"], cwd=worktree)
+    stat_proc = _run_git(["diff"] + diff_range + ["--stat"], cwd=worktree)
     stat_text = stat_proc.stdout.decode("utf-8", "replace") if (stat_proc and stat_proc.returncode == 0) else ""
 
     status_proc = _run_git(["status", "--porcelain"], cwd=worktree)
@@ -414,24 +514,39 @@ def _git_diff_payload(worktree, cap_bytes):
     return diff_text, truncated, stat_text, untracked
 
 
-def _maybe_post_containment_diff(action_id, ref, worktree):
-    """Upload the containment worktree's staged diff as a `patch` artifact
-    and flip the action to awaiting_promotion with its ref stamped. No-op
-    when ref/worktree are missing (a containment failure path already
-    recorded None for both).
+def _maybe_post_containment_diff(action_id, ref, worktree, base_sha=None):
+    """Commit the worktree's contained mutation onto the containment branch
+    (F1), then upload the resulting diff as a `patch` artifact and flip the
+    action to awaiting_promotion with its ref stamped. No-op when ref/
+    worktree are missing (a containment failure path already recorded None
+    for both).
 
-    If the diff computation itself fails (_git_diff_payload returns None --
-    git unreachable, bad worktree path, timeout), skip BOTH the artifact
-    upload and the status flip: an operator must never be able to promote a
-    change whose diff was never actually captured. The action stays
-    'contained' -- the Stop hook's awaiting-promotion sweep will still flip
-    its status (no artifact) as a backstop, and the change stays reviewable
-    later via `dashclaw contained diff` (CLI). Fail-silent end to end."""
+    Sequencing matters: `git add -A` + commit MUST run before the diff is
+    computed -- a brand-new untracked file (the common case: Write creating a
+    file that doesn't exist yet) never gets a real diff hunk otherwise, and
+    the containment branch never accumulates any history for `git merge
+    --no-ff <ref>` to actually merge (2026-07-27 e2e proof: "Already up to
+    date." -- a silent merge no-op with the change never landing).
+
+    A commit failure (as opposed to "nothing to commit", the idempotent
+    common case) is treated the same as a diff-compute failure: skip BOTH the
+    artifact upload and the status flip so an operator can never promote a
+    change that was never actually captured. The action stays 'contained' --
+    the Stop hook's awaiting-promotion sweep will still flip its status (no
+    artifact) as a backstop, and the change stays reviewable later via
+    `dashclaw contained diff` (CLI). Fail-silent end to end."""
     if not ref or not worktree:
         return
     try:
+        if not _git_add_and_commit(worktree, action_id):
+            _log_always(
+                "containment_commit_failed",
+                "git add/commit failed in " + worktree + " for " + action_id
+                + " — leaving contained for stop-hook retry",
+            )
+            return
         cap = _containment_diff_cap_bytes()
-        payload = _git_diff_payload(worktree, cap)
+        payload = _git_diff_payload(worktree, cap, base_sha)
         if payload is None:
             _log_always(
                 "containment_diff_failed",
@@ -448,6 +563,12 @@ def _maybe_post_containment_diff(action_id, ref, worktree):
         }
         if untracked:
             content_json["untracked"] = untracked
+        if not base_sha:
+            content_json["note"] = (
+                "base_sha unavailable (older containment session state) — diff "
+                "computed as `git diff HEAD` instead of the cumulative base..HEAD "
+                "range and may be empty once the mutation is committed."
+            )
         _post_artifact({
             "artifact_type": "patch",
             "name": "containment-diff-" + action_id,
@@ -478,19 +599,36 @@ def _append_contained_turn_action(session_id, action_id, ref):
 # Temp file helpers
 # ---------------------------------------------------------------------------
 
+def _action_state_path(tool_use_id):
+    # Instance-suffixed (F2, 2026-07-27 e2e proof): must match
+    # dashclaw_pretool.py's _action_state_path bit for bit so this reader only
+    # ever opens the file its own installation's PreToolUse wrote, even when
+    # another co-installed hook instance fired for the same tool_use_id.
+    return os.path.join(
+        tempfile.gettempdir(), "dashclaw_last_action_" + _INSTANCE_STATE_SUFFIX + "_" + tool_use_id
+    )
+
+
 def _read_action_state(tool_use_id):
     """Read the PreToolUse temp-file payload for this tool_use_id.
 
     Ordinary (non-contained) decisions write a bare action_id string
     (write_action_id in dashclaw_pretool.py). Contained decisions
     (_write_containment_action_state, Task 9) write a JSON object instead:
-    {"action_id": ..., "containment_ref": ..., "containment_worktree": ...}
-    (ref/worktree are None on a containment failure path). Returns
-    {"action_id": str|None, "containment_ref": str|None,
-    "containment_worktree": str|None} -- never raises.
+    {"action_id": ..., "containment_ref": ..., "containment_worktree": ...,
+    "containment_base_sha": ...} (ref/worktree/base_sha are None on a
+    containment failure path; base_sha is also None for state written by an
+    older hook version that predates F1). Returns {"action_id": str|None,
+    "containment_ref": str|None, "containment_worktree": str|None,
+    "containment_base_sha": str|None} -- never raises.
     """
-    empty = {"action_id": None, "containment_ref": None, "containment_worktree": None}
-    path = os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id)
+    empty = {
+        "action_id": None,
+        "containment_ref": None,
+        "containment_worktree": None,
+        "containment_base_sha": None,
+    }
+    path = _action_state_path(tool_use_id)
     try:
         with open(path, "r", encoding="utf-8") as f:
             raw = f.read().strip()
@@ -507,8 +645,14 @@ def _read_action_state(tool_use_id):
             "action_id": parsed.get("action_id") or None,
             "containment_ref": parsed.get("containment_ref"),
             "containment_worktree": parsed.get("containment_worktree"),
+            "containment_base_sha": parsed.get("containment_base_sha"),
         }
-    return {"action_id": raw, "containment_ref": None, "containment_worktree": None}
+    return {
+        "action_id": raw,
+        "containment_ref": None,
+        "containment_worktree": None,
+        "containment_base_sha": None,
+    }
 
 
 def _read_action_id(tool_use_id):
@@ -521,7 +665,7 @@ def _read_action_id(tool_use_id):
 
 def _cleanup_temp(tool_use_id):
     """Remove the temp file for this tool_use_id."""
-    path = os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id)
+    path = _action_state_path(tool_use_id)
     try:
         os.remove(path)
     except Exception:
@@ -621,7 +765,9 @@ def main():
     # No-op for ordinary (non-contained) actions.
     containment_ref = state.get("containment_ref")
     if containment_ref:
-        _maybe_post_containment_diff(action_id, containment_ref, state.get("containment_worktree"))
+        _maybe_post_containment_diff(
+            action_id, containment_ref, state.get("containment_worktree"), state.get("containment_base_sha")
+        )
         _append_contained_turn_action(data.get("session_id") or "", action_id, containment_ref)
 
     # Clean up temp file
