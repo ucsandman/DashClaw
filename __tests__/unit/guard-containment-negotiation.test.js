@@ -84,7 +84,9 @@ describe('containment negotiation (via evaluateGuard)', () => {
     }, sql);
 
     expect(result.decision).toBe('allow_contained');
-    expect(result.containment).toEqual({ status: 'contained', basis: 'file' });
+    // ref is server-derived from harness_session_id (absent here -> 'session'
+    // fallback segment) — the security follow-up to RFC 2026-07-06.
+    expect(result.containment).toEqual({ status: 'contained', basis: 'file', ref: 'dashclaw/contained-session' });
     expect(findInsertedDecision(sql)).toBe('allow_contained');
   });
 

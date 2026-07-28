@@ -1,24 +1,22 @@
 {
   "node": {
-    "current_version": "5.6.0",
+    "current_version": "5.6.1",
     "next_bump": "none",
-    "reason": "v5.6.0 adds resolveContainment + listContained (39 methods; 5.4.0 plan + 5.5.0 delegation methods also unpublished) - SDK source changed; REPUBLISH owed via release:sdks.",
+    "reason": "no Node SDK source change in 5.6.1 - version advances per the unified model but the SDK is NOT republished at this number; the 5.6.0 republish (resolveContainment + listContained, 39 methods, plus unpublished 5.4.0 plan + 5.5.0 delegation methods) is still owed via release:sdks and will land at 5.6.1.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.6.0",
+    "current_version": "5.6.1",
     "next_bump": "none",
-    "reason": "v5.6.0 adds resolve_containment + list_contained (59 methods; 5.4.0 plan + 5.5.0 delegation methods also unpublished) - SDK source changed; REPUBLISH owed via release:sdks.",
+    "reason": "no Python SDK source change in 5.6.1 - version advances per the unified model but the SDK is NOT republished at this number; the 5.6.0 republish (resolve_containment + list_contained, 59 methods, plus unpublished 5.4.0 plan + 5.5.0 delegation methods) is still owed via release:sdks and will land at 5.6.1.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.6.0 ships Containment Verdicts: the allow_contained decision rung, the risk_threshold contain_above band, the containment lifecycle on action_records (migration 0064), the operator promote/discard route, hook-side worktree staging with patch artifacts, and the dashclaw contained CLI group.",
+  "reason": "5.6.1 is the recorded security follow-up to Containment Verdicts: containment_ref is stamped server-side at guard ?record=true time (derived from the payload's harness_session_id), returned in the guard response, adopted by the hook for the worktree branch, and the awaiting_promotion flip can no longer overwrite it - a conflicting client ref 409s.",
   "domains": [
-    "platform",
-    "node",
-    "python"
+    "platform"
   ]
 }

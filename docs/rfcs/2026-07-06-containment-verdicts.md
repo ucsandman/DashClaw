@@ -43,7 +43,7 @@ This rule makes rollout monotonically safe across every SDK/hook version skew.
 
 ### Server-side state
 
-No new tables. `action_records` gains columns (migration — next free drizzle number): `containment_status` (`null` | `contained` | `awaiting_promotion` | `promoted` | `discarded`), `containment_ref` (text — branch/worktree identifier reported by the hook), `containment_resolved_by`/`_at`. Staged diffs are stored through the **existing artifacts system** (`/api/artifacts`, linked to the action) — do not invent a new blob store.
+No new tables. `action_records` gains columns (migration — next free drizzle number): `containment_status` (`null` | `contained` | `awaiting_promotion` | `promoted` | `discarded`), `containment_ref` (text — branch/worktree identifier; since the v5.6.x security follow-up it is stamped server-side at guard `?record=true` time from the payload's `harness_session_id`, no longer reported by the hook), `containment_resolved_by`/`_at`. Staged diffs are stored through the **existing artifacts system** (`/api/artifacts`, linked to the action) — do not invent a new blob store.
 
 New route: `POST /api/actions/[actionId]/containment` (operator-authenticated, mirroring approvals auth): `{ verdict: 'promote' | 'discard' }` → flips `containment_status` to `awaiting_promotion`→`promoted` or →`discarded`, stamps resolver. All SQL through `actions.repository.ts`.
 

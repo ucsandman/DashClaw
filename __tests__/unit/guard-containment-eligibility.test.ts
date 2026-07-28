@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isContainableAct, clientAdvertisesContainment, finalizeContainment, buildPromotionAct, buildPromotionGoal } from '../../app/lib/guard/containment';
+import { isContainableAct, clientAdvertisesContainment, finalizeContainment, buildPromotionAct, buildPromotionGoal, safeBranchSegment, buildContainmentRef } from '../../app/lib/guard/containment';
 
 const fileAct = { act: { kind: 'file', file: { path: 'src/a.ts', content_excerpt: 'x' } } };
 const shellApply = { act: { kind: 'shell', command: 'sed -i "s/a/b/" src/a.ts' } };
@@ -30,11 +30,16 @@ describe('clientAdvertisesContainment', () => {
 
 describe('finalizeContainment (negotiation matrix)', () => {
   const mk = (decision: string, ctx: object) => ({ acc: { highestDecision: decision, reasons: [], warnings: [], matchedPolicies: [], nonFabEvidence: [], nonFabStripPaths: new Set(), shields: { prompt_injection: null } } as any, rb: {} as any, ctx });
-  it('advertised + eligible → stays contained, returns containment object', () => {
+  it('advertised + eligible → stays contained, returns containment object with server-derived ref', () => {
+    const { acc, rb } = mk('allow_contained', {});
+    const out = finalizeContainment({ ...fileAct, client_capabilities: ['allow_contained'], harness_session_id: 'abc-123' } as any, acc, rb);
+    expect(acc.highestDecision).toBe('allow_contained');
+    expect(out.containment).toEqual({ status: 'contained', basis: 'file', ref: 'dashclaw/contained-abc-123' });
+  });
+  it('no harness_session_id → ref falls back to the "session" segment (hook parity)', () => {
     const { acc, rb } = mk('allow_contained', {});
     const out = finalizeContainment({ ...fileAct, client_capabilities: ['allow_contained'] } as any, acc, rb);
-    expect(acc.highestDecision).toBe('allow_contained');
-    expect(out.containment).toEqual({ status: 'contained', basis: 'file' });
+    expect(out.containment?.ref).toBe('dashclaw/contained-session');
   });
   it('not advertised → require_approval + downgrade note (skew only tightens)', () => {
     const { acc, rb } = mk('allow_contained', {});
@@ -54,6 +59,42 @@ describe('finalizeContainment (negotiation matrix)', () => {
       expect(acc.highestDecision).toBe(d);
       expect(out.containment).toBeUndefined();
     }
+  });
+});
+
+// Parity contract with hooks/dashclaw_pretool.py _safe_branch_segment: the hook
+// derives the worktree branch from the SAME harness session id it sends as
+// harness_session_id on every ?record=true guard payload, so these two
+// implementations MUST sanitize identically (sub → strip → truncate → fallback).
+// A divergence turns every legitimate awaiting_promotion flip into a 409.
+describe('safeBranchSegment (hook parity)', () => {
+  it('passes clean alnum+dash ids through', () => {
+    expect(safeBranchSegment('abc123-DEF')).toBe('abc123-DEF');
+  });
+  it('substitutes every non [A-Za-z0-9-] char with a dash', () => {
+    expect(safeBranchSegment('a.b_c d')).toBe('a-b-c-d');
+  });
+  it('strips leading/trailing dashes AFTER substitution', () => {
+    expect(safeBranchSegment('_lead.trail_')).toBe('lead-trail');
+  });
+  it('empty, non-string, and all-invalid inputs fall back to "session"', () => {
+    expect(safeBranchSegment('')).toBe('session');
+    expect(safeBranchSegment(null)).toBe('session');
+    expect(safeBranchSegment(undefined)).toBe('session');
+    expect(safeBranchSegment('---')).toBe('session');
+    expect(safeBranchSegment(42)).toBe('session');
+  });
+  it('truncates to 64 chars after stripping (python [:64] order)', () => {
+    expect(safeBranchSegment('a'.repeat(80))).toBe('a'.repeat(64));
+    // strip happens on the full string first, then the slice
+    expect(safeBranchSegment('a'.repeat(63) + '-'.repeat(7))).toBe('a'.repeat(63));
+  });
+});
+
+describe('buildContainmentRef', () => {
+  it('produces the exact ref shape the hook creates and the flip route validates', () => {
+    expect(buildContainmentRef('6f9c2b1e-uuid')).toBe('dashclaw/contained-6f9c2b1e-uuid');
+    expect(buildContainmentRef(null)).toBe('dashclaw/contained-session');
   });
 });
 

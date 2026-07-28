@@ -16,11 +16,12 @@ import { createActionRecord, getActionByIdempotencyKey } from '../../lib/reposit
 import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository';
 import { EVENTS, publishOrgEvent } from '../../lib/events';
 import { resolveAgentIdentity } from '../../lib/guard-identity';
+import { buildContainmentRef } from '../../lib/guard/containment';
 import { getAssumptionAlerts } from '../../lib/assumption-notify';
 
 type GuardSql = ReturnType<typeof getSql>;
 type GuardData = Record<string, unknown> & { agent_id?: string; agent_name?: string; declared_goal?: string; verification_status?: string };
-type GuardResult = { decision: string; risk_score?: number; decision_id?: string };
+type GuardResult = { decision: string; risk_score?: number; decision_id?: string; containment?: { status: string; basis: string; ref: string } | null };
 
 
 /**
@@ -84,8 +85,14 @@ async function recordRunningAction(
   // Containment Verdicts (drizzle/0064): a negotiated+eligible allow_contained
   // verdict starts the row's staged-effect lifecycle at 'contained'. Every
   // other decision leaves containment_status NULL (createActionRecord's
-  // default passthrough).
-  if (result.decision === 'allow_contained') record.containment_status = 'contained';
+  // default passthrough). The merge target (containment_ref) is stamped HERE,
+  // server-derived from the payload's harness_session_id (security follow-up,
+  // RFC 2026-07-06) — the later awaiting_promotion flip can no longer supply
+  // an attacker-controllable ref for a row that carries this stamp.
+  if (result.decision === 'allow_contained') {
+    record.containment_status = 'contained';
+    record.containment_ref = result.containment?.ref ?? buildContainmentRef(data.harness_session_id);
+  }
 
   const action_id = `act_${crypto.randomUUID()}`;
   const createdAction = await createActionRecord(sql, {

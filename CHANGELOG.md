@@ -13,6 +13,27 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.6.1] — 2026-07-28
+
+### Security
+- **`containment_ref` is now stamped server-side at guard `?record=true` time**
+  — the recorded follow-up from the v5.6.0 ship. The guard derives the merge
+  target from the payload's `harness_session_id` (an exact TS mirror of the
+  hook's branch-segment sanitization), stamps it on the contained action row
+  at creation, and returns it in the response's `containment.ref`; the
+  PreToolUse hook adopts the server's ref for its worktree branch (regex-
+  validated, local derivation as fallback for older servers). The
+  `awaiting_promotion` flip can only *fill* a missing ref on legacy rows —
+  `setContainmentAwaiting` now prefers the row's existing ref and a client
+  ref that conflicts with the server stamp fails the WHERE gate (`409`), so
+  a containment flip carries no attacker-controllable merge target.
+
+### Fixed
+- `scripts/check-surface-budget.mjs` lost its decorative shebang, which
+  intermittently broke the full vitest run (rolldown parse failure when the
+  script is imported by its unit test). Invocation is unchanged
+  (`npm run surface:check`).
+
 ## [5.6.0] — 2026-07-28
 
 ### Added

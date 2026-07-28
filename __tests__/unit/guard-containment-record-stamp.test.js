@@ -87,6 +87,30 @@ describe('/api/guard?record=true — containment_status stamp', () => {
     expect(payload.actionStatus).toBe('running');
   });
 
+  it('stamps the server-derived containment_ref from the eval result (security follow-up)', async () => {
+    mockEvaluateGuard.mockResolvedValue({
+      decision: 'allow_contained', reasons: [], warnings: [], matched_policies: [], risk_score: 10,
+      containment: { status: 'contained', basis: 'file', ref: 'dashclaw/contained-sess-1' },
+    });
+
+    await post({ action_type: 'apply', declared_goal: 'edit a file', agent_id: 'agt_1', harness_session_id: 'sess-1' });
+
+    const [, payload] = mockCreateActionRecord.mock.calls[0];
+    expect(payload.data.containment_ref).toBe('dashclaw/contained-sess-1');
+  });
+
+  it('falls back to deriving the ref from harness_session_id when the eval result omits the containment block', async () => {
+    mockEvaluateGuard.mockResolvedValue({
+      decision: 'allow_contained', reasons: [], warnings: [], matched_policies: [], risk_score: 10,
+    });
+
+    await post({ action_type: 'apply', declared_goal: 'edit a file', agent_id: 'agt_1', harness_session_id: 'abc_123.x' });
+
+    const [, payload] = mockCreateActionRecord.mock.calls[0];
+    // same sanitization as hooks/dashclaw_pretool.py _safe_branch_segment
+    expect(payload.data.containment_ref).toBe('dashclaw/contained-abc-123-x');
+  });
+
   it('does not stamp containment_status for every other decision (allow)', async () => {
     mockEvaluateGuard.mockResolvedValue({
       decision: 'allow', reasons: [], warnings: [], matched_policies: [], risk_score: 10,
@@ -97,5 +121,6 @@ describe('/api/guard?record=true — containment_status stamp', () => {
     expect(mockCreateActionRecord).toHaveBeenCalledTimes(1);
     const [, payload] = mockCreateActionRecord.mock.calls[0];
     expect(payload.data.containment_status).toBeUndefined();
+    expect(payload.data.containment_ref).toBeUndefined();
   });
 });

@@ -697,7 +697,7 @@ interface GuardFinalizeInput {
   planGrant: PlanGrantInfo | null;
   timings: Record<string, number> | null;
   degraded: { kind: string; deadline_ms: number; action: string; phase_in_flight: string | null } | null;
-  containment: { status: 'contained'; basis: string } | null;
+  containment: { status: 'contained'; basis: string; ref: string } | null;
 }
 
 function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionInsert {

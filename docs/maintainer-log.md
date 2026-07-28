@@ -12,6 +12,35 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-28 — v5.6.1: the merge target moves server-side
+
+The v5.6.0 entry ended with an honest residual and a recorded follow-up:
+promotion was bound to the evidence the operator read, but the ref itself
+was still a client-supplied string, and the design change that would remove
+the attacker-controllable target entirely was written down rather than
+squeezed into a fix wave. This release is that follow-up, done properly.
+
+The observation that made it cheap: the hook derives its worktree branch
+from the same harness session id it already sends on every `?record=true`
+guard payload. So the server now derives the identical ref itself (an exact
+TS mirror of the hook's sanitizer, locked by parity tests on both sides),
+stamps it on the contained action row at creation, and returns it in the
+guard response; the hook adopts the server's ref for the branch it creates.
+The `awaiting_promotion` flip keeps accepting a ref for legacy rows that
+predate the stamp, but it can only fill an absent one — the row's ref wins
+the COALESCE, and a conflicting client ref now fails the WHERE gate as a
+409 rather than being silently ignored. Fail loudly, single statement, no
+read-then-write race.
+
+One incidental fix: the full vitest run had started failing on an untouched
+test file — rolldown intermittently choked parsing the surface-budget
+script's shebang when its unit test imports it. The script is only ever
+invoked via `node`, so the shebang was decorative; removed.
+
+No SDK source changed, so npm and PyPI are intentionally not republished at
+this number. Wes's credential-gated tail is unchanged and still owed:
+`release:sdks` (now landing at 5.6.1) and `release:mcp`.
+
 ## 2026-07-28 — v5.6.0: containment verdicts — the program closes
 
 Feature 3 of the governed-autonomy program, and the end of it. Preflight

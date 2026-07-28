@@ -686,5 +686,81 @@ class TestPretoolContainment(unittest.TestCase):
         self.assertEqual(state["action_id"], "act-contained-killswitch")
 
 
+    # -----------------------------------------------------------------------
+    # 8. Server-stamped containment_ref (security follow-up, RFC 2026-07-06):
+    #    the guard response's containment.ref names the worktree branch, so
+    #    the branch the hook creates is exactly the merge target the server
+    #    stamped on the recorded action at ?record=true time.
+    # -----------------------------------------------------------------------
+
+    def test_server_provided_ref_is_adopted_for_the_worktree_branch(self):
+        repo = self._new_repo()
+        session_id = "sess-" + uuid.uuid4().hex[:8]
+        server_seg = "srv-" + uuid.uuid4().hex[:8]
+        tool_use_id = "tu-8-" + uuid.uuid4().hex[:8]
+        self._action_state_path(tool_use_id)
+
+        self.log.guard_response = {
+            "decision": "allow_contained",
+            "recorded": True,
+            "action_id": "act-contained-8",
+            "containment": {"status": "contained", "basis": "file",
+                            "ref": "dashclaw/contained-" + server_seg},
+        }
+
+        code, _, stderr = _run_hook(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": os.path.join(repo, "foo.txt"), "content": "hello"},
+                "tool_use_id": tool_use_id,
+                "session_id": session_id,
+            },
+            self._env(repo, DASHCLAW_CONTAINMENT_REWRITE="0"),
+        )
+
+        self.assertEqual(code, 2, "instructive deny exits 2; stderr=%s" % stderr)
+        expected_worktree = os.path.join(repo, ".dashclaw", "contained", server_seg)
+        self.assertTrue(os.path.isdir(expected_worktree),
+                        "worktree must live under the SERVER's segment, not the local session's")
+        self.assertIn("dashclaw/contained-" + server_seg, _worktree_list(repo))
+
+        with open(self._action_state_path(tool_use_id), encoding="utf-8") as f:
+            state = json.loads(f.read())
+        self.assertEqual(state["containment_ref"], "dashclaw/contained-" + server_seg)
+        self.assertEqual(state["containment_worktree"], expected_worktree)
+
+    def test_malformed_server_ref_falls_back_to_local_derivation(self):
+        repo = self._new_repo()
+        session_id = "sess-" + uuid.uuid4().hex[:8]
+        tool_use_id = "tu-8b-" + uuid.uuid4().hex[:8]
+        self._action_state_path(tool_use_id)
+
+        self.log.guard_response = {
+            "decision": "allow_contained",
+            "recorded": True,
+            "action_id": "act-contained-8b",
+            # No dashclaw/contained- prefix -> never adopted as a branch name.
+            "containment": {"status": "contained", "basis": "file", "ref": "evil/../../ref"},
+        }
+
+        code, _, stderr = _run_hook(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": os.path.join(repo, "foo.txt"), "content": "hello"},
+                "tool_use_id": tool_use_id,
+                "session_id": session_id,
+            },
+            self._env(repo, DASHCLAW_CONTAINMENT_REWRITE="0"),
+        )
+
+        self.assertEqual(code, 2, "instructive deny exits 2; stderr=%s" % stderr)
+        expected_worktree = os.path.join(repo, ".dashclaw", "contained", session_id)
+        self.assertTrue(os.path.isdir(expected_worktree))
+
+        with open(self._action_state_path(tool_use_id), encoding="utf-8") as f:
+            state = json.loads(f.read())
+        self.assertEqual(state["containment_ref"], "dashclaw/contained-" + session_id)
+
+
 if __name__ == "__main__":
     unittest.main()

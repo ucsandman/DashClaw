@@ -37,11 +37,28 @@ export function clientAdvertisesContainment(context: GuardEvalContext): boolean 
   return Array.isArray(caps) && caps.includes(CAPABILITY);
 }
 
+/**
+ * Mirror of hooks/dashclaw_pretool.py `_safe_branch_segment` — the two MUST
+ * sanitize identically (sub → strip → [:64] → fallback), because the server
+ * stamps `containment_ref` from the payload's harness_session_id at guard
+ * ?record=true time while the hook derives its worktree branch from the same
+ * id locally; a divergence 409s every legitimate awaiting_promotion flip.
+ */
+export function safeBranchSegment(sessionId: unknown): string {
+  const raw = typeof sessionId === 'string' ? sessionId : '';
+  const cleaned = raw.replace(/[^A-Za-z0-9-]/g, '-').replace(/^-+/, '').replace(/-+$/, '');
+  return cleaned.slice(0, 64) || 'session';
+}
+
+export function buildContainmentRef(sessionId: unknown): string {
+  return `dashclaw/contained-${safeBranchSegment(sessionId)}`;
+}
+
 export function finalizeContainment(
   context: GuardEvalContext,
   acc: GuardAccumulator,
   riskBreakdown: Record<string, unknown>,
-): { containment?: { status: 'contained'; basis: string } } {
+): { containment?: { status: 'contained'; basis: string; ref: string } } {
   if (acc.highestDecision !== CAPABILITY) return {};
   const eligibility = isContainableAct(context);
   if (!eligibility.eligible) {
@@ -56,7 +73,11 @@ export function finalizeContainment(
     riskBreakdown._containment = { downgraded_to_interrupt: true, reason: 'client capability not advertised' };
     return {};
   }
-  return { containment: { status: 'contained', basis: eligibility.basis } };
+  // Server-derived merge target (security follow-up, RFC 2026-07-06): the ref
+  // is computed HERE — from the harness session id already on the payload —
+  // never accepted from a later client flip, so a containment flip carries no
+  // attacker-controllable merge target.
+  return { containment: { status: 'contained', basis: eligibility.basis, ref: buildContainmentRef(context.harness_session_id) } };
 }
 
 export function buildPromotionGoal(containedActionId: string): string {

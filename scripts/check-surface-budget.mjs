@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * check-surface-budget.mjs — the anti-regrowth brake (THESIS.md, section
  * "The anti-regrowth brake").

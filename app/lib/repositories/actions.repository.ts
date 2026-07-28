@@ -232,8 +232,7 @@ export async function markActionBlocked(sql: SqlClient, orgId: string, actionId:
 
 /**
  * Agent/hook-side flip: a contained action becomes awaiting_promotion once the
- * staged diff is ready for operator review. The containment_ref (worktree
- * branch) can be (re)stamped on the same call; a null ref leaves it unchanged.
+ * staged diff is ready for operator review.
  *
  * SECURITY (IMPORTANT 5, final fix wave 2026-07-27): `agentId` is the
  * caller's own resolved identity (verified JWT, or self-asserted body
@@ -244,6 +243,15 @@ export async function markActionBlocked(sql: SqlClient, orgId: string, actionId:
  * (like every other transition in this module) simply returns no rows for a
  * mismatched agent, indistinguishable from "not found", so this never leaks
  * whether a differently-owned action_id exists.
+ *
+ * SECURITY (server-stamped ref, security follow-up to RFC 2026-07-06): the
+ * guard route stamps containment_ref at ?record=true time, so the row's
+ * existing ref is authoritative — COALESCE(containment_ref, client) means a
+ * client value can only FILL a missing ref (rows recorded before the stamp
+ * existed), never overwrite one. A client ref that CONFLICTS with the stamp
+ * fails the WHERE gate (no rows, null) instead of being silently ignored:
+ * both implementations derive the ref from the same harness session id, so a
+ * mismatch is version skew or a forged merge target, and skew only tightens.
  */
 export async function setContainmentAwaiting(
   sql: SqlClient,
@@ -252,14 +260,16 @@ export async function setContainmentAwaiting(
   agentId: string,
   containmentRef?: string | null,
 ): Promise<Row | null> {
+  const ref = containmentRef ?? null;
   const rows = await sql`
     UPDATE action_records
     SET containment_status = 'awaiting_promotion',
-        containment_ref = COALESCE(${containmentRef ?? null}, containment_ref)
+        containment_ref = COALESCE(containment_ref, ${ref})
     WHERE action_id = ${actionId}
       AND org_id = ${orgId}
       AND agent_id = ${agentId}
       AND containment_status = 'contained'
+      AND (containment_ref IS NULL OR ${ref}::text IS NULL OR containment_ref = ${ref})
     RETURNING *
   `;
   return rows[0] || null;
@@ -840,6 +850,11 @@ interface ActionData {
   // Containment Verdicts (drizzle/0064): stamped 'contained' when guard emits
   // allow_contained via ?record=true. NULL for every other action.
   containment_status?: string | null;
+  // Server-derived merge target (security follow-up, RFC 2026-07-06): stamped
+  // by the guard route alongside containment_status, computed from the
+  // payload's harness_session_id (buildContainmentRef). Never client-set —
+  // validateActionRecord's schema whitelist drops it on POST /api/actions.
+  containment_ref?: string | null;
   [field: string]: unknown;
 }
 
@@ -898,6 +913,7 @@ function createActionInsertValues(payload: CreateActionPayload) {
     // Containment Verdicts (drizzle/0064): passthrough only — the guard route
     // is the sole writer (via ?record=true), never client-set on POST /api/actions.
     containment_status: orNull(data.containment_status),
+    containment_ref: orNull(data.containment_ref),
     harness_session_id: boundedIdText(data.harness_session_id),
     subagent_uuid: boundedIdText(data.subagent_uuid),
     // Act-content grant binding (drizzle/0056): server-computed from the act
@@ -942,7 +958,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       timestamp_start, timestamp_end, duration_ms, cost_estimate,
       tokens_in, tokens_out, model,
       signature, verified, idempotency_key, session_id, guard_decision_id,
-      containment_status,
+      containment_status, containment_ref,
       act_content_hash, created_by, harness_session_id, subagent_uuid,
       close_source, approval_expires_at
     ) VALUES (
@@ -983,6 +999,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       ${values.session_id},
       ${values.guard_decision_id},
       ${values.containment_status},
+      ${values.containment_ref},
       ${values.act_content_hash},
       ${values.created_by},
       ${values.harness_session_id},

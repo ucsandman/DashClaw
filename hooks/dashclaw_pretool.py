@@ -843,7 +843,27 @@ def _worktree_base_sha(worktree_path):
     return sha or None
 
 
-def _ensure_containment_worktree(session_id):
+# The exact ref shape this hook ever produces (and the PATCH flip route
+# validates). A server-stamped ref outside this shape is never adopted.
+_SERVER_CONTAINMENT_REF_RE = re.compile(r"^dashclaw/contained-([A-Za-z0-9-]{1,64})$")
+
+
+def _server_containment_ref(guard_resp):
+    """The server-stamped merge target from the guard response (security
+    follow-up to RFC 2026-07-06): the server derives the ref from this hook's
+    own harness_session_id at guard time and stamps it on the recorded action,
+    so the worktree branch should be created under the SERVER's name, not a
+    locally re-derived one. Returns the ref, or None when absent or malformed
+    (malformed -> fall back to local derivation; the flip will 409 loudly if
+    the two ever truly diverge)."""
+    containment = guard_resp.get("containment") if isinstance(guard_resp, dict) else None
+    ref = containment.get("ref") if isinstance(containment, dict) else None
+    if isinstance(ref, str) and _SERVER_CONTAINMENT_REF_RE.match(ref):
+        return ref
+    return None
+
+
+def _ensure_containment_worktree(session_id, server_ref=None):
     """Lazily create (once per session) or reuse the containment worktree.
 
     Returns (worktree_path, ref, base_sha), or None on any failure -- not a
@@ -852,20 +872,32 @@ def _ensure_containment_worktree(session_id):
     proceeds unstaged. base_sha (F1) is recorded at creation time so
     PostToolUse can later compute a cumulative diff against it; it is None
     when `git rev-parse HEAD` itself fails (rare -- the worktree add above
-    already succeeded, so HEAD should resolve)."""
+    already succeeded, so HEAD should resolve).
+
+    server_ref (validated by _server_containment_ref) names the branch when
+    present; otherwise the ref is derived locally from session_id -- both
+    derivations sanitize the same harness session id identically, so they only
+    diverge on version skew."""
     if not _is_git_repo():
         return None
 
     cached = _read_containment_session_state(session_id)
     if cached:
+        if server_ref and cached[1] != server_ref:
+            log("[DashClaw] Containment ref skew: server stamped %s but this session's "
+                "worktree is on %s -- reusing the existing worktree." % (server_ref, cached[1]))
         return cached
 
     root = _repo_root()
     if not root:
         return None
 
-    branch_seg = _safe_branch_segment(session_id)
-    ref = "dashclaw/contained-" + branch_seg
+    if server_ref:
+        ref = server_ref
+        branch_seg = ref[len("dashclaw/contained-"):]
+    else:
+        branch_seg = _safe_branch_segment(session_id)
+        ref = "dashclaw/contained-" + branch_seg
     worktree_path = os.path.join(root, ".dashclaw", "contained", branch_seg)
 
     _ensure_exclude_line(_git_common_dir(root))
@@ -1194,7 +1226,7 @@ def handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_
     if not action_id:
         action_id = _record_running_action("handle_allow_contained", context, tool_use_id)
 
-    ensured = _ensure_containment_worktree(_SESSION_ID)
+    ensured = _ensure_containment_worktree(_SESSION_ID, _server_containment_ref(guard_resp))
     if not ensured:
         log("[DashClaw] Containment failed: could not create or reuse a containment worktree "
             "(not a git repo, or `git worktree add` failed). Failing toward interruption — "

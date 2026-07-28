@@ -155,7 +155,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
         : undefined;
       const flipped = await setContainmentAwaiting(sql, orgId, actionId, identity.agent_id, containmentRef);
       if (!flipped) {
-        return NextResponse.json({ error: 'Action not found or not in a contained state' }, { status: 409 });
+        // Single-statement WHERE gate (no read-then-write race): "not found",
+        // wrong owner, wrong prior status, and a client ref conflicting with
+        // the server-stamped containment_ref are all indistinguishable here
+        // by design — none of them leak whether the action_id exists.
+        return NextResponse.json(
+          { error: 'Action not found, not in a contained state, or containment_ref conflicts with the server-stamped ref' },
+          { status: 409 },
+        );
       }
       void publishOrgEvent(EVENTS.ACTION_UPDATED, { orgId, action: flipped });
       return NextResponse.json({ action: flipped });

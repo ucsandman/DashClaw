@@ -90,6 +90,25 @@ describe('setContainmentAwaiting', () => {
     expect(sql.calls[0]!.text).toContain('COALESCE(');
     expect(sql.calls[0]!.values).toContain(null);
   });
+
+  // Server-stamped ref (security follow-up to RFC 2026-07-06): the guard route
+  // stamps containment_ref at ?record=true time, so this flip must never let a
+  // client overwrite it — and a conflicting client ref must fail the WHERE
+  // gate rather than be silently ignored.
+  it('the row-existing ref wins the COALESCE — a client ref can only fill, never overwrite', async () => {
+    const sql = makeSql([[{ action_id: 'act_1' }]]);
+    await setContainmentAwaiting(sql, 'org_1', 'act_1', 'agent_1', 'dashclaw/contained-x');
+    expect(sql.calls[0]!.text).toContain('COALESCE(containment_ref');
+  });
+
+  it('a client ref that conflicts with the stamped ref fails the WHERE gate', async () => {
+    const sql = makeSql([[]]);
+    const row = await setContainmentAwaiting(sql, 'org_1', 'act_1', 'agent_1', 'dashclaw/contained-forged');
+    expect(row).toBeNull();
+    const text = sql.calls[0]!.text;
+    expect(text).toContain('containment_ref IS NULL OR');
+    expect(text).toContain('containment_ref =');
+  });
 });
 
 describe('resolveContainment', () => {
