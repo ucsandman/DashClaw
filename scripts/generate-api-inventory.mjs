@@ -46,6 +46,25 @@ export function serializeApiInventoryJson(inventory) {
   return `${JSON.stringify(inventory, null, 2)}\n`;
 }
 
+/**
+ * LOCAL calendar date as YYYY-MM-DD (2026-07-27 pre-ship sweep: the prior
+ * `new Date().toISOString().slice(0, 10)` stamped UTC, so a run in the
+ * evening (local) after ~17:00-20:00 PT/PDT already rolled into tomorrow in
+ * UTC — this file regenerated with `last-verified: 2026-07-28` in the same
+ * commit as siblings hand-stamped `2026-07-27`. Every other freshness stamp
+ * in this repo (PROJECT_DETAILS.md, docs/sdk-reference.md,
+ * docs/sdk-parity.md — see check-doc-counts.mjs) is maintained by hand
+ * against the author's own calendar date, which is implicitly local; this
+ * mirrors that by reading the machine's local date instead of UTC.
+ */
+function localDateStamp() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export function serializeApiInventoryMarkdown(inventory) {
   const lines = [];
   // last-verified reflects the most recent regeneration date so the
@@ -53,7 +72,7 @@ export function serializeApiInventoryMarkdown(inventory) {
   // Override with process.env.API_INVENTORY_VERIFIED_DATE for deterministic
   // builds (e.g. snapshot tests).
   const verified = process.env.API_INVENTORY_VERIFIED_DATE
-    || new Date().toISOString().slice(0, 10);
+    || localDateStamp();
   lines.push('---');
   lines.push('source-of-truth: false');
   lines.push('owner: API Governance Lead');

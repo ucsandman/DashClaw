@@ -262,7 +262,7 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 
 | Surface | Ceiling | Counted from |
 |---|---|---|
-| Active API routes | 124 | `app/api/**/route.{js,ts,tsx}` |
+| Active API routes | 123 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
 | App pages | 47 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 17 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
@@ -319,16 +319,25 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   new surface sits directly on the loop: plans are intercepted intent,
   reviewed by a human, provable in the decision ledger (`builtin:plan_grant`
   provenance). RFC: docs/rfcs/2026-07-06-preflight-plan-authorization.md.
-- **2026-07-27 — Active API routes 123 → 124 (Containment Verdicts, feature
-  3).** One route, `POST /api/actions/[actionId]/containment` — the operator's
-  promote/discard verdict on a guard-contained (`allow_contained`) action. On
-  the thesis loop by construction: a staged file-scoped effect runs
+- **2026-07-27 — Active API routes 122 → 123 (Containment Verdicts, feature
+  3; counter methodology aligned to the canonical inventory in the same
+  change).** One route, `POST /api/actions/[actionId]/containment` — the
+  operator's promote/discard verdict on a guard-contained (`allow_contained`)
+  action. On the thesis loop by construction: a staged file-scoped effect runs
   unattended, the operator reviews the diff once, and promote raises a
   single-use act-scoped grant (`containment_promote`, act-content-hash bound
   to `git merge --no-ff <containment_ref>`) provable in the decision ledger —
   the same intercept → decide → approve → prove shape as plan grants, applied
   to effects that already ran instead of ones about to run. RFC:
-  docs/superpowers/plans/2026-07-27-containment-verdicts.md.
+  docs/superpowers/plans/2026-07-27-containment-verdicts.md. The baseline
+  shown here is 122, not the previously-recorded 123: `countApiRoutes()`
+  (`contracts/surface-budget.json`'s gate) used to raw-glob every
+  `route.{js,ts,tsx}` file, while the canonical `docs/api-inventory.json`
+  generator (`discoverApiRoutes()`) only counts a file that exports at least
+  one HTTP method — a gap `app/api/auth/[...nextauth]/route.ts` (no exported
+  method) fell into, pre-dating this branch. The ceiling number changed
+  because the COUNTING METHOD changed to match the canonical source, not
+  because a route was removed; every doc now agrees at 123 live routes.
 - **2026-07-26 — Scoped Delegation Constraints (governed-autonomy feature 2).**
   Guard policy types 14 → 15, Node SDK methods 36 → 37, Python SDK methods
   56 → 57. `delegation_constraint` makes a composed subagent's effective
@@ -347,7 +356,7 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   methods 37 → 39, Python SDK methods 57 → 59. `resolveContainment`/
   `resolve_containment` (operator promote/discard on a contained action) and
   `listContained`/`list_contained` (list by `containment_status`) — thin
-  wrappers over the one route this feature added (see the apiRoutes 123 → 124
+  wrappers over the one route this feature added (see the apiRoutes 122 → 123
   entry above). Neither SDK ever sends `client_capabilities`, so a bare SDK
   caller can never receive `allow_contained` from `guard()` itself; these
   methods only manage rows that reached `awaiting_promotion` some other way.

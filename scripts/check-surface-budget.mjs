@@ -44,7 +44,35 @@ export function countFiles(rel, re) {
   return n;
 }
 
-export const countApiRoutes = () => countFiles('app/api', /^route\.(js|ts|tsx)$/);
+const HTTP_METHOD_EXPORT_RE = /export\s+async\s+function\s+(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s*\(/;
+
+/**
+ * A route.* file with zero exported HTTP methods is not a route (e.g.
+ * app/api/auth/[...nextauth]/route.ts, which re-exports a NextAuth handler
+ * under a different shape) -- mirrors discoverApiRoutes()'s rule in
+ * scripts/lib/api-route-inventory.mjs, the canonical source
+ * docs/api-inventory.json is generated from. Fixed 2026-07-27 pre-ship sweep:
+ * this counter used to raw-glob route.* files (124), one more than the
+ * canonical inventory's 123, because it counted that file anyway -- the two
+ * sources of truth must use the identical "exports a method" rule or they
+ * drift by exactly this kind of file.
+ */
+function routeFileExportsHttpMethod(fullPath) {
+  return HTTP_METHOD_EXPORT_RE.test(readFileSync(fullPath, 'utf8'));
+}
+
+export function countApiRoutes() {
+  let n = 0;
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (/^route\.(js|ts|tsx)$/.test(entry.name) && routeFileExportsHttpMethod(full)) n++;
+    }
+  };
+  walk(resolve(ROOT, 'app/api'));
+  return n;
+}
 export const countAppPages = () => countFiles('app', /^page\.(js|jsx|ts|tsx)$/);
 export const countMcpTools = () => countMatches('mcp-server/src/tools.ts', /^\s*name:\s*['"]dashclaw_/gm);
 export const countMcpResources = () => countMatches('mcp-server/src/resources.ts', /^\s*uri:\s*['"]/gm);
