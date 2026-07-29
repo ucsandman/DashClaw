@@ -33,6 +33,23 @@ repo: npm overrides cannot pierce a dependency's published
 npm-shrinkwrap.json, and the MCP registry's search endpoint returns
 version records oldest-first (read `isLatest`, never `servers[0]`).
 
+*Continued (`841d5fb8`):* applying the demo-plans lens to the other
+recent ships found an active marketing-facing bug — the demo host's
+/approvals containment section was rendering **all fifty demo actions**
+as bogus awaiting-promotion cards, live since v5.6.0: the section
+fetches `?containment_status=awaiting_promotion` and the demo layer
+ignored the filter (verified against www.dashclaw.io before fixing).
+The demo now serves exactly one believable contained action with a real
+patch artifact behind the card's diff expand (verdict clicks answer an
+honest demo 403), the delegation-constraint policy type appears on the
+demo /policies ledger, and guard-fixtures' policy-picker moved from
+positional indexing to name lookup — its indices had already drifted
+from their own comments (blocks were citing the rate limiter) and every
+insert shifted them further. Verified rendered in demo mode; the
+fixture-review also caught my own first attempt reusing a stableId index
+and shifting the array mid-insert — the same class the name-lookup fix
+retires. Suite: 3,607.
+
 ---
 
 ## 2026-07-28 — the vigil finds work anyway (third session)

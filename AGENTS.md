@@ -73,9 +73,9 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-29 (commit fda057ed). Confidence: 100%.
+Last indexed: 2026-07-29 (commit 841d5fb8). Confidence: 100%.
 ### Architecture
-repo is a governed AI agent documentation and tooling monorepo that ingests source code and contract/policy inputs, transforms them through indexing/analysis and governance-aware agent/tool orchestration, and outputs generated SDKs, an MCP server interface, and runnable example agent/pipeline implementations.
+This repository is a codebase documentation and “governed agent” platform: it ingests source files and contract/policy inputs, builds an internal representation via indexing and analysis, and produces generated documentation artifacts (including LLM-synthesised wiki pages) that are exposed through an MCP server and supporting SDKs/UI integrations.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
