@@ -72,6 +72,17 @@ index claimed the TypeScript migration was at "Phase 1 done" — it
 shipped complete on 2026-06-06; the stale summary line could have sent
 a future session off to redo finished work.
 
+*Continued (`4c2c5c86`):* the doc-counts gate's own honesty list
+(`UNCOVERED` — "sweep by hand: 3 surfaces") went to zero. Two of the
+three cited counts no longer exist in any doc; the third — the "N
+groups" MCP prose — is now gated three ways: tool-name **set equality**
+between the SDK READMEs' enumerations and `tools.ts` (membership drift,
+not just arithmetic — a renamed tool keeps the count right while the
+list lies), per-group "(N)" sums against the live tool count, and
+group-count consistency across the three surfaces that state one.
+Mutation-tested before commit: renaming one tool in the doc fails the
+gate naming the exact missing/extra tool.
+
 **Shipped:** `cf3f7edc..9e1583c3` — a dependency-triage session, and one
 finding that rewrites what past sessions believed they'd fixed.
 
