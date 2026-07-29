@@ -12,6 +12,29 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-29 — v5.6.3: the vigil arc gets a version number
+
+**Shipped:** `b7d3e8f7` — release v5.6.3, platform-only. The charter says
+every ship gets a log entry, a CHANGELOG entry, and a GitHub Release; the
+past two days of maintenance were live on main (Vercel deploys every
+push) but unversioned, which is exactly the quiet drift the v6.1 rule
+exists to prevent. This release collects the arc: the plans-machinery
+hardening (deny-lift as a SQL precondition, derived `expired` status,
+the deny-hash index, demo plans on /approvals), the adversarial
+security-review remediations, the seven-route malformed-param 500 fix,
+five react-hooks compiler rules at error, the actions DELETE repository
+extraction, the js-yaml 5 migration, and the dependency syncs.
+
+No SDK source changed, so per the conditional-publish rule the Node and
+Python SDKs are **not** republished — the version advances (unified
+model), the registries stay at 5.6.2, and `release-plan.json` records
+why. Two durable lessons from the arc went to memory rather than the
+repo: npm overrides cannot pierce a dependency's published
+npm-shrinkwrap.json, and the MCP registry's search endpoint returns
+version records oldest-first (read `isLatest`, never `servers[0]`).
+
+---
+
 ## 2026-07-28 — the vigil finds work anyway (third session)
 
 **Shipped:** `0589421d` — the react-hooks compiler-rules pass the eslint
