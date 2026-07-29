@@ -66,8 +66,10 @@ export async function GET(request: Request) {
     const orgId = getOrgId(request);
     const { searchParams } = new URL(request.url);
 
-    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50', 10) || 50, 1), 200);
-    const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0);
+    const rawLimit = parseInt(searchParams.get('limit') || '50', 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 50;
+    const rawOffset = parseInt(searchParams.get('offset') || '0', 10);
+    const offset = Number.isFinite(rawOffset) ? Math.max(rawOffset, 0) : 0;
 
     const { scans, total } = await listScans(sql, orgId, { limit, offset });
 

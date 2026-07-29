@@ -27,7 +27,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ plan
     // V7: created_by is a reviewer/creator principal — never leak it to an
     // agent-facing GET. reviewed_by stays (it's displayed as approver
     // attribution in the UI, which is intentional provenance).
-    const { created_by: _createdBy, ...plan } = result.plan as Record<string, unknown>;
+    const { created_by: _createdBy, raw_status: _rawStatus, ...plan } = result.plan as Record<string, unknown>;
     return NextResponse.json({ plan, steps: result.steps });
   } catch (error) {
     return apiErrorResponse(error, 'PLAN GET');
@@ -92,7 +92,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
     // (or the operator).
     const existing = await getPlanWithSteps(sql, orgId, planId);
     const createdBy = (existing?.plan as { created_by?: string | null } | undefined)?.created_by;
-    const existingStatus = (existing?.plan as { status?: string } | undefined)?.status;
+    // SoD gates key on RAW status: the derived presentation status reads a
+    // lapsed denial as 'expired', which would silently disarm the
+    // `=== 'denied'` clauses below (2026-07-29 security review, MEDIUM) —
+    // leaving the write-time denyLiftAllowed predicate as the only layer.
+    const existingStatus = (existing?.plan as { raw_status?: string } | undefined)?.raw_status;
     if (userId !== 'operator') {
       const selfGateTriggers = verdict === 'approve' || verdict === 'deny' || existingStatus === 'denied';
       if (createdBy && createdBy === userId && selfGateTriggers) {
@@ -162,7 +166,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
     // the verdict response OR the org event payload (mirrors the GET's V7
     // strip above). Stripped before publishOrgEvent now too — previously
     // only the response was stripped, so the event still carried it.
-    const { created_by: _createdBy, ...plan } = result.plan as Record<string, unknown>;
+    const { created_by: _createdBy, raw_status: _rawStatus, ...plan } = result.plan as Record<string, unknown>;
     void publishOrgEvent(EVENTS.ACTION_UPDATED, { orgId, plan });
 
     return NextResponse.json({ ...result, plan });

@@ -106,13 +106,23 @@ export async function stampStepPreview(
 // Read paths present a reviewed plan whose TTL has lapsed as 'expired'
 // (derived — no writer flips rows to 'expired'; the enforcement paths
 // already check expires_at directly, so this is presentation truth, not
-// machinery). Duplicate `status` column: drivers build row objects in field
-// order, so the derived value (last) wins. reviewPlan intentionally reads
+// machinery). Selected under a DISTINCT name and swapped in JS — a duplicate
+// `status` column would rely on undocumented driver last-column-wins row
+// building (2026-07-29 security review, LOW). reviewPlan intentionally reads
 // raw status — 'denied' past TTL must stay revocable/liftable by its rules.
 const DERIVED_STATUS_SQL = `CASE
   WHEN status IN ('approved', 'partially_approved', 'denied')
     AND expires_at IS NOT NULL AND expires_at <= now()
   THEN 'expired' ELSE status END`;
+
+// includeRaw: only getPlanWithSteps carries raw_status (the review route's
+// SoD pre-read needs it); list rows flow into agent-facing GET responses
+// whose sanitizers don't know the field, so it must not appear there.
+function applyDerivedStatus(row: Record<string, unknown>, includeRaw = false): Record<string, unknown> {
+  const { derived_status, ...rest } = row;
+  const out = { ...rest, status: derived_status };
+  return includeRaw ? { ...out, raw_status: row.status } : out;
+}
 
 export async function listPlans(
   sql: SqlClient,
@@ -126,22 +136,30 @@ export async function listPlans(
   // and ?status=expired actually finds them.
   if (filters.status) { conditions.push(`(${DERIVED_STATUS_SQL}) = $${idx}`); params.push(filters.status); idx++; }
   if (filters.agentId) { conditions.push(`agent_id = $${idx}`); params.push(filters.agentId); idx++; }
-  return sql.query(
-    `SELECT *, ${DERIVED_STATUS_SQL} AS status FROM plan_authorizations WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${idx}`,
+  const rows = await sql.query(
+    `SELECT *, ${DERIVED_STATUS_SQL} AS derived_status FROM plan_authorizations WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${idx}`,
     [...params, filters.limit ?? 50],
   );
+  return rows.map((r) => applyDerivedStatus(r));
 }
 
+/**
+ * `plan.status` is the derived presentation status; `plan.raw_status` is the
+ * stored one. The review route's separation-of-duties pre-read MUST key on
+ * raw_status — a lapsed denial derives to 'expired', which would silently
+ * disarm the `=== 'denied'` gates (2026-07-29 security review, MEDIUM).
+ * Response-shaping routes strip raw_status like they strip created_by.
+ */
 export async function getPlanWithSteps(sql: SqlClient, orgId: string, planId: string) {
   const plans = await sql.query(
-    `SELECT *, ${DERIVED_STATUS_SQL} AS status FROM plan_authorizations WHERE org_id = $1 AND plan_id = $2`,
+    `SELECT *, ${DERIVED_STATUS_SQL} AS derived_status FROM plan_authorizations WHERE org_id = $1 AND plan_id = $2`,
     [orgId, planId],
   );
   if (!plans[0]) return null;
   const steps = await sql`
     SELECT * FROM plan_authorization_steps WHERE org_id = ${orgId} AND plan_id = ${planId} ORDER BY seq ASC
   `;
-  return { plan: plans[0], steps };
+  return { plan: applyDerivedStatus(plans[0], true), steps };
 }
 
 export async function countPendingPlans(sql: SqlClient, orgId: string): Promise<number> {
@@ -209,12 +227,15 @@ export async function reviewPlan(
      * denial landing between the route's SELECT and this UPDATE would
      * otherwise be liftable by the submitter. Threading the permission into
      * the UPDATE's status predicate makes the gate hold at write time.
-     * Defaults true (denied stays revocable) for callers that gate upstream.
+     * Defaults FALSE (fail-closed, 2026-07-29 security review): a caller
+     * that omits the flag cannot lift a denial. The preview-failure system
+     * revoke in POST /api/plans omits it safely — the plan it revokes is
+     * still 'previewing'.
      */
     denyLiftAllowed?: boolean;
   },
 ) {
-  const denyLiftAllowed = input.denyLiftAllowed !== false;
+  const denyLiftAllowed = input.denyLiftAllowed === true;
   const plans = await sql`
     SELECT * FROM plan_authorizations WHERE org_id = ${orgId} AND plan_id = ${planId}
   `;

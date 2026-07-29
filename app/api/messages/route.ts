@@ -43,8 +43,10 @@ export async function GET(request: Request) {
     const direction = searchParams.get('direction') || 'inbox';
     const type = searchParams.get('type');
     const unread = searchParams.get('unread');
-    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50', 10) || 50, 1), 1000);
-    const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0);
+    const rawLimit = parseInt(searchParams.get('limit') || '50', 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 1000) : 50;
+    const rawOffset = parseInt(searchParams.get('offset') || '0', 10);
+    const offset = Number.isFinite(rawOffset) ? Math.max(rawOffset, 0) : 0;
 
     const rows = await listMessages(sql, orgId, {
       agentId: agentId ?? undefined,

@@ -1123,6 +1123,12 @@ const DEMO_API_ROUTES = [
   // demo showed no plans at all. Verdict POSTs answer an honest demo 403
   // (stateless fixtures can't transition status).
   ['/api/plans', ({ request, fixtures }) => {
+    // Method guard mirrors the detail entry below (the pre-dispatch write
+    // block also covers this; the symmetry is deliberate, not redundant
+    // by accident — 2026-07-29 security review, LOW).
+    if (request.method !== 'GET') {
+      return demoJson(request, { error: 'Demo mode: plan submission is disabled. Connect an instance to submit real plans.' }, 403);
+    }
     const status = new URL(request.url).searchParams.get('status');
     const plans = demoPlans(fixtures).filter((p) => !status || p.status === status);
     return demoJson(request, { plans });

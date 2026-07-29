@@ -60,7 +60,8 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'pending';
-    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50', 10) || 50, 1), 200);
+    const rawLimit = parseInt(searchParams.get('limit') || '50', 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 50;
 
     const rows = await listPairings(sql, orgId, status, limit);
     return NextResponse.json({ pairings: rows });

@@ -173,7 +173,7 @@ describe('POST /api/plans/[planId]', () => {
   // approve it (mirrors approvals-route.test.js SELF_APPROVAL_FORBIDDEN).
   it('T1: rejects self-approval with 403 SELF_APPROVAL_FORBIDDEN when reviewer === created_by', async () => {
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'user_1' },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', raw_status: 'pending', created_by: 'user_1' },
       steps: [],
     });
 
@@ -187,7 +187,7 @@ describe('POST /api/plans/[planId]', () => {
 
   it('T1: a different admin credential may approve a plan it did not submit', async () => {
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'user_submitter' },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', raw_status: 'pending', created_by: 'user_submitter' },
       steps: [],
     });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'approved' };
@@ -202,7 +202,7 @@ describe('POST /api/plans/[planId]', () => {
   it("T1: 'operator' is exempt from the self-approval gate", async () => {
     mockGetUserId.mockReturnValueOnce('operator');
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'operator' },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', raw_status: 'pending', created_by: 'operator' },
       steps: [],
     });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'approved' };
@@ -220,7 +220,7 @@ describe('POST /api/plans/[planId]', () => {
   // admin.
   it('X1(b): a NULL created_by plan cannot be approved by a normal admin — 403', async () => {
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: null },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', raw_status: 'pending', created_by: null },
       steps: [],
     });
 
@@ -235,7 +235,7 @@ describe('POST /api/plans/[planId]', () => {
   it("X1(b): a NULL created_by plan CAN be approved by 'operator'", async () => {
     mockGetUserId.mockReturnValueOnce('operator');
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: null },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', raw_status: 'pending', created_by: null },
       steps: [],
     });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'approved' };
@@ -249,7 +249,7 @@ describe('POST /api/plans/[planId]', () => {
 
   it('X1(b): a NULL created_by DENIED plan cannot have its denial lifted (revoke) by a normal admin — 403', async () => {
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', created_by: null },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', raw_status: 'denied', created_by: null },
       steps: [],
     });
 
@@ -263,7 +263,7 @@ describe('POST /api/plans/[planId]', () => {
 
   it('X1(b): a NULL created_by plan CAN be denied (plain deny, not approve/deny-lift) by a normal admin', async () => {
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: null },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', raw_status: 'pending', created_by: null },
       steps: [],
     });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'denied' };
@@ -277,7 +277,7 @@ describe('POST /api/plans/[planId]', () => {
 
   it('T1: revoking your own LIVE (pending) plan is allowed — revoke only closes doors', async () => {
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'user_1' },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', raw_status: 'pending', created_by: 'user_1' },
       steps: [],
     });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'revoked' };
@@ -294,7 +294,7 @@ describe('POST /api/plans/[planId]', () => {
   // second-party involvement, the same risk a self-approval carries.
   it('X2: rejects the submitter denying their own plan with 403 SELF_APPROVAL_FORBIDDEN', async () => {
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'user_1' },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', raw_status: 'pending', created_by: 'user_1' },
       steps: [],
     });
 
@@ -308,7 +308,7 @@ describe('POST /api/plans/[planId]', () => {
 
   it('X2: a different admin credential may deny a plan it did not submit', async () => {
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'user_submitter' },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', raw_status: 'pending', created_by: 'user_submitter' },
       steps: [],
     });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'denied' };
@@ -323,7 +323,7 @@ describe('POST /api/plans/[planId]', () => {
   it("X2: 'operator' is exempt from the self-deny gate too", async () => {
     mockGetUserId.mockReturnValueOnce('operator');
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'operator' },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', raw_status: 'pending', created_by: 'operator' },
       steps: [],
     });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'denied' };
@@ -340,7 +340,7 @@ describe('POST /api/plans/[planId]', () => {
   // explicit no), so it needs a different principal too.
   it('W1: rejects the submitter revoking their own DENIED plan with 403 SELF_APPROVAL_FORBIDDEN (deny-lift message)', async () => {
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', created_by: 'user_1' },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', raw_status: 'denied', created_by: 'user_1' },
       steps: [],
     });
 
@@ -355,7 +355,7 @@ describe('POST /api/plans/[planId]', () => {
 
   it('W1: a different admin credential may revoke a DENIED plan it did not submit', async () => {
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', created_by: 'user_submitter' },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', raw_status: 'denied', created_by: 'user_submitter' },
       steps: [],
     });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'revoked' };
@@ -370,7 +370,7 @@ describe('POST /api/plans/[planId]', () => {
   it("W1: 'operator' is exempt from the deny-lift gate too", async () => {
     mockGetUserId.mockReturnValueOnce('operator');
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', created_by: 'operator' },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', raw_status: 'denied', created_by: 'operator' },
       steps: [],
     });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'revoked' };
@@ -384,7 +384,7 @@ describe('POST /api/plans/[planId]', () => {
 
   it('W1: revoking your own approved plan (not denied) is still allowed — revoke only gates the denied-status case', async () => {
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'approved', created_by: 'user_1' },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'approved', raw_status: 'approved', created_by: 'user_1' },
       steps: [],
     });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'revoked' };
@@ -469,7 +469,7 @@ describe('POST /api/plans/[planId]', () => {
 
   it('deny-lift precondition: a principal other than the submitter passes denyLiftAllowed: true into the SQL layer', async () => {
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', created_by: 'user_submitter' },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', raw_status: 'denied', created_by: 'user_submitter' },
       steps: [],
     });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'revoked' };
@@ -519,7 +519,7 @@ describe('POST /api/plans/[planId]', () => {
   // response stripped it but publishOrgEvent still carried the raw row.
   it('X3: strips created_by from the org event payload, not just the response', async () => {
     mockGetPlanWithSteps.mockResolvedValueOnce({
-      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'user_submitter' },
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', raw_status: 'pending', created_by: 'user_submitter' },
       steps: [],
     });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'approved', created_by: 'user_submitter', reviewed_by: 'user_1' };

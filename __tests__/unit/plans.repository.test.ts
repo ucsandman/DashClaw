@@ -338,7 +338,7 @@ describe('plans.repository', () => {
       [{ plan_id: 'pa_1', status: 'revoked' }], // UPDATE plan_authorizations RETURNING * (guarded, still matches 'denied')
       [], // SELECT steps ORDER BY seq ASC
     ]);
-    const result = await reviewPlan(sql as never, 'org_1', 'pa_1', { verdict: 'revoke', reviewedBy: 'operator', ttlClampMinutes: 480 });
+    const result = await reviewPlan(sql as never, 'org_1', 'pa_1', { verdict: 'revoke', reviewedBy: 'operator', ttlClampMinutes: 480, denyLiftAllowed: true });
     expect(result!.plan!.status).toBe('revoked');
     const headerUpdate = sql.calls.find((c) => c.text.includes('UPDATE plan_authorizations'));
     expect(headerUpdate!.text).toContain("'denied'");

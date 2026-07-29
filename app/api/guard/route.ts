@@ -448,11 +448,14 @@ export async function GET(request: Request) {
     const agentId = searchParams.get('agent_id') || undefined;
     const decision = searchParams.get('decision') || undefined;
     const days = parseDaysParam(searchParams.get('days'));
-    // Same guard as plans R4: NaN (?limit=abc) or a non-positive value must
-    // not reach the SQL LIMIT/OFFSET clause — `|| fallback` catches NaN,
-    // the floor catches 0/negatives. Otherwise a malformed query param 500s.
-    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20', 10) || 20, 1), 1000);
-    const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0);
+    // Same guard as plans R4: NaN (?limit=abc) must not reach the SQL
+    // LIMIT/OFFSET clause (it 500s), and explicit 0/negatives clamp to the
+    // floor. Number.isFinite keeps NaN and a deliberate 0 distinguishable
+    // (2026-07-29 security review, LOW).
+    const rawLimit = parseInt(searchParams.get('limit') || '20', 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 1000) : 20;
+    const rawOffset = parseInt(searchParams.get('offset') || '0', 10);
+    const offset = Number.isFinite(rawOffset) ? Math.max(rawOffset, 0) : 0;
 
     const result = await listGuardDecisions(sql, orgId, { agentId, decision, days, limit, offset });
     return NextResponse.json({ ...result, limit, offset });
