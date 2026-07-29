@@ -2110,16 +2110,13 @@ export async function deleteActionsByIds(sql: SqlClient, orgId: string, idList: 
   return sql`DELETE FROM action_records WHERE action_id = ANY(${idList}) AND org_id = ${orgId} RETURNING action_id`;
 }
 
+type ActionDeleteFilter = { before?: string | null; agentId?: string | null; status?: string | null };
+
 /**
- * Resolve the action_ids a filtered bulk delete would remove, so the erasure
- * audit row can be written (and awaited) BEFORE any row is deleted. Mirrors
- * the filter semantics of DELETE /api/actions exactly.
+ * One WHERE builder shared by the filtered-delete read (audit target set) and
+ * the delete itself, so the two can never diverge on filter semantics.
  */
-export async function listActionIdsByFilter(
-  sql: SqlClient,
-  orgId: string,
-  { before, agentId, status }: { before?: string | null; agentId?: string | null; status?: string | null },
-): Promise<string[]> {
+function buildActionFilterWhere(orgId: string, { before, agentId, status }: ActionDeleteFilter): { where: string; params: unknown[] } {
   const conditions = ['org_id = $1'];
   const params: unknown[] = [orgId];
   let paramIdx = 2;
@@ -2135,11 +2132,47 @@ export async function listActionIdsByFilter(
     conditions.push(`status = $${paramIdx++}`);
     params.push(status);
   }
+  return { where: `WHERE ${conditions.join(' AND ')}`, params };
+}
+
+/**
+ * Resolve the action_ids a filtered bulk delete would remove, so the erasure
+ * audit row can be written (and awaited) BEFORE any row is deleted. Mirrors
+ * the filter semantics of DELETE /api/actions exactly.
+ */
+export async function listActionIdsByFilter(
+  sql: SqlClient,
+  orgId: string,
+  filter: ActionDeleteFilter,
+): Promise<string[]> {
+  const { where, params } = buildActionFilterWhere(orgId, filter);
   const rows = await sql.query(
-    `SELECT action_id FROM action_records WHERE ${conditions.join(' AND ')}`,
+    `SELECT action_id FROM action_records ${where}`,
     params
   );
   return rows.map((r: Row) => String(r.action_id));
+}
+
+/**
+ * Filtered bulk delete mirroring DELETE /api/actions semantics: related
+ * open_loops and assumptions rows go first, then the action rows themselves.
+ * Uses the same WHERE builder as listActionIdsByFilter, so the write-ahead
+ * audit's target set and the deletion always agree on what the filter means.
+ */
+export async function deleteActionsByFilter(sql: SqlClient, orgId: string, filter: ActionDeleteFilter): Promise<Row[]> {
+  const { where, params } = buildActionFilterWhere(orgId, filter);
+  await sql.query(
+    `DELETE FROM open_loops WHERE org_id = $1 AND action_id IN (SELECT action_id FROM action_records ${where})`,
+    params
+  );
+  await sql.query(
+    `DELETE FROM assumptions WHERE org_id = $1 AND action_id IN (SELECT action_id FROM action_records ${where})`,
+    params
+  );
+  return sql.query(
+    `DELETE FROM action_records ${where} RETURNING action_id`,
+    params
+  );
 }
 
 /**

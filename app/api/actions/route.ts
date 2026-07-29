@@ -20,6 +20,7 @@ import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspa
 import {
   createActionRecord,
   createBlockedActionRecord,
+  deleteActionsByFilter,
   deleteActionsByIds,
   getActionByIdempotencyKey,
   hasAgentAction,
@@ -555,46 +556,18 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'At least one filter required: before, agent_id, or status' }, { status: 400 });
     }
 
-    let paramIdx = 1;
-    const conditions = [`org_id = $${paramIdx++}`];
-    const params: unknown[] = [orgId];
-
-    if (before) {
-      conditions.push(`timestamp_start::timestamptz < $${paramIdx++}::timestamptz`);
-      params.push(before);
-    }
-    if (agentId) {
-      conditions.push(`agent_id = $${paramIdx++}`);
-      params.push(agentId);
-    }
-    if (status) {
-      conditions.push(`status = $${paramIdx++}`);
-      params.push(status);
-    }
-
-    const where = `WHERE ${conditions.join(' AND ')}`;
     const filter = { before: before || undefined, agent_id: agentId || undefined, status: status || undefined };
 
     // Resolve the target set first so the write-ahead audit row can name the
     // ids being erased. A row inserted between this read and the DELETE below
     // survives (the audit names what was requested at decision time).
+    // listActionIdsByFilter and deleteActionsByFilter share one WHERE builder
+    // in the repository, so the audited set and the deleted set cannot
+    // diverge on filter semantics.
     const targetIds = await listActionIdsByFilter(sql, orgId, { before, agentId, status });
     await auditDeletion(targetIds, filter);
 
-    // Clean up related loops + assumptions first
-    await sql.query(
-      `DELETE FROM open_loops WHERE org_id = $1 AND action_id IN (SELECT action_id FROM action_records ${where})`,
-      params
-    );
-    await sql.query(
-      `DELETE FROM assumptions WHERE org_id = $1 AND action_id IN (SELECT action_id FROM action_records ${where})`,
-      params
-    );
-
-    const result = await sql.query(
-      `DELETE FROM action_records ${where} RETURNING action_id`,
-      params
-    );
+    const result = await deleteActionsByFilter(sql, orgId, { before, agentId, status });
 
     return NextResponse.json({ deleted: result.length });
   } catch (error) {

@@ -10,6 +10,7 @@ const {
   mockHasAgentAction,
   mockInsertActionEmbedding,
   mockDeleteActionsByIds,
+  mockDeleteActionsByFilter,
   mockListActionIdsByFilter,
   mockMaybeSweepLostOutcomes,
   mockGetActionByIdempotencyKey,
@@ -30,6 +31,7 @@ const {
   mockHasAgentAction: vi.fn(),
   mockInsertActionEmbedding: vi.fn(),
   mockDeleteActionsByIds: vi.fn(),
+  mockDeleteActionsByFilter: vi.fn(async () => []),
   mockListActionIdsByFilter: vi.fn(async () => []),
   mockMaybeSweepLostOutcomes: vi.fn(async () => []),
   mockGetActionByIdempotencyKey: vi.fn(),
@@ -58,6 +60,7 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   createActionRecord: mockCreateActionRecord,
   createBlockedActionRecord: mockCreateBlockedActionRecord,
   deleteActionsByIds: mockDeleteActionsByIds,
+  deleteActionsByFilter: mockDeleteActionsByFilter,
   listActionIdsByFilter: mockListActionIdsByFilter,
   maybeSweepLostOutcomes: mockMaybeSweepLostOutcomes,
   hasAgentAction: mockHasAgentAction,
@@ -700,7 +703,7 @@ describe('/api/actions DELETE', () => {
 
   it('performs bulk delete with before filter', async () => {
     mockListActionIdsByFilter.mockResolvedValue(['act_1', 'act_2']);
-    mockSql.query.mockResolvedValue([{ action_id: 'act_1' }, { action_id: 'act_2' }]);
+    mockDeleteActionsByFilter.mockResolvedValue([{ action_id: 'act_1' }, { action_id: 'act_2' }]);
 
     const res = await DELETE(makeRequest('http://localhost/api/actions?before=2026-01-01', {
       headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
@@ -711,6 +714,9 @@ describe('/api/actions DELETE', () => {
     expect(data.deleted).toBe(2);
     // Write-ahead erasure audit: the target set is resolved before deleting.
     expect(mockListActionIdsByFilter).toHaveBeenCalled();
+    // The route passes the same filter to the audit read and the delete —
+    // the repository's shared WHERE builder keeps them in lockstep.
+    expect(mockDeleteActionsByFilter).toHaveBeenCalledWith(expect.anything(), 'org_1', { before: '2026-01-01', agentId: null, status: null });
   });
 
   it('fails closed: nothing is deleted when the erasure audit row cannot be written', async () => {
