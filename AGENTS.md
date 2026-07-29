@@ -73,12 +73,9 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-29 (commit 4dcbaa41). Confidence: 100%.
+Last indexed: 2026-07-29 (commit 1fb332c1). Confidence: 100%.
 ### Architecture
-This repository is an end-to-end “governed agent + documentation” platform: it ingests agent/policy configuration and repository content (inputs like contracts JSON, policy modes, and knowledge YAML), transforms them through a governance-aware agent runtime and an MCP tool server, and outputs runnable governed agent examples plus an SDK (JavaScript and Python) and an MCP-exposed interface for downstream tools/UI to consume. **Inputs**
-**Transformations**
-**Outputs**
-To add new governed capabilities:
+repo is a codebase documentation and governance toolkit that ingests a target repository (source files, contracts, and policy configuration), transforms it through indexing/parsing and governance-aware agent workflows, and outputs generated documentation artifacts plus an MCP-exposed tool surface and SDKs for programmatic consumption.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
@@ -106,7 +103,7 @@ To add new governed capabilities:
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `docs/maintainer-log.md` | 100.0th percentile | 133 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 135 | Wes Sander |
 | `mcp-server/lib/routes-inventory.generated.json` | 100.0th percentile | 34 | Wes Sander |
 | `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 71 | Wes Sander |
 | `app/lib/doctor/generated/shape.json` | 99.9th percentile | 71 | Wes Sander |

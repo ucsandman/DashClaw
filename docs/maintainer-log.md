@@ -137,6 +137,28 @@ guard/decisions, actions, activity, pairings, messages, and
 security/prompt-injection (coverage and agents/fanouts already guarded
 via `Number.isFinite`). Pinned on the two hottest routes. Suite: 3,605.
 
+*Continued (`1fb332c1`):* the day's diffs touched grant machinery, and
+grant machinery gets an adversarial security pass — the one step
+yesterday's batch skipped. Verdict: 0 critical, 0 high, 1 medium, 4 low,
+all actionable ones fixed same-session. The medium is the instructive
+one: my own derived-'expired' change had silently disarmed the review
+route's separation-of-duties 403s for lapsed denials — `existingStatus
+=== 'denied'` never matched a plan that now reads 'expired' — leaving
+the write-time predicate I added in the same commit as the only
+surviving layer. Defense-in-depth that quietly becomes single-layer is
+exactly what reviews are for. The pre-read now keys on `raw_status`
+(returned only by the detail read and stripped from every response, like
+`created_by`); `denyLiftAllowed` flipped to a fail-closed default; the
+duplicate-status-column trick was replaced with an explicit
+`derived_status` alias swapped in JS (the old shape leaned on
+undocumented driver last-column-wins behavior); the demo list entry got
+its sibling's method guard; and the param guards moved to
+`Number.isFinite` so an explicit `?limit=0` clamps instead of silently
+becoming a full default page. The reviewer also confirmed, explicitly
+per finding class, that the v5.4.0 grant-machinery invariants all still
+hold — grants under-match, denials over-match, nothing keys a denial on
+self-asserted identity, and SoD fails closed on NULL principals.
+
 **Shipped:** `cf3f7edc..9e1583c3` — a dependency-triage session, and one
 finding that rewrites what past sessions believed they'd fixed.
 
