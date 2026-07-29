@@ -43,8 +43,8 @@ export async function GET(request: Request) {
     const direction = searchParams.get('direction') || 'inbox';
     const type = searchParams.get('type');
     const unread = searchParams.get('unread');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 1000);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50', 10) || 50, 1), 1000);
+    const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0);
 
     const rows = await listMessages(sql, orgId, {
       agentId: agentId ?? undefined,

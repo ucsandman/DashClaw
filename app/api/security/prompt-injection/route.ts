@@ -66,8 +66,8 @@ export async function GET(request: Request) {
     const orgId = getOrgId(request);
     const { searchParams } = new URL(request.url);
 
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50', 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0);
 
     const { scans, total } = await listScans(sql, orgId, { limit, offset });
 

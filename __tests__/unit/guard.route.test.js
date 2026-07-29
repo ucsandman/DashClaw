@@ -227,6 +227,16 @@ describe('/api/guard', () => {
       expect(data.limit).toBe(1000);
     });
 
+    it('malformed limit/offset fall back to defaults instead of passing NaN to SQL', async () => {
+      mockListGuardDecisions.mockResolvedValueOnce({ decisions: [], total: 0, stats: {} });
+
+      const res = await GET(makeRequest('http://localhost/api/guard?limit=abc&offset=-5', { headers: { 'x-org-id': 'org_1' } }));
+      const data = await res.json();
+      expect(res.status).toBe(200);
+      expect(data.limit).toBe(20);
+      expect(data.offset).toBe(0);
+    });
+
     it('returns 500 on error', async () => {
       mockListGuardDecisions.mockRejectedValueOnce(new Error('db fail'));
       const res = await GET(makeRequest('http://localhost/api/guard', { headers: { 'x-org-id': 'org_1' } }));

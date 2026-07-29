@@ -259,6 +259,18 @@ describe('/api/actions GET', () => {
     expect(call.limit).toBe(200);
   });
 
+  it('malformed limit/offset fall back to defaults instead of passing NaN to SQL', async () => {
+    mockListActions.mockResolvedValue({ actions: [], total: 0, stats: {} });
+
+    await GET(makeRequest('http://localhost/api/actions?limit=abc&offset=-5', {
+      headers: { 'x-org-id': 'org_1' },
+    }));
+
+    const call = mockListActions.mock.calls[0][2];
+    expect(call.limit).toBe(50);
+    expect(call.offset).toBe(0);
+  });
+
   it('returns 500 on repository error', async () => {
     mockListActions.mockRejectedValue(new Error('db down'));
 
