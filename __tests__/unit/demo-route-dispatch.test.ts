@@ -149,6 +149,51 @@ describe('demo-mode dispatch — P20 gap handlers', () => {
     });
   });
 
+  // Containment Verdicts (v5.6.0): before these entries, the ignored
+  // containment_status filter returned EVERY demo action, so the demo
+  // /approvals rendered 50 bogus awaiting-promotion cards (live on
+  // www.dashclaw.io until 2026-07-29).
+  it('GET /api/actions?containment_status=awaiting_promotion serves exactly the contained demo action', async () => {
+    const res = await middleware(req('/api/actions?containment_status=awaiting_promotion&limit=50'));
+    expect(res.status).toBe(200);
+    const { actions } = await res.json();
+    expect(actions).toHaveLength(1);
+    expect(actions[0]).toMatchObject({
+      containment_status: 'awaiting_promotion',
+      containment_has_evidence: true,
+      containment_evidence_ref: expect.stringMatching(/^dashclaw\/contained-/),
+      containment_ref: expect.any(String),
+      agent_id: expect.any(String),
+      declared_goal: expect.any(String),
+    });
+
+    // An invalid filter value is ignored (same allowlist semantics as the
+    // real route) — the general list still returns the full set.
+    const all = await middleware(req('/api/actions?containment_status=bogus&limit=100'));
+    const allBody = await all.json();
+    expect(allBody.actions.length).toBeGreaterThan(1);
+  });
+
+  it('the contained demo action carries a patch artifact; the verdict POST answers a demo 403', async () => {
+    const list = await middleware(req('/api/actions?containment_status=awaiting_promotion'));
+    const { actions } = await list.json();
+    const id = actions[0].action_id;
+
+    const art = await middleware(req(`/api/actions/${id}/artifacts`));
+    expect(art.status).toBe(200);
+    const { artifacts } = await art.json();
+    const patch = artifacts.find((a: { artifact_type: string }) => a.artifact_type === 'patch');
+    expect(patch.content).toMatchObject({ ref: actions[0].containment_evidence_ref, diff: expect.stringContaining('diff --git'), truncated: false });
+
+    // Other actions have no artifacts, not an error.
+    const none = await middleware(req('/api/actions/ar_demo_deploy_block_001/artifacts'));
+    expect((await none.json()).artifacts).toHaveLength(0);
+
+    const verdict = await middleware(req(`/api/actions/${id}/containment`, { method: 'POST', body: { verdict: 'promote' } }));
+    expect(verdict.status).toBe(403);
+    expect((await verdict.json()).error).toMatch(/demo/i);
+  });
+
   it('GET /api/plans?status=approved serves the live demo plan; verdict POST answers a demo 403', async () => {
     const list = await middleware(req('/api/plans?status=approved&limit=20'));
     const { plans } = await list.json();

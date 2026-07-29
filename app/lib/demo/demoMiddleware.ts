@@ -51,6 +51,68 @@ const demoTestAction: AnyRecord = {
   timestamp_end: new Date().toISOString(),
   verified: true,
 };
+// Containment Verdicts (v5.6.0) demo: one staged action awaiting the // version-hardcode-allowed
+// operator's promote/discard verdict, with a believable patch artifact
+// behind it, so the /approvals containment card renders end to end on the
+// demo host. Fields match the enriched list-row contract ContainmentCard
+// reads (containment_has_evidence gates Promote; the ref is the reviewed
+// diff's branch).
+const DEMO_CONTAINED_ACTION_ID = 'ar_demo_contained_001';
+const DEMO_CONTAINED_REF = 'dashclaw/contained-demo9f31-a1b2c3';
+const demoContainedAction: AnyRecord = {
+  action_id: DEMO_CONTAINED_ACTION_ID,
+  org_id: 'org_demo',
+  agent_id: 'refactor-agent-2',
+  agent_name: 'Refactor Agent',
+  action_type: 'code_change',
+  declared_goal: 'Rename the billing retry helper and update its 14 call sites',
+  status: 'completed',
+  risk_score: 58,
+  confidence: 92,
+  timestamp_start: new Date(Date.now() - 40 * 60_000).toISOString(),
+  timestamp_end: new Date(Date.now() - 32 * 60_000).toISOString(),
+  verified: true,
+  containment_status: 'awaiting_promotion',
+  containment_ref: DEMO_CONTAINED_REF,
+  containment_has_evidence: true,
+  containment_evidence_ref: DEMO_CONTAINED_REF,
+};
+
+/** GET /api/actions/:id/artifacts — the contained demo action carries one
+ *  patch artifact (the evidence the operator reviews before Promote). */
+export function demoActionArtifacts(actionId: string) {
+  if (actionId !== DEMO_CONTAINED_ACTION_ID) return { artifacts: [] };
+  return {
+    artifacts: [
+      {
+        artifact_id: 'art_demo_patch_001',
+        action_id: DEMO_CONTAINED_ACTION_ID,
+        artifact_type: 'patch',
+        created_at: new Date(Date.now() - 33 * 60_000).toISOString(),
+        content: {
+          ref: DEMO_CONTAINED_REF,
+          stat: ' app/lib/billing/retry.ts | 18 +++++++++---------\n 14 files changed, 41 insertions(+), 38 deletions(-)',
+          diff: [
+            'diff --git a/app/lib/billing/retry.ts b/app/lib/billing/retry.ts',
+            '--- a/app/lib/billing/retry.ts',
+            '+++ b/app/lib/billing/retry.ts',
+            '@@ -12,9 +12,9 @@',
+            '-export async function retryPayment(invoiceId: string) {',
+            '+export async function retryFailedPayment(invoiceId: string) {',
+            '   const invoice = await getInvoice(invoiceId);',
+            '   if (!invoice) return null;',
+            '-  return schedule(retryPayment, invoiceId, BACKOFF_MS);',
+            '+  return schedule(retryFailedPayment, invoiceId, BACKOFF_MS);',
+            ' }',
+          ].join('\n'),
+          truncated: false,
+          untracked: [],
+        },
+      },
+    ],
+  };
+}
+
 const demoTestEval: AnyRecord = {
   id: `gd_demo_deploy_001`,
   agent_id: 'openai-deployer-1',
@@ -88,17 +150,25 @@ export function demoListActions(fixtures: DemoFixtures, url: URL) {
   const agentId = sp.get('agent_id') || undefined;
   const status = sp.get('status') || undefined;
   const actionType = sp.get('action_type') || undefined;
+  const containmentStatus = sp.get('containment_status') || undefined;
   const riskMinRaw = sp.get('risk_min');
   const riskMin = riskMinRaw ? parseInt(riskMinRaw, 10) : undefined;
   const limit = Math.min(parseInt(sp.get('limit') || '50', 10), 200);
   const offset = parseInt(sp.get('offset') || '0', 10);
 
-  // Combine deterministic demo test action with fixtures
-  let items = [demoTestAction, ...fixtures.actions];
+  // Combine deterministic demo actions with fixtures
+  let items = [demoTestAction, demoContainedAction, ...fixtures.actions];
 
   if (agentId) items = items.filter(a => a.agent_id === agentId);
   if (status) items = items.filter(a => a.status === status);
   if (actionType) items = items.filter(a => a.action_type === actionType);
+  // Same allowlist semantics as the real route (parseListActionsFilters): a
+  // valid value filters, an invalid one is ignored. Before this filter
+  // existed, the /approvals containment section rendered EVERY demo action
+  // as an awaiting-promotion card on the demo host.
+  if (containmentStatus && ['contained', 'awaiting_promotion', 'promoted', 'discarded'].includes(containmentStatus)) {
+    items = items.filter(a => a.containment_status === containmentStatus);
+  }
   if (Number.isFinite(riskMin)) items = items.filter(a => (parseInt(a.risk_score, 10) || 0) >= (riskMin as number));
 
   items.sort((a, b) => (b.timestamp_start || '').localeCompare(a.timestamp_start || ''));
@@ -205,6 +275,18 @@ export function demoActionDetail(fixtures: DemoFixtures, actionId: string): AnyR
       ],
       decision: demoTestEval.decision,
       decision_reason: demoTestEval.reason
+    };
+  }
+
+  // The contained demo action resolves like the test action — it lives in
+  // this module, not fixtures.actions, so the fall-through below misses it.
+  if (actionId === DEMO_CONTAINED_ACTION_ID) {
+    return {
+      action: demoContainedAction,
+      open_loops: [],
+      assumptions: [],
+      decision: 'allow_contained',
+      decision_reason: '[Demo fixture] Risk 58 with a containment-eligible act: the work ran on an isolated branch; results merge only after an operator promotes the reviewed diff.',
     };
   }
 

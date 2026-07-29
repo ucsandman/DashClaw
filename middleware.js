@@ -7,7 +7,7 @@ import {
   demoListActions, demoCreateAction, demoActionDetail, demoAssumptions,
   demoTokens, demoPolicies, demoPolicySummary, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost,
   demoCalibrationController, demoDoctor,
-  demoPlans, demoPlanDetail,
+  demoPlans, demoPlanDetail, demoActionArtifacts,
   demoTuningProposals, demoTighteningProposals, demoLooseningProposals, demoCalibrationProposals,
   demoContent, demoActivity,
   demoWebhooks, demoWebhookDeliveries, demoSchedules,
@@ -1098,6 +1098,12 @@ const DEMO_API_ROUTES = [
   [(pathname) => pathname === '/api/actions/assumptions' || pathname === '/api/assumptions', demoFixtureUrlRoute(demoAssumptions)],
   ['/api/actions/stats', demoFixtureRoute(demoDecisionMetrics)],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'actions', '*', 'trace']), handleDemoActionTrace],
+  // Containment Verdicts (v5.6.0): the card's lazy diff load and its
+  // promote/discard POST. The verdict answers an honest demo 403 (static
+  // fixtures cannot transition; symmetric with the plans entries).
+  [(pathname, segments) => segmentsMatch(segments, ['api', 'actions', '*', 'artifacts']), ({ request, segments }) => demoJson(request, demoActionArtifacts(segments[2]))],
+  [(pathname, segments) => segmentsMatch(segments, ['api', 'actions', '*', 'containment']), ({ request }) =>
+    demoJson(request, { error: 'Demo mode: containment verdicts are disabled. Connect an instance to promote or discard real contained work.' }, 403)],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'actions', '*']), handleDemoActionDetail],
   // Dashboard widgets
   ['/api/goals', ({ request, fixtures }) => demoJson(request, { goals: fixtures.goals, stats: { totalGoals: fixtures.goals.length }, lastUpdated: new Date().toISOString() })],

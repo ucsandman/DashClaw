@@ -26,7 +26,7 @@ const agentPool: PoolAgent[] = [
 
 const agentIds = agentPool.map((a) => a.id);
 
-/* ---------- 6 guard policies ---------- */
+/* ---------- 7 guard policies ---------- */
 
 interface GuardPolicy {
   id: string;
@@ -104,6 +104,28 @@ const policies: GuardPolicy[] = [
     active: false,
     created_at: isoFromNow(12 * MS_DAY),
   },
+  {
+    // Delegation constraints (v5.5.0): authority attenuation for composed // version-hardcode-allowed
+    // subagents (parent:child ids) — without this entry the 15th policy
+    // type was invisible on the demo /policies ledger. Config keys mirror
+    // the real validator (validate.js delegation_constraint). Appended LAST:
+    // guard-decision fixtures pick policies by identity, and inserting
+    // mid-array shifts every downstream entry.
+    id: stableId('pol_demo', 7),
+    org_id: DEMO_ORG,
+    name: 'Subagent Authority Ceiling',
+    type: 'delegation_constraint',
+    config: JSON.stringify({
+      parent: 'refactor-agent-2',
+      max_risk_score: 45,
+      blocked_action_types: ['deploy', 'database_write'],
+      max_depth: 2,
+      escalate_action: 'require_approval',
+    }),
+    active: true,
+    description: 'Subagents spawned by refactor-agent-2 inherit a 45-point risk ceiling, cannot deploy or write to databases, and may not fan out deeper than two levels. Attenuation only tightens — a child never gains authority its parent lacks.',
+    created_at: isoFromNow(3 * MS_DAY),
+  },
 ];
 
 const policyIds = policies.map((p) => p.id);
@@ -176,16 +198,23 @@ for (let i = decisionSlots.length - 1; i > 0; i--) {
 
 /* ---------- policy selection by decision type ---------- */
 
+// Name-based lookup — the previous positional indexing (policies[3] etc.)
+// had already drifted from its own comments as the array evolved, and every
+// insert shifted it further. The names are the spec.
+function policyByName(name: string): GuardPolicy {
+  return (policies.find((p) => p.name === name) ?? policies[0]) as GuardPolicy;
+}
+
 function policyForDecision(decision: string): GuardPolicy {
   switch (decision) {
     case 'allow':
       return pick(rnd, policies.filter((p) => p.active));
     case 'block':
-      return policies[3] as GuardPolicy; // Block Dangerous Operations
+      return policyByName('Block Dangerous Operations');
     case 'warn':
-      return policies[0] as GuardPolicy; // High Risk Action Gate (risk approaching threshold)
+      return policyByName('High Risk Action Gate');
     case 'require_approval':
-      return policies[1] as GuardPolicy; // Production Deploy Approval
+      return policyByName('Production Deploy Approval');
     default:
       return pick(rnd, policies);
   }
