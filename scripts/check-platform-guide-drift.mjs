@@ -46,7 +46,23 @@ for (const area of guide.areas) {
 const missing = [...expected].filter((k) => !documented.has(k)).sort();
 const stale = [...documented].filter((k) => !expected.has(k)).sort();
 
-if (missing.length || stale.length) {
+// meta.counts renders on the guide's hero ("N entries: …") — it must equal a
+// live tally of the dataset's own items. Regenerations that add items without
+// recomputing the summary drifted this to 417 while the items said 421.
+const tally = { total: 0, stable: 0, beta: 0, experimental: 0, archived: 0, deprecated: 0 };
+for (const area of guide.areas) {
+  for (const item of area.items) {
+    if (item.status in tally) tally[item.status] += 1;
+    tally.total += 1;
+  }
+}
+const counts = guide.meta?.counts ?? {};
+const countDrift = Object.entries(tally).filter(([k, v]) => Number(counts[k] ?? 0) !== v);
+
+if (missing.length || stale.length || countDrift.length) {
+  for (const [k, v] of countDrift) {
+    console.error(`meta.counts.${k} says ${counts[k] ?? 0} but the dataset's items tally to ${v} — recompute meta.counts in the regen.`);
+  }
   console.error('Platform guide has drifted from docs/api-inventory.json:');
   for (const k of missing) console.error(`  MISSING from guide: ${k}`);
   for (const k of stale) console.error(`  STALE in guide (route no longer exists): ${k}`);
