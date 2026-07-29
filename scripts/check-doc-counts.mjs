@@ -73,9 +73,16 @@ function sources() {
   const ptMatch = /const POLICY_TYPES\s*=\s*\[([^\]]+)\]/.exec(validateSrc);
   const policyTypes = ptMatch ? (ptMatch[1].match(/'[^']+'/g) || []).length : 0;
 
+  // Exact tool-name set (not just the count) so README tool enumerations can
+  // be gated for membership drift, not only arithmetic.
+  const mcpToolNames = new Set(
+    [...read('mcp-server/src/tools.ts').matchAll(/^\s*name:\s*['"](dashclaw_\w+)['"]/gm)].map((m) => m[1]),
+  );
+
   return {
     routes,
     sdk,
+    mcpToolNames,
     mcpTools: countMatches('mcp-server/src/tools.ts', /^\s*name:\s*['"]dashclaw_/gm),
     mcpResources: countMatches('mcp-server/src/resources.ts', /^\s*uri:\s*['"]/gm),
     shields: countMatches('app/policies/lib/shields.js', /^\s*id:\s*['"]/gm),
@@ -172,11 +179,12 @@ const DATE_CHECKS = [
 ];
 
 // Honesty: surfaces a thorough sweep covers that this script does NOT yet gate.
-const UNCOVERED = [
-  'README.md / sdk READMEs / reference docs "N groups" (MCP groups have no machine-readable source in tools.js — verify by hand)',
-  'README.md "N new sections" (governance-skill section count)',
-  'sdk-parity.md route + signal-type counts',
-];
+// 2026-07-28 sweep: the former three entries are gone — "N new sections" and
+// the sdk-parity route/signal counts no longer appear in any doc (verified by
+// grep), and the "N groups" prose is now gated below via tool-name set
+// equality + per-group sums + cross-surface group-count consistency (the
+// group taxonomy itself stays editorial; its arithmetic no longer can drift).
+const UNCOVERED = [];
 
 function lastCommitDate(file) {
   try {
@@ -230,6 +238,68 @@ for (const d of DATE_CHECKS) {
   } else {
     oks.push(`${d.file}: freshness stamp ${stamp} is current`);
   }
+}
+
+// ---- MCP tool enumeration + group arithmetic ----
+// The SDK READMEs enumerate every tool name inside their MCP section prose.
+// Gate MEMBERSHIP (set equality vs tools.ts), not just the count: a renamed or
+// forgotten tool keeps the arithmetic right while the list lies.
+const ENUMERATIONS = [
+  // sdk/README.md: a bulleted group list between the "**N tools** in N groups:"
+  // header and the "**3 resources:**" line, each bullet carrying "(N)".
+  { file: 'sdk/README.md', label: 'MCP tool enumeration',
+    section: /\*\*\d+ tools\*\* in (\d+) groups:([\s\S]*?)\*\*\d+ resources?:?\*\*/ },
+  // sdk-python/README.md: one prose sentence, "**N tools** across N groups: ... ."
+  { file: 'sdk-python/README.md', label: 'MCP tool enumeration',
+    section: /\*\*\d+ tools\*\* across (\d+) groups:([\s\S]*?)(?:\n\n|Plus \d+ resources)/ },
+];
+const groupCounts = [];
+for (const e of ENUMERATIONS) {
+  let text;
+  try {
+    text = read(e.file);
+  } catch {
+    warnings.push(`${e.file}: file not found — '${e.label}' not checked.`);
+    continue;
+  }
+  const m = e.section.exec(text);
+  if (!m) {
+    warnings.push(`${e.file}: '${e.label}' section not found — doc may have been reworded; not asserted.`);
+    continue;
+  }
+  groupCounts.push({ file: e.file, groups: Number(m[1]) });
+  const listed = new Set([...m[2].matchAll(/`(dashclaw_\w+)`/g)].map((x) => x[1]));
+  const missing = [...S.mcpToolNames].filter((n) => !listed.has(n));
+  const extra = [...listed].filter((n) => !S.mcpToolNames.has(n));
+  if (missing.length || extra.length) {
+    errors.push(`${e.file}: ${e.label} drifted — missing from doc: [${missing.join(', ') || 'none'}]; not in tools.ts: [${extra.join(', ') || 'none'}]`);
+  } else {
+    oks.push(`${e.file}: ${e.label} lists exactly the ${S.mcpToolNames.size} live tools`);
+  }
+  // Per-group "(N)" sums must add up to the live tool count (bulleted form only).
+  const perGroup = [...m[2].matchAll(/^- \*\*[^*]+\((\d+)\):?\*\*/gm)].map((x) => Number(x[1]));
+  if (perGroup.length > 0) {
+    const sum = perGroup.reduce((a, b) => a + b, 0);
+    if (sum !== S.mcpTools) {
+      errors.push(`${e.file}: per-group tool counts sum to ${sum} but tools.ts has ${S.mcpTools}`);
+    } else {
+      oks.push(`${e.file}: per-group counts [${perGroup.join('+')}] sum to ${S.mcpTools}`);
+    }
+    if (perGroup.length !== Number(m[1])) {
+      errors.push(`${e.file}: declares ${m[1]} groups but lists ${perGroup.length} group bullets`);
+    }
+  }
+}
+// Group count has no machine source (taxonomy is editorial), but every surface
+// that states one must state the SAME one.
+const docsPage = read('app/docs/page.tsx');
+const docsGroups = /\d+ governance tools across (\d+) groups/.exec(docsPage);
+if (docsGroups) groupCounts.push({ file: 'app/docs/page.tsx', groups: Number(docsGroups[1]) });
+const distinct = [...new Set(groupCounts.map((g) => g.groups))];
+if (distinct.length > 1) {
+  errors.push(`MCP group count disagrees across surfaces: ${groupCounts.map((g) => `${g.file}=${g.groups}`).join(', ')}`);
+} else if (groupCounts.length > 1) {
+  oks.push(`MCP group count consistent (${distinct[0]}) across ${groupCounts.length} surfaces`);
 }
 
 // ---- report ----
