@@ -124,6 +124,19 @@ between header and step writes strands steps unconsumable, which is the
 fail-safe direction. The "7 local smoke env failures" item is a
 machine-environment cleanup, not repo work. Suite: 3,603.
 
+*Continued (`2924141a`):* with `actions/route.ts` improved, the
+worst-health slot moved to `app/api/guard/route.ts` — triaged it the
+same way and found it structurally sound (well-factored helpers, zero
+direct SQL, comments that trace to reviews; the 1.0/10 is hot-path
+churn). But the read surfaced a real hole its GET shared with six other
+list routes: `?limit=abc` parses to NaN, `Math.min` passes NaN through,
+and Postgres rejects the LIMIT param as a 500 — a malformed query param
+should never be a server error. The plans route had fixed exactly this
+for itself (its R4 note); the same one-line guard now covers guard,
+guard/decisions, actions, activity, pairings, messages, and
+security/prompt-injection (coverage and agents/fanouts already guarded
+via `Number.isFinite`). Pinned on the two hottest routes. Suite: 3,605.
+
 **Shipped:** `cf3f7edc..9e1583c3` — a dependency-triage session, and one
 finding that rewrites what past sessions believed they'd fixed.
 
