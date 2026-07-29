@@ -1155,6 +1155,76 @@ export function demoCalibrationProposals() {
   };
 }
 
+/** Preflight plans for the demo /approvals surface: one pending plan
+ *  awaiting the one-card review, one approved plan mid-run (a consumed
+ *  step) for the Live plans section. Complete rows — every field
+ *  PlanReviewCard/LivePlansSection reads is present (a missing field
+ *  wedges the card, same lesson as the proposal-queue payloads). */
+export function demoPlans(fixtures: DemoFixtures) {
+  const agentId = demoAgentIdList(fixtures)[0] ?? 'deploy-agent';
+  const now = Date.now();
+  const iso = (minsFromNow: number) => new Date(now + minsFromNow * 60_000).toISOString();
+  return [
+    {
+      plan_id: 'pa_demo_pending01',
+      agent_id: agentId,
+      declared_goal: 'Ship the payment-retry fix: patch, migrate, deploy',
+      status: 'pending',
+      ttl_minutes: 120,
+      created_at: iso(-12),
+      reviewed_by: null,
+      reviewed_at: null,
+      expires_at: null,
+    },
+    {
+      plan_id: 'pa_demo_live01',
+      agent_id: agentId,
+      declared_goal: 'Rotate the staging API credentials',
+      status: 'approved',
+      ttl_minutes: 60,
+      created_at: iso(-45),
+      reviewed_by: 'ops@demo',
+      reviewed_at: iso(-40),
+      expires_at: iso(20),
+    },
+  ];
+}
+
+export function demoPlanDetail(fixtures: DemoFixtures, planId: string) {
+  const plan = demoPlans(fixtures).find((p) => p.plan_id === planId);
+  if (!plan) return null;
+  const now = Date.now();
+  const step = (
+    seq: number, action_type: string, step_goal: string,
+    preview: { d: string; r: number }, grant: { status: string; usedMinsAgo?: number },
+  ) => ({
+    step_id: `ps_demo_${planId.slice(-6)}_${seq}`,
+    plan_id: planId,
+    seq,
+    action_type,
+    step_goal,
+    act: { kind: action_type, summary: step_goal },
+    act_content_hash: `demo${seq}${planId.slice(-6)}`.padEnd(16, '0'),
+    preview_decision: preview.d,
+    preview_risk_score: preview.r,
+    preview_reasons: [],
+    grant_status: grant.status,
+    grant_used_at: grant.usedMinsAgo != null ? new Date(now - grant.usedMinsAgo * 60_000).toISOString() : null,
+    matched_action_id: null,
+  });
+  const steps = planId === 'pa_demo_pending01'
+    ? [
+        step(1, 'code_change', 'Patch the retry backoff in billing/worker.ts', { d: 'allow', r: 18 }, { status: 'pending' }),
+        step(2, 'database_write', 'Backfill failed-payment rows to retryable', { d: 'warn', r: 52 }, { status: 'pending' }),
+        step(3, 'deploy', 'Deploy billing-worker to production', { d: 'require_approval', r: 74 }, { status: 'pending' }),
+      ]
+    : [
+        step(1, 'api_call', 'Mint replacement staging credentials', { d: 'allow', r: 25 }, { status: 'approved', usedMinsAgo: 30 }),
+        step(2, 'config_change', 'Swap the credential in staging env config', { d: 'warn', r: 45 }, { status: 'approved' }),
+      ];
+  return { plan, steps };
+}
+
 /** GET /api/calibration/controller — a shadow-mode controller snapshot with a
  *  believable adjudication history: θ easing down from its 80 start as
  *  approvals accumulate, a handful of denials, one standing agent alarm.

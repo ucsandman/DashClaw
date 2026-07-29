@@ -103,6 +103,17 @@ export async function stampStepPreview(
   `;
 }
 
+// Read paths present a reviewed plan whose TTL has lapsed as 'expired'
+// (derived — no writer flips rows to 'expired'; the enforcement paths
+// already check expires_at directly, so this is presentation truth, not
+// machinery). Duplicate `status` column: drivers build row objects in field
+// order, so the derived value (last) wins. reviewPlan intentionally reads
+// raw status — 'denied' past TTL must stay revocable/liftable by its rules.
+const DERIVED_STATUS_SQL = `CASE
+  WHEN status IN ('approved', 'partially_approved', 'denied')
+    AND expires_at IS NOT NULL AND expires_at <= now()
+  THEN 'expired' ELSE status END`;
+
 export async function listPlans(
   sql: SqlClient,
   orgId: string,
@@ -111,18 +122,21 @@ export async function listPlans(
   const conditions = ['org_id = $1'];
   const params: unknown[] = [orgId];
   let idx = 2;
-  if (filters.status) { conditions.push(`status = $${idx}`); params.push(filters.status); idx++; }
+  // Filter on the DERIVED status so ?status=approved excludes lapsed plans
+  // and ?status=expired actually finds them.
+  if (filters.status) { conditions.push(`(${DERIVED_STATUS_SQL}) = $${idx}`); params.push(filters.status); idx++; }
   if (filters.agentId) { conditions.push(`agent_id = $${idx}`); params.push(filters.agentId); idx++; }
   return sql.query(
-    `SELECT * FROM plan_authorizations WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${idx}`,
+    `SELECT *, ${DERIVED_STATUS_SQL} AS status FROM plan_authorizations WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${idx}`,
     [...params, filters.limit ?? 50],
   );
 }
 
 export async function getPlanWithSteps(sql: SqlClient, orgId: string, planId: string) {
-  const plans = await sql`
-    SELECT * FROM plan_authorizations WHERE org_id = ${orgId} AND plan_id = ${planId}
-  `;
+  const plans = await sql.query(
+    `SELECT *, ${DERIVED_STATUS_SQL} AS status FROM plan_authorizations WHERE org_id = $1 AND plan_id = $2`,
+    [orgId, planId],
+  );
   if (!plans[0]) return null;
   const steps = await sql`
     SELECT * FROM plan_authorization_steps WHERE org_id = ${orgId} AND plan_id = ${planId} ORDER BY seq ASC
@@ -182,8 +196,25 @@ export async function reviewPlan(
   sql: SqlClient,
   orgId: string,
   planId: string,
-  input: { verdict: 'approve' | 'deny' | 'revoke'; stepOverrides?: Record<string, string>; reviewedBy: string; ttlClampMinutes: number },
+  input: {
+    verdict: 'approve' | 'deny' | 'revoke';
+    stepOverrides?: Record<string, string>;
+    reviewedBy: string;
+    ttlClampMinutes: number;
+    /**
+     * Whether THIS principal may revoke a 'denied' plan (lift an operator's
+     * explicit no). The route computes it from separation-of-duties
+     * (operator, or a principal other than the submitter) and its own 403s
+     * remain the user-facing gate — but the pre-read they use is racy: a
+     * denial landing between the route's SELECT and this UPDATE would
+     * otherwise be liftable by the submitter. Threading the permission into
+     * the UPDATE's status predicate makes the gate hold at write time.
+     * Defaults true (denied stays revocable) for callers that gate upstream.
+     */
+    denyLiftAllowed?: boolean;
+  },
 ) {
+  const denyLiftAllowed = input.denyLiftAllowed !== false;
   const plans = await sql`
     SELECT * FROM plan_authorizations WHERE org_id = ${orgId} AND plan_id = ${planId}
   `;
@@ -194,7 +225,10 @@ export async function reviewPlan(
     // U4: 'previewing' is included so an operator can kill a stuck preview
     // run (e.g. the dry-run loop hung mid-plan) before it ever reaches
     // 'pending'.
-    if (!['previewing', 'pending', 'approved', 'partially_approved', 'denied'].includes(plan.status)) return null;
+    const revocable = denyLiftAllowed
+      ? ['previewing', 'pending', 'approved', 'partially_approved', 'denied']
+      : ['previewing', 'pending', 'approved', 'partially_approved'];
+    if (!revocable.includes(plan.status)) return null;
     // Revoke ends everything about the plan immediately: unconsumed grants
     // via the status exclusion in consumePlanStepGrant (which only matches
     // approved/partially_approved), and explicit step denials via
@@ -204,11 +238,15 @@ export async function reviewPlan(
     // (what was explicitly approved/denied at review time), while status +
     // expires_at control liveness. An operator who wants denials to persist
     // simply leaves the plan un-revoked.
+    // The 'denied' arm is gated on denyLiftAllowed IN SQL (not only via the
+    // pre-read above): lifting a denial is the same privilege as approving,
+    // and the predicate must hold at write time, not pre-read time.
     const updated = await sql`
       UPDATE plan_authorizations
       SET status = 'revoked', reviewed_by = ${input.reviewedBy}, reviewed_at = now(), expires_at = now()
       WHERE org_id = ${orgId} AND plan_id = ${planId}
-        AND status IN ('previewing', 'pending', 'approved', 'partially_approved', 'denied')
+        AND (status IN ('previewing', 'pending', 'approved', 'partially_approved')
+          OR (${denyLiftAllowed} AND status = 'denied'))
       RETURNING *
     `;
     if (!updated[0]) return null;

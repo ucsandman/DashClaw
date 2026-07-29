@@ -139,8 +139,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
     // raise the grant lifetime above the hard ceiling.
     const ttlClampMinutes = Math.min(configuredTtlClampMinutes, DEFAULT_TTL_CLAMP_MINUTES);
 
+    // Deny-lift as a SQL precondition: the 403s above gate on a pre-read of
+    // status, which races a denial landing before reviewPlan's UPDATE. This
+    // principal may lift a denial only as the operator or as a principal
+    // other than the (attributable) submitter — the same rule the 403s
+    // enforce, now also held at write time inside the revoke UPDATE.
+    const denyLiftAllowed = userId === 'operator' || (Boolean(createdBy) && createdBy !== userId);
     const result = await reviewPlan(sql, orgId, planId, {
-      verdict, stepOverrides: stepOverrides ?? {}, reviewedBy: userId, ttlClampMinutes,
+      verdict, stepOverrides: stepOverrides ?? {}, reviewedBy: userId, ttlClampMinutes, denyLiftAllowed,
     });
     if (!result) {
       return NextResponse.json({ error: 'Plan not found or not reviewable in its current status' }, { status: 404 });

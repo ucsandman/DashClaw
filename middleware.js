@@ -7,6 +7,7 @@ import {
   demoListActions, demoCreateAction, demoActionDetail, demoAssumptions,
   demoTokens, demoPolicies, demoPolicySummary, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost,
   demoCalibrationController, demoDoctor,
+  demoPlans, demoPlanDetail,
   demoTuningProposals, demoTighteningProposals, demoLooseningProposals, demoCalibrationProposals,
   demoContent, demoActivity,
   demoWebhooks, demoWebhookDeliveries, demoSchedules,
@@ -1117,6 +1118,22 @@ const DEMO_API_ROUTES = [
   ['/api/calibration/proposals', demoPayloadRoute(demoCalibrationProposals)],
   ['/api/calibration/controller', demoFixtureRoute(demoCalibrationController)],
   ['/api/doctor', demoPayloadRoute(demoDoctor)],
+  // Preflight plans (v5.4.0): the /approvals plans card fetches
+  // ?status=<s>&limit=N then a detail per plan — without these entries the
+  // demo showed no plans at all. Verdict POSTs answer an honest demo 403
+  // (stateless fixtures can't transition status).
+  ['/api/plans', ({ request, fixtures }) => {
+    const status = new URL(request.url).searchParams.get('status');
+    const plans = demoPlans(fixtures).filter((p) => !status || p.status === status);
+    return demoJson(request, { plans });
+  }],
+  [(pathname, segments) => segmentsMatch(segments, ['api', 'plans', '*']), ({ request, fixtures, segments }) => {
+    if (request.method !== 'GET') {
+      return demoJson(request, { error: 'Demo mode: plan verdicts are disabled. Connect an instance to review real plans.' }, 403);
+    }
+    const detail = demoPlanDetail(fixtures, segments[2]);
+    return detail ? demoJson(request, detail) : demoJson(request, { error: 'Plan not found' }, 404);
+  }],
   // ── Routing demo endpoints ──
   ['/api/routing/health', demoFixturePropRoute('routingHealth')],
   ['/api/routing/stats', demoFixturePropRoute('routingStats')],

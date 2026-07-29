@@ -429,7 +429,7 @@ describe('POST /api/plans/[planId]', () => {
     expect(data.steps).toEqual(steps);
     expect(mockReviewPlan).toHaveBeenCalledWith(
       mockGetSql, 'org_test', 'pa_1234567890abcdef',
-      { verdict: 'approve', stepOverrides: {}, reviewedBy: 'user_1', ttlClampMinutes: 30 },
+      { verdict: 'approve', stepOverrides: {}, reviewedBy: 'user_1', ttlClampMinutes: 30, denyLiftAllowed: false },
     );
   });
 
@@ -441,7 +441,7 @@ describe('POST /api/plans/[planId]', () => {
 
     expect(mockReviewPlan).toHaveBeenCalledWith(
       mockGetSql, 'org_test', 'pa_1234567890abcdef',
-      { verdict: 'deny', stepOverrides: {}, reviewedBy: 'user_1', ttlClampMinutes: 480 },
+      { verdict: 'deny', stepOverrides: {}, reviewedBy: 'user_1', ttlClampMinutes: 480, denyLiftAllowed: false },
     );
   });
 
@@ -465,6 +465,22 @@ describe('POST /api/plans/[planId]', () => {
     expect(res.status).toBe(400);
     expect(data.error).toMatch(/step_overrides\.ps_1 must be "approve" or "deny"/);
     expect(mockReviewPlan).not.toHaveBeenCalled();
+  });
+
+  it('deny-lift precondition: a principal other than the submitter passes denyLiftAllowed: true into the SQL layer', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', created_by: 'user_submitter' },
+      steps: [],
+    });
+    const plan = { plan_id: 'pa_1234567890abcdef', status: 'revoked' };
+    mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
+
+    await POST(postReq({ verdict: 'revoke' }), { params });
+
+    expect(mockReviewPlan).toHaveBeenCalledWith(
+      mockGetSql, 'org_test', 'pa_1234567890abcdef',
+      expect.objectContaining({ denyLiftAllowed: true }),
+    );
   });
 
   it('passes step_overrides through to reviewPlan', async () => {

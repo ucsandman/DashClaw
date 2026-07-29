@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createPlanWithSteps, reviewPlan, consumePlanStepGrant, findDeniedStepMatch, countPendingPlans,
-  markPlanPending, PENDING_PLAN_CAP_WINDOW_MINUTES,
+  markPlanPending, listPlans, getPlanWithSteps, PENDING_PLAN_CAP_WINDOW_MINUTES,
 } from '../../app/lib/repositories/plans.repository';
 import { computeActContentHash } from '../../app/lib/act-content-hash';
 
@@ -342,6 +342,61 @@ describe('plans.repository', () => {
     expect(result!.plan!.status).toBe('revoked');
     const headerUpdate = sql.calls.find((c) => c.text.includes('UPDATE plan_authorizations'));
     expect(headerUpdate!.text).toContain("'denied'");
+  });
+
+  it('denyLiftAllowed:false — revoke of a denied plan returns null without writing', async () => {
+    const sql = sqlMock([
+      [{ plan_id: 'pa_1', ttl_minutes: 60, status: 'denied' }], // SELECT plan
+    ]);
+    const result = await reviewPlan(sql as never, 'org_1', 'pa_1', {
+      verdict: 'revoke', reviewedBy: 'submitter_key', ttlClampMinutes: 480, denyLiftAllowed: false,
+    });
+    expect(result).toBeNull();
+    expect(sql.calls.some((c) => c.text.includes('UPDATE'))).toBe(false);
+  });
+
+  it('denyLiftAllowed:false — revoke of a live plan still works, and the SQL predicate (not just the pre-read) gates the denied arm', async () => {
+    const sql = sqlMock([
+      [{ plan_id: 'pa_1', ttl_minutes: 60, status: 'approved' }], // SELECT plan
+      [{ plan_id: 'pa_1', status: 'revoked' }], // UPDATE plan_authorizations RETURNING *
+      [], // SELECT steps ORDER BY seq ASC
+    ]);
+    const result = await reviewPlan(sql as never, 'org_1', 'pa_1', {
+      verdict: 'revoke', reviewedBy: 'submitter_key', ttlClampMinutes: 480, denyLiftAllowed: false,
+    });
+    expect(result!.plan!.status).toBe('revoked');
+    const headerUpdate = sql.calls.find((c) => c.text.includes('UPDATE plan_authorizations'));
+    // The denied arm is parameterized on denyLiftAllowed so it holds at
+    // WRITE time — a denial landing after the route's pre-read cannot be
+    // lifted by a principal the route computed as not-allowed.
+    expect(headerUpdate!.text).toContain("AND status = 'denied'");
+    expect(headerUpdate!.v).toContain(false);
+  });
+
+  it('read paths derive expired: SELECTs carry the CASE, and a status filter matches the DERIVED value', async () => {
+    const sql = sqlMock([
+      [], // listPlans query
+      [{ plan_id: 'pa_1', status: 'expired' }], // getPlanWithSteps plan query
+      [], // getPlanWithSteps steps query
+    ]);
+    await listPlans(sql as never, 'org_1', { status: 'expired' });
+    const listCall = sql.calls[0]!;
+    expect(listCall.text).toContain("THEN 'expired' ELSE status END");
+    // The filter wraps the derived expression, so ?status=approved excludes
+    // lapsed plans and ?status=expired finds them.
+    expect(listCall.text).toMatch(/CASE[\s\S]*END\) = \$2/);
+
+    await getPlanWithSteps(sql as never, 'org_1', 'pa_1');
+    const detailCall = sql.calls[1]!;
+    expect(detailCall.text).toContain("THEN 'expired' ELSE status END");
+    // reviewPlan intentionally reads RAW status (denied past TTL stays
+    // subject to its own revoke/lift rules) — pinned by it NOT carrying the
+    // derivation.
+    const reviewSql = sqlMock([[{ plan_id: 'pa_1', ttl_minutes: 60, status: 'denied' }]]);
+    await reviewPlan(reviewSql as never, 'org_1', 'pa_1', {
+      verdict: 'revoke', reviewedBy: 'x', ttlClampMinutes: 480, denyLiftAllowed: false,
+    });
+    expect(reviewSql.calls[0]!.text).not.toContain('THEN \'expired\'');
   });
 
   it('reviewPlan deny uses the org ttlClampMinutes directly, never min(ttl_minutes, clamp)', async () => {

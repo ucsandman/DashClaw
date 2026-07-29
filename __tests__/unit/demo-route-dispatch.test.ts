@@ -126,4 +126,38 @@ describe('demo-mode dispatch — P20 gap handlers', () => {
     expect(body.ok).toBe(true);
     expect(body.demo).toBe(true);
   });
+
+  // v5.4.0 follow-up: the /approvals plans card fetches ?status=<s> then a
+  // detail per plan — before these entries the demo showed no plans at all.
+  it('GET /api/plans?status=pending serves the demo pending plan; detail carries complete steps', async () => {
+    const list = await middleware(req('/api/plans?status=pending&limit=20'));
+    expect(list.status).toBe(200);
+    const { plans } = await list.json();
+    expect(plans).toHaveLength(1);
+    expect(plans[0].status).toBe('pending');
+
+    const detail = await middleware(req(`/api/plans/${plans[0].plan_id}`));
+    expect(detail.status).toBe(200);
+    const body = await detail.json();
+    expect(body.plan.plan_id).toBe(plans[0].plan_id);
+    expect(body.steps.length).toBeGreaterThan(0);
+    // Complete rows — a missing field wedges PlanReviewCard on skeletons.
+    expect(body.steps[0]).toMatchObject({
+      step_id: expect.any(String), seq: 1, action_type: expect.any(String),
+      step_goal: expect.any(String), preview_decision: expect.any(String),
+      preview_risk_score: expect.any(Number), grant_status: expect.any(String),
+    });
+  });
+
+  it('GET /api/plans?status=approved serves the live demo plan; verdict POST answers a demo 403', async () => {
+    const list = await middleware(req('/api/plans?status=approved&limit=20'));
+    const { plans } = await list.json();
+    expect(plans).toHaveLength(1);
+    expect(plans[0].expires_at).toEqual(expect.any(String));
+
+    const verdict = await middleware(req(`/api/plans/${plans[0].plan_id}`, { method: 'POST', body: { verdict: 'revoke' } }));
+    expect(verdict.status).toBe(403);
+    const body = await verdict.json();
+    expect(body.error).toMatch(/demo/i);
+  });
 });
