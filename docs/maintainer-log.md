@@ -83,6 +83,22 @@ group-count consistency across the three surfaces that state one.
 Mutation-tested before commit: renaming one tool in the doc fails the
 gate naming the exact missing/extra tool.
 
+*Continued (`690eb7e2`):* triaged the biomarker list honestly —
+`approval-flood.ts` (entropy −2.7) is a fresh W3 feature iterated
+quickly, fail-open by design, five test files; nothing to fix, and
+churning it would be polish-for-metrics. The real work came from the
+v5.4.0 ship's recorded follow-ups instead: the platform guide's hero had
+been telling every visitor "417 entries" while its own dataset carried
+421 — regenerations added items but nothing recomputed the summary, and
+the route-set drift check couldn't see it. Counts recomputed from the
+items, verified rendered ("421 entries" on the rebuilt page), and the
+drift checker now tallies `meta.counts` against the dataset itself, so
+this class is closed, not just this instance. Eight v5.4.0 follow-ups
+remain on the list (pending-cap advisory lock, deny-lift SQL
+precondition, derived expired status, deny-hash index, reviewPlan
+transaction, /api/plans demo entry, smoke env failures, skill-mirror
+doc refs) — next in the queue.
+
 **Shipped:** `cf3f7edc..9e1583c3` — a dependency-triage session, and one
 finding that rewrites what past sessions believed they'd fixed.
 

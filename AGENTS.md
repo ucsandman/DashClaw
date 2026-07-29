@@ -73,9 +73,16 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-29 (commit b5e2eab9). Confidence: 100%.
+Last indexed: 2026-07-29 (commit 690eb7e2). Confidence: 100%.
 ### Architecture
-This repository is an end-to-end “governed agent” documentation and tooling platform: it ingests source code and contract/policy inputs (e.g., contracts/index.json, app policy modes, and repository content), transforms them through an indexing + analysis pipeline (via the CLI and supporting SDK/server components), and produces deployable artifacts such as an MCP server with callable tools (mcp-server) plus SDKs (sdk, sdk-python) and example governed agents/pipelines (examples/*) that can be run against those generated/managed contracts and policies.
+This repository is an end-to-end “governed agent” platform that consumes agent/task inputs (prompts, tool calls, policies, and repository/context data), runs them through a policy-aware orchestration pipeline (validation, policy-mode selection, repository access, and optional MCP tool execution), and produces governed agent outputs such as structured responses, notifications, and generated artifacts served via an MCP server and a web UI. **Inputs**
+**Transformations**
+**Outputs**
+---
+---
+---
+--- 
+If you want, I can also generate a “module map” section that lists each entry-point file and the subsystem it belongs to (with a short “what to read first” order).
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
@@ -103,7 +110,7 @@ This repository is an end-to-end “governed agent” documentation and tooling 
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `docs/maintainer-log.md` | 100.0th percentile | 130 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 132 | Wes Sander |
 | `mcp-server/lib/routes-inventory.generated.json` | 100.0th percentile | 34 | Wes Sander |
 | `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 71 | Wes Sander |
 | `app/lib/doctor/generated/shape.json` | 99.9th percentile | 71 | Wes Sander |
