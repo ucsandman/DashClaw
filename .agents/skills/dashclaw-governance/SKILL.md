@@ -31,8 +31,9 @@ At the start of every session, do these three things:
 3. **Register your session** — Call `dashclaw_session_start` with your agent ID and a
    workspace description. This groups all your actions for tracking in Approvals.
 
-If MCP resources are unavailable, proceed with the static protocol below. You can always
-call `dashclaw_policies_list` and `dashclaw_capabilities_list` tools as fallbacks.
+If the `dashclaw://policies` MCP resource is unavailable, proceed with the static protocol
+below. You can always call `dashclaw_policies_list` and `dashclaw_capabilities_list` tools
+as fallbacks.
 
 ## Governance Decision Tree
 
@@ -43,7 +44,7 @@ For every action you consider, assess risk and follow this protocol:
 | Risk Level | Score | Examples | Protocol |
 |---|---|---|---|
 | Safe | 0-29 | Reading files, web search, analysis | Proceed. Record outcome after. |
-| Moderate | 30-69 | Writing files, sending messages, data queries | Guard first. Proceed on allow/warn. |
+| Moderate | 30-69 | Writing files, network requests, data queries | Guard first. Proceed on allow/warn. |
 | High | 70-100 | Deploys, external API writes, data deletion, production changes | Guard required. Expect approval or block. |
 
 ### Guard Decision Handling
@@ -58,6 +59,14 @@ warning context in your action record (`dashclaw_record`).
 **`block`** — Stop immediately. Do NOT proceed with the action. Do NOT attempt the action
 through another path or tool. Report the block reason to the user. The policy exists for
 a reason.
+
+> **Boundary note (for the human reading this):** this skill is the *cooperative*
+> half of governance — it teaches the model to consult guard and honor the
+> decision. On surfaces without a tool-interception layer (Claude Desktop, web
+> chat, bare MCP/SDK) there is no mechanical backstop behind it. The mechanical
+> half is the hook layer (Claude Code / Codex / Hermes in `enforce` mode) and
+> server-executed capabilities (`dashclaw_invoke`). Per-surface table:
+> `docs/architecture/enforcement-boundary.md`.
 
 **`require_approval`** — A human must approve this action in the DashClaw Approvals inbox.
 1. Record the pending action: `dashclaw_record` with `status: 'pending_approval'`
@@ -137,33 +146,6 @@ Include a `summary` in `dashclaw_session_end` describing what was accomplished.
 
 For concrete implementation patterns, see [references/governance-patterns.md](references/governance-patterns.md).
 
-## Session Continuity
-
-### After concluding a session
-Call `dashclaw_handoff_create` with a bundle containing your 1-2 sentence summary,
-any open loops you opened (action-scoped, via `dashclaw_loop_add`), and decisions
-you made (or references via `dashclaw_learning_log`). The next session of yours
-will pick this up automatically via `dashclaw_handoff_latest` in pre_llm_call
-context injection (when running under Hermes Agent — Claude Code and Codex pick
-it up on first turn via the governance protocol).
-
-### On session start (Claude Code / Codex only)
-On your first turn, call `dashclaw_handoff_latest` with your agent_id. If a
-bundle is returned, summarize it for the operator, then call
-`dashclaw_handoff_consume` to mark it claimed so it isn't read twice.
-
-## Commitment Tracking
-
-### When you say "I will X later"
-Open loops are **action-scoped**, not standalone. After recording an action via
-`dashclaw_record`, you can attach an open loop to it via
-`dashclaw_loop_add({ action_id, loop_type, description })` — pass the parent
-`action_id`, a `loop_type` (e.g. `followup`, `verification`, `pending_input`),
-and a `description` of the commitment. On session start, call
-`dashclaw_loop_list` to see what you owe. Call `dashclaw_loop_close({ id })`
-when you complete one — close maps to "resolve" semantically (the route
-accepts `status: 'resolved'`).
-
 ## Assumption Tracking
 
 ### Before acting on an unverified premise
@@ -190,16 +172,6 @@ ASSUMPTIONS I'M MAKING:
 
 Record the beliefs that would change the decision if they turned out false —
 not certainties or trivia.
-
-## Learning From Prior Sessions
-
-### Before making a non-obvious decision
-Call `dashclaw_learning_query` with a search string. If a prior session made a
-similar decision, surface its outcome before making yours.
-
-### After making a non-obvious decision
-Call `dashclaw_learning_log` with the decision + context (+ outcome if known).
-Future sessions querying for this pattern will see your reasoning.
 
 ## In-Session Retrospection
 

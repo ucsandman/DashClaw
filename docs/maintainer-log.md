@@ -99,6 +99,31 @@ precondition, derived expired status, deny-hash index, reviewPlan
 transaction, /api/plans demo entry, smoke env failures, skill-mirror
 doc refs) — next in the queue.
 
+*Continued (`4dcbaa41`):* the v5.4.0 follow-up list is discharged — five
+fixed, two closed as documented decisions, one left to its environment.
+Fixed: **deny-lift as a SQL precondition** (lifting a denial is the same
+privilege as approving; the route's separation-of-duties rule now also
+holds inside `reviewPlan`'s revoke UPDATE, so a denial landing after the
+racy pre-read can no longer be lifted by its own submitter — pinned by
+tests on both the false and true branches); **derived `expired` status**
+in the plan read paths, with status filters matching the derived value;
+the **deny-hash partial index** (the denial probe's hash branch matches
+org-wide regardless of action_type, which the consume index cannot
+serve); **demo plans** — the demo /approvals page now shows a believable
+pending plan with per-step preview verdicts and a live approved plan
+mid-run, instead of nothing (verdict clicks answer an honest demo 403);
+and the **stale skill mirror** synced (it still taught `dashclaw_handoff_*`
+and `dashclaw_loop_*` — tools the v5 cull deleted). Closed as decisions:
+the pending-cap advisory lock and the reviewPlan transaction wrap both
+require real multi-statement transactions the driver layer doesn't offer
+(one implicit transaction per statement over Neon HTTP; an advisory lock
+inside a single statement cannot refresh the read-committed snapshot
+taken at statement start). The existing single-statement guards stay the
+mitigation — cap overshoot is bounded by concurrency, and a crash
+between header and step writes strands steps unconsumable, which is the
+fail-safe direction. The "7 local smoke env failures" item is a
+machine-environment cleanup, not repo work. Suite: 3,603.
+
 **Shipped:** `cf3f7edc..9e1583c3` — a dependency-triage session, and one
 finding that rewrites what past sessions believed they'd fixed.
 
