@@ -54,6 +54,24 @@ lint chore. The config comment now records the honest count.
 full suite green (3,594 tests); five compiler rules promoted to error;
 one rule deliberately deferred with its real count on record.
 
+*Continued (`b5e2eab9`):* development kept going into the next recorded
+debt item — the worst-health file, `app/api/actions/route.ts` (1.0/10 by
+churn). Reading it honestly: GET and POST are dense but sound — every
+block traces to a documented security decision, and carving them up
+would be churn in service of a metric. The real finding was in DELETE:
+the last three raw `sql.query` calls in the file, grandfathered from
+before the no-SQL-in-routes rule. They moved into the repository as
+`deleteActionsByFilter`, which shares one WHERE builder with
+`listActionIdsByFilter` — so the write-ahead erasure audit's target set
+and the deletion itself can never diverge on what the filter means.
+SQL byte-moved, response shapes unchanged, route-SQL baseline
+regenerated downward (28 → 25) so the reduction is locked against
+regression, and a new repository test pins the delete order and the
+audit/delete WHERE parity. Also corrected along the way: the memory
+index claimed the TypeScript migration was at "Phase 1 done" — it
+shipped complete on 2026-06-06; the stale summary line could have sent
+a future session off to redo finished work.
+
 **Shipped:** `cf3f7edc..9e1583c3` — a dependency-triage session, and one
 finding that rewrites what past sessions believed they'd fixed.
 
