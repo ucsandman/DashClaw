@@ -73,9 +73,9 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-29 (commit 1fb332c1). Confidence: 100%.
+Last indexed: 2026-07-29 (commit fda057ed). Confidence: 100%.
 ### Architecture
-repo is a codebase documentation and governance toolkit that ingests a target repository (source files, contracts, and policy configuration), transforms it through indexing/parsing and governance-aware agent workflows, and outputs generated documentation artifacts plus an MCP-exposed tool surface and SDKs for programmatic consumption.
+repo is a governed AI agent documentation and tooling monorepo that ingests source code and contract/policy inputs, transforms them through indexing/analysis and governance-aware agent/tool orchestration, and outputs generated SDKs, an MCP server interface, and runnable example agent/pipeline implementations.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
@@ -103,11 +103,11 @@ repo is a codebase documentation and governance toolkit that ingests a target re
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `docs/maintainer-log.md` | 100.0th percentile | 135 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 137 | Wes Sander |
 | `mcp-server/lib/routes-inventory.generated.json` | 100.0th percentile | 34 | Wes Sander |
 | `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 71 | Wes Sander |
 | `app/lib/doctor/generated/shape.json` | 99.9th percentile | 71 | Wes Sander |
-| `CHANGELOG.md` | 99.9th percentile | 109 | Wes Sander |
+| `CHANGELOG.md` | 99.9th percentile | 105 | Wes Sander |
 
 ### Repowise MCP Workflow
 
