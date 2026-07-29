@@ -13,6 +13,31 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.6.3] — 2026-07-29
+
+Platform-only maintenance release — one day's vigil arc: dependency triage, plans-machinery hardening, and an adversarial security pass over its own diffs. No SDK source changes; the Node + Python SDKs are intentionally not republished (registries stay at 5.6.2).
+
+### Security
+
+- Deny-lift is now a SQL precondition: revoking a `denied` plan (lifting an operator's explicit no) carries the separation-of-duties permission inside `reviewPlan`'s UPDATE predicate, so a denial landing after the route's pre-read can no longer be lifted by its own submitter. `denyLiftAllowed` defaults fail-closed.
+- The review route's SoD gates key on `raw_status`: the new derived `expired` presentation status had silently disarmed the `=== 'denied'` clauses for lapsed denials (found by the 2026-07-29 adversarial review of this release's own diffs — 0 critical/high, 1 medium, 4 low, all actionable findings fixed in the same session).
+- Demo `/api/plans` entries answer non-GET with an explicit 403; fixtures are static and expose no org data.
+
+### Fixed
+
+- Malformed `?limit`/`?offset` query params (e.g. `limit=abc`) no longer 500 — seven list routes (guard, guard/decisions, actions, activity, pairings, messages, security/prompt-injection) clamp with `Number.isFinite` instead of passing NaN to the SQL LIMIT clause.
+- Reviewed plans past `expires_at` now present as `expired` in the plan read paths, and status filters match the derived value (`?status=approved` excludes lapsed plans, `?status=expired` finds them). Enforcement paths continue to read `expires_at` directly.
+- The demo `/approvals` page shows preflight plans (a pending plan with per-step preview verdicts and a live approved plan mid-run) instead of an empty card.
+- The platform guide's hero count matches its own dataset (417 → 421), and the drift checker now tallies `meta.counts` against the dataset so the class cannot recur.
+- `js-yaml` 4 → 5 (named-exports-only ESM); `@types/js-yaml` dropped (v5 bundles types).
+
+### Changed
+
+- New partial index `idx_plan_authorization_steps_deny_hash` (drizzle/0065) — the org-wide denial probe's hash branch is now an indexed lookup.
+- Filtered bulk-delete SQL moved from `DELETE /api/actions` into the repository (`deleteActionsByFilter`), sharing one WHERE builder with the write-ahead audit's target read; route-SQL baseline tightened 28 → 25.
+- Five react-hooks v7 compiler rules (purity, refs, static-components, immutability, preserve-manual-memoization) now run at error; all 8 real violations fixed (the recorded count of 191 predated the v5 cull).
+- Root dependency `dashclaw` tracks 5.6.2; `@modelcontextprotocol/server` on stable 2.0.0; openai 7; jsdom 30 and TypeScript 7 declined with recorded reasons (Node 20 floor / typescript-eslint support).
+
 ## [5.6.2] — 2026-07-28
 
 Containment hardening — closes every recorded follow-up from the v5.6.0 ship.

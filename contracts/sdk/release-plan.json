@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.6.2",
+    "current_version": "5.6.3",
     "next_bump": "none",
-    "reason": "doc-comment-only change in 5.6.2 (containment.ref on the guard JSDoc, reissued flag + full-row shape on resolveContainment, listContained enrichment fields) - no runtime behavior change. npm latest is 5.6.0 (published 2026-07-28, discharging the 5.4.0-5.6.0 tail); republishing at 5.6.2 is optional and would only carry these doc fixes.",
+    "reason": "no Node SDK source change in 5.6.3 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.6.2",
+    "current_version": "5.6.3",
     "next_bump": "none",
-    "reason": "docstring-only change in 5.6.2 (resolve_containment reissued flag + full-row shape, list_contained enrichment fields) - no runtime behavior change. PyPI latest is 5.6.0 (published 2026-07-28, discharging the 5.4.0-5.6.0 tail); republishing at 5.6.2 is optional and would only carry these doc fixes.",
+    "reason": "no Python SDK source change in 5.6.3 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.6.2 closes the recorded v5.6.0 follow-up list: instance-namespaced containment refs (co-installed hook instances no longer collide on the worktree branch), batched containment evidence on the actions list (no per-card artifact fetches on /approvals), full-row re-issue responses, resolveContainment org-scoping coverage, and the /explain simulator producing allow_contained.",
+  "reason": "5.6.3 is a platform-only maintenance release: plans-machinery hardening (deny-lift held as a SQL precondition, derived expired status in read paths keyed off raw_status for the SoD gates, deny-hash partial index, demo /approvals plans), the 2026-07-29 adversarial security-review remediations (0 critical/high), a seven-route malformed limit/offset 500 fix, five react-hooks v7 compiler rules promoted to error, the actions DELETE repository extraction, and the js-yaml 4->5 migration.",
   "domains": [
     "platform"
   ]
