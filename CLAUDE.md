@@ -1,13 +1,50 @@
 ---
 source-of-truth: false
 owner: maintainers
-last-verified: 2026-06-01
+last-verified: 2026-08-03
 doc-type: handoff
 ---
 
 # DashClaw (v2 Governance Runtime)
 
 DashClaw is AI agent decision infrastructure: a focused control plane for policy enforcement, decision recording, assumption tracking, and risk signals.
+
+## Commands
+
+```bash
+npm run dev          # local dev server (port 3000)
+npm run lint         # eslint
+npm run typecheck    # tsc --noEmit — required for any changed .ts file, even outside app/
+npm test             # vitest; one file: npm test -- <file> (full suite before push: npx vitest run)
+npm run build        # next build — required for any change under app/**
+npm run db:migrate   # apply pending schema to local DB (auto-loads .env.local; idempotent)
+```
+
+All other scripts stay in `package.json`; add one here only when the agent keeps needing it.
+
+## Verify before you commit
+
+CLAUDE.md is advisory; CI is not. A push is its own step - run these and READ the output first:
+
+- `npm run lint`
+- `npx vitest run` - the **full** suite (targeted runs miss regressions in unrelated files)
+- `npx next build` - required for any change under `app/**`
+- For any changed `.ts` file (even outside `app/`), run `npm run typecheck` before pushing - vitest transpiles without type-checking and will pass; the build runs `tsc` and will not.
+- **Entry-path drills (v8.3, `scripts/drills/README.md`)**: a release touching `cli/**`, `scripts/setup.mjs`, or the `up` path runs `npm run drill:fresh-windows` (and/or `drill:fresh-linux`) first; one touching hosted mint/export/import runs `npm run drill:hosted`. A drill failure is a broken ship - fix on the spot, log it in the maintainer log. These test the DISTRIBUTION path on factory-fresh machines; CI's `up-smoke.yml` (from-source, dev-imaged runners) does not cover that class.
+
+CI also gates `openapi:check`, `api:inventory:check`, `route-sql:check`, and `version:check`. The pre-commit hook lints staged JS/TS, typechecks when a staged file is `.ts`/`.tsx`, and regenerates the doc/contract/bundle artifacts for you (see "Generated artifacts").
+
+Session discipline (from usage-log audit, 2026-08-03):
+
+- **State a stop condition before any search or edit loop** (max iterations or a concrete success check). When it's hit, stop and re-plan instead of grinding the same Bash/Edit/Read cycle.
+- **Model routing:** short, mechanical tasks (lookups, doc tweaks, single-file edits) belong on a cheap model (Haiku/Sonnet); reserve Opus/Fable for architecture, debugging, and security reasoning.
+
+## Gotchas (what you can't infer from the code)
+
+- **After pulling changes that touch `schema/schema.js` or `drizzle/*.sql`, run `npm run db:migrate`.** Otherwise your local DB stays on the old schema while middleware/routes expect new columns; the auth lookup fails and **every authenticated request answers 503 `SCHEMA_NOT_INITIALIZED` naming the migrate fix** (before v4.61.0 this surfaced as a misleading 401 "Invalid or missing API key"). One-command fix.
+- **No direct SQL in route files.** `app/api/**/route.js` must go through repositories (`app/lib/repositories/*.repository.js`); `npm run route-sql:check` blocks any increase in per-file direct SQL. Repositories are exempt.
+- **`.gitattributes` drifts silently.** living-merge install + CRLF normalization leave `.gitattributes` modified-but-unstaged, which silently blocks `git pull --rebase`, `git push`, and worktree ops. Before those, run `git status` and either `git add .gitattributes && git commit` or `git checkout -- .gitattributes` if the diff is LF/whitespace-only. Starting a session with `M .gitattributes` is the norm here, not an anomaly.
+- **Documented counts drift from code.** When adding any capability that affects a cited count (route, MCP tool/resource, SDK method, guard policy, shield), grep the old count across `README.md`, `PROJECT_DETAILS.md`, `docs/`, and spec files and update it in the same commit. `scripts/check-doc-counts.mjs --strict` is authoritative — run it before committing, not just at the push gate.
 
 ## Governance boundary
 
@@ -35,14 +72,6 @@ Read these for depth instead of duplicating them here:
 
 - Node 20+, Next.js 16 (App Router), Postgres (Neon recommended).
 - Versions live in their manifests (`package.json`, `sdk/package.json`, `sdk-python/pyproject.toml`, `plugins/dashclaw/.claude-plugin/plugin.json`) and are injected into UI strings via `next.config.js`. **Never hardcode a version number in this file** - `npm run version:check` fails the build if you do. The platform and both SDKs (`package.json`, `sdk/package.json`, `sdk-python/pyproject.toml`) share **one version** - bump them together with `npm run version:set <x.y.z>`, enforced by `npm run version:sync:check` (the `plugin.json` bundle keeps its own version). A DEPRECATED `dashclaw/legacy` SDK subpath exists for older integrations (removed in v5.0.0; see `docs/sdk-parity.md`).
-
-## Commands
-
-```bash
-npm run dev          # local dev server (port 3000)
-npm run lint         # eslint
-npm run db:migrate   # apply pending schema to local DB (auto-loads .env.local; idempotent)
-```
 
 ## Definition of done includes a human-visible, human-OPERABLE surface
 
@@ -72,25 +101,6 @@ spec ("no UI surface because X"), never a default you fall into. The `dashclaw-s
 skill enforces this as a UI-discoverability gate at ship time; this rule exists so the
 surface is *designed in* at build time, not bolted on at the gate. The marketing site
 is updated with new features **in the same ship** (`HUMAN-EXPERIENCE.md` clause 4).
-
-## Verify before you commit
-
-CLAUDE.md is advisory; CI is not. A push is its own step - run these and READ the output first:
-
-- `npm run lint`
-- `npx vitest run` - the **full** suite (targeted runs miss regressions in unrelated files)
-- `npx next build` - required for any change under `app/**`
-- For any changed `.ts` file (even outside `app/`), run `npm run typecheck` before pushing - vitest transpiles without type-checking and will pass; the build runs `tsc` and will not.
-- **Entry-path drills (v8.3, `scripts/drills/README.md`)**: a release touching `cli/**`, `scripts/setup.mjs`, or the `up` path runs `npm run drill:fresh-windows` (and/or `drill:fresh-linux`) first; one touching hosted mint/export/import runs `npm run drill:hosted`. A drill failure is a broken ship - fix on the spot, log it in the maintainer log. These test the DISTRIBUTION path on factory-fresh machines; CI's `up-smoke.yml` (from-source, dev-imaged runners) does not cover that class.
-
-CI also gates `openapi:check`, `api:inventory:check`, `route-sql:check`, and `version:check`. The pre-commit hook regenerates the doc/contract/bundle artifacts for you (see "Generated artifacts").
-
-## Gotchas (what you can't infer from the code)
-
-- **After pulling changes that touch `schema/schema.js` or `drizzle/*.sql`, run `npm run db:migrate`.** Otherwise your local DB stays on the old schema while middleware/routes expect new columns; the auth lookup fails and **every authenticated request answers 503 `SCHEMA_NOT_INITIALIZED` naming the migrate fix** (before v4.61.0 this surfaced as a misleading 401 "Invalid or missing API key"). One-command fix.
-- **No direct SQL in route files.** `app/api/**/route.js` must go through repositories (`app/lib/repositories/*.repository.js`); `npm run route-sql:check` blocks any increase in per-file direct SQL. Repositories are exempt.
-- **`.gitattributes` drifts silently.** living-merge install + CRLF normalization leave `.gitattributes` modified-but-unstaged, which silently blocks `git pull --rebase`, `git push`, and worktree ops. Before those, run `git status` and either `git add .gitattributes && git commit` or `git checkout -- .gitattributes` if the diff is LF/whitespace-only. Starting a session with `M .gitattributes` is the norm here, not an anomaly.
-- **Documented counts drift from code.** When adding any capability that affects a cited count (route, MCP tool/resource, SDK method, guard policy, shield), grep the old count across `README.md`, `PROJECT_DETAILS.md`, `docs/`, and spec files and update it in the same commit. `scripts/check-doc-counts.mjs --strict` is authoritative — run it before committing, not just at the push gate.
 
 ## Generated artifacts - never edit by hand
 
@@ -155,3 +165,7 @@ This project is indexed by GitNexus as **DashClaw** (18462 symbols, 34472 relati
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+## Environment
+
+- Required env vars: `DATABASE_URL`, `DASHCLAW_API_KEY`, `ENCRYPTION_KEY`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET` — see `.env.example` for placeholders. Never read or move real values from `.env`/`.env.local`.

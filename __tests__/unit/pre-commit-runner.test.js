@@ -7,16 +7,17 @@ describe('runPreCommitChecks', () => {
     const result = runPreCommitChecks({ execImpl });
 
     expect(result.success).toBe(true);
-    expect(result.steps).toHaveLength(7);
+    expect(result.steps).toHaveLength(8);
     expect(result.steps.every((s) => s.success)).toBe(true);
 
     // Verify the correct commands were invoked in order
-    expect(execImpl).toHaveBeenCalledTimes(7);
-    expect(execImpl.mock.calls[0][1]).toContain('scripts/generate-api-inventory.mjs');
-    expect(execImpl.mock.calls[1][1]).toContain('scripts/generate-openapi.mjs');
-    expect(execImpl.mock.calls[2][1]).toContain('scripts/refresh-bundles.mjs');
-    expect(execImpl.mock.calls[2][1]).toContain('--if-staged');
-    expect(execImpl.mock.calls[3][1]).toEqual([
+    expect(execImpl).toHaveBeenCalledTimes(8);
+    expect(execImpl.mock.calls[0][1]).toContain('scripts/precommit-lint-typecheck.mjs');
+    expect(execImpl.mock.calls[1][1]).toContain('scripts/generate-api-inventory.mjs');
+    expect(execImpl.mock.calls[2][1]).toContain('scripts/generate-openapi.mjs');
+    expect(execImpl.mock.calls[3][1]).toContain('scripts/refresh-bundles.mjs');
+    expect(execImpl.mock.calls[3][1]).toContain('--if-staged');
+    expect(execImpl.mock.calls[4][1]).toEqual([
       'add',
       'docs/api-inventory.json',
       'docs/api-inventory.md',
@@ -34,9 +35,9 @@ describe('runPreCommitChecks', () => {
       'plugins/dashclaw/hooks/enforcement_liveness_probe.py',
       'plugins/dashclaw/hooks/dashclaw_agent_intel',
     ]);
-    expect(execImpl.mock.calls[4][1]).toContain('scripts/check-version-hardcodes.mjs');
-    expect(execImpl.mock.calls[5][1]).toContain('scripts/check-version-sync.mjs');
-    expect(execImpl.mock.calls[6][1]).toContain('--mode=warn');
+    expect(execImpl.mock.calls[5][1]).toContain('scripts/check-version-hardcodes.mjs');
+    expect(execImpl.mock.calls[6][1]).toContain('scripts/check-version-sync.mjs');
+    expect(execImpl.mock.calls[7][1]).toContain('--mode=warn');
   });
 
   it('succeeds when contracts check warns but does not fail the hook', () => {
@@ -49,7 +50,7 @@ describe('runPreCommitChecks', () => {
     const result = runPreCommitChecks({ execImpl });
 
     expect(result.success).toBe(true);
-    expect(result.steps).toHaveLength(7);
+    expect(result.steps).toHaveLength(8);
 
     const contractsStep = result.steps.find((s) => s.id === 'contracts-check');
     expect(contractsStep.success).toBe(false);
@@ -66,10 +67,11 @@ describe('runPreCommitChecks', () => {
     const result = runPreCommitChecks({ execImpl });
 
     expect(result.success).toBe(false);
-    expect(result.steps).toHaveLength(1);
-    expect(result.steps[0].id).toBe('generate-api-inventory');
-    expect(result.steps[0].success).toBe(false);
-    expect(result.steps[0].error).toContain('inventory generation failed');
+    expect(result.steps).toHaveLength(2);
+    expect(result.steps[0].id).toBe('lint-typecheck');
+    expect(result.steps[1].id).toBe('generate-api-inventory');
+    expect(result.steps[1].success).toBe(false);
+    expect(result.steps[1].error).toContain('inventory generation failed');
   });
 
   it('fails when OpenAPI generation fails', () => {
@@ -82,10 +84,10 @@ describe('runPreCommitChecks', () => {
     const result = runPreCommitChecks({ execImpl });
 
     expect(result.success).toBe(false);
-    expect(result.steps).toHaveLength(2);
-    expect(result.steps[0].success).toBe(true);
-    expect(result.steps[1].id).toBe('generate-openapi');
-    expect(result.steps[1].success).toBe(false);
+    expect(result.steps).toHaveLength(3);
+    expect(result.steps[1].success).toBe(true);
+    expect(result.steps[2].id).toBe('generate-openapi');
+    expect(result.steps[2].success).toBe(false);
   });
 
   it('fails when staging artifacts fails', () => {
@@ -112,9 +114,9 @@ describe('runPreCommitChecks', () => {
 
     const result = runPreCommitChecks({ execImpl });
 
-    // Only 1 step recorded because it broke on the first step
-    expect(result.steps).toHaveLength(1);
-    // exec was only called once — subsequent steps were skipped
-    expect(execImpl).toHaveBeenCalledTimes(1);
+    // Only 2 steps recorded because it broke on generate-api-inventory
+    expect(result.steps).toHaveLength(2);
+    // exec stopped at the failing step — subsequent steps were skipped
+    expect(execImpl).toHaveBeenCalledTimes(2);
   });
 });

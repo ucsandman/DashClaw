@@ -2,6 +2,15 @@ import { execFileSync } from 'node:child_process';
 
 const STEPS = [
   {
+    // Lint staged JS/TS (and typecheck when a staged file is .ts/.tsx) BEFORE
+    // regenerating artifacts, so a broken commit fails fast. Script exits
+    // immediately when no lintable files are staged.
+    id: 'lint-typecheck',
+    label: 'Lint staged files + typecheck',
+    command: [process.execPath, 'scripts/precommit-lint-typecheck.mjs'],
+    failHook: true,
+  },
+  {
     id: 'generate-api-inventory',
     label: 'Generate API inventory',
     command: [process.execPath, 'scripts/generate-api-inventory.mjs'],
