@@ -62,6 +62,38 @@ Two mechanisms close the class (`drizzle/0066`):
 A logged verdict is never evidence of enforcement; only a witnessed
 non-execution (or the stamp's absence alongside PostToolUse coverage) is.
 
+## The privilege boundary: mechanical is not tamper-proof (F3, 2026-08-06)
+
+Every **Mechanical** row above shares one more property that copy must never
+obscure: **the interception mechanism lives inside the blast radius of the
+agent it governs.** The PreToolUse hook is a Python file on disk; its
+registration is a JSON entry in `~/.claude/settings.json`; both are writable
+at the privilege level the agent already runs at. The 2026-08-05 governance
+gap audit demonstrated the consequence (F3): a governed agent was permitted
+to write `{"hooks":{"PreToolUse":[]}}` over its own settings file and to
+rewrite the hook to unconditionally allow — either of which disables the
+governor from the next session on.
+
+The honest framing, everywhere the product speaks:
+
+- **The hook seam is a seatbelt, not a cage.** It reliably stops the accident
+  class — the destructive command a capable-but-fallible model emits mid-run —
+  and it makes tampering *visible*: the tampering write is itself a governed,
+  recorded action, and the enforcement liveness probe reports the seam dead
+  on its next run. It does not stop a determined adversary executing at the
+  same privilege, because no control that lives inside the process it governs
+  can.
+- **Software can raise the cost of self-disable; it cannot remove the
+  capability.** The shipped mitigation is a control-plane `protected_path`
+  policy over the hook files and harness settings — `block`, stamped
+  `rules.ungrantable: true` so no standing grant can downgrade it (v5.8.0).
+  That turns self-disable from a silent act into a blocked, logged one. It is
+  still the governor guarding its own off switch, and the copy must say so.
+- **A real boundary requires a privilege the agent does not hold.** Run the
+  agent in a container, under a separate OS user with no write access to the
+  hook path, or with the hook path and settings on a read-only mount.
+  DashClaw cannot ship that boundary; only the deployment around it can.
+
 ## Decision: the universal enforcing proxy is killed
 
 A guard-enforcing gateway that hard-blocks tool execution for
@@ -171,3 +203,10 @@ the mechanism is mechanical per the table above. Everywhere else the claim
 carries the boundary ("cooperative — the agent honors the decision; pair with
 hooks for the mechanical backstop") or links here. `PLUGIN_PARITY.md` and
 `app/docs/page.tsx`'s connector paragraph are the models this generalizes.
+
+Second clause (F3): even where the mechanism is mechanical, copy must never
+claim or imply tamper-proofness against the governed agent itself — no "the
+agent cannot get past this," no "cage," no "guarantees." The permitted frame
+is the seatbelt: stops the accident class, makes tampering visible, and the
+tamper-proof boundary belongs to the deployment (container, separate OS user,
+read-only mount), not to DashClaw.

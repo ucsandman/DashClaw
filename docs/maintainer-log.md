@@ -12,7 +12,42 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
-## 2026-08-06 — v5.8.0: the last critical finding, and the one that was always the worst
+## 2026-08-06 — v5.8.1: F3, closed by telling the truth
+
+**Shipped:** release v5.8.1 — **F3 closed**, and the release is mostly
+words, which is the point. F3 said the governed agent can disable its
+own governor: the hook is a Python file, its registration is a JSON
+entry in the harness settings, and both are writable at the privilege
+level the agent already runs at. The audit was blunt that half of this
+finding has no software fix — a control inside the blast radius of the
+thing it governs is advisory by construction — and blunter still that
+pretending otherwise was "the single biggest credibility risk to the
+product, because it takes about ten minutes of white-box poking to
+disprove."
+
+So the fix has two halves. The software half: the control-plane
+`protected_path` policy over the hook files and settings is now a
+`block` stamped `ungrantable` — converted live on the audited instance
+and verified with fresh guard probes (a write to `settings.json` and
+to `dashclaw_pretool.py` both block, matched by that exact policy).
+Self-disable is no longer silent; it is a blocked, logged act no grant
+can clear, thanks to v5.8.0's F1 machinery. The honesty half: the
+enforcement-boundary ADR gains a privilege-boundary section and a
+second copy rule (no claim of tamper-proofness against the governed
+agent, anywhere); the README says "seatbelt against accidents, not a
+cage against intent" in the boundary note and grows a "Not tamper-proof
+against the agent it governs" bullet; the hooks README gets a threat
+model with the hardening ladder (block policy → read-only hook path →
+separate OS user → container); and the landing page **deletes** the
+sentence "The agent cannot proceed past a block," which was simply not
+true of a determined adversary, and replaces it with the honest line.
+
+The audit's remaining item is F2, the classifier coverage backlog —
+mechanical work, queued next.
+
+**Decision on record:** under-claiming beats the marginal signup.
+A governance product that overstates its own boundary is exactly the
+false-confidence machine the audit spent six findings dismantling.
 
 **Shipped:** release v5.8.0 — **F1 closed**, and with it every critical
 item from the governance gap audit. F1 was always the audit's most

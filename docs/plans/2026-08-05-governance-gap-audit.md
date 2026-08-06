@@ -29,11 +29,17 @@ prevents that class of incident, then whether the agent could get around it anyw
 > arc (v5.7.1/5.7.2/5.7.4) — every one predated the flip; observe mode just
 > meant nobody ever felt them.
 >
-> **Still open — both are work, not false-confidence bugs:** F2 (classifier
+> **F3 closed 2026-08-06 (v5.8.1):** the control-plane policy
+> `gp_c265caca34894d908c8aa384` is now `block` + `rules.ungrantable: true`
+> (verified live: writes to `settings.json` and `dashclaw_pretool.py` both
+> **block**, matched by that policy), and the docs/marketing honesty pass
+> landed — README, landing page, hooks README, and the enforcement-boundary
+> ADR all state the privilege boundary plainly (seatbelt, not cage; real
+> isolation = container / separate OS user / read-only hook path).
+>
+> **Still open — work, not a false-confidence bug:** F2 (classifier
 > coverage backlog: `find -delete`, `git clean -xfd`, `shutil.rmtree`, `dd`,
-> and the script-then-execute composition case) and F3's docs/marketing
-> honesty pass (a hook running at the agent's privilege level is a seatbelt
-> against accidents, not a cage against intent — say so plainly).
+> and the script-then-execute composition case).
 
 DashClaw's **coverage is incomplete** and its **grant model silently nullifies
 `require_approval` policies**. Of the original six findings, four are fixable and one is a
@@ -216,7 +222,21 @@ an execute of that path.
 
 ---
 
-### F3 — HIGH — The agent can disable its own governor
+### F3 — HIGH — The agent can disable its own governor *(RESOLVED 2026-08-06, v5.8.1 — to the extent software can)*
+
+> **RESOLVED (software ceiling acknowledged).** Two parts landed:
+> **(1) Control-plane hard block:** `gp_c265caca34894d908c8aa384` converted to
+> `action: block` + `rules.ungrantable: true` — verified live: guard eval of a
+> write to `~/.claude/settings.json` and to `hooks/dashclaw_pretool.py` both
+> return **block** matched by that policy, and per F1's fix no grant can clear
+> it. **(2) Honesty pass:** README (boundary note + "What DashClaw is not"),
+> landing page section 7, `hooks/README.md` threat-model section, and the
+> enforcement-boundary ADR now state plainly that the hook is a seatbelt
+> against accidents, not a cage against intent, and that a tamper-proof
+> boundary requires a privilege the agent does not hold (container, separate
+> OS user, read-only hook path). The architectural ceiling itself is permanent
+> by construction — documented, not patched, per this finding's own fix
+> direction.
 
 | Target | Verdict | decision_id |
 |---|---|---|
@@ -386,9 +406,10 @@ than `UNPROVABLE`, and the F4 canary reports `SURVIVED`.
 **P1 — Path-aware risk (F5). ✅ DONE 2026-08-06 (v5.7.1).**
 Verified: `rm -rf node_modules` → allow/50; `rm -rf /c/Users/<user>` → block/100.
 
-**P1 — Control-plane hard block (F3).** Convert `gp_c265caca34894d908c8aa384` to a `block`
-policy (survives grants per W5) and add an `ungrantable` concept. Verify: guard eval of a
-write to `settings.json` and to `dashclaw_pretool.py` → both block.
+**P1 — Control-plane hard block (F3). ✅ DONE 2026-08-06 (v5.8.1).**
+Verified: guard eval of a write to `settings.json` → block/65 and to
+`dashclaw_pretool.py` → block/65, both matched by `gp_c265caca34894d908c8aa384`
+(now `block` + `ungrantable: true`).
 
 **P2 — Classifier coverage backlog (F2).** Start with `find -delete`, `git clean -xfd`,
 `shutil.rmtree`, `dd`. Add a regression test per shape in the policy smoke suite.
@@ -396,9 +417,11 @@ The script-then-execute composition case is a design question, not a pattern add
 
 **P2 — Predictive-risk debiasing (F6). ✅ DONE 2026-08-06 (v5.7.3).**
 
-**P3 — Docs/marketing honesty pass.** README + landing must say: guardrail against accidents,
-not a sandbox against intent; real isolation requires a container or separate OS user.
-Under-claiming here is worth more than the marginal signup.
+**P3 — Docs/marketing honesty pass. ✅ DONE 2026-08-06 (v5.8.1).** README boundary
+note + "What DashClaw is not" bullet, landing page section 7 (dropped "the agent
+cannot proceed past a block"), `hooks/README.md` threat-model section, and the
+privilege-boundary section + copy-rule extension in
+`docs/architecture/enforcement-boundary.md`.
 
 ---
 

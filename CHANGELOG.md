@@ -13,6 +13,15 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.8.1] — 2026-08-06
+
+**F3 of the 2026-08-05 governance gap audit is closed — to the exact extent software can close it.** The finding: a governed agent was allowed to write over its own hook and harness settings, because any control that lives inside the blast radius of the thing it governs is advisory by construction. The software half of the fix is the control-plane hard block (converted live, verified: writes to `settings.json` and `dashclaw_pretool.py` now **block**, matched by an `ungrantable` policy). The other half is this release: the product now says the true thing everywhere it speaks, instead of implying a boundary it cannot provide. Docs + landing copy only; no SDK source change.
+
+### Changed
+
+- **The privilege boundary is stated plainly, product-wide.** The hook seam runs at the governed agent's own privilege level — it is a **seatbelt against accidents, not a cage against intent**. New canonical section + copy rule in `docs/architecture/enforcement-boundary.md`; README boundary note and a new "Not tamper-proof against the agent it governs" bullet; a threat-model section in `hooks/README.md` with the hardening ladder (control-plane block policy → read-only hook path → separate OS user → container); and the landing page's enforcement section drops "The agent cannot proceed past a block" for the honest line. Real isolation is a deployment property — container, separate OS user, or read-only hook path — and DashClaw's copy may no longer imply otherwise.
+- **Control-plane policy converted (instance state, P1).** `gp_c265caca34894d908c8aa384` (protected_path over `**/.claude/settings.json`, `**/.claude/hooks/**`, hooks dir) is now `action: block` + `rules.ungrantable: true` — self-disable becomes a blocked, logged act that no grant can clear (v5.8.0 F1 machinery). Verified live with fresh guard probes.
+
 ## [5.8.0] — 2026-08-06
 
 **F1 — the last critical finding of the 2026-08-05 governance gap audit — is closed.** An `allow_grant` could silently nullify a `require_approval` policy: grants had no expiry, no mandatory scope, and the evidence classifier's reclassification let a grant on one action type satisfy a policy written on another. On the audited instance every approval gate for the covered types had been inert since 2026-06-12 while `/policies` showed them active — an inert policy is worse than no policy, because it manufactures false confidence. Minor bump: the grant contract is deliberately narrower than before. Platform-only; no SDK source change.

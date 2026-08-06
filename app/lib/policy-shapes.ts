@@ -66,7 +66,7 @@ export const GRANT_DEFAULT_TTL_DAYS = 30;
 
 /**
  * When this grant stops applying. rules.expires_at (ISO string, stamped at
- * creation since v5.8.0) wins; a legacy grant without one expires
+ * creation since v5.8.0) wins; a legacy grant without one expires — version-hardcode-allowed
  * GRANT_DEFAULT_TTL_DAYS after its row's created_at. Returns null only when
  * neither is available (synthetic rows in tests) — those never expire, but
  * every real guard_policies row carries created_at.

@@ -249,6 +249,19 @@ export DASHCLAW_GUARD_UNAVAILABLE_POLICY=warn
 
 Action create/update calls retry transient failures up to three attempts with 0.4 second and 0.8 second backoff, so most cold start blips on Vercel and Neon are absorbed automatically. The guard check itself makes a single attempt by default (it sits on the hot path before every governed tool call); set `DASHCLAW_GUARD_RETRIES=2` on flaky networks to give it the same three-attempt behavior.
 
+## Threat model — what this hook is, honestly
+
+These scripts run at the same privilege level as the agent they govern. The hook file, the intelligence module, and the `PreToolUse` registration in `.claude/settings.json` are all writable by any process that can write your home directory — including the governed agent itself. That makes the hook a **seatbelt against accidents, not a cage against intent**: it reliably stops the destructive command a busy model emits mid-run, and it makes tampering visible (a write to the hook path is itself a governed, recorded action; the enforcement-liveness probe reports the seam dead on its next run) — but it cannot stop a determined process executing at its own privilege.
+
+What to do about it, in increasing order of strength:
+
+1. **Control-plane policy (software, included).** Keep a `protected_path` policy of type `block` with `rules.ungrantable: true` over `**/.claude/settings.json`, `**/.claude/hooks/**`, and your hooks directory. Self-disable becomes a blocked, logged act instead of a silent one.
+2. **Read-only hook path (deployment).** Mount or ACL the hook directory and settings file read-only for the account the agent runs as.
+3. **Separate OS user (deployment).** Run the agent as a user with no write access to the hook path or its own harness config.
+4. **Container (deployment).** Run the agent in a container whose image owns the hook; the workspace is the only writable mount.
+
+DashClaw ships 1 and documents 2–4; it cannot provide them for you. Full statement: [`docs/architecture/enforcement-boundary.md`](../docs/architecture/enforcement-boundary.md).
+
 ## Approving from the terminal
 
 When a tool call requires approval, the hook prints the action ID:

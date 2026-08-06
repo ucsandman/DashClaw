@@ -491,8 +491,7 @@ export default function LandingPage() {
                 <p className="text-sm text-text-secondary leading-relaxed">
                   Claude Code, Codex, and Hermes lifecycle hooks (fail-closed,
                   exit-2 on block), the OpenClaw gateway, and dashclaw_invoke.
-                  The action is stopped in the seam before it runs. The agent
-                  cannot proceed past a block.
+                  The action is stopped in the seam before it runs.
                 </p>
               </div>
               <div className="p-6 rounded-xl border border-border bg-surface-secondary">
@@ -512,8 +511,17 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <p className="mt-6 text-sm text-text-tertiary">
-              The full per-surface table lives in the{' '}
+            <p className="mt-6 text-sm text-text-secondary leading-relaxed">
+              One more honest line: the hook runs at your agent&apos;s own
+              privilege level. It is a seatbelt against accidents, not a cage
+              against intent — tampering with the hook is blocked by policy and
+              loudly visible, but a tamper-proof boundary comes from your
+              deployment (a container, a separate OS user, or a read-only hook
+              path), not from software running inside the agent&apos;s reach.
+            </p>
+
+            <p className="mt-4 text-sm text-text-tertiary">
+              The full per-surface table and threat model live in the{' '}
               <a
                 href="https://github.com/ucsandman/DashClaw/blob/main/docs/architecture/enforcement-boundary.md"
                 target="_blank"

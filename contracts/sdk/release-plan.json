@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.8.0",
+    "current_version": "5.8.1",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.8.0 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.8.1 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.8.0",
+    "current_version": "5.8.1",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.8.0 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.8.1 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.8.0 closes audit F1, the last critical finding: allow grants silently nullified every require_approval policy in an org. Grants now carry a TTL (30d default, stamped at creation; legacy grants age out from created_at), require an explicit target scope (unscoped blanket grants rejected at both the validator and the review-feed verdict), never satisfy a policy across an evidence reclassification, and can never clear a rule marked ungrantable. /policies renders every currently-inert rule with the grant suppressing it. Minor bump: the grant contract is narrower than before. Platform-only; no SDK surface change.",
+  "reason": "5.8.1 closes audit F3 to the extent software can: the control-plane protected_path policy is converted live to block + ungrantable (verified: writes to settings.json and dashclaw_pretool.py both block), and the docs/marketing honesty pass lands the privilege boundary everywhere the product speaks - the hook seam is a seatbelt against accidents, not a cage against intent; real isolation is a deployment property (container, separate OS user, read-only hook path). Docs + landing copy only; no SDK surface change.",
   "domains": [
     "platform"
   ]
