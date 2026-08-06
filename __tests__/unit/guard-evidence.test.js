@@ -125,6 +125,39 @@ describe('classifyAct — path-aware rm (F5)', () => {
   });
 });
 
+// `env` launcher-prefix transparency (F5 follow-up, 2026-08-06): the first
+// post-flip tag push hard-blocked at 100 because `env -u GITHUB_TOKEN git
+// push` — credential HYGIENE — graded as secret exposure, and the mismatch
+// swap lifted the heuristic to security/80.
+describe('classifyAct — env launcher prefix vs env dump', () => {
+  it('env -u TOKEN git push classifies as the underlying command, not exposure', () => {
+    const c = classifyAct({ kind: 'shell', command: 'env -u GITHUB_TOKEN -u GH_TOKEN git push origin v5.7.1' });
+    expect(c.flags).not.toContain('secret_exposure');
+    expect(c.derived_action_type).not.toBe('security');
+  });
+
+  it('env VAR=x cmd is a launcher too', () => {
+    const c = classifyAct({ kind: 'shell', command: 'env NODE_ENV=test git commit -m "x"' });
+    expect(c.flags).not.toContain('secret_exposure');
+    expect(c.derived_action_type).toBe('apply');
+  });
+
+  it('a BARE env still grades as secret exposure (it dumps the environment)', () => {
+    for (const cmd of ['env', 'env | grep KEY', 'printenv', 'printenv DATABASE_URL']) {
+      const c = classifyAct({ kind: 'shell', command: cmd });
+      expect(c.flags, cmd).toContain('secret_exposure');
+    }
+  });
+
+  it('dangerous patterns still catch through the env prefix', () => {
+    const c = classifyAct({ kind: 'shell', command: 'env -u GH_TOKEN git push --force origin main' });
+    expect(c.flags).toContain('vcs_dangerous');
+
+    const rm = classifyAct({ kind: 'shell', command: 'env -u X rm -rf /c/Users/sandm' });
+    expect(rm.flags).toContain('protected_target');
+  });
+});
+
 describe('classifyAct — http', () => {
   it('bumps a POST to a payment host', () => {
     const c = classifyAct({ kind: 'http', request: { method: 'POST', url: 'https://api.stripe.com/v1/charges' } });

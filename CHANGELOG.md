@@ -13,6 +13,14 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.7.2] — 2026-08-06
+
+The first false positive of the enforce era, fixed the hour it fired. Minutes after this machine's observe→enforce flip, the v5.7.1 tag push hard-blocked at 100: the push used the standard credential-hygiene prefix (unsetting the token env vars so git picks the right auth), the evidence classifier graded that prefix as an environment *dump*, the declared/derived mismatch swap lifted the whole evaluation to `security`/80, the deployment goal pattern and the predictive layer (fat on this session's own canary blocks — audit F6's self-referential loop, observed live) topped it to 100. Platform-only; no SDK source change.
+
+### Fixed
+
+- The `env` launcher prefix is now transparent to the evidence classifier: `env -u NAME cmd` / `env VAR=x cmd` classifies as the command it runs — unsetting a credential before a push is hygiene, not exposure. A **bare** `env` / `printenv` (which dumps the environment) still grades as secret exposure, and dangerous patterns (force push, recursive deletes, protected-root targets) still catch straight through the prefix.
+
 ## [5.7.1] — 2026-08-06
 
 Path-aware risk release — the fix for **F5** of the 2026-08-05 governance gap audit: the risk model was target-blind, so `rm -rf node_modules` scored an identical block/100 to `rm -rf /c/Users/<user>`. A safety system that hard-blocks routine artifact cleanup trains the operator to switch it off — this release removes that false-positive class *before* this machine's enforce flip, so enforcement arrives without alarm fatigue. Platform-only; no SDK source change.

@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.7.1",
+    "current_version": "5.7.2",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.7.1 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.7.2 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.7.1",
+    "current_version": "5.7.2",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.7.1 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.7.2 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.7.1 is the F5 path-aware risk release (governance gap audit 2026-08-05): the server evidence classifier now grades rm/Remove-Item by delete target - regenerable build artifacts (node_modules, .next, dist...) grade cleanup/45 instead of security/80, catastrophic roots (~, /, drive roots, user-profile roots, system trees) escalate to 100 at the evidence layer. Kills the false-positive class that gets governance switched off (rm -rf node_modules scored block/100), preserves W2/W3 (catastrophic deletes still block on evidence alone). Platform-only; no SDK surface change.",
+  "reason": "5.7.2 makes the env launcher prefix transparent to the evidence classifier: unsetting a credential variable before a git operation is hygiene, not exposure, but it graded as exposure and the mismatch swap lifted it to the block band - the first post-flip tag operation hard-blocked at 100. Bare env/printenv dumps still grade as exposure; dangerous patterns still catch through the prefix. Found live, minutes after this machine's enforce flip.",
   "domains": [
     "platform"
   ]

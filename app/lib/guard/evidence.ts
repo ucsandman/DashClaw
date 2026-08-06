@@ -100,7 +100,11 @@ function isProtectedRootTarget(target: string): boolean {
 // ── shell ──────────────────────────────────────────────────────────────────
 
 function classifyShellSegment(seg: string): EvidenceClassification {
-  const s = seg.toLowerCase();
+  // `env` as a launcher prefix (`env -u TOKEN cmd`, `env VAR=x cmd`) is
+  // transparent — classify the command it runs. A BARE `env` (nothing after
+  // the flags) is left intact for the secret-exposure branch below: that form
+  // dumps the environment.
+  const s = seg.toLowerCase().replace(/^\s*env((\s+-u\s+\S+)|(\s+-[i0]\b)|(\s+\w+=\S*))*\s+(?=\S)/, '');
   const flags: string[] = [];
   const modifiers: EvidenceModifier[] = [];
   let base = 30;
@@ -130,7 +134,14 @@ function classifyShellSegment(seg: string): EvidenceClassification {
     base = 75; action = 'deploy'; flags.push('deploy');
   } else if (/\b(npm|pnpm|yarn)\s+(i\b|install\b|add\b)|\bpip3?\s+install\b|\bpipx\s+install\b|\b(gem|cargo|go|brew|apt|apt-get|dnf|yum)\s+install\b/.test(s)) {
     base = 30; action = 'build'; flags.push('package');
-  } else if (/(^|\s)(env|printenv)(\s|$)|\bcat\s+[^&|;]*(\.env\b|id_rsa|\.pem\b|secret)/.test(s)) {
+  } else if (/(^|\s)printenv(\s|$)|(^|\s)env\s*(-[0i]*\s*)?$|\bcat\s+[^&|;]*(\.env\b|id_rsa|\.pem\b|secret)/.test(s)) {
+    // Bare `env` / `printenv` DUMPS the environment — secret exposure. But
+    // `env -u TOKEN cmd` / `env VAR=x cmd` is a launcher prefix (unsetting a
+    // credential before a push is hygiene, not exposure) — classify those as
+    // the underlying command instead (stripped below, F5 follow-up
+    // 2026-08-06: the old `(env)(\s|$)` form scored `env -u GITHUB_TOKEN git
+    // push` security/40, the mismatch swap lifted the heuristic to
+    // security/80, and the first post-flip tag push hard-blocked at 100).
     base = 40; action = 'security'; flags.push('secret_exposure');
   } else if (/^\s*(cat|ls|head|tail|grep|rg|find|stat|pwd|whoami|echo|which|wc|diff|file)\b|^\s*git\s+(status|log|diff|show|branch|remote)\b/.test(s)) {
     base = 5; action = 'review'; reversible = true;
