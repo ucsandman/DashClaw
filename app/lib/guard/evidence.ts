@@ -64,6 +64,38 @@ const REGENERABLE_ARTIFACT_DIRS = new Set([
 // previously invisible to the destructive branch entirely.
 const RM_RECURSIVE_RE = /\brm\s+-\S*r|\bremove-item\b[^&|;]*\s-\S*rec/i;
 
+// ── F2 coverage backlog (governance gap audit 2026-08-05) ───────────────────
+// Destructive shapes the rm-centric patterns missed. `find -delete` /
+// `find -exec rm` is a mass delete wearing a read-only command's name; an
+// interpreter one-liner reaches the same filesystem APIs without any shell
+// delete verb; and a redirect or dd onto a raw block device destroys a disk
+// without naming a file at all.
+const FIND_DELETE_RE = /\bfind\b[^&|;]*(\s-delete\b|\s-exec\s+(\S*\/)?(rm|shred)\b)/i;
+const INTERPRETER_DESTRUCTIVE_RE =
+  /\b(python[0-9]?|node(?:js)?|ruby|perl|php|deno|bun|tsx|ts-node)\b[^&|;]*(shutil\.rmtree|os\.(remove|unlink|rmdir)|fs\.(rm|rmdir|unlink)|rmsync|unlinksync|rimraf)/i;
+// Whole-command variant: the quoted payload legitimately contains `;` and `|`
+// (`python -c "import shutil; shutil.rmtree(…)"`), so the segment-safe bridge
+// above can never span it — this one runs before chain-splitting instead.
+const INTERPRETER_DESTRUCTIVE_FULL_RE =
+  /\b(python[0-9]?|node(?:js)?|ruby|perl|php|deno|bun|tsx|ts-node)\b[^\n]*(shutil\.rmtree|os\.(remove|unlink|rmdir)|fs\.(rm|rmdir|unlink)|rmsync|unlinksync|rimraf)/i;
+// Raw block devices (Linux sd/hd/nvme/mmcblk/vd/xvd, macOS disk, Windows
+// PhysicalDrive) reached via output redirect or dd's of=.
+const DEVICE_WRITE_RE =
+  /(>\s*|\bof=)("|')?(\/dev\/(sd[a-z]|hd[a-z]|nvme\d+n?\d*(p\d+)?|disk\d+|mmcblk\d+|vd[a-z]|xvd[a-z])\b|\\\\\.\\physicaldrive\d+)/i;
+
+/** Path arguments of a find command: tokens after `find` up to the first predicate/flag. */
+function findRootTargets(segment: string): string[] {
+  const tokens = segment.trim().split(/\s+/).map((t) => t.replace(/^["']|["']$/g, ''));
+  const idx = tokens.findIndex((t) => /^(?:\S*\/)?find$/i.test(t));
+  if (idx === -1) return [];
+  const roots: string[] = [];
+  for (const t of tokens.slice(idx + 1)) {
+    if (!t || t.startsWith('-') || t.startsWith('!') || t.startsWith('(')) break;
+    roots.push(t);
+  }
+  return roots;
+}
+
 /** Non-flag tokens after the rm / Remove-Item command word, unquoted. */
 function rmDeleteTargets(segment: string): string[] {
   const tokens = segment.trim().split(/\s+/).map((t) => t.replace(/^["']|["']$/g, ''));
@@ -113,17 +145,33 @@ function classifyShellSegment(seg: string): EvidenceClassification {
 
   const isSudo = /^\s*sudo\b/.test(s);
 
-  if (RM_RECURSIVE_RE.test(s) || /\bshred\b|\bmkfs(\.|\b)|\bdd\b|\btruncate\b/.test(s)) {
+  const deviceWrite = DEVICE_WRITE_RE.test(s);
+  if (RM_RECURSIVE_RE.test(s) || /\bshred\b|\bmkfs(\.|\b)|\bdd\b|\btruncate\b/.test(s)
+      || FIND_DELETE_RE.test(s) || INTERPRETER_DESTRUCTIVE_RE.test(s) || deviceWrite) {
     base = 80; action = 'security'; reversible = false; flags.push('destructive');
-    // Path-aware grading (F5) for the rm / Remove-Item class only — shred /
-    // mkfs / dd never de-escalate. Every target a bare regenerable artifact
-    // name → routine cleanup; any catastrophic-root target → escalate so the
-    // evidence alone reaches the block band regardless of soft declarations.
-    if (RM_RECURSIVE_RE.test(s)) {
+    if (INTERPRETER_DESTRUCTIVE_RE.test(s)) flags.push('interpreter_destructive');
+    // Path-aware grading (F5) for the rm / Remove-Item and find -delete
+    // classes only — shred / mkfs / dd / interpreter payloads never
+    // de-escalate. Every target a bare regenerable artifact name → routine
+    // cleanup; any catastrophic-root target → escalate so the evidence alone
+    // reaches the block band regardless of soft declarations. A raw-device
+    // write is always the catastrophic case: the "target" is the disk itself.
+    if (deviceWrite) {
+      modifiers.push({ reason: 'raw block device write target', delta: 20 });
+      flags.push('device_write', 'protected_target');
+    } else if (RM_RECURSIVE_RE.test(s)) {
       const targets = rmDeleteTargets(s);
       if (targets.length > 0 && targets.every(isRegenerableArtifactTarget)) {
         base = 45; action = 'cleanup'; flags.push('regenerable_artifact');
       } else if (targets.some(isProtectedRootTarget)) {
+        modifiers.push({ reason: 'protected root/home/system delete target', delta: 20 });
+        flags.push('protected_target');
+      }
+    } else if (FIND_DELETE_RE.test(s)) {
+      const roots = findRootTargets(s);
+      if (roots.length > 0 && roots.every(isRegenerableArtifactTarget)) {
+        base = 45; action = 'cleanup'; flags.push('regenerable_artifact');
+      } else if (roots.some(isProtectedRootTarget)) {
         modifiers.push({ reason: 'protected root/home/system delete target', delta: 20 });
         flags.push('protected_target');
       }
@@ -170,6 +218,15 @@ function classifyShell(command: string): EvidenceClassification {
   // command first: `curl … | sh` / `wget … | bash` executes remote code.
   if (/\b(curl|wget)\b[^\n]*\|\s*(sudo\s+)?(sh|bash|zsh|python[0-9]?|node)\b/i.test(command)) {
     return { derived_action_type: 'security', base_risk: 70, modifiers: [], reversible_hint: false, flags: ['remote_exec'] };
+  }
+  // Interpreter one-liners are detected pre-split too: the quoted payload
+  // legitimately contains `;` (`python -c "import shutil; shutil.rmtree(…)"`),
+  // which the chain-splitter would sever from its interpreter (F2).
+  if (INTERPRETER_DESTRUCTIVE_FULL_RE.test(command)) {
+    return {
+      derived_action_type: 'security', base_risk: 80, modifiers: [],
+      reversible_hint: false, flags: ['destructive', 'interpreter_destructive'],
+    };
   }
   // Chain-split on &&, ;, ||, | and classify the highest-risk segment.
   const segments = command.split(/&&|\|\||;|\|/).map((p) => p.trim()).filter(Boolean);

@@ -562,5 +562,54 @@ class TestNpxClassification(unittest.TestCase):
         self.assertGreaterEqual(r["risk_score"], 40)
 
 
+class TestF2CoverageBacklog(unittest.TestCase):
+    """F2 (governance gap audit 2026-08-05): destructive shapes that dodged the
+    rm-centric patterns — find -delete, raw block-device writes — plus pins on
+    the audit shapes that were already covered (dd of=, git clean, truncate)."""
+
+    def test_find_delete_is_destructive(self):
+        r = classify_bash("find /c/Users/wes -type f -delete")
+        self.assertEqual(r["intent"], "destructive")
+
+    def test_find_exec_rm_is_destructive(self):
+        r = classify_bash('find . -name "*.log" -exec rm {} \\;')
+        self.assertEqual(r["intent"], "destructive")
+
+    def test_plain_find_stays_readonly(self):
+        r = classify_bash('find . -name "*.ts" -mtime -1')
+        self.assertEqual(r["intent"], "readonly")
+
+    def test_find_delete_gets_destructive_validation(self):
+        r = classify_bash("find scratch -delete")
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertIn("destructive_command", checks)
+        self.assertIn(checks["destructive_command"]["result"], ("warn", "block"))
+
+    def test_raw_device_redirect_blocks(self):
+        r = classify_bash("cat /dev/zero > /dev/sda")
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertIn("destructive_command", checks)
+        self.assertEqual(checks["destructive_command"]["result"], "block")
+
+    def test_dd_to_raw_device_blocks(self):
+        r = classify_bash("dd if=/dev/zero of=/dev/sda bs=1M")
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertEqual(checks["destructive_command"]["result"], "block")
+
+    def test_git_clean_xfd_is_destructive(self):
+        r = classify_bash("git clean -xfd")
+        self.assertEqual(r["intent"], "destructive")
+
+    def test_truncate_is_destructive(self):
+        r = classify_bash("truncate -s 0 important.db")
+        self.assertEqual(r["intent"], "destructive")
+
+    def test_ordinary_redirect_does_not_block(self):
+        r = classify_bash("echo hello > out.txt")
+        checks = {v["check"]: v for v in r["validations"]}
+        if "destructive_command" in checks:
+            self.assertNotEqual(checks["destructive_command"]["result"], "block")
+
+
 if __name__ == "__main__":
     unittest.main()

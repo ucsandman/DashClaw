@@ -13,6 +13,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.8.2] — 2026-08-06
+
+**F2 of the 2026-08-05 governance gap audit is closed — the classifier coverage backlog.** The audit's live repro: `find /c/Users/<user> -type f -delete` graded **review/5** (find is a read-only command — until it carries a delete predicate) and a canary actually deleted through the armed hook. Every listed shape is now covered on both classifiers, each pinned by a regression test. Platform + hooks; no SDK source change.
+
+### Fixed
+
+- **`find -delete` / `find -exec rm` grades destructive, with F5 path-awareness**: a regenerable-artifact root (`find node_modules -delete`) stays cleanup/45; a protected root (`find /c/Users/<user> -delete`) escalates to 100; plain `find` without a delete predicate stays read-only. Both classifiers (server evidence + hook intent).
+- **Interpreter one-liner deletes grade security/80**: `python -c "import shutil; shutil.rmtree(…)"`, `node -e "fs.rmSync(…)"` and friends (`os.remove/unlink/rmdir`, `unlinkSync`, `rimraf`) — detected on the whole command *before* chain-splitting, because the quoted payload legitimately contains `;` and the splitter severed it from its interpreter. The hook already warned on these (inline escape hatch) and deferred escalation to the server; the server now actually escalates.
+- **Raw block-device writes grade 100 and hard-block**: output redirect or `dd of=` onto `/dev/sd*`/`hd*`/`nvme*`/`mmcblk*`/`vd*`/`xvd*`/`disk*`/`\\.\PhysicalDrive*` — a disk destroyed without naming a file. New always-block validation in the hook, protected-target escalation in the server evidence classifier.
+- **Already-covered audit shapes pinned so they cannot regress**: `git clean -xfd` (vcs_dangerous/70), `dd`, `mkfs`, `truncate -s 0` (destructive/80).
+
+### Changed
+
+- **Control-plane policy posture (instance state, operator-authorized).** The v5.8.1 `block` on `gp_c265caca34894d908c8aa384` fired on legitimate, gated hook maintenance during this release's work — the F5 lesson applies to control-plane rules too. Converted to `require_approval` keeping `ungrantable: true`: post-F1 no grant can clear it, so tampering still freezes, while hook maintenance routes through the one-click Approvals loop.
+- **The script-then-execute composition case is an explicit future spec** (PostToolUse session-state correlation), the audit's one remaining item — recorded in the audit doc, not silently deferred.
+
 ## [5.8.1] — 2026-08-06
 
 **F3 of the 2026-08-05 governance gap audit is closed — to the exact extent software can close it.** The finding: a governed agent was allowed to write over its own hook and harness settings, because any control that lives inside the blast radius of the thing it governs is advisory by construction. The software half of the fix is the control-plane hard block (converted live, verified: writes to `settings.json` and `dashclaw_pretool.py` now **block**, matched by an `ungrantable` policy). The other half is this release: the product now says the true thing everywhere it speaks, instead of implying a boundary it cannot provide. Docs + landing copy only; no SDK source change.

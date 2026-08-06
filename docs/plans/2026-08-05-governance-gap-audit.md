@@ -37,9 +37,10 @@ prevents that class of incident, then whether the agent could get around it anyw
 > ADR all state the privilege boundary plainly (seatbelt, not cage; real
 > isolation = container / separate OS user / read-only hook path).
 >
-> **Still open — work, not a false-confidence bug:** F2 (classifier
-> coverage backlog: `find -delete`, `git clean -xfd`, `shutil.rmtree`, `dd`,
-> and the script-then-execute composition case).
+> **F2 closed 2026-08-06 (v5.8.2):** every listed pattern shape covered on
+> both classifiers, pinned by regression tests. **The single remaining audit
+> item** is the script-then-execute composition case, recorded as an explicit
+> future spec (PostToolUse session-state correlation), not a silent deferral.
 
 DashClaw's **coverage is incomplete** and its **grant model silently nullifies
 `require_approval` policies**. Of the original six findings, four are fixable and one is a
@@ -192,7 +193,27 @@ They do not. This is worse than having no policy, because it produces false conf
 
 ---
 
-### F2 — HIGH — Destructive-command classification has coverage holes
+### F2 — HIGH — Destructive-command classification has coverage holes *(RESOLVED 2026-08-06, v5.8.2 — pattern backlog closed; composition case spec'd out)*
+
+> **RESOLVED (patterns).** Every listed shape is now covered on both classifiers,
+> each pinned by a regression test (`__tests__/unit/guard-evidence.test.js`
+> "F2 coverage backlog", `hooks/tests/test_bash_classifier.py::TestF2CoverageBacklog`):
+> `find -delete` / `find -exec rm` grade destructive with F5 path-awareness
+> (regenerable root → cleanup/45, protected root → 100); interpreter one-liners
+> (`shutil.rmtree`, `os.remove/unlink/rmdir`, `fs.rm*/rmSync/unlinkSync`,
+> `rimraf`) grade security/80, detected pre-chain-split because the quoted
+> payload legitimately contains `;`; raw block-device writes (redirect or
+> `dd of=` onto sd/hd/nvme/mmcblk/vd/xvd/disk/PhysicalDrive) grade 100 and the
+> hook hard-blocks them; `git clean -xfd`, `dd`, `mkfs`, `truncate -s 0` were
+> already covered post-v5.7.1 and are now pinned so they cannot regress.
+>
+> **Composition case (script-then-execute) — explicit decision, not a pattern:**
+> deferred to its own spec by design. The mechanism the audit anticipated is
+> confirmed as the right shape — PostToolUse records written paths in session
+> state; PreToolUse escalates an execute of a recently-written path — but it
+> is session-state architecture (path normalization, TTL, cross-tool
+> correlation), not a regex, and shipping it as a tail on a pattern release
+> is how subtle holes get built. It is the one remaining audit item.
 
 `find <path> -type f -delete` is classified as **`review`, base risk 5**, final score 45 → **allow**.
 
@@ -229,7 +250,14 @@ an execute of that path.
 > `action: block` + `rules.ungrantable: true` — verified live: guard eval of a
 > write to `~/.claude/settings.json` and to `hooks/dashclaw_pretool.py` both
 > return **block** matched by that policy, and per F1's fix no grant can clear
-> it. **(2) Honesty pass:** README (boundary note + "What DashClaw is not"),
+> it. *(Posture amendment, later 2026-08-06, operator-authorized: converted
+> `block` → `require_approval`, keeping `ungrantable: true`. The block fired
+> on legitimate, gated hook maintenance during the F2 work — the F5 lesson
+> applies to control-plane rules too: a gate that blocks routine legitimate
+> work gets switched off. Post-F1, `ungrantable` makes `require_approval`
+> tamper-robust — no grant can clear it — while routing hook writes through
+> the one-click Approvals loop. Decided by Wes via in-session prompt.)*
+> **(2) Honesty pass:** README (boundary note + "What DashClaw is not"),
 > landing page section 7, `hooks/README.md` threat-model section, and the
 > enforcement-boundary ADR now state plainly that the hook is a seatbelt
 > against accidents, not a cage against intent, and that a tamper-proof
@@ -411,9 +439,10 @@ Verified: guard eval of a write to `settings.json` → block/65 and to
 `dashclaw_pretool.py` → block/65, both matched by `gp_c265caca34894d908c8aa384`
 (now `block` + `ungrantable: true`).
 
-**P2 — Classifier coverage backlog (F2).** Start with `find -delete`, `git clean -xfd`,
-`shutil.rmtree`, `dd`. Add a regression test per shape in the policy smoke suite.
-The script-then-execute composition case is a design question, not a pattern addition.
+**P2 — Classifier coverage backlog (F2). ✅ DONE 2026-08-06 (v5.8.2).**
+All listed shapes covered on both classifiers with a regression test per shape.
+The script-then-execute composition case is recorded as its own future spec
+(PostToolUse session-state correlation) — the last open audit item.
 
 **P2 — Predictive-risk debiasing (F6). ✅ DONE 2026-08-06 (v5.7.3).**
 
@@ -432,7 +461,7 @@ Guard caches decisions idempotently — **vary `declared_goal` to force a fresh 
 and note the 30s policy cache after any policy change.
 
 ```
-F2  act: {"kind":"shell","command":"find /c/Users/<user> -type f -delete"}          → expect allow/45 (BUG)
+F2  act: {"kind":"shell","command":"find /c/Users/<user> -type f -delete"}          → expect allow/45 (BUG; fixed v5.8.2 → block/100)
 F3  act: {"kind":"file","file":{"path":"<...>/.claude/settings.json", ...}}          → expect allow/65 (BUG)
 F5  act: {"kind":"shell","command":"rm -rf node_modules"}                            → expect block/100 (FALSE POSITIVE)
 W2  act: {"kind":"shell","command":"rm -rf \"/c/Users/<user>\""} + risk_score: 10    → expect block/100 (CORRECT)

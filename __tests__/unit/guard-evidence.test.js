@@ -78,6 +78,84 @@ describe('classifyAct — path-aware rm (F5)', () => {
     expect(classifyAct({ kind: 'shell', command: 'rm -rf node_modules/*' }).base_risk).toBe(80);
     expect(classifyAct({ kind: 'shell', command: 'rm -rf /app/node_modules' }).base_risk).toBe(80);
   });
+});
+
+// F2 classifier coverage backlog (governance gap audit 2026-08-05): destructive
+// shapes that dodged the rm-centric patterns. Each test pins one audit shape.
+describe('classifyAct — F2 coverage backlog', () => {
+  it('grades find -delete as destructive, not readonly', () => {
+    const c = classifyAct({ kind: 'shell', command: 'find /c/Users/wes -type f -delete' });
+    expect(c.derived_action_type).toBe('security');
+    expect(c.flags).toContain('destructive');
+    expect(c.flags).toContain('protected_target');
+    expect(evidenceTotal(c)).toBe(100);
+  });
+
+  it('grades find -exec rm as destructive', () => {
+    const c = classifyAct({ kind: 'shell', command: 'find . -name "*.log" -exec rm {} \\;' });
+    expect(c.flags).toContain('destructive');
+    expect(c.base_risk).toBe(80);
+  });
+
+  it('find on a regenerable artifact root stays cleanup (F5 consistency)', () => {
+    const c = classifyAct({ kind: 'shell', command: 'find node_modules -delete' });
+    expect(c.derived_action_type).toBe('cleanup');
+    expect(c.base_risk).toBe(45);
+    expect(c.flags).toContain('regenerable_artifact');
+  });
+
+  it('plain find without -delete stays readonly', () => {
+    const c = classifyAct({ kind: 'shell', command: 'find . -name "*.ts" -mtime -1' });
+    expect(c.derived_action_type).toBe('review');
+    expect(evidenceTotal(c)).toBe(5);
+  });
+
+  it('grades python -c shutil.rmtree as destructive', () => {
+    const c = classifyAct({ kind: 'shell', command: 'python -c "import shutil; shutil.rmtree(\'/c/Users/wes/project\')"' });
+    expect(c.derived_action_type).toBe('security');
+    expect(c.flags).toContain('interpreter_destructive');
+    expect(c.base_risk).toBe(80);
+    expect(c.reversible_hint).toBe(false);
+  });
+
+  it('grades node -e fs.rmSync as destructive', () => {
+    const c = classifyAct({ kind: 'shell', command: "node -e \"require('fs').rmSync('data', {recursive: true})\"" });
+    expect(c.flags).toContain('interpreter_destructive');
+    expect(c.base_risk).toBe(80);
+  });
+
+  it('a benign interpreter one-liner does not trip the destructive branch', () => {
+    const c = classifyAct({ kind: 'shell', command: 'python -c "print(1+1)"' });
+    expect(c.flags).not.toContain('interpreter_destructive');
+    expect(c.base_risk).toBeLessThan(80);
+  });
+
+  it('grades a raw-device redirect as catastrophic', () => {
+    const c = classifyAct({ kind: 'shell', command: 'cat /dev/zero > /dev/sda' });
+    expect(c.flags).toContain('device_write');
+    expect(c.flags).toContain('protected_target');
+    expect(evidenceTotal(c)).toBe(100);
+  });
+
+  it('escalates dd writing to a raw device to the block band', () => {
+    const c = classifyAct({ kind: 'shell', command: 'dd if=/dev/zero of=/dev/sda bs=1M' });
+    expect(c.flags).toContain('destructive');
+    expect(c.flags).toContain('protected_target');
+    expect(evidenceTotal(c)).toBe(100);
+  });
+
+  it('pins mkfs, truncate, and git clean -xfd coverage (already-covered audit shapes)', () => {
+    expect(classifyAct({ kind: 'shell', command: 'mkfs.ext4 /dev/sdb1' }).base_risk).toBe(80);
+    expect(classifyAct({ kind: 'shell', command: 'truncate -s 0 important.db' }).base_risk).toBe(80);
+    const clean = classifyAct({ kind: 'shell', command: 'git clean -xfd' });
+    expect(clean.flags).toContain('vcs_dangerous');
+    expect(clean.base_risk).toBe(70);
+  });
+
+  it('a redirect to an ordinary file is not a device write', () => {
+    const c = classifyAct({ kind: 'shell', command: 'echo hello > out.txt' });
+    expect(c.flags).not.toContain('device_write');
+  });
 
   it('escalates home/profile/root delete targets to the block band on evidence alone', () => {
     for (const cmd of [

@@ -12,6 +12,42 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-06 — v5.8.2: F2, and the day the governor governed its governor's mechanic
+
+**Shipped:** release v5.8.2 — **F2 closed**, the classifier coverage
+backlog. `find -delete` no longer grades as a read-only lookup (review/5
+was the audit's live repro; a canary deleted through the armed hook),
+interpreter one-liners like `python -c "import shutil;
+shutil.rmtree(…)"` grade security/80 — detected before chain-splitting,
+because the splitter was severing the quoted payload from its
+interpreter at the `;` — and a redirect or `dd of=` onto a raw block
+device grades 100 and hard-blocks. Every shape the audit listed is
+pinned by a regression test on both classifiers; the already-covered
+ones (`git clean -xfd`, `dd`, `mkfs`, `truncate`) are pinned too so
+they cannot silently regress. The one remaining audit item is the
+script-then-execute composition case, recorded as its own future spec
+(PostToolUse session-state correlation) rather than rushed as a tail on
+a pattern release.
+
+The part worth reading: mid-way through this work, **the v5.8.1
+control-plane block policy blocked me** — the governed maintainer —
+from editing the hook test suite, because on this machine the DashClaw
+repo's `hooks/` directory *is* the live hook path. The policy did
+exactly what F3 asked. It also proved the F5 lesson applies one level
+up: a gate that hard-blocks routine, gated, human-reviewable
+maintenance is a gate an operator will eventually switch off. I did not
+weaken it myself — an agent editing its governor's off-switch policy to
+unblock its own work is precisely the F3 shape — I stopped and put the
+decision to Wes. He chose `require_approval` + `ungrantable`: post-F1
+no grant can nullify it, so tamper attempts still freeze, while hook
+maintenance now routes through the Approvals inbox — the product's own
+hero loop, governing the product's own maintainer. The audit doc
+records the amendment and who decided it.
+
+**Decision on record:** control-plane rules obey the alarm-fatigue law
+like every other rule. `require_approval` + `ungrantable` is the
+posture that survives contact with real maintenance.
+
 ## 2026-08-06 — v5.8.1: F3, closed by telling the truth
 
 **Shipped:** release v5.8.1 — **F3 closed**, and the release is mostly

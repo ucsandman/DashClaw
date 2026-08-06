@@ -114,6 +114,19 @@ _INLINE_ESCAPE_HATCH_RE = re.compile(
     re.IGNORECASE,
 )
 
+# F2 (governance gap audit 2026-08-05): `find` with a delete predicate is a
+# mass delete wearing a read-only command's name.
+_FIND_DELETE_RE = re.compile(r"\s-delete\b|\s-exec\s+\S*(rm|shred)\b", re.IGNORECASE)
+
+# Raw block devices (Linux sd/hd/nvme/mmcblk/vd/xvd, macOS disk, Windows
+# PhysicalDrive) reached via output redirect or dd's of= — destroys a disk
+# without naming a single file (F2).
+_RAW_DEVICE_WRITE_RE = re.compile(
+    r"(>\s*|\bof=)[\"']?(/dev/(sd[a-z]|hd[a-z]|nvme\d+n?\d*(p\d+)?|disk\d+|mmcblk\d+|vd[a-z]|xvd[a-z])\b"
+    r"|\\\\\.\\physicaldrive\d+)",
+    re.IGNORECASE,
+)
+
 # PowerShell cmdlets follow Verb-Noun; the approved verb carries the intent.
 # The pretool hook routes the PowerShell tool through this classifier the same
 # way it routes Bash — before that, every cmdlet fell through to "unknown" and
@@ -340,6 +353,10 @@ def _classify_intent(parsed: dict, raw_command: str) -> str:
     if base_name.startswith("mkfs"):
         return "destructive"
 
+    # find with -delete / -exec rm is a mass delete, not a read-only lookup (F2).
+    if base_name == "find" and _FIND_DELETE_RE.search(raw_command):
+        return "destructive"
+
     # Git has special subcommand-level classification.
     if base_name == "git":
         return _classify_git(parsed)
@@ -441,6 +458,14 @@ def _run_destructive_command_validation(
             "check": "destructive_command",
             "result": "block",
             "reason": "DROP TABLE detected",
+        }
+
+    # Write to a raw block device (redirect or dd of=) — always block (F2).
+    if _RAW_DEVICE_WRITE_RE.search(raw_command):
+        return {
+            "check": "destructive_command",
+            "result": "block",
+            "reason": "write to raw block device",
         }
 
     # mkfs — always block.
