@@ -35,8 +35,19 @@ _MAX_ENTRIES = 500
 _CONTENT_CAP_BYTES = 256 * 1024
 _DEFAULT_TTL_MINUTES = 60
 
-_SHELL_EXTS = {".sh", ".bash", ".zsh", ".ps1"}
+_SHELL_EXTS = {".sh", ".bash", ".zsh", ".ps1", ".bat", ".cmd"}
 _INTERP_EXTS = {".py", ".js", ".mjs", ".cjs", ".ts", ".rb", ".pl"}
+
+# Extensions that mark a token as an executable script even when the token
+# carries no path separator — `cmd /c x.bat` and bare `x.cmd` execute a file
+# the same as `./x.sh` does (MoltFire probe, 2026-08-06). Also the recovery
+# hook for Windows forms the bash tokenizer mangled: `.\x.bat` reaches the
+# parser as `.x.bat`, separators gone.
+_SCRIPT_EXTS = _SHELL_EXTS | _INTERP_EXTS
+
+
+def _has_script_ext(token):
+    return os.path.splitext(token.lower())[1] in _SCRIPT_EXTS
 
 # Interpreters whose first positional target is the script they execute, with
 # the inline-eval flags that mean "no script file involved".
@@ -188,13 +199,27 @@ def lookup_written_path(session_id, instance_suffix, path, cwd, now=None):
             for e in entries:
                 if e["path"] == key:
                     return e["path"]
-        stripped = _SEPARATORS_RE.sub("", (path or "").strip().strip("\"'"))
+        raw = (path or "").strip().strip("\"'")
+        stripped = _SEPARATORS_RE.sub("", raw)
         if sys.platform == "win32":
             stripped = stripped.casefold()
         if stripped:
             for e in entries:
                 if _SEPARATORS_RE.sub("", e["path"]) == stripped:
                     return e["path"]
+        # Separator-less script names (`x.bat` after `cmd /c`, or `.\x.bat`
+        # tokenizer-mangled to `.x.bat`) can't reconstruct their directory, so
+        # match by recorded basename. Gated to script extensions to keep the
+        # alias narrow (F5 lesson).
+        if raw and not _SEPARATORS_RE.search(raw) and _has_script_ext(raw):
+            name = raw.lstrip(".")
+            if sys.platform == "win32":
+                name = name.casefold()
+            if name:
+                for e in entries:
+                    base = _SEPARATORS_RE.split(e["path"])[-1]
+                    if base == name:
+                        return e["path"]
         return None
     except Exception:
         return None
@@ -227,8 +252,9 @@ def _segment_candidates(seg):
     targets = [t for t in (seg.get("targets") or []) if t]
     out = []
 
-    # The program token itself, when it is a path (./x.sh, /tmp/x.sh, C:\x.ps1).
-    if base and _looks_like_path(base):
+    # The program token itself, when it is a path (./x.sh, /tmp/x.sh, C:\x.ps1)
+    # or a bare/mangled script name (x.cmd, .x.bat after backslash loss).
+    if base and (_looks_like_path(base) or _has_script_ext(base)):
         out.append(base)
 
     base_name = base.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
@@ -245,8 +271,10 @@ def _segment_candidates(seg):
         lowered = [t.lower() for t in targets]
         if "/c" in lowered:
             idx = lowered.index("/c")
-            if idx + 1 < len(targets) and _looks_like_path(targets[idx + 1]):
-                out.append(targets[idx + 1])
+            if idx + 1 < len(targets):
+                nxt = targets[idx + 1]
+                if _looks_like_path(nxt) or _has_script_ext(nxt):
+                    out.append(nxt)
     elif base_name in _EXEC_INTERPRETERS:
         eval_flags = _EXEC_INTERPRETERS[base_name]
         if not any(f in eval_flags for f in flags) and targets:

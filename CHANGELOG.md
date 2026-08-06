@@ -13,7 +13,23 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
-## [5.9.0] — 2026-08-06
+## [5.9.1] — 2026-08-06
+
+**OpenClaw embedded-codex ledger bridge + the Windows `.bat`/`.cmd` composition gap.** Field-found by MoltFire (an OpenClaw Telegram agent): its embedded Codex app-server lane never appeared in the decisions ledger, and its Windows batch-script probes never raised the v5.9.0 `script_then_execute` signal.
+
+### Fixed
+
+- **Windows `.bat`/`.cmd` script-then-execute detection** (`hooks/dashclaw_agent_intel/written_paths_ledger.py`) — `cmd /c x.bat`, `cmd /c .\x.bat`, and bare `x.cmd` produced no composition signal: the bash tokenizer eats backslashes (`.\x.bat` → `.x.bat`) and bare batch names carry no path marker, so no exec candidate was ever extracted. Candidacy now includes known script extensions (`.bat`/`.cmd` added to the shell set, so batch content grades line-by-line instead of via the interpreter regex), and ledger lookup matches separator-less mangles by recorded basename — gated to script extensions to keep the alias narrow (F5 lesson). 7 new regression tests pin all six probe forms plus the unwritten-file false-positive guard.
+- **`dashclaw codex notify` understands kebab-case payloads** (`cli/lib/codex/notify.js`) — the codex 0.13x line (still vendored inside OpenClaw's codex runtime) emits `turn-id`/`last-assistant-message`-style keys; the recorder read snake_case only, so turn ids and summaries came through empty. Both spellings are now accepted, snake_case preferred.
+
+### Added
+
+- **`dashclaw codex notify --agent-id <id>`** — bake ledger identity into the notify argv (argv beats the machine-ambient `DASHCLAW_AGENT_ID`), so a gateway lane on a shared machine attributes its turns correctly. This is the bridge for OpenClaw's embedded-codex runtime, whose native tool calls cross neither the OpenClaw plugin hook bus nor (on the vendored 0.13x codex) the hook system — wiring documented in `cli/README.md`, enforcement posture recorded in `docs/architecture/enforcement-boundary.md` (cooperative/recording-only until OpenClaw vendors codex ≥ 0.142). Verified end-to-end: a live OpenClaw gateway turn landed in the hosted decisions ledger as an `agent_turn` action.
+
+### Notes
+
+- Platform-guide live examples regenerated at the current version (`guide:drift:check` green again).
+- No route, SDK, or MCP surface change — counts unchanged; SDKs are not republished.
 
 **Script-then-execute composition detection — the governance gap audit's last open item.** Two individually-benign tool calls compose into a destructive one: write a script whose payload would be blocked inline, then execute the script path (which grades as a routine interpreter call at the execution base). The guard graded the write and the execute but never the payload as a command — split across tool calls, no per-call classifier could see it. Closed per the accepted spec (`docs/plans/2026-08-06-script-then-execute-spec.md`); hooks + dashboard only, no server or SDK surface change.
 

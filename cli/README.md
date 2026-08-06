@@ -162,6 +162,16 @@ dashclaw install codex --include-notify          # also wire notify → dashclaw
 
 Records a Codex turn-complete event as a DashClaw action record. Called by Codex's notify config (wired by `install codex --include-notify`); always exits 0 so Codex never sees an error from the spawn.
 
+Accepts `--agent-id <id>` in the argv prefix (Codex appends the JSON payload after it). argv identity beats the machine-ambient `DASHCLAW_AGENT_ID`, so turns are never mis-attributed on a machine shared by several harnesses. Both notify payload key styles are understood: snake_case (current Codex CLIs) and kebab-case (the 0.13x line).
+
+**OpenClaw embedded-codex bridge.** OpenClaw's `codex` agent runtime spawns a vendored `codex app-server` with `CODEX_HOME=<agent-dir>/codex-home` — native tool calls there never cross the OpenClaw plugin hook bus, and the vendored 0.13x binary does not execute `hooks.json`/config hooks, so that lane is invisible to both the OpenClaw governance plugin and the Codex hook pack. The bridge is this notify target: add to `~/.openclaw/agents/<agent>/agent/codex-home/config.toml` (top of file, before any `[table]`):
+
+```toml
+notify = ["node", '<path-to>/cli/bin/dashclaw.js', "codex", "notify", "--agent-id", "<your-agent-id>"]
+```
+
+Credentials resolve from the gateway environment (`DASHCLAW_URL`/`DASHCLAW_BASE_URL` + `DASHCLAW_API_KEY`). Each embedded-codex turn then lands in the decisions ledger as one `agent_turn` action (`metadata.source: codex-notify`). This is recording, not enforcement — full guard hooks become available when OpenClaw's vendored codex reaches ≥ 0.142.
+
 ### `dashclaw logout`
 
 Remove the saved config at `~/.dashclaw/config.json`.

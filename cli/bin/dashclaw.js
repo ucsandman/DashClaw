@@ -98,6 +98,7 @@ ${bold('Usage:')}
     --approval-policy <p>                Codex approval_policy (default: on-request)
     --include-notify                     Also wire Codex's notify config to dashclaw codex notify
   dashclaw codex notify '<json>'         Record a Codex turn-complete event
+    --agent-id <id>                      Ledger identity for the turn (beats DASHCLAW_AGENT_ID)
                                          (called by Codex's notify config; always exits 0)
   dashclaw logout                        Remove saved config (~/.dashclaw/config.json)
   dashclaw version                       Print the CLI version
@@ -812,13 +813,18 @@ async function cmdDown() {
 async function cmdCodexNotify() {
   // Skip the leading 'codex' and 'notify' tokens — runCodexNotify reads the
   // JSON payload from the LAST argv slot (per Codex's notify contract).
+  // Codex appends the payload after any args baked into the notify config,
+  // so `--agent-id` can ride in the argv prefix. argv identity beats the
+  // machine-ambient DASHCLAW_AGENT_ID for the same reason the hooks pass
+  // --agent-id: a shared machine env must never mis-attribute another
+  // harness's turns (e.g. an OpenClaw agent's embedded codex lane).
   const notifyArgv = args.slice(1); // includes 'notify' and the payload
   try {
     await runCodexNotify({
       argv: notifyArgv,
       baseUrl,
       apiKey,
-      agentId: agentId || 'codex',
+      agentId: getFlag('--agent-id') || agentId || 'codex',
       logger: console,
     });
   } catch {

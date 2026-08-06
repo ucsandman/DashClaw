@@ -123,6 +123,65 @@ class TestEscalation(_EnrichBase):
         )
 
 
+class TestWindowsExecForms(_EnrichBase):
+    """MoltFire probe 2026-08-06 — Windows .bat/.cmd exec forms produced no
+    composition signal. The bash tokenizer eats backslashes (.\\x.bat ->
+    .x.bat), and bare batch names carry no path marker, so no candidate was
+    ever extracted. Candidacy now includes known script extensions, and
+    lookup matches separator-less mangles by recorded basename."""
+
+    _DESTRUCTIVE_BAT = "rmdir /s /q C:\\Users\\someone\n"
+
+    def _write_and_prime(self, name, content=None):
+        p = self._write_script(name, content or self._DESTRUCTIVE_BAT)
+        self._prime(p)
+        return p
+
+    def test_cmd_slash_c_bare_bat(self):
+        p = self._write_and_prime("x.bat")
+        e = self._enrich("cmd /c x.bat")
+        self.assertIn("script_then_execute", self._checks(e))
+        self.assertEqual(e["target"], normalize_exec_path(p, self.dir))
+
+    def test_cmd_slash_c_dotslash_bat(self):
+        self._write_and_prime("x.bat")
+        e = self._enrich("cmd /c .\\x.bat")  # tokenizer mangles to .x.bat
+        self.assertIn("script_then_execute", self._checks(e))
+
+    def test_cmd_slash_c_bare_cmd_ext(self):
+        self._write_and_prime("x.cmd")
+        e = self._enrich("cmd /c x.cmd")
+        self.assertIn("script_then_execute", self._checks(e))
+
+    def test_bare_cmd_script_as_program(self):
+        self._write_and_prime("x.cmd")
+        e = self._enrich("x.cmd")
+        self.assertIn("script_then_execute", self._checks(e))
+
+    def test_dotslash_cmd_script_as_program(self):
+        self._write_and_prime("x.cmd")
+        e = self._enrich(".\\x.cmd")  # tokenizer mangles to .x.cmd
+        self.assertIn("script_then_execute", self._checks(e))
+
+    def test_batch_content_grades_as_shell_lines(self):
+        # rmdir /s /q grades as a destructive command (65), which must ride
+        # along as a script_content validation — not fall into the
+        # interpreter-regex grader that knows nothing about cmd builtins.
+        self._write_and_prime("x.bat")
+        e = self._enrich("cmd /c x.bat")
+        self.assertIn(
+            "script_content:destructive_command",
+            self._checks(e),
+        )
+
+    def test_unwritten_bat_no_signal(self):
+        # F5 pin: bare batch names that the session never wrote must not
+        # produce a composition signal (basename alias must not overreach).
+        self._write_script("other.bat", self._DESTRUCTIVE_BAT)  # NOT primed
+        e = self._enrich("cmd /c other.bat")
+        self.assertNotIn("script_then_execute", self._checks(e))
+
+
 class TestFalsePositivePins(_EnrichBase):
     """§8 — no new warn/block on routine script workflows (F5 lesson)."""
 

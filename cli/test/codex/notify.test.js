@@ -89,6 +89,36 @@ describe('buildActionFromNotify', () => {
     const a = buildActionFromNotify(SAMPLE_PAYLOAD, { agentId: 'codex-prod' });
     assert.equal(a.agent_id, 'codex-prod');
   });
+
+  // The codex 0.13x line (still vendored inside OpenClaw's codex agent
+  // runtime) emits kebab-case notify keys. Verified against a live
+  // codex-cli 0.132.0 payload, 2026-08-06.
+  it('accepts kebab-case payload keys from the codex 0.13x line', () => {
+    const a = buildActionFromNotify({
+      type: 'agent-turn-complete',
+      'thread-id': 'thr_kebab',
+      'turn-id': 'turn_kebab',
+      cwd: 'C:\\ws',
+      client: 'codex_app_server',
+      'input-messages': ['run the thing'],
+      'last-assistant-message': 'done.',
+    });
+    assert.match(a.declared_goal, /turn_kebab/);
+    assert.match(a.declared_goal, /thr_kebab/);
+    assert.equal(a.metadata.thread_id, 'thr_kebab');
+    assert.equal(a.metadata.turn_id, 'turn_kebab');
+    assert.equal(a.metadata.input_message_count, 1);
+    assert.equal(a.metadata.last_assistant_summary, 'done.');
+    assert.equal(a.metadata.client, 'codex_app_server');
+  });
+
+  it('prefers snake_case when both spellings are present', () => {
+    const a = buildActionFromNotify({
+      ...SAMPLE_PAYLOAD,
+      'turn-id': 'turn_should_lose',
+    });
+    assert.equal(a.metadata.turn_id, 'turn_xyz');
+  });
 });
 
 describe('postNotifyAction', () => {

@@ -12,6 +12,46 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-06 — a field agent files the first bug report (v5.9.1)
+
+**Shipped:** `v5.9.1` — two fixes found in the wild by MoltFire, an OpenClaw
+Telegram agent governed by the DashClaw plugin, within hours of v5.9.0
+landing.
+
+The first finding was a governance blind spot in MoltFire's own runtime.
+Its ledger went silent during a Codex work loop, and its self-diagnosis was
+right: OpenClaw's `codex` agent runtime spawns a vendored `codex app-server`
+(0.13x line) with its own `CODEX_HOME`, so native tool calls cross neither
+the OpenClaw plugin hook bus nor any hook wiring in `~/.codex` — invisible
+to every governance layer at once. I verified the lane empirically: the
+vendored 0.132.0 binary ships the hook machinery in its strings but executes
+neither `hooks.json` nor config-table hooks (0.142.5 runs both), while the
+older `notify` mechanism still fires. So the bridge is notify:
+`dashclaw codex notify` gained an `--agent-id` argv flag and learned the
+0.13x kebab-case payload keys (they silently emptied every field before),
+and the wiring is one TOML line in the agent's codex-home. Proof, not
+assertion: I drove a live gateway turn and watched it land in the hosted
+ledger as an `agent_turn`. Recording, not enforcement — the enforcement-
+boundary table now says so out loud, with the upgrade path (OpenClaw
+vendoring codex ≥ 0.142) named.
+
+The second finding: v5.9.0's script-then-execute detection — shipped
+yesterday as "zero open items" — missed every Windows batch form MoltFire
+probed. `cmd /c x.bat` extracts no candidate (bare names carry no path
+marker), and `.\x.bat` reaches the parser as `.x.bat` because the bash
+tokenizer eats backslashes. Candidacy is now extension-aware, batch content
+grades line-by-line like shell, and lookup matches separator-mangled names
+by recorded basename, gated to script extensions so the alias can't
+overreach (F5). Seven regression tests pin the probe matrix.
+
+Worth recording honestly: the audit's "zero open items" lasted one day
+against one outside agent on one platform. Field reports beat audits, and
+the ledger's silence was itself the signal — a "lane active but no witness
+arriving" alarm is the obvious next detector.
+
+Also: platform-guide live examples regenerated (the drift gate was red at
+v5.9.0), and the notify bridge wiring documented in `cli/README.md`.
+
 ## 2026-08-06 — the last audit item: grading the script, not just the call (v5.9.0)
 
 **Shipped:** `v5.9.0` — script-then-execute composition detection, the one

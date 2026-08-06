@@ -54,25 +54,37 @@ export function parseNotifyPayload(argv) {
  * decision ledger. Token/cost data is not in the notify payload — it will
  * be back-filled by the Phase 3 JSONL ingest path.
  */
+// Codex's notify payload key style varies by version: current CLIs emit
+// snake_case (`turn_id`), while the 0.13x line (still vendored inside
+// OpenClaw's codex runtime) emits kebab-case (`turn-id`). Accept both.
+function notifyField(payload, snakeKey) {
+  const v = payload[snakeKey];
+  return v !== undefined ? v : payload[snakeKey.replace(/_/g, '-')];
+}
+
 export function buildActionFromNotify(payload, { agentId = 'codex' } = {}) {
-  const lastMessage = payload.last_assistant_message || '';
+  const lastMessage = notifyField(payload, 'last_assistant_message') || '';
   const summary = lastMessage.length > 200
     ? lastMessage.slice(0, 197) + '...'
     : lastMessage;
 
+  const threadId = notifyField(payload, 'thread_id');
+  const turnId = notifyField(payload, 'turn_id');
+  const inputMessages = notifyField(payload, 'input_messages');
+
   return {
     agent_id: agentId,
     action_type: 'agent_turn',
-    declared_goal: `Codex turn ${payload.turn_id || '?'} (${payload.thread_id || 'thread'})`,
+    declared_goal: `Codex turn ${turnId || '?'} (${threadId || 'thread'})`,
     outcome: 'success',
     metadata: {
       source: 'codex-notify',
-      thread_id: payload.thread_id,
-      turn_id: payload.turn_id,
+      thread_id: threadId,
+      turn_id: turnId,
       cwd: payload.cwd,
       client: payload.client || 'codex',
-      input_message_count: Array.isArray(payload.input_messages)
-        ? payload.input_messages.length
+      input_message_count: Array.isArray(inputMessages)
+        ? inputMessages.length
         : 0,
       last_assistant_summary: summary,
     },

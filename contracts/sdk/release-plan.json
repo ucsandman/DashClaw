@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.9.0",
+    "current_version": "5.9.1",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.9.0 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.9.1 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.9.0",
+    "current_version": "5.9.1",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.9.0 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.9.1 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.9.0 ships script-then-execute composition detection in the Claude Code hooks (written-paths ledger + content grading per docs/plans/2026-08-06-script-then-execute-spec.md) and a Classifier Signals block on /decisions - the last governance-gap-audit item closed. Hooks + dashboard only; no SDK surface change.",
+  "reason": "5.9.1 closes the Windows .bat/.cmd script-then-execute gap in the hooks and adds the OpenClaw embedded-codex notify bridge (dashclaw codex notify --agent-id + kebab-case payload support). Hooks + CLI only; no SDK surface change.",
   "domains": [
     "platform"
   ]
