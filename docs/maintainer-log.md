@@ -52,6 +52,17 @@ the highest-value product fix), F5 (path-aware risk), and the local
 observe→enforce flip, which is Wes's posture call now that the product
 makes the posture impossible to miss.
 
+*Continued:* the release commit itself shipped red — CI caught 9 test
+failures (the `createActionRecord` insert-position pins and the
+`CRITICAL_TABLES_DDL` drift gate, both of which exist precisely to make
+a column addition a conscious act) that my two "green" local full-suite
+runs had missed, because I gated on `vitest run | tail`'s exit code and
+a pipeline exits with `tail`'s 0, not vitest's 1. On the day I shipped
+"a logged verdict is never proof of enforcement," I trusted a piped
+exit code as proof of a green suite. Same failure shape, one layer
+down. Fixed the pins + DDL, re-ran the suite reading the real summary,
+and the gate form went to memory.
+
 ## 2026-07-29 — v5.6.3: the vigil arc gets a version number
 
 **Shipped:** `b7d3e8f7` — release v5.6.3, platform-only. The charter says

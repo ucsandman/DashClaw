@@ -73,14 +73,14 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-29 (commit 841d5fb8). Confidence: 100%.
+Last indexed: 2026-08-06 (commit e6fb5b0f). Confidence: 100%.
 ### Architecture
-This repository is a codebase documentation and “governed agent” platform: it ingests source files and contract/policy inputs, builds an internal representation via indexing and analysis, and produces generated documentation artifacts (including LLM-synthesised wiki pages) that are exposed through an MCP server and supporting SDKs/UI integrations.
+repo is an end-to-end “governed agent” documentation and tooling monorepo that ingests source code and policy/contract inputs, transforms them into structured knowledge (AST/code analysis + policy metadata), and outputs generated documentation artifacts served through an MCP server and a web UI, with SDKs and example governed agents demonstrating the workflow.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
 | `app` | The **app** module is the **React/Next.js front-end layer of repowise’s… | - |
-| `__tests__/unit` | The __tests__/unit module is the unit-test stage of repowise’s quality gate for… | - |
+| `__tests__/unit` | The __tests__/unit module is the unit-testing stage of repowise’s generation… | - |
 | `app/components` | The **app/components** module is the **UI composition layer** in repowise’s web… | - |
 | `app/lib` | The app/lib module is the core “service-layer” utility layer in repowise’s… | - |
 | `application` | The **Application (top-level)** module is the entry-stage orchestration layer… | - |
@@ -103,11 +103,11 @@ This repository is a codebase documentation and “governed agent” platform: i
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `docs/maintainer-log.md` | 100.0th percentile | 137 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 139 | Wes Sander |
 | `mcp-server/lib/routes-inventory.generated.json` | 100.0th percentile | 34 | Wes Sander |
 | `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 71 | Wes Sander |
 | `app/lib/doctor/generated/shape.json` | 99.9th percentile | 71 | Wes Sander |
-| `CHANGELOG.md` | 99.9th percentile | 105 | Wes Sander |
+| `CHANGELOG.md` | 99.9th percentile | 106 | Wes Sander |
 
 ### Repowise MCP Workflow
 

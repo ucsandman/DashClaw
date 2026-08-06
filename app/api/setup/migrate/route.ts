@@ -353,6 +353,8 @@ CREATE TABLE IF NOT EXISTS "action_records" (
   "containment_resolved_at" timestamp,
   "harness_session_id" text,
   "subagent_uuid" text,
+  "enforcement_mode" text,
+  "executed_despite" text,
   "created_at" timestamp DEFAULT now(),
   "updated_at" timestamp DEFAULT now(),
   CONSTRAINT "action_records_action_id_unique" UNIQUE("action_id")

@@ -5,9 +5,9 @@
  * a retry to the exact approved act.
  *
  * Position pin: act_content_hash binds directly BEFORE created_by in the
- * insert's VALUES tail, so every existing pin is unchanged
- * (.at(-5) = created_by, fleet-attribution -4/-3, close_source -2,
- * approval-lifecycle -1) and the new value is .at(-6).
+ * insert's VALUES tail. Since v5.7.0 (enforcement_mode at .at(-3), F0):
+ * .at(-7) = act_content_hash, .at(-6) = created_by, fleet-attribution -5/-4,
+ * close_source -2, approval-lifecycle -1.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createActionRecord } from '../../app/lib/repositories/actions.repository.js';
@@ -95,13 +95,13 @@ describe('createActionRecord — act_content_hash stamp', () => {
     }));
     const { text, values } = sql.calls[0];
     expect(text).toContain('act_content_hash');
-    expect(values.at(-6)).toBe(computeActContentHash(ACT));
+    expect(values.at(-7)).toBe(computeActContentHash(ACT));
   });
 
   it('binds NULL when no act was supplied (grant keeps the tuple match)', async () => {
     const sql = makeCapturingSqlMock([[{ action_id: 'act_new_1' }]]);
     await createActionRecord(sql, payload());
-    expect(sql.calls[0].values.at(-6)).toBeNull();
+    expect(sql.calls[0].values.at(-7)).toBeNull();
   });
 
   it('never trusts a client-supplied hash — the stamp is computed from the act', async () => {
@@ -113,16 +113,16 @@ describe('createActionRecord — act_content_hash stamp', () => {
       },
     }));
     const { values } = sql.calls[0];
-    expect(values.at(-6)).toBe(computeActContentHash(ACT));
+    expect(values.at(-7)).toBe(computeActContentHash(ACT));
     expect(values).not.toContain('sha256:forged');
   });
 
-  it('keeps the existing position pins intact (created_by still .at(-5))', async () => {
+  it('keeps the existing position pins intact (created_by still .at(-6))', async () => {
     const sql = makeCapturingSqlMock([[{ action_id: 'act_new_1' }]]);
     await createActionRecord(sql, payload({
       createdBy: 'key_abc123',
       data: { agent_id: 'a1', action_type: 'build', declared_goal: 'Run lint', act: ACT },
     }));
-    expect(sql.calls[0].values.at(-5)).toBe('key_abc123');
+    expect(sql.calls[0].values.at(-6)).toBe('key_abc123');
   });
 });
