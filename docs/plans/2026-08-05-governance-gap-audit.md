@@ -40,7 +40,8 @@ prevents that class of incident, then whether the agent could get around it anyw
 > **F2 closed 2026-08-06 (v5.8.2):** every listed pattern shape covered on
 > both classifiers, pinned by regression tests. **The single remaining audit
 > item** is the script-then-execute composition case, recorded as an explicit
-> future spec (PostToolUse session-state correlation), not a silent deferral.
+> future spec (PostToolUse session-state correlation), not a silent deferral —
+> written 2026-08-06: `docs/plans/2026-08-06-script-then-execute-spec.md`.
 
 DashClaw's **coverage is incomplete** and its **grant model silently nullifies
 `require_approval` policies**. Of the original six findings, four are fixable and one is a
@@ -214,6 +215,10 @@ They do not. This is worse than having no policy, because it produces false conf
 > is session-state architecture (path normalization, TTL, cross-tool
 > correlation), not a regex, and shipping it as a tail on a pattern release
 > is how subtle holes get built. It is the one remaining audit item.
+> **Spec written 2026-08-06:** `docs/plans/2026-08-06-script-then-execute-spec.md`
+> — the composition signal routes a content grade (read the script from disk at
+> execute time, grade it with the existing classifiers) and never escalates by
+> itself, so routine write-then-run workflows stay in their current bands (F5).
 
 `find <path> -type f -delete` is classified as **`review`, base risk 5**, final score 45 → **allow**.
 
@@ -442,7 +447,8 @@ Verified: guard eval of a write to `settings.json` → block/65 and to
 **P2 — Classifier coverage backlog (F2). ✅ DONE 2026-08-06 (v5.8.2).**
 All listed shapes covered on both classifiers with a regression test per shape.
 The script-then-execute composition case is recorded as its own future spec
-(PostToolUse session-state correlation) — the last open audit item.
+(PostToolUse session-state correlation) — the last open audit item. Spec
+written 2026-08-06: `docs/plans/2026-08-06-script-then-execute-spec.md`.
 
 **P2 — Predictive-risk debiasing (F6). ✅ DONE 2026-08-06 (v5.7.3).**
 

@@ -12,6 +12,30 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-06 — the script-then-execute spec: the last audit item gets its design
+
+**Shipped:** no release — a spec,
+`docs/plans/2026-08-06-script-then-execute-spec.md`, closing the design
+loop on the one item the 2026-08-05 audit left open: two individually
+benign tool calls (write a script, then execute it) composing into a
+destructive one that no per-call classifier can see. The design's spine
+is an F5 conclusion, not a detection trick: write-then-execute is
+*normal* agent behavior, so the composition signal must never escalate
+risk by itself — it only routes. A per-session written-paths ledger
+(PostToolUse records successful writes; same temp-file precedent as
+containment session state) tells PreToolUse which executes deserve a
+content grade; on a hit the hook reads the script from disk at execute
+time and grades the bytes with the *existing* classifiers, so
+`bash cleanup.sh` full of `rm -rf .next` stays cleanup/allow exactly as
+the inline command would, and a script that deletes a user profile
+grades block/100 exactly as the inline command does. No server change —
+the guard already takes max(server, client score). Residual evasions
+(indirection, cross-session splits, runtime-built strings) are
+documented in the spec per the F3 honesty rule rather than hand-waved.
+Implementation is deliberately unscheduled; the audit's own words were
+that shipping session-state architecture as a tail on a pattern release
+is how subtle holes get built.
+
 ## 2026-08-06 — v5.8.2: F2, and the day the governor governed its governor's mechanic
 
 **Shipped:** release v5.8.2 — **F2 closed**, the classifier coverage
