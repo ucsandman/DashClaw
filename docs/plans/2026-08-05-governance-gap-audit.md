@@ -252,7 +252,17 @@ an allowlist of tool names — anything new that can touch the filesystem or she
 
 ---
 
-### F5 — MEDIUM — Block policy is target-blind, producing false positives that will get it disabled
+### F5 — MEDIUM — Block policy is target-blind, producing false positives that will get it disabled *(RESOLVED 2026-08-06, v5.7.1)*
+
+> **RESOLVED.** The server evidence classifier is now path-aware
+> (`app/lib/guard/evidence.ts`), mirroring the hook classifier's conservative
+> regenerable-artifact logic (which already existed client-side — the gap was
+> the server re-escalating via the evidence fold). Verified live against this
+> finding's criteria: `rm -rf node_modules` → **allow/50** (hook flow → warn
+> band); `rm -rf /c/Users/<user>`, `rm -rf ~`, `Remove-Item -Recurse -Force
+> C:\Users\<user>` → **block/100**, with catastrophic-root targets escalated
+> at the *evidence* layer so soft declarations can't dodge the block.
+> Enforce-mode hook end-to-end: cleanup exits 0, catastrophic exits 2.
 
 `rm -rf node_modules` scores **100 and blocks** — identical verdict to `rm -rf /c/Users/sandm`.
 `decision_id act_gd_c63845970fa54493`.
@@ -342,8 +352,8 @@ ledger + an "executed despite block" signal from PostToolUse) and the *local* de
 (`.env:120` observe → enforce, after F5). Verify: the liveness probe returns a verdict other
 than `UNPROVABLE`, and the F4 canary reports `SURVIVED`.
 
-**P1 — Path-aware risk (F5).** Prevents the product from being turned off in practice.
-Verify: `rm -rf node_modules` → allow/warn; `rm -rf /c/Users/<user>` → block.
+**P1 — Path-aware risk (F5). ✅ DONE 2026-08-06 (v5.7.1).**
+Verified: `rm -rf node_modules` → allow/50; `rm -rf /c/Users/<user>` → block/100.
 
 **P1 — Control-plane hard block (F3).** Convert `gp_c265caca34894d908c8aa384` to a `block`
 policy (survives grants per W5) and add an `ungrantable` concept. Verify: guard eval of a

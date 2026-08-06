@@ -44,6 +44,59 @@ export function evidenceTotal(c: EvidenceClassification): number {
 const SENSITIVE_PATH_RE = /(\.env\b|secret|credential|private_key|\.pem\b|id_rsa|\.key\b)/i;
 const CI_CONFIG_RE = /(\.github\/workflows|\.gitlab-ci|dockerfile|vercel\.json|\.circleci|jenkinsfile|\.deploy)/i;
 
+// ── path-aware rm grading (F5, governance gap audit 2026-08-05) ─────────────
+// The risk model was target-blind: `rm -rf node_modules` graded identically to
+// `rm -rf /c/Users/<user>` (both security/80, folding to a 100 block). A
+// safety system that blocks routine artifact cleanup trains the operator to
+// turn it off — alarm fatigue is how governance actually dies. Mirrors the
+// hook classifier (bash_classifier.py _REGENERABLE_ARTIFACT_DIRS /
+// is_regenerable_artifact_rm): the name list is deliberately conservative
+// (dot-dirs and unambiguous outputs only — no `build`/`out`/`target`, too
+// often real content), and ANY glob, absolute path, traversal, or unknown
+// name disqualifies the whole command.
+const REGENERABLE_ARTIFACT_DIRS = new Set([
+  '.next', '.turbo', '.cache', '.parcel-cache', 'dist', 'coverage',
+  'node_modules', '__pycache__', '.pytest_cache', '.nuxt', '.svelte-kit',
+]);
+
+// Recursive delete forms this grading applies to. Remove-Item rides the same
+// shell path as Bash (the hook forwards PowerShell as kind:'shell') and was
+// previously invisible to the destructive branch entirely.
+const RM_RECURSIVE_RE = /\brm\s+-\S*r|\bremove-item\b[^&|;]*\s-\S*rec/i;
+
+/** Non-flag tokens after the rm / Remove-Item command word, unquoted. */
+function rmDeleteTargets(segment: string): string[] {
+  const tokens = segment.trim().split(/\s+/).map((t) => t.replace(/^["']|["']$/g, ''));
+  const idx = tokens.findIndex((t) => /^(?:\S*\/)?rm$/i.test(t) || /^remove-item$/i.test(t));
+  if (idx === -1) return [];
+  return tokens.slice(idx + 1).filter((t) => t && !t.startsWith('-'));
+}
+
+function isRegenerableArtifactTarget(target: string): boolean {
+  if (/[*?[]/.test(target)) return false;
+  let t = target.replace(/\\/g, '/').replace(/\/+$/, '');
+  if (t.startsWith('./')) t = t.slice(2);
+  return REGENERABLE_ARTIFACT_DIRS.has(t.toLowerCase());
+}
+
+// The catastrophic-root class: filesystem/drive roots, home and user-profile
+// roots, and core system trees. Deliberately roots-only — deeper paths keep
+// the ordinary destructive grade (80) rather than over-escalating routine
+// temp-dir cleanup under a profile.
+function isProtectedRootTarget(target: string): boolean {
+  let t = target.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  if (!t) return target.includes('/'); // `rm -rf /` normalizes to '' — root
+  if (t === '~' || t === '$home' || t === '${home}' || t === '%userprofile%') return true;
+  if (/^[a-z]:$/.test(t)) return true;               // drive root C:
+  if (/^\/[a-z]$/.test(t)) return true;              // git-bash drive root /c
+  t = t.replace(/^[a-z]:/, '');                      // strip drive for the tree checks
+  if (t === '' || t === '/') return true;
+  if (/^\/(c\/)?(users|home)\/[^/]+$/.test(t)) return true;  // profile/home root
+  if (t === '/root') return true;
+  if (/^\/(windows|winnt|etc|usr|bin|sbin|boot|system32|program files( \(x86\))?)($|\/)/.test(t)) return true;
+  return false;
+}
+
 // ── shell ──────────────────────────────────────────────────────────────────
 
 function classifyShellSegment(seg: string): EvidenceClassification {
@@ -56,8 +109,21 @@ function classifyShellSegment(seg: string): EvidenceClassification {
 
   const isSudo = /^\s*sudo\b/.test(s);
 
-  if (/\brm\s+-\S*r|\bshred\b|\bmkfs(\.|\b)|\bdd\b|\btruncate\b/.test(s)) {
+  if (RM_RECURSIVE_RE.test(s) || /\bshred\b|\bmkfs(\.|\b)|\bdd\b|\btruncate\b/.test(s)) {
     base = 80; action = 'security'; reversible = false; flags.push('destructive');
+    // Path-aware grading (F5) for the rm / Remove-Item class only — shred /
+    // mkfs / dd never de-escalate. Every target a bare regenerable artifact
+    // name → routine cleanup; any catastrophic-root target → escalate so the
+    // evidence alone reaches the block band regardless of soft declarations.
+    if (RM_RECURSIVE_RE.test(s)) {
+      const targets = rmDeleteTargets(s);
+      if (targets.length > 0 && targets.every(isRegenerableArtifactTarget)) {
+        base = 45; action = 'cleanup'; flags.push('regenerable_artifact');
+      } else if (targets.some(isProtectedRootTarget)) {
+        modifiers.push({ reason: 'protected root/home/system delete target', delta: 20 });
+        flags.push('protected_target');
+      }
+    }
   } else if (/\bgit\s+push\b[^&|;]*(--force\b|--force-with-lease\b|(^|\s)-f\b)|\bgit\s+reset\s+--hard\b|\bgit\s+clean\s+-\S*f/.test(s)) {
     base = 70; action = 'security'; reversible = false; flags.push('vcs_dangerous');
   } else if (/\bvercel\b[^&|;]*--prod|\bkubectl\s+apply\b|\bterraform\s+(apply|destroy)\b/.test(s)) {

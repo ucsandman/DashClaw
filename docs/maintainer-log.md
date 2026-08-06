@@ -12,6 +12,37 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-06 — v5.7.1: path-aware risk, then the switch gets flipped
+
+**Shipped:** release v5.7.1 — F5 from the governance gap audit, sequenced
+deliberately before this machine's observe→enforce flip. The risk model
+was target-blind: `rm -rf node_modules` and `rm -rf /c/Users/<user>` both
+scored block/100, and a governor that interrupts routine cleanup is a
+governor that gets switched off — alarm fatigue was the audit's named
+mechanism for how DashClaw dies in real use.
+
+The interesting part: the hook classifier was *already* path-aware
+(`_REGENERABLE_RM_BASE`, shipped after the 2026-07-03 `rm -rf .next`
+hard-block incident) and declared `cleanup`/35 — but the server's
+evidence classifier graded the same command `security`/80, tripped the
+declared/derived mismatch, swapped the evaluation onto `security`, and
+the heuristic landed back at 100. The client got smarter and the server
+overruled it. The fix mirrors the hook's conservative logic server-side
+(same artifact list, any glob/absolute/unknown target disqualifies), and
+adds what the hook can't be trusted for: catastrophic-root targets
+(`~`, `/`, drive roots, profile roots, system trees) now escalate to
+100 **at the evidence layer**, so W2/W3 hold even under dishonest
+declarations. `Remove-Item -Recurse` also became visible to evidence
+grading at all — the native Windows shell had declaration-only coverage.
+
+Verified against the audit's own criteria, live: `rm -rf node_modules`
+→ allow/50; the catastrophic class → block/100; enforce-mode hook end
+to end: cleanup exits 0, catastrophic exits 2 — the first mechanical
+block this machine has actually delivered. With that proven, the
+posture flip (`DASHCLAW_HOOK_MODE=observe` → `enforce` in this repo's
+`.env`) lands with this release: the misconfiguration F0 exposed is
+closed deliberately, not by default.
+
 ## 2026-08-06 — v5.7.0: the ledger stops lying about enforcement
 
 **Shipped:** release v5.7.0 — the product fix for F0 of the 2026-08-05

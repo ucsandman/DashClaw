@@ -50,6 +50,81 @@ describe('classifyAct — shell', () => {
   });
 });
 
+// Path-aware rm grading (F5, governance gap audit 2026-08-05): the risk model
+// must distinguish routine regenerable-artifact cleanup from catastrophic
+// deletes — target-blind 100s are how governance gets switched off.
+describe('classifyAct — path-aware rm (F5)', () => {
+  it('grades rm -rf node_modules as regenerable cleanup, not security', () => {
+    const c = classifyAct({ kind: 'shell', command: 'rm -rf node_modules' });
+    expect(c.derived_action_type).toBe('cleanup');
+    expect(c.base_risk).toBe(45);
+    expect(c.flags).toContain('regenerable_artifact');
+    expect(c.reversible_hint).toBe(false);
+  });
+
+  it('accepts multiple targets when every one is a regenerable artifact', () => {
+    const c = classifyAct({ kind: 'shell', command: 'rm -rf .next dist coverage __pycache__' });
+    expect(c.derived_action_type).toBe('cleanup');
+    expect(c.base_risk).toBe(45);
+  });
+
+  it('one non-artifact target disqualifies the whole command', () => {
+    const c = classifyAct({ kind: 'shell', command: 'rm -rf node_modules src' });
+    expect(c.derived_action_type).toBe('security');
+    expect(c.base_risk).toBe(80);
+  });
+
+  it('globs and absolute artifact paths never de-escalate (conservative)', () => {
+    expect(classifyAct({ kind: 'shell', command: 'rm -rf node_modules/*' }).base_risk).toBe(80);
+    expect(classifyAct({ kind: 'shell', command: 'rm -rf /app/node_modules' }).base_risk).toBe(80);
+  });
+
+  it('escalates home/profile/root delete targets to the block band on evidence alone', () => {
+    for (const cmd of [
+      'rm -rf ~',
+      'rm -rf /',
+      'rm -rf /c/Users/sandm',
+      'rm -rf "C:\\Users\\sandm"',
+      'rm -rf $HOME',
+      'rm -rf /home/deploy',
+      'rm -rf C:\\Windows\\System32',
+    ]) {
+      const c = classifyAct({ kind: 'shell', command: cmd });
+      expect(c.flags, cmd).toContain('protected_target');
+      expect(evidenceTotal(c), cmd).toBe(100);
+    }
+  });
+
+  it('deeper profile paths keep the ordinary destructive grade (no over-escalation)', () => {
+    const c = classifyAct({ kind: 'shell', command: 'rm -rf /c/Users/sandm/AppData/Local/Temp/scratch' });
+    expect(c.derived_action_type).toBe('security');
+    expect(evidenceTotal(c)).toBe(80);
+    expect(c.flags).not.toContain('protected_target');
+  });
+
+  it('Remove-Item -Recurse rides the same grading (PowerShell forwards as shell)', () => {
+    const cleanup = classifyAct({ kind: 'shell', command: 'Remove-Item -Recurse -Force node_modules' });
+    expect(cleanup.derived_action_type).toBe('cleanup');
+    expect(cleanup.base_risk).toBe(45);
+
+    const catastrophic = classifyAct({ kind: 'shell', command: 'Remove-Item -Recurse -Force C:\\Users\\sandm' });
+    expect(catastrophic.flags).toContain('protected_target');
+    expect(evidenceTotal(catastrophic)).toBe(100);
+  });
+
+  it('shred/mkfs/dd never de-escalate regardless of target', () => {
+    const c = classifyAct({ kind: 'shell', command: 'shred node_modules' });
+    expect(c.base_risk).toBe(80);
+    expect(c.derived_action_type).toBe('security');
+  });
+
+  it('sudo lifts a regenerable cleanup back up (privilege is never routine)', () => {
+    const c = classifyAct({ kind: 'shell', command: 'sudo rm -rf node_modules' });
+    expect(c.base_risk).toBe(75);
+    expect(c.flags).toContain('privilege');
+  });
+});
+
 describe('classifyAct — http', () => {
   it('bumps a POST to a payment host', () => {
     const c = classifyAct({ kind: 'http', request: { method: 'POST', url: 'https://api.stripe.com/v1/charges' } });

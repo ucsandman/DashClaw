@@ -13,6 +13,17 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.7.1] — 2026-08-06
+
+Path-aware risk release — the fix for **F5** of the 2026-08-05 governance gap audit: the risk model was target-blind, so `rm -rf node_modules` scored an identical block/100 to `rm -rf /c/Users/<user>`. A safety system that hard-blocks routine artifact cleanup trains the operator to switch it off — this release removes that false-positive class *before* this machine's enforce flip, so enforcement arrives without alarm fatigue. Platform-only; no SDK source change.
+
+### Fixed
+
+- The server evidence classifier (`app/lib/guard/evidence.ts`) now grades recursive `rm` / `Remove-Item` by delete target, mirroring the hook classifier's conservative logic (which already existed client-side — the gap was the server re-escalating through the evidence fold): every target a bare, relative, well-known regenerable artifact name (`node_modules`, `.next`, `dist`, `coverage`, `__pycache__`, …) → `cleanup`/45; any glob, absolute path, or unknown name keeps `security`/80.
+- Catastrophic-root targets (`~`, `/`, drive roots, user-profile/home roots, `C:\Windows`, `/etc`, …) escalate **+20 at the evidence layer** — the block band is reached on evidence alone, so a soft declaration cannot dodge it (W2/W3 preserved and strengthened).
+- `Remove-Item -Recurse` is now visible to the evidence destructive branch at all (it previously matched nothing — the native Windows shell had declaration-only grading).
+- Verified live against the audit's criteria: `rm -rf node_modules` → allow/50 (warn band via the hook flow); `rm -rf /c/Users/<user>`, `rm -rf ~`, `Remove-Item -Recurse -Force C:\Users\<user>` → block/100; enforce-mode hook end-to-end: cleanup exits 0, catastrophic exits 2.
+
 ## [5.7.0] — 2026-08-06
 
 Enforcement-visibility release — the product fix for **F0** of the 2026-08-05 governance gap audit, which found `DASHCLAW_HOOK_MODE=observe` had silently disabled enforcement machine-wide while `/decisions` showed 153 blocks that read as healthy. The principle this release encodes: **a logged verdict is never presented as an enforced one.** Platform + hooks only; no SDK source change (registries stay at 5.6.2).
