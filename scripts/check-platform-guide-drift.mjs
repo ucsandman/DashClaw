@@ -24,6 +24,27 @@ const read = (p) => JSON.parse(readFileSync(resolve(ROOT, p), 'utf8'));
 
 const inventory = read('docs/api-inventory.json');
 const guide = read('public/guides/platform-guide-data.json');
+const pkg = read('package.json');
+
+// Stale-surface gate: the captured /api/health example carries the version of the
+// instance the liveExamples were recorded against. When that falls a major.minor
+// behind package.json, the guide is showing responses from an old platform —
+// exactly the drift that let 4.67.0 captures survive into 5.8.x. Patch drift is
+// tolerated so routine ships don't force a re-capture.
+const healthExample = (guide.liveExamples?.http ?? []).find((e) => e.id === 'health');
+const capturedVersion = healthExample?.response?.match(/"version":\s*"(\d+\.\d+\.\d+)"/)?.[1];
+const minor = (v) => v?.split('.').slice(0, 2).join('.');
+if (!capturedVersion) {
+  console.error('platform-guide liveExamples have no health capture with a version — regenerate: node scripts/regen-platform-guide-examples.mjs');
+  process.exit(1);
+}
+if (minor(capturedVersion) !== minor(pkg.version)) {
+  console.error(
+    `platform-guide liveExamples are stale: captured against v${capturedVersion} but the platform is v${pkg.version}. ` +
+      'Regenerate: node scripts/regen-platform-guide-examples.mjs (needs a local instance on :3001).'
+  );
+  process.exit(1);
+}
 
 // Ground truth: every route+method pair from the generated API inventory.
 const expected = new Set();

@@ -49,6 +49,7 @@
     "telegram:verify": "node scripts/telegram-verify-loop.mjs",
     "contracts:check": "node scripts/check-contracts.mjs",
     "guide:drift:check": "node scripts/check-platform-guide-drift.mjs",
+    "guide:examples:regen": "node scripts/regen-platform-guide-examples.mjs",
     "contracts:check:warn": "node scripts/check-contracts.mjs --mode=warn",
     "sdk:integration": "node scripts/check-sdk-cross-integration.mjs",
     "sdk:integration:python": "node scripts/run-python-unittest.mjs",
