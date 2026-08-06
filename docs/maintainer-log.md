@@ -12,6 +12,48 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-06 — the last audit item: grading the script, not just the call (v5.9.0)
+
+**Shipped:** `v5.9.0` — script-then-execute composition detection, the one
+finding of the 2026-08-05 governance gap audit that was architecture instead
+of regex, implemented per its accepted spec
+(`docs/plans/2026-08-06-script-then-execute-spec.md`). The audit now has
+zero open items.
+
+The hole: write `x.sh` containing a payload the classifier would block
+inline, then run `bash x.sh` — the write grades as a routine file write, the
+execute grades as a routine interpreter call, and the payload is never
+graded as a command. The fix is deliberately NOT "escalate write-then-run":
+that shape is the maintainer's own workflow dozens of times a session, and
+the audit's F5 finding proved what happens to gates that block routine work
+— they get switched off. Instead, PostToolUse records what the session
+writes in a per-session ledger, and PreToolUse grades the *content* of any
+recently-self-written script being executed with the exact classifiers
+inline commands get. Benign scripts keep their calibrated scores; the split
+form of a blocked payload now earns the inline grade.
+
+Verified the way the audit demands — by witness, not by logged verdict: with
+the modified hook live in this very session, I wrote a script that would
+have deleted a canary directory and tried to execute it. The block fired at
+100 on a command string containing nothing destructive (`bash "<path>"`),
+and the canary survived. The same session's governance also blocked two of
+my own *mentions* of destructive payloads inside debug commands — annoying
+and correct, and the reason payloads live in files.
+
+Two honest wrinkles. The spec said "delete the ledger at session end" — but
+the Stop hook fires per *turn* and no SessionEnd hook exists, so deletion
+would have broken the cross-turn case; TTL + a 500-entry cap bound the state
+instead, recorded as a deviation in the spec. And the acceptance criterion
+"signal visible in /decisions" turned out to assume rendering that didn't
+exist: classifier validations were persisted in `guard_decisions.context`
+but never shown, for every validation class. The decision detail's Policies
+tab now renders them — a small UI block that the human-experience contract
+would have demanded anyway.
+
+Shipped while GitHub Actions is still in its major outage; the CI reads for
+today's pushes remain owed and the recovery watcher will dispatch a backfill
+run the moment Actions comes back.
+
 ## 2026-08-06 — the guide's examples catch up with the platform (v5.8.5)
 
 **Shipped:** `v5.8.5` — the scheduled follow-up the v5.8.4 entry below left

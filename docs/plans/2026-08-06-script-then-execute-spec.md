@@ -1,7 +1,27 @@
 # Spec — Script-then-execute composition detection
 
-**Status:** SPEC — accepted design, not yet scheduled. Implementation is a deliberate
-future ship, not a tail on a pattern release.
+**Status:** IMPLEMENTED — shipped 2026-08-06 (v5.9.0). Module
+`hooks/dashclaw_agent_intel/written_paths_ledger.py`; tests
+`hooks/tests/test_written_paths_ledger.py` + `hooks/tests/test_script_then_execute.py`;
+E2E canary verified live (the §1 repro blocks at 100; the canary survives).
+Implementation deviations from this spec, all deliberate:
+- **No Stop-hook ledger deletion (§3.1 hygiene line):** the Stop event fires per
+  *turn*, not per session, and no SessionEnd hook exists — deleting per turn would
+  break cross-turn write→execute detection. TTL + the 500-entry LRU cap bound the
+  state instead (same posture as the containment session file).
+- **Lookup gained a separator-stripped alias (§4):** the bash tokenizer treats `\`
+  as an escape, so a Windows path in a command reaches the parser with separators
+  stripped (`C:\tmp\x.sh` → `C:tmpx.sh`). The ledger matches that alias and
+  returns the real recorded path for grading.
+- **`_INTERPRETER_DESTRUCTIVE_RE` (§3.3) exists as `_INLINE_ESCAPE_HATCH_RE`** in
+  the classifier; same shape family, used as specified.
+- **Shell device-write content inherits the inline grade (85, block band)** rather
+  than the §3.3 "100" figure — inheritance is the spec's own core principle; the
+  100 applies to the interpreter-content path (`_RAW_DEVICE_WRITE_RE`).
+- **Classifier signals got a small render block** in `/decisions/[actionId]`
+  (PoliciesTab) — §3.4 assumed validations were already visible there; they were
+  persisted but never rendered, for all validations, so the "visible in its
+  signals" acceptance required it.
 **Provenance:** the single remaining item of the 2026-08-05 governance gap audit
 (`docs/plans/2026-08-05-governance-gap-audit.md`, F2 composition case). Every pattern
 finding F0–F6 closed v5.7.0–v5.8.2; this is the one shape that is architecture, not regex.

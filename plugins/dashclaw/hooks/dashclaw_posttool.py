@@ -28,6 +28,8 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dashclaw_agent_intel.http_client import request_with_retry
 from dashclaw_agent_intel.stop_state import contained_turn_path as _contained_turn_path
+from dashclaw_agent_intel.command_parser import parse_command as _parse_command
+from dashclaw_agent_intel.written_paths_ledger import record_written_paths as _ledger_record
 
 # ---------------------------------------------------------------------------
 # Load .env file (C:/Projects/DashClaw/.env) before reading config.
@@ -822,12 +824,76 @@ def _patch_body(status, output_summary, outcome_metadata):
     }
 
 
+_WRITE_FILE_TOOLS = ("Write", "Edit", "MultiEdit", "NotebookEdit")
+_URL_SCHEME_RE = re.compile(r"^[a-z][a-z0-9+.-]*://", re.IGNORECASE)
+
+
+def _written_paths_from_command(command):
+    """File paths a shell command writes: redirection targets, tee targets,
+    and the two ubiquitous downloaders' output flags (curl -o / wget -O) —
+    spec §3.2. Other flag-value writers are documented residuals (§7)."""
+    parsed = _parse_command(command)
+    segments = list(parsed.get("chains") or []) or [parsed]
+    for seg in list(segments):
+        segments.extend(seg.get("pipes") or [])
+    paths = []
+    for seg in segments:
+        for r in seg.get("redirections") or []:
+            target = r.get("target")
+            if target:
+                paths.append(target)
+        base = (seg.get("base_command") or "").rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
+        targets = seg.get("targets") or []
+        flags = seg.get("flags") or []
+        if base == "tee":
+            paths.extend(targets)
+        elif base == "curl" and any(f in ("-o", "--output") for f in flags):
+            paths.extend(t for t in targets if not _URL_SCHEME_RE.match(t))
+        elif base == "wget" and any(f in ("-O", "--output-document") for f in flags):
+            paths.extend(t for t in targets if not _URL_SCHEME_RE.match(t))
+    return paths
+
+
+def _record_written_paths(data):
+    """Write side of the script-then-execute ledger (spec §3.2): this hook
+    firing is proof the write executed. Fail-soft — never blocks the PATCH."""
+    try:
+        session_id = data.get("session_id") or ""
+        if not session_id:
+            return
+        tool_name = data.get("tool_name") or ""
+        tool_input = data.get("tool_input") or {}
+        cwd = data.get("cwd") or ""
+        paths = []
+        if tool_name in _WRITE_FILE_TOOLS:
+            p = (
+                tool_input.get("file_path")
+                or tool_input.get("path")
+                or tool_input.get("notebook_path")
+            )
+            if p:
+                paths.append(p)
+        elif tool_name in ("Bash", "PowerShell"):
+            command = str(tool_input.get("command") or "")
+            if command:
+                paths = _written_paths_from_command(command)
+        if paths:
+            _ledger_record(session_id, _INSTANCE_STATE_SUFFIX, paths, cwd)
+    except Exception:
+        pass
+
+
 def main():
     _log("invoked", "pid=" + str(os.getpid()))
     _require_configured()
 
     data = _parse_stdin()
     tool_name, tool_use_id = _require_tool_use(data)
+
+    # Written-paths ledger (script-then-execute): recorded before the action-
+    # state checks so observe-mode executed-despite writes land too — the file
+    # exists on disk either way, and the next execute of it must get graded.
+    _record_written_paths(data)
 
     # Find the action ID (and any containment fields) from the temp file
     # written by PreToolUse.

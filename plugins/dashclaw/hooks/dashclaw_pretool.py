@@ -116,6 +116,11 @@ _load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dashclaw_agent_intel import classify_bash, scan_file_operation, classify_tool, McpHealthMonitor
 from dashclaw_agent_intel.bash_classifier import is_bounded_rm, is_regenerable_artifact_rm
+from dashclaw_agent_intel.written_paths_ledger import (
+    extract_exec_candidates,
+    grade_script_content,
+    lookup_written_path,
+)
 from dashclaw_agent_intel.file_scanner import is_placeholder_path
 from dashclaw_agent_intel.http_client import request_with_retry, env_retries
 
@@ -399,6 +404,57 @@ def _bash_path_boosts(risk_score: int, all_paths: list, redirect_targets: list) 
     return risk_score
 
 
+def _apply_script_then_execute(parsed, risk_score):
+    """Script-then-execute composition detection (spec
+    docs/plans/2026-08-06-script-then-execute-spec.md): when this command
+    executes a script the SESSION itself recently wrote, grade the script's
+    content with the same classifiers inline commands get and fold that grade
+    in. The composition signal never escalates risk by itself (F5 lesson) —
+    `bash cleanup.sh` with regenerable-delete content stays in the cleanup
+    band exactly as the inline command would. Returns
+    (risk_score, extra_validations, target_or_None). Fail-soft: any error
+    degrades to pre-spec behavior."""
+    try:
+        if not _SESSION_ID:
+            return risk_score, [], None
+        for cand in extract_exec_candidates(parsed or {}):
+            norm = lookup_written_path(_SESSION_ID, _INSTANCE_STATE_SUFFIX, cand, _HOOK_CWD)
+            if not norm:
+                continue
+            graded = grade_script_content(norm)
+            if not graded["readable"]:
+                # A recently-self-written executable whose content can't be
+                # inspected is the evasion shape — review band, not block
+                # (large legitimate generated scripts exist).
+                return (
+                    max(risk_score, 60),
+                    [{
+                        "check": "script_then_execute_unreadable",
+                        "result": "warn",
+                        "reason": "self-written script content unreadable or oversized: " + norm,
+                    }],
+                    norm,
+                )
+            escalated = graded["risk_score"] > risk_score
+            validations = [{
+                "check": "script_then_execute",
+                "result": "warn" if escalated else "allow",
+                "reason": "executing a script this session wrote; content graded "
+                + str(graded["risk_score"]),
+            }]
+            for v in graded["validations"]:
+                validations.append({
+                    "check": "script_content:" + str(v.get("check", "")),
+                    "result": v.get("result", "allow"),
+                    "reason": v.get("reason", ""),
+                })
+            return max(risk_score, graded["risk_score"]), validations, norm
+        return risk_score, [], None
+    except Exception as e:
+        _log_hook_error("script_then_execute: " + type(e).__name__ + ": " + str(e))
+        return risk_score, [], None
+
+
 def _enrich_bash(tool_input: dict, tool_info: dict, label: str = "Bash") -> dict:
     """Run the command classifier and build enriched intel for a Bash or
     PowerShell tool call. PowerShell rides the same path: the classifier
@@ -438,6 +494,10 @@ def _enrich_bash(tool_input: dict, tool_info: dict, label: str = "Bash") -> dict
 
     risk_score = _bash_path_boosts(risk_score, all_paths, redirect_targets)
 
+    # Script-then-execute composition (spec §3.3): a hit routes the script's
+    # CONTENT grade into this call; a miss changes nothing.
+    risk_score, stx_validations, stx_target = _apply_script_then_execute(parsed, risk_score)
+
     risk_score = min(risk_score, 100)
 
     return {
@@ -447,13 +507,15 @@ def _enrich_bash(tool_input: dict, tool_info: dict, label: str = "Bash") -> dict
         "declared_goal": label + ": " + command[:120],
         # A shell redirection target is a write path; forward it as `target` so a
         # protected_path policy can gate `echo secret > app/secrets/x` style writes.
-        "target": redirect_targets[0] if redirect_targets else None,
+        # A script-then-execute hit forwards the script path instead, so
+        # protected_path policies can match the file being executed.
+        "target": stx_target or (redirect_targets[0] if redirect_targets else None),
         "intel": {
             "bash": {
                 "intent": bash_intel["intent"],
                 "risk_score": bash_intel["risk_score"],
                 "reversible": bash_intel["reversible"],
-                "validations": bash_intel["validations"],
+                "validations": bash_intel["validations"] + stx_validations,
             },
         },
     }
@@ -674,6 +736,10 @@ def _append_session_tool_map(session_id, tool_use_id, action_id):
 # route action_ids into the per-session turn log without threading it
 # through every signature. Consumed by dashclaw_stop.py.
 _SESSION_ID = ""
+
+# Hook-stdin cwd; set in main(). Relative script paths in a Bash command are
+# resolved against this for the written-paths ledger lookup (spec §4).
+_HOOK_CWD = ""
 
 
 def _log_hook_error(message):
@@ -1734,8 +1800,9 @@ def main():
     tool_input = data.get("tool_input") or {}
     tool_use_id = data.get("tool_use_id") or "unknown"
 
-    global _SESSION_ID
+    global _SESSION_ID, _HOOK_CWD
     _SESSION_ID = data.get("session_id") or ""
+    _HOOK_CWD = data.get("cwd") or ""
 
     # Step 1: Classify the tool using the intel module
     tool_info = classify_tool(tool_name, tool_input)

@@ -38,10 +38,12 @@ prevents that class of incident, then whether the agent could get around it anyw
 > isolation = container / separate OS user / read-only hook path).
 >
 > **F2 closed 2026-08-06 (v5.8.2):** every listed pattern shape covered on
-> both classifiers, pinned by regression tests. **The single remaining audit
-> item** is the script-then-execute composition case, recorded as an explicit
-> future spec (PostToolUse session-state correlation), not a silent deferral —
-> written 2026-08-06: `docs/plans/2026-08-06-script-then-execute-spec.md`.
+> both classifiers, pinned by regression tests. **The composition case
+> (script-then-execute) — the last audit item — shipped 2026-08-06 (v5.9.0)**
+> per its spec (`docs/plans/2026-08-06-script-then-execute-spec.md`): the
+> written-paths ledger routes a content grade onto executes of self-written
+> scripts, E2E-verified by canary (blocked at 100; canary survived). The
+> audit has no open items.
 
 DashClaw's **coverage is incomplete** and its **grant model silently nullifies
 `require_approval` policies**. Of the original six findings, four are fixable and one is a
@@ -214,11 +216,15 @@ They do not. This is worse than having no policy, because it produces false conf
 > state; PreToolUse escalates an execute of a recently-written path — but it
 > is session-state architecture (path normalization, TTL, cross-tool
 > correlation), not a regex, and shipping it as a tail on a pattern release
-> is how subtle holes get built. It is the one remaining audit item.
+> is how subtle holes get built.
 > **Spec written 2026-08-06:** `docs/plans/2026-08-06-script-then-execute-spec.md`
 > — the composition signal routes a content grade (read the script from disk at
 > execute time, grade it with the existing classifiers) and never escalates by
 > itself, so routine write-then-run workflows stay in their current bands (F5).
+> **Implemented 2026-08-06 (v5.9.0):** written-paths ledger
+> (`hooks/dashclaw_agent_intel/written_paths_ledger.py`) + PostToolUse
+> recording + PreToolUse content grading, 70+ regression tests, live canary
+> verification (the §1 repro blocks at 100 and the canary survives).
 
 `find <path> -type f -delete` is classified as **`review`, base risk 5**, final score 45 → **allow**.
 

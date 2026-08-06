@@ -82,6 +82,60 @@ describe('PoliciesTab', () => {
     expect(container.textContent).toContain('no-prod-writes');
     expect(container.textContent).toContain('ASSUMPTIONS_CHECKED: 1');
   });
+
+  it('renders non-allow classifier signals from the decision context', () => {
+    // script-then-execute spec §3.4: the composition signal rides the intel
+    // validations persisted in guard_decisions.context and must be visible
+    // on /decisions — this block is where every classifier signal surfaces.
+    const { container } = render(
+      <PoliciesTab
+        actionId="act_test_1"
+        action={baseAction}
+        guardDecision={{
+          decision: 'block',
+          created_at: '2026-07-01T09:59:00Z',
+          reason: 'Too risky',
+          matched_policies: JSON.stringify([]),
+          context: {
+            intel: {
+              bash: {
+                validations: [
+                  { check: 'command_semantics', result: 'allow', reason: 'classified as unknown: bash' },
+                  { check: 'script_then_execute', result: 'warn', reason: 'executing a script this session wrote; content graded 100' },
+                ],
+              },
+            },
+          },
+        }}
+        trace={null}
+        assumptions={[]}
+      />
+    );
+    expect(container.textContent).toContain('script_then_execute');
+    expect(container.textContent).toContain('content graded 100');
+    // allow-result validations are routine noise and stay hidden
+    expect(container.textContent).not.toContain('command_semantics');
+  });
+
+  it('renders no classifier-signal block when all validations are allow', () => {
+    const { container } = render(
+      <PoliciesTab
+        actionId="act_test_1"
+        action={baseAction}
+        guardDecision={{
+          decision: 'allow',
+          created_at: '2026-07-01T09:59:00Z',
+          matched_policies: JSON.stringify([]),
+          context: {
+            intel: { bash: { validations: [{ check: 'command_semantics', result: 'allow', reason: 'ok' }] } },
+          },
+        }}
+        trace={null}
+        assumptions={[]}
+      />
+    );
+    expect(container.textContent).not.toContain('Classifier Signals');
+  });
 });
 
 describe('AssumptionsTab', () => {

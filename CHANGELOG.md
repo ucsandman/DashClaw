@@ -13,6 +13,21 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.9.0] — 2026-08-06
+
+**Script-then-execute composition detection — the governance gap audit's last open item.** Two individually-benign tool calls compose into a destructive one: write a script whose payload would be blocked inline, then execute the script path (which grades as a routine interpreter call at the execution base). The guard graded the write and the execute but never the payload as a command — split across tool calls, no per-call classifier could see it. Closed per the accepted spec (`docs/plans/2026-08-06-script-then-execute-spec.md`); hooks + dashboard only, no server or SDK surface change.
+
+### Added
+
+- **Written-paths ledger** (`hooks/dashclaw_agent_intel/written_paths_ledger.py`) — PostToolUse records every path the session writes (file tools, shell redirects, `tee`, `curl -o`/`wget -O`) in a per-session, instance-suffixed temp ledger (path + timestamp only, 500-entry LRU, TTL 60 min via `DASHCLAW_SCRIPT_EXEC_TTL_MINUTES`). PreToolUse then grades the **content** of any recently-self-written script being executed (`bash x.sh`, `./x.sh`, `source`, `python`/`node`/etc., `pwsh -File`) with the same classifiers inline commands get, and folds that grade in. The composition signal itself never escalates risk (the F5 lesson): `bash cleanup.sh` deleting build artifacts keeps its calibrated low score, while the §1 repro now blocks at the inline grade — E2E-verified by live canary (block fired; canary survived). An unreadable/oversized ledger hit floors at the review band with `script_then_execute_unreadable`. Path normalization handles Git Bash drive forms, relative-vs-absolute, case-insensitivity, and the tokenizer's backslash-stripping of Windows paths.
+- **Classifier Signals on `/decisions`** — the decision detail's Policies tab now renders non-allow classifier validations from the persisted guard context (they were stored but never shown, for every validation class). `script_then_execute` and its content-grade signals surface here with warn/block badges.
+- **71 new hook regression tests** (`test_written_paths_ledger.py`, `test_script_then_execute.py`) pinning the escalation paths, the false-positive pins, TTL/LRU/corrupt-ledger fail-soft behavior, and the miss-path perf budget.
+
+### Notes
+
+- Blocked composition attempts audit-persist in `guard_decisions.context` (no action row — blocks never record one, by design).
+- Documented residuals per spec §7: indirection (`eval "$(< x.sh)"`), cross-session splits, unmodeled writer flags — all inside the documented privilege boundary (seatbelt, not cage).
+
 ## [5.8.5] — 2026-08-06
 
 **Platform guide live-examples regeneration — the scheduled follow-up from 5.8.4.** The guide's 24 captured request/response examples still dated from a 4.67.0 instance (2026-07-07 snapshot); all of them are now re-captured against a running 5.8.5-tree instance, and the gate that let that drift survive a month is closed. Platform-only release; no SDK source change.

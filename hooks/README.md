@@ -262,6 +262,8 @@ What to do about it, in increasing order of strength:
 
 DashClaw ships 1 and documents 2–4; it cannot provide them for you. Full statement: [`docs/architecture/enforcement-boundary.md`](../docs/architecture/enforcement-boundary.md).
 
+**Composition detection (script-then-execute).** Two individually-benign calls can compose into a destructive one: write a script whose payload would be blocked inline, then execute the script path (which grades as a routine interpreter call). The hook closes this: PostToolUse records every path the session writes (file tools, shell redirects, `tee`, `curl -o`/`wget -O`) in a per-session ledger, and PreToolUse grades the **content** of any recently-self-written script being executed with the same classifiers inline commands get — so the split form earns exactly the inline grade, and routine write-then-run workflows (`bash cleanup.sh` deleting build artifacts) keep their calibrated low score. A ledger hit whose content can't be read (missing/oversized) floors at the review band. The signal appears as `script_then_execute` in the decision's classifier signals on `/decisions`. Documented residuals: indirection (`eval "$(< x.sh)"`), cross-session splits, and writer flags the parser doesn't model — all inside the privilege boundary above. TTL is tunable via `DASHCLAW_SCRIPT_EXEC_TTL_MINUTES` (default 60). Spec: [`docs/plans/2026-08-06-script-then-execute-spec.md`](../docs/plans/2026-08-06-script-then-execute-spec.md).
+
 ## Approving from the terminal
 
 When a tool call requires approval, the hook prints the action ID:

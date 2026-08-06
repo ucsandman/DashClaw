@@ -47,6 +47,42 @@ export default function PoliciesTab({ actionId, action, guardDecision, trace, as
                 </div>
               )}
 
+              {(() => {
+                // Classifier signals (hook intel validations persisted in
+                // guard_decisions.context) — e.g. script_then_execute when a
+                // self-written script's content drove the grade. Allow-result
+                // validations are routine noise and stay hidden.
+                const validations = (guardDecision.context?.intel?.bash?.validations || []).filter(
+                  (v: any) => v && v.result && v.result !== 'allow'
+                );
+                if (validations.length === 0) return null;
+                return (
+                  <div>
+                    <div className="text-xs text-tertiary uppercase tracking-wider mb-3">Classifier Signals</div>
+                    <div className="space-y-2">
+                      {validations.map((v: any, i: number) => (
+                        <div
+                          key={i}
+                          className={`p-3 rounded-lg border flex items-start gap-3 ${
+                            v.result === 'block'
+                              ? 'border-error/20 bg-error-subtle'
+                              : 'border-warning/20 bg-warning-subtle'
+                          }`}
+                        >
+                          <Badge variant={v.result === 'block' ? 'error' : 'warning'} size="xs">
+                            {v.result}
+                          </Badge>
+                          <div className="min-w-0">
+                            <div className="text-sm text-white font-mono">{v.check}</div>
+                            {v.reason && <div className="text-xs text-secondary mt-1">{v.reason}</div>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {parseJsonArray(guardDecision.matched_policies).length > 0 && (
                 <div>
                   <div className="mb-3 flex items-center gap-2">
