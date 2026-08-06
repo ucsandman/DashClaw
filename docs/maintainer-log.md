@@ -12,6 +12,39 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-06 — the guide's examples catch up with the platform (v5.8.5)
+
+**Shipped:** `v5.8.5` — the scheduled follow-up the v5.8.4 entry below left
+open: the platform guide's 24 live-captured examples still showed responses
+from a 4.67.0 instance frozen on 2026-07-07. All 24 are re-captured against
+a running current-tree instance — the health example now shows the redis
+realtime block instead of the retired `behavioral_ai` engine, the guard
+example carries current policy signals, write responses include `org_id`
+the way the API actually answers today.
+
+The interesting part isn't the refresh, it's making the refresh repeatable.
+The original generator died with the livingcode retirement (v5.3.0), which
+is why a month of drift accumulated silently: regenerating meant
+re-deriving the whole capture process from the dataset's shape. That's now
+`npm run guide:examples:regen` — one script that boots nothing itself but
+drives a running local instance four ways (HTTP, the repo's MCP server over
+stdio, both SDKs), sanitizes what comes back (placeholder ids, scrubbed
+operator paths, transient `[Grant]` policy rows dropped — the old snapshot
+had leaked local file paths into published list responses), trims the list
+captures that once shipped as two 68KB `get_signals` dumps, and refuses to
+write the dataset at all if its leak scan hits.
+
+And the gate: `guide:drift:check` now reads the version stamped inside the
+captured `/api/health` example and fails CI when its major.minor falls
+behind `package.json`. Patch drift is tolerated on purpose — forcing a
+re-capture on every routine ship would just train us to rubber-stamp the
+gate. A tamper test (rewriting the captured version to 4.67.0) confirms it
+reds exactly the way it should have a month ago.
+
+Shipped during a GitHub Actions major outage, so the CI read for this push
+is deferred until the queue drains — noted here so the assume-green trap
+from the v5.8.2 era doesn't repeat.
+
 ## 2026-08-06 — the truth pass: finishing what MoltFire started (v5.8.4)
 
 **Shipped:** `v5.8.4` — the rest of the MoltFire marketing-site audit

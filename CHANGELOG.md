@@ -13,7 +13,18 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
-## [5.8.4] — 2026-08-06
+## [5.8.5] — 2026-08-06
+
+**Platform guide live-examples regeneration — the scheduled follow-up from 5.8.4.** The guide's 24 captured request/response examples still dated from a 4.67.0 instance (2026-07-07 snapshot); all of them are now re-captured against a running 5.8.5-tree instance, and the gate that let that drift survive a month is closed. Platform-only release; no SDK source change.
+
+### Added
+
+- **`npm run guide:examples:regen`** (`scripts/regen-platform-guide-examples.mjs` + `.py`) — a reusable generator that re-captures all 24 liveExamples (11 HTTP via curl-equivalent fetches, 6 MCP by driving the repo's `mcp-server` over stdio, 4 Node SDK, 3 Python SDK) against a local instance, then sanitizes (ids → placeholders, operator-local paths and org ids scrubbed, transient `[Grant]` policy rows dropped), trims list responses to 2 items (the old snapshot shipped two 68KB `get_signals` dumps), recomputes `meta.counts`, and refuses to write on any leak-scan hit. The original generator was retired with livingcode in v5.3.0; the dataset is no longer regenerable-by-archaeology only.
+- **Stale-surface gate in `guide:drift:check`** — the check now reads the version stamped in the captured `/api/health` example and fails when its major.minor falls behind `package.json` (patch drift tolerated so routine ships don't force a re-capture). This is the gate that would have caught the 4.67.0-era examples the MoltFire audit flagged.
+
+### Fixed
+
+- **`public/guides/platform-guide-data.json` liveExamples are current** — every example now shows 5.8.4-era responses (the health check's `realtime`/redis block instead of the retired `behavioral_ai` engine, current guard policy signals, `org_id` in write responses), `meta.generatedAt` advances 2026-07-07 → 2026-08-06, and the dataset sheds ~64KB of stale bulk. The 421 catalog entries are untouched — they remain gate-verified against `docs/api-inventory.json` (172 route+method pairs).
 
 **Marketing site truth pass — the remaining MoltFire audit findings.** The outsider-run audit (`docs/plans/2026-08-06-marketing-site-truth-audit.md`) compared dashclaw.io against the codebase; v5.8.3 fixed the install-command drift, this release closes the rest of the fixable findings: every public claim about culled or unpublished software is now either true or removed. Platform-only release; no SDK source change.
 

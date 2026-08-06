@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.8.4",
+    "current_version": "5.8.5",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.8.4 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.8.5 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.8.4",
+    "current_version": "5.8.5",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.8.4 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.8.5 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.8.4 is the marketing-site truth pass closing the MoltFire outsider-run audit: x402 claims removed from /guides/openclaw, plugin HOOK.md, and the platform guide dataset; /docs and /downloads install CTAs go versionless because the repo SDK version is not what npm/PyPI serve. Marketing/docs surfaces only; no SDK surface change.",
+  "reason": "5.8.5 regenerates the platform guide's live-captured examples against a running 5.8.4 instance (closing the 4.67.0-era snapshot flagged in the MoltFire audit), ships the reusable generator (guide:examples:regen), and adds a stale-surface gate to guide:drift:check so captured examples can never again fall a minor version behind the platform. Platform/docs surfaces only; no SDK surface change.",
   "domains": [
     "platform"
   ]

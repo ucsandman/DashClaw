@@ -9,9 +9,12 @@
  * surface changes without the guide being regenerated — the guide can claim
  * 100% coverage only while this passes.
  *
- * Compares the route+method set only (the machine-checkable slice). SDK/CLI/
- * MCP entries drift with their own release gates (contracts:check,
- * check-doc-counts) and get refreshed in the same regeneration pass.
+ * Checks two machine-checkable slices: the route+method set, and the version
+ * the liveExamples were captured against (major.minor vs package.json — the
+ * gate that catches 4.67.0-era captures surviving into 5.8.x). SDK/CLI/MCP
+ * entries drift with their own release gates (contracts:check, check-doc-counts)
+ * and get refreshed in the same regeneration pass
+ * (node scripts/regen-platform-guide-examples.mjs).
  *
  * Usage: node scripts/check-platform-guide-drift.mjs
  */
