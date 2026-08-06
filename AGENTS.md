@@ -73,9 +73,9 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-08-06 (commit e6fb5b0f). Confidence: 100%.
+Last indexed: 2026-08-06 (commit d15a9bc8). Confidence: 100%.
 ### Architecture
-repo is an end-to-end “governed agent” documentation and tooling monorepo that ingests source code and policy/contract inputs, transforms them into structured knowledge (AST/code analysis + policy metadata), and outputs generated documentation artifacts served through an MCP server and a web UI, with SDKs and example governed agents demonstrating the workflow.
+This repository is an end-to-end “governed agent” documentation and tooling platform: it ingests source code and contract/policy inputs (e.g., repository files, contracts/index.json, and policy/skill YAML), transforms them through indexing/analysis and governance-aware agent/tool orchestration, and outputs generated artifacts such as an MCP server tool surface, SDKs (JavaScript + Python), and runnable example agents/pipelines (plus a web-facing UI layer via the app/ modules).
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
@@ -103,11 +103,11 @@ repo is an end-to-end “governed agent” documentation and tooling monorepo th
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `docs/maintainer-log.md` | 100.0th percentile | 139 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 143 | Wes Sander |
 | `mcp-server/lib/routes-inventory.generated.json` | 100.0th percentile | 34 | Wes Sander |
 | `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 71 | Wes Sander |
 | `app/lib/doctor/generated/shape.json` | 99.9th percentile | 71 | Wes Sander |
-| `CHANGELOG.md` | 99.9th percentile | 106 | Wes Sander |
+| `CHANGELOG.md` | 99.9th percentile | 109 | Wes Sander |
 
 ### Repowise MCP Workflow
 
