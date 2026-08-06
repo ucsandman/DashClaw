@@ -5,6 +5,8 @@
 
   <p><strong>When your AI coding agent tries something destructive, DashClaw catches it before it runs and asks you first, even when you are not at the keyboard.</strong></p>
 
+  <p>Run agents unattended without giving them unconditional authority.</p>
+
   <p>
     <a href="https://github.com/ucsandman/DashClaw/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/ucsandman/DashClaw/ci.yml?branch=main&style=flat-square&label=ci" /></a>
     <a href="https://www.npmjs.com/package/dashclaw"><img alt="npm" src="https://img.shields.io/npm/v/dashclaw?style=flat-square&color=orange&label=npm%3A%20dashclaw" /></a>
@@ -48,11 +50,11 @@ npx dashclaw up      # no account, first caught action in minutes
 
 A 10-second capability scan before the dense sections:
 
-- **Fail-closed intercept.** At the hook seam a blocked call exits 2. The tool never runs.
+- **Fail-closed intercept.** A blocked tool call never runs. The hook cancels it before execution (exit 2 at the seam).
 - **One-click remote approval.** Resolve from the `/approvals` inbox, the CLI, a phone PWA, Telegram, or Discord. No presence required.
-- **Tamper-evident audit.** Ed25519-signed receipts and a replayable decision ledger. Verify any receipt at `POST /api/integrity/verify` with no API key; the signing key is published via JWKS.
-- **Calibrated interruptions.** A distribution-free controller turns your approve/deny verdicts into a proven false-interruption bound, not a guessed threshold.
-- **Enforcement liveness probe.** Drives a synthetic held action through the real hook path and verdicts by whether it executed. Stale never renders green.
+- **Tamper-evident audit.** Every decision lands in a signed, replayable ledger, and anyone can verify a receipt without an API key (Ed25519, key published via JWKS).
+- **Calibrated interruptions.** Your approve/deny verdicts tune how often it interrupts, with a proven cap on false interruptions instead of a guessed threshold.
+- **Proof enforcement is still on.** A liveness probe drives a synthetic held action through the real hook path and verdicts by whether it actually executed. Stale never renders green.
 - **Prompt-injection scanning on by default.** High-confidence system-override patterns force a `block` at guard time; weaker ones raise a `warn`.
 - **Multi-runtime.** Claude Code, Codex, Hermes, OpenClaw, MCP, Node and Python SDKs, plain REST.
 - **$0 to self-host.** One command locally, or Vercel plus Neon on their free tiers.
