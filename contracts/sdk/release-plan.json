@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.8.2",
+    "current_version": "5.8.4",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.8.2 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.8.4 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.8.2",
+    "current_version": "5.8.4",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.8.2 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.8.4 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.8.2 closes audit F2, the classifier coverage backlog: find with a delete predicate grades destructive with path-awareness, interpreter one-liner deletes grade security/80 detected pre-chain-split, and raw block-device writes grade 100 and hard-block. Every audit shape pinned by regression tests on both classifiers. Platform + hooks; no SDK surface change.",
+  "reason": "5.8.4 is the marketing-site truth pass closing the MoltFire outsider-run audit: x402 claims removed from /guides/openclaw, plugin HOOK.md, and the platform guide dataset; /docs and /downloads install CTAs go versionless because the repo SDK version is not what npm/PyPI serve. Marketing/docs surfaces only; no SDK surface change.",
   "domains": [
     "platform"
   ]

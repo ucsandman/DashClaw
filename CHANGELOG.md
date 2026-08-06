@@ -13,6 +13,24 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.8.4] — 2026-08-06
+
+**Marketing site truth pass — the remaining MoltFire audit findings.** The outsider-run audit (`docs/plans/2026-08-06-marketing-site-truth-audit.md`) compared dashclaw.io against the codebase; v5.8.3 fixed the install-command drift, this release closes the rest of the fixable findings: every public claim about culled or unpublished software is now either true or removed. Platform-only release; no SDK source change.
+
+### Fixed
+
+- **`/guides/openclaw` no longer claims x402 spend gating** — the subsystem was culled in v5.0.0; the plugin's pitch is token-cost attribution only.
+- **Plugin `HOOK.md` purged of the stale "x402 capability spend" section** (gate/record flow, `x402CommandPatterns`, `recordPurchase()`, the self-report path — none of it exists in the v5 plugin) and its frontmatter version aligned 1.3.2 → 1.5.0. Caught before the pending `@dashclaw/openclaw-plugin@1.5.0` publish, so the doc drift never ships in the npm package.
+- **Platform guide dataset scrubbed of every x402 mention** (8 across five entries): the `/api/actions/:id/outcome` and `/api/approvals/:id` entries described x402 purchase-row reconciliation that no longer exists in those routes, the OpenClaw plugin entry described payment interception and a `DASHCLAW_X402_DEBUG` env var the plugin no longer has, the `/docs` page entry listed an x402 section `/docs` no longer contains, and a live-example annotation listed `x402_spend_limit` as an observed policy type.
+- **`/docs` and `/downloads` stop labeling generic install commands with a version npm/PyPI don't serve** — `npm install dashclaw` / `pip install dashclaw` were labeled `v5.8.3` while both registries serve 5.6.2 (SDKs republish only on SDK source change, so the repo manifest routinely runs ahead). Install CTAs are now versionless; the registry links beside them are the live truth. The now-unused `NEXT_PUBLIC_SDK_NODE_VERSION` / `NEXT_PUBLIC_SDK_PYTHON_VERSION` wiring is removed from `next.config.js` with a comment recording why.
+- **`/connect` structure comments matched to the rendered page** — five integration surfaces (not four; the OAuth custom connector was missing) and the framework-guide count no longer hardcoded (eleven cards and growing).
+- **Restored the `## [5.8.2]` changelog header** that the v5.8.3 edit accidentally deleted, which had merged 5.8.2's entry into 5.8.3's section.
+
+### Known remaining (human-gated or scheduled)
+
+- npm/PyPI SDK republish and `@dashclaw/openclaw-plugin@1.5.0` publish remain gated on npm 2FA (human-held credential).
+- The platform guide dataset's live-captured examples still date from a 4.67.0 instance (2026-07-07 snapshot); a full regeneration plus a stronger stale-surface gate is a scheduled follow-up, not attempted here.
+
 ## [5.8.3] — 2026-08-06
 
 **OpenClaw integration drift closed — found by an OpenClaw agent following the public docs.** An outside-style setup run (MoltFire, via dashclaw.io) surfaced that the published `@dashclaw/openclaw-plugin` was two minors stale and the install instructions disagreed between surfaces. Platform-only release; no SDK source change.
@@ -21,6 +39,8 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 - **`@dashclaw/openclaw-plugin` staged as 1.5.0 for republish** (publish itself is gated on npm 2FA, a human-held credential) — npm had been stuck at 1.2.5 since April while the repo advanced to 1.4.0; the 1.3.x/1.4.0 builds (session tracking, codex usage carry-forward, x402 which was later culled) were never published. 1.5.0 ships the post-cull plugin with the `dashclaw` dependency bumped `^4.2.0` → `^5.0.0` (all six SDK methods the plugin uses survive the v5 surface) and a rebuilt `dist/`.
 - **`/connect` OpenClaw card taught the wrong install command** — `npm install @dashclaw/openclaw-plugin` where the guide, the package README, and OpenClaw itself use `openclaw plugins install @dashclaw/openclaw-plugin`. The hosted-onboarding OpenClaw snippet had the same drift plus a stale manual `openclaw.plugin.json` registration step; both now match the canonical CLI install.
 - **Plugin README purged of culled features** — 14 x402 references (config table rows + the entire "x402 capability spend" section) described a subsystem removed from both the plugin and the server in the v5 cull, a dead `scripts/diagnose-cost-attribution.mjs` pointer, and stale example model ids. The README ships inside the npm package, so the drift was public.
+
+## [5.8.2] — 2026-08-06
 
 **F2 of the 2026-08-05 governance gap audit is closed — the classifier coverage backlog.** The audit's live repro: `find /c/Users/<user> -type f -delete` graded **review/5** (find is a read-only command — until it carries a delete predicate) and a canary actually deleted through the armed hook. Every listed shape is now covered on both classifiers, each pinned by a regression test. Platform + hooks; no SDK source change.
 

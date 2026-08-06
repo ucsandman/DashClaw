@@ -206,7 +206,7 @@ export default async function DocsPage() {
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">SDK Documentation</h1>
           </div>
           <p className="text-text-secondary max-w-2xl leading-relaxed">
-            Canonical reference for the DashClaw SDK (Node v{process.env.NEXT_PUBLIC_SDK_NODE_VERSION} / Python v{process.env.NEXT_PUBLIC_SDK_PYTHON_VERSION}). Node.js and Python parity across all core governance features.
+            Canonical reference for the DashClaw SDK. Node.js and Python parity across all core governance features.
           </p>
           <Suspense fallback={null}>
             <CopyDocsButton />

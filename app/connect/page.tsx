@@ -37,10 +37,10 @@ import { marketingPageMetadata } from '../lib/marketingSeo';
  *
  * Structure:
  *   1. Get your API key            (env exports)
- *   2. Pick an integration surface (4 cards: SDK, MCP, Claude Code Hooks, OpenClaw)
+ *   2. Pick an integration surface (5 cards: SDK, MCP, Claude Code Hooks, OpenClaw, Custom connector)
  *   3. Pick an approval surface    (5 cards: Dashboard default, CLI, Mobile PWA, Discord, Telegram)
  *   4. Verify                       (1 consolidated Verify section)
- *   Framework guides                (5 cards: Claude Code, OpenAI Agents SDK, LangGraph, CrewAI, OpenClaw)
+ *   Framework guides                (one card per guide under /guides — see the array below)
  */
 
 export const metadata: Metadata = marketingPageMetadata({

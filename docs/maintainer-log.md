@@ -12,6 +12,49 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-06 — the truth pass: finishing what MoltFire started (v5.8.4)
+
+**Shipped:** `v5.8.4` — the rest of the MoltFire marketing-site audit
+(`docs/plans/2026-08-06-marketing-site-truth-audit.md`). The v5.8.3 entry
+below covers the install-command drift the outsider run surfaced; this
+session verified every remaining finding against the actual source before
+touching anything, then closed the ones that don't need a human credential.
+
+The theme of the findings was consistent: **the v5.0.0 cull removed x402
+from the code but not from everything that talks about the code.**
+`/guides/openclaw` still sold "x402 spend gating." The plugin's `HOOK.md`
+still documented the whole x402 gate-and-record flow — config knobs, API
+routes, SDK methods, none of which exist — and was about to ship inside the
+pending `@dashclaw/openclaw-plugin@1.5.0` npm publish. The platform guide
+dataset carried eight x402 mentions, including behavior claims about two
+live routes (`/api/actions/:id/outcome`, `/api/approvals/:id`) that I
+verified against the route source: the reconciliation code is simply gone.
+All scrubbed; `grep -i x402` over the public dataset now returns nothing.
+
+Second theme: **version labels that promise what a registry doesn't
+serve.** `/docs` and `/downloads` labeled the generic `npm install
+dashclaw` / `pip install dashclaw` commands `v5.8.3` while npm and PyPI
+both serve 5.6.2 — a structural drift, not a one-off, because SDKs
+republish only on SDK source change while the unified version bumps every
+ship. The fix is durable rather than cosmetic: install CTAs are now
+versionless (the registry links beside them are the live truth) and the
+env-var plumbing that fed those labels is removed, with a comment in
+`next.config.js` recording why it shouldn't come back.
+
+Also caught in passing: the v5.8.3 CHANGELOG edit had accidentally deleted
+the `## [5.8.2]` header, silently merging that release's entry into
+5.8.3's section. Restored.
+
+**Left open, deliberately:** the SDK/plugin republishes stay gated on npm
+2FA (human-held, per the charter); and the platform guide's live-captured
+examples still date from a 4.67.0 instance — a faithful old snapshot, not
+a lie, so it's a scheduled regeneration (with a stronger stale-surface
+gate) rather than a hand-edit of captured payloads. Two other agents were
+working this repo in parallel the whole session; the commit stages only
+this session's files.
+
+---
+
 ## 2026-08-06 — an OpenClaw agent ran the public docs and found the seams (v5.8.3)
 
 **Shipped:** `v5.8.3` — integration-drift fixes prompted by the best kind of

@@ -357,7 +357,7 @@ hermes dashclaw doctor`}
               <p className="text-xs text-text-secondary leading-relaxed mb-3">
                 Canonical 39-method surface across core governance, durable execution finality, security scanning, sessions and the action graph, agent identity, risk signals, policy simulation, plan authorization, delegation constraints, containment verdicts, and team tasks.
               </p>
-              <CommandBlock label={`Install (v${process.env.NEXT_PUBLIC_SDK_NODE_VERSION})`}>{`npm install dashclaw`}</CommandBlock>
+              <CommandBlock label="Install">{`npm install dashclaw`}</CommandBlock>
             </div>
             <div className="rounded-xl border border-border bg-surface-secondary p-5">
               <div className="flex items-baseline justify-between gap-4 mb-3 flex-wrap">
@@ -375,7 +375,7 @@ hermes dashclaw doctor`}
               <p className="text-xs text-text-secondary leading-relaxed mb-3">
                 Broader Python surface (59 methods) with framework integrations: CrewAI task instrumentation and AutoGen conversation monitoring.
               </p>
-              <CommandBlock label={`Install (v${process.env.NEXT_PUBLIC_SDK_PYTHON_VERSION})`}>{`pip install dashclaw`}</CommandBlock>
+              <CommandBlock label="Install">{`pip install dashclaw`}</CommandBlock>
             </div>
           </div>
         </section>
