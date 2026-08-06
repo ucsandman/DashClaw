@@ -64,6 +64,13 @@ export interface PolicyRules {
   action_types?: string[];
   allowed_action_types?: string[];
   target_prefix?: string;
+  /** F1: a gating rule marked ungrantable can never have its warn /
+   *  require_approval verdict cleared by an allow_grant (control-plane and
+   *  catastrophe rules). */
+  ungrantable?: boolean;
+  /** F1: allow_grant lifetime stamp (ISO), written at creation; legacy grants
+   *  without one age out from the row's created_at. */
+  expires_at?: string;
   paths?: string[];
   max_actions?: number;
   window_minutes?: number;

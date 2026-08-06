@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.7.4",
+    "current_version": "5.8.0",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.7.4 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.8.0 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.7.4",
+    "current_version": "5.8.0",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.7.4 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.8.0 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.7.4 classifies Start-Sleep as readonly in the hook's PowerShell cmdlet map: a pause has no side effects, but the start-verb mapping (right for Start-Process/Start-Service) made it the highest-intent segment of a routine push-then-wait pipeline, declaring action_type security (server base 80) and detonating a 100-block. Third member of the post-enforce-flip false-positive family (regenerable rm, env prefix, now sleep). Hooks-only; no SDK change.",
+  "reason": "5.8.0 closes audit F1, the last critical finding: allow grants silently nullified every require_approval policy in an org. Grants now carry a TTL (30d default, stamped at creation; legacy grants age out from created_at), require an explicit target scope (unscoped blanket grants rejected at both the validator and the review-feed verdict), never satisfy a policy across an evidence reclassification, and can never clear a rule marked ungrantable. /policies renders every currently-inert rule with the grant suppressing it. Minor bump: the grant contract is narrower than before. Platform-only; no SDK surface change.",
   "domains": [
     "platform"
   ]

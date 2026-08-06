@@ -47,12 +47,48 @@ export function targetPrefixOf(normalized: string | null): string | null {
 interface GrantRules {
   action_type?: unknown;
   target_prefix?: unknown;
+  expires_at?: unknown;
 }
 
 interface GrantContext {
   action_type?: unknown;
+  declared_action_type?: unknown;
   target?: unknown;
   write_paths?: unknown;
+}
+
+/** Default grant lifetime (F1, governance gap audit 2026-08-05): grants
+ *  accumulated for months with no expiry and silently nullified every
+ *  require_approval policy in the org. New grants are stamped with an
+ *  explicit rules.expires_at at creation; legacy grants age out from their
+ *  row's created_at. */
+export const GRANT_DEFAULT_TTL_DAYS = 30;
+
+/**
+ * When this grant stops applying. rules.expires_at (ISO string, stamped at
+ * creation since v5.8.0) wins; a legacy grant without one expires
+ * GRANT_DEFAULT_TTL_DAYS after its row's created_at. Returns null only when
+ * neither is available (synthetic rows in tests) — those never expire, but
+ * every real guard_policies row carries created_at.
+ */
+export function grantExpiresAt(rules: GrantRules, createdAt?: unknown): Date | null {
+  if (typeof rules.expires_at === 'string' && rules.expires_at) {
+    const d = new Date(rules.expires_at);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  if (createdAt != null) {
+    const c = new Date(createdAt as string | number | Date);
+    if (!Number.isNaN(c.getTime())) {
+      return new Date(c.getTime() + GRANT_DEFAULT_TTL_DAYS * 24 * 60 * 60 * 1000);
+    }
+  }
+  return null;
+}
+
+/** True when the grant's lifetime has lapsed (never true without expiry info). */
+export function grantIsExpired(rules: GrantRules, createdAt?: unknown, now: Date = new Date()): boolean {
+  const exp = grantExpiresAt(rules, createdAt);
+  return exp != null && exp.getTime() <= now.getTime();
 }
 
 /** Boundary-aware prefix match: hosts match exactly or as a dot-separated
@@ -85,6 +121,21 @@ export function targetPrefixMatches(prefix: string, context: GrantContext): bool
 
 /** Does an allow_grant's shape match this guard context? */
 export function grantMatches(rules: GrantRules, context: GrantContext): boolean {
+  // No grant applies across a reclassification (F1, governance gap audit
+  // 2026-08-05): when the evidence fold swapped the evaluation onto a derived
+  // action_type (declared_action_type records the original), the declared
+  // intent and the observed act disagree — a grant scoped to either single
+  // type cannot cover both, and letting one match is how a policy written on
+  // `post` was downgraded by a grant on `api` (live repro
+  // act_gd_a710f056c50d4eb8). Restrictive policies match through the swap;
+  // permissive grants fail closed on it.
+  if (
+    typeof context.declared_action_type === 'string'
+    && context.declared_action_type
+    && context.declared_action_type !== context.action_type
+  ) {
+    return false;
+  }
   if (typeof rules.action_type !== 'string' || rules.action_type !== context.action_type) {
     return false;
   }

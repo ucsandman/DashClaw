@@ -10,7 +10,7 @@ import { EVENTS, publishOrgEvent } from '../events';
 import { getActBindingMode } from '../act-binding';
 import { computeActContentHash } from '../act-content-hash';
 import { getJtiReplayMode } from '../replay-protection';
-import { grantMatches } from '../policy-shapes';
+import { grantMatches, grantIsExpired } from '../policy-shapes';
 import { DECISION_SEVERITY, sevOf } from './internal';
 import type { GuardSql, GuardEvalContext, PolicyRow, PolicyRules, PolicyResult, Preliminary, GuardDecisionInsert } from './types';
 import { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, isKnownPolicyType } from './policy';
@@ -93,10 +93,14 @@ export interface GuardAccumulator {
   nonFabStripPaths: Set<string>;
   highestDecision: string;
   shields: GuardShields;
+  /** Policies whose result raised warn/require_approval this evaluation (F1):
+   *  the grant post-pass consults these so a rule marked ungrantable can
+   *  never have its verdict cleared by an allow_grant. */
+  gatingPolicies: Array<{ id: string; name: string; ungrantable: boolean }>;
 }
 
 function newAccumulator(): GuardAccumulator {
-  return { reasons: [], warnings: [], matchedPolicies: [], nonFabEvidence: [], nonFabStripPaths: new Set(), highestDecision: 'allow', shields: { prompt_injection: null } };
+  return { reasons: [], warnings: [], matchedPolicies: [], nonFabEvidence: [], nonFabStripPaths: new Set(), highestDecision: 'allow', shields: { prompt_injection: null }, gatingPolicies: [] };
 }
 
 function raiseDecision(acc: GuardAccumulator, action: string): void {
@@ -276,6 +280,12 @@ async function runLocalPolicies(
       acc.nonFabEvidence.push(result.nonFabrication);
       for (const p of result.stripPaths || []) acc.nonFabStripPaths.add(p);
     }
+    // Gating ledger (F1): remember which policy raised warn/require_approval
+    // and whether the operator marked it ungrantable, so the grant post-pass
+    // can refuse to clear it. Blocks need no entry — grants never touch them.
+    if (result.action === 'warn' || result.action === 'require_approval') {
+      acc.gatingPolicies.push({ id: policy.id, name: policy.name, ungrantable: rules.ungrantable === true });
+    }
     raiseDecision(acc, result.action);
   }
 }
@@ -295,6 +305,15 @@ function applyAllowGrants(policies: PolicyRow[], context: GuardEvalContext, acc:
   // raise exists to prevent.
   if (context.action_type === 'containment_promote') return;
   if (acc.highestDecision !== 'warn' && acc.highestDecision !== 'require_approval') return;
+  // Ungrantable gate (F1): a verdict raised by a rule the operator marked
+  // ungrantable is never cleared by a grant — control-plane and catastrophe
+  // rules survive the org's accumulated grant pile. The warning keeps the
+  // suppression attempt visible in the decision record.
+  const ungrantable = acc.gatingPolicies.find((g) => g.ungrantable);
+  if (ungrantable) {
+    acc.warnings.push(`${ungrantable.name}: marked ungrantable — allow_grant policies cannot clear this verdict`);
+    return;
+  }
   for (const policy of policies) {
     if (policy.policy_type !== 'allow_grant') continue;
     let rules: PolicyRules;
@@ -306,6 +325,9 @@ function applyAllowGrants(policies: PolicyRow[], context: GuardEvalContext, acc:
       notePolicyUnenforceable(acc, policy, 'rules is not valid JSON');
       continue;
     }
+    // TTL (F1): an expired grant is inert. Silent skip — expiry is a normal
+    // lifecycle state surfaced on /policies, not a misconfiguration.
+    if (grantIsExpired(rules, policy.created_at)) continue;
     if (grantMatches(rules as { action_type?: unknown; target_prefix?: unknown }, context)) {
       acc.warnings.push(`${policy.name}: grant downgraded ${acc.highestDecision} to allow`);
       acc.matchedPolicies.push(policy.id);
@@ -1113,6 +1135,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
         nonFabStripPaths: new Set(liveAcc.nonFabStripPaths),
         highestDecision: liveAcc.highestDecision,
         shields: { ...liveAcc.shields },
+        gatingPolicies: [...liveAcc.gatingPolicies],
       }
     : liveAcc;
 

@@ -12,6 +12,48 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-06 — v5.8.0: the last critical finding, and the one that was always the worst
+
+**Shipped:** release v5.8.0 — **F1 closed**, and with it every critical
+item from the governance gap audit. F1 was always the audit's most
+damning finding, worse than F0 in kind if not in blast radius: F0 meant
+enforcement was off and the ledger couldn't tell you; F1 meant
+enforcement was on, the policy matched, the operator could read it
+right there on /policies — and it did nothing. Every `require_approval`
+rule for the covered action types had been inert since 2026-06-12,
+downgraded by grants accumulated from "approve and don't ask again"
+clicks. The operator believed they had an approval gate. They had a
+label.
+
+Four mechanisms close it. Grants **expire** (30d, stamped at creation;
+legacy grants age out from `created_at`, so the June pile is already
+dead without a migration). Grants must be **scoped** — rejected at the
+validator and at the review-feed verdict that minted the 19 blanket
+grants in the first place. Grants **never cross a reclassification**:
+the audit's 3-layer X-post repro (policy on `post`, act derived as
+`api`, grant on `api`) now correctly requires approval, and it's pinned
+by a test that reads like the incident report. And a rule marked
+**ungrantable** can't be cleared by any grant at all, which is what
+F3's control-plane mitigation needed to stop being inert itself.
+
+Then the part that matters most for a finding of this shape: /policies
+now **names its own inert rules** in red, above everything else, with
+the grant doing the suppressing. Driving that page for the rendered
+proof, it immediately flagged a real inert rule on my own instance that
+I hadn't seeded and didn't know about — a Claude Code Mode warn rule
+suppressed by an old `[Grant] api → /dev/null`. The feature found a
+live instance of its own bug class in its first thirty seconds of
+existing. That is the entire argument for building the surface instead
+of just fixing the logic.
+
+The audit is now: F0 ✅ F1 ✅ F4 ✅ F5 ✅ F6 ✅ — all five criticals and
+both mediums, plus the four post-flip calibration fixes, in two days.
+Remaining: F2 (classifier coverage backlog — `find -delete`,
+`git clean -xfd`, `shutil.rmtree`, `dd`; a standing backlog, not a
+defect) and F3's docs honesty pass (the README/marketing statement that
+a hook running at the agent's privilege level is a seatbelt, not a
+cage). Neither is a false-confidence bug; both are work.
+
 ## 2026-08-06 — v5.7.3: the governor stops grading its own homework
 
 **Shipped:** release v5.7.3 — F6, pulled forward from the audit queue at

@@ -13,6 +13,21 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.8.0] — 2026-08-06
+
+**F1 — the last critical finding of the 2026-08-05 governance gap audit — is closed.** An `allow_grant` could silently nullify a `require_approval` policy: grants had no expiry, no mandatory scope, and the evidence classifier's reclassification let a grant on one action type satisfy a policy written on another. On the audited instance every approval gate for the covered types had been inert since 2026-06-12 while `/policies` showed them active — an inert policy is worse than no policy, because it manufactures false confidence. Minor bump: the grant contract is deliberately narrower than before. Platform-only; no SDK source change.
+
+### Added
+
+- **Grants expire.** Every new grant is stamped with `rules.expires_at` at creation (30-day default, `GRANT_DEFAULT_TTL_DAYS`); legacy grants without one age out 30 days from their row's `created_at`. An expired grant is inert at evaluation time — no migration, no backfill, no perpetual permissions surviving from June.
+- **`ungrantable` rules.** A gating policy with `rules.ungrantable: true` can never have its verdict cleared by any grant — the control-plane / catastrophe answer the audit asked for (F3's mitigation policy becomes effective the moment it carries this flag). The suppression attempt is still recorded as a warning on the decision.
+- **`/policies` names its own inert rules.** A red banner above the posture cards lists every active gating rule an active grant currently nullifies, and the grant doing it (`app/lib/inert-policies.ts` → `PolicySummary.inert`). Verified rendered: it immediately surfaced a real pre-existing inert rule on the maintainer's own instance, not just the seeded test case.
+
+### Fixed
+
+- **No grant survives reclassification.** When the evidence fold swaps the evaluation onto a derived action type, `grantMatches` now fails closed — restrictive policies still match through the swap, permissive grants do not. This was the audit's live 3-layer repro (policy on `post`, act derived as `api`, grant on `api` → allowed); it now correctly requires approval, pinned by test.
+- **Unscoped grants are rejected at creation** — both in `validatePolicy` and in the `/policies` review-feed `always_allow` verdict, which is where the audited instance's 19 blanket grants came from. A grant must name what it covers; "allow everything of this type forever" is a policy deletion wearing a grant's name.
+
 ## [5.7.4] — 2026-08-06
 
 Third member of the post-enforce-flip false-positive family (after regenerable deletes and the `env` prefix), caught the same evening: `Start-Sleep` — a pause, the most side-effect-free command there is — classified under the PowerShell *verb* map's `start` → process management, which maps to action_type `security` (server base 80) and made a routine push-then-wait pipeline hard-block at 100. Hooks-only; no SDK source change.

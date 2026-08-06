@@ -501,10 +501,18 @@ const POLICY_TYPE_VALIDATORS = {
     if (!isNonEmptyString(rules.action_type)) {
       addError('allow_grant policy requires rules.action_type string');
     }
-    if (rules.target_prefix !== undefined && rules.target_prefix !== null && (
-      typeof rules.target_prefix !== 'string' || rules.target_prefix.length === 0 || rules.target_prefix.length > 256
+    // F1 (governance gap audit 2026-08-05): unscoped blanket grants silently
+    // nullified every require_approval policy for their action_type — 19 of
+    // them had accumulated on the audited instance. A grant now names WHAT it
+    // covers; a grant for "everything of this type" is a policy deletion
+    // wearing a grant's name, and the operator should do that explicitly.
+    if (!isNonEmptyString(rules.target_prefix) || rules.target_prefix.length > 256) {
+      addError('allow_grant policy requires rules.target_prefix (a host or path scope, <=256 chars) — unscoped blanket grants are no longer accepted');
+    }
+    if (rules.expires_at !== undefined && (
+      typeof rules.expires_at !== 'string' || Number.isNaN(new Date(rules.expires_at).getTime())
     )) {
-      addError('allow_grant rules.target_prefix must be a non-empty string (<=256 chars)');
+      addError('allow_grant rules.expires_at must be an ISO date string');
     }
   },
   protected_path: (rules, addError) => {

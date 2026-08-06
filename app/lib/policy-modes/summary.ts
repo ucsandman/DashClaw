@@ -5,6 +5,7 @@
 import { POLICY_MODE_CATALOG, type InterruptionLevel } from './catalog';
 import { nominalDecision } from './compile';
 import { SHIELDS, matchShieldsToPolicies } from '../../policies/lib/shields';
+import { findInertPolicies, type InertPolicy } from '../inert-policies';
 import type { GuardPolicyType, DecisionType } from '@/lib/types';
 
 export interface ActivePolicyRow {
@@ -68,6 +69,10 @@ export interface PolicySummary {
   scope: { allAgents: boolean };
   agents: { total: number };
   pendingApprovals: number;
+  /** Active gating rules currently nullified by an allow_grant (F1). An inert
+   *  policy is worse than no policy — it manufactures false confidence — so
+   *  /policies renders these with the suppressing grant. */
+  inert: InertPolicy[];
 }
 
 function policyTargetsAllAgents(agentIds: string | null | undefined): boolean {
@@ -182,5 +187,8 @@ export function buildPolicySummary(
     scope: { allAgents: scopeAllAgents },
     agents: { total: agentsTotal },
     pendingApprovals,
+    // F1: gating rules an active grant currently nullifies. Computed here so
+    // every consumer of the summary sees the same truth as the cockpit.
+    inert: findInertPolicies(active as Parameters<typeof findInertPolicies>[0]),
   };
 }

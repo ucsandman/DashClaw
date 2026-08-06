@@ -9,6 +9,7 @@ import { getSql } from '../../lib/db';
 import { apiErrorResponse } from '../../lib/apiErrors';
 import { EVENTS, publishOrgEvent } from '../../lib/events';
 import { invalidateGuardPolicyCache } from '../../lib/guard';
+import { GRANT_DEFAULT_TTL_DAYS } from '../../lib/policy-shapes';
 import { deletePoliciesByIds } from '../../lib/repositories/guardrails.repository';
 
 /**
@@ -71,6 +72,24 @@ export async function POST(request: Request) {
     const active = data.active != null ? data.active : 1;
 
     const agentIds = data.agent_ids || null;
+
+    // Grant TTL stamp (F1): every allow_grant carries an explicit expiry from
+    // birth — default GRANT_DEFAULT_TTL_DAYS. The caller may set a shorter or
+    // longer rules.expires_at deliberately; absence is never perpetual.
+    if (data.policy_type === 'allow_grant') {
+      try {
+        const rules = JSON.parse(data.rules);
+        if (!rules.expires_at) {
+          rules.expires_at = new Date(Date.now() + GRANT_DEFAULT_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+          data.rules = JSON.stringify(rules);
+        }
+      } catch (err) {
+        // best-effort: validatePolicy already rejected unparseable rules, so
+        // this can only fire on a shape it accepted — the grant simply keeps
+        // whatever rules text it came with and ages out from created_at.
+        console.warn('[POLICIES POST] grant TTL stamp skipped (rules not parseable):', (err as Error).message);
+      }
+    }
 
     await sql`
       INSERT INTO guard_policies (id, org_id, name, policy_type, rules, active, agent_ids, created_by, created_at, updated_at)

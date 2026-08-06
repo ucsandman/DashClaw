@@ -23,9 +23,21 @@ describe('validatePolicy — allow_grant', () => {
     const r = validatePolicy(base('allow_grant', { action_type: 'api', target_prefix: 'stripe.com' }));
     expect(r.valid).toBe(true);
   });
-  it('accepts action_type without target_prefix', () => {
+  // F1 (governance gap audit 2026-08-05): an unscoped grant silently nullifies
+  // every require_approval policy for its action type — 19 had accumulated on
+  // the audited instance. A grant must name WHAT it covers.
+  it('REJECTS action_type without target_prefix (unscoped blanket grant)', () => {
     const r = validatePolicy(base('allow_grant', { action_type: 'sync' }));
-    expect(r.valid).toBe(true);
+    expect(r.valid).toBe(false);
+    expect(r.errors.join(' ')).toContain('target_prefix');
+  });
+  it('accepts an optional ISO expires_at, rejects a malformed one', () => {
+    expect(validatePolicy(base('allow_grant', {
+      action_type: 'api', target_prefix: 'stripe.com', expires_at: '2026-09-01T00:00:00.000Z',
+    })).valid).toBe(true);
+    expect(validatePolicy(base('allow_grant', {
+      action_type: 'api', target_prefix: 'stripe.com', expires_at: 'next tuesday',
+    })).valid).toBe(false);
   });
   it('rejects missing action_type', () => {
     const r = validatePolicy(base('allow_grant', { target_prefix: 'x' }));
@@ -35,9 +47,9 @@ describe('validatePolicy — allow_grant', () => {
     const r = validatePolicy(base('allow_grant', { action_type: 'api', target_prefix: '' }));
     expect(r.valid).toBe(false);
   });
-  it('accepts null target_prefix (treated as absent)', () => {
+  it('REJECTS null target_prefix (absent scope is the blanket-grant shape)', () => {
     const r = validatePolicy(base('allow_grant', { action_type: 'api', target_prefix: null }));
-    expect(r.valid).toBe(true);
+    expect(r.valid).toBe(false);
   });
 });
 

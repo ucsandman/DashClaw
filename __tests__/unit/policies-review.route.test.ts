@@ -213,13 +213,31 @@ describe('POST /api/policies/review/verdict', () => {
     );
   });
 
+  // F1 (governance gap audit 2026-08-05): an unscoped always_allow is how the
+  // audited org accumulated 19 blanket grants, each silently nullifying every
+  // require_approval policy for its action type. The verdict now requires a
+  // target scope.
+  it('always_allow REJECTS a shape with no target scope (F1)', async () => {
+    const res = await POST(
+      makeRequest('http://localhost/api/policies/review/verdict', {
+        headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+        body: { verdict: 'always_allow', shape: { action_type: 'bash' } },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.code).toBe('UNSCOPED_GRANT_REJECTED');
+    expect(mockInsertPolicy).not.toHaveBeenCalled();
+  });
+
   it('always_allow calls insertPolicy with policy_type allow_grant', async () => {
     mockInsertPolicy.mockResolvedValue({ id: 'gp_allow_1', policy_type: 'allow_grant' });
 
     const res = await POST(
       makeRequest('http://localhost/api/policies/review/verdict', {
         headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
-        body: { verdict: 'always_allow', shape: { action_type: 'bash' } },
+        body: { verdict: 'always_allow', shape: { action_type: 'bash', target_prefix: 'scripts/' } },
       }),
     );
 
@@ -236,6 +254,9 @@ describe('POST /api/policies/review/verdict', () => {
     const rules = JSON.parse(call.rules as string);
     expect(rules.action_type).toBe('bash');
     expect(rules._grant).toBe(true);
+    // F1: every grant is born with an expiry — grants are leases, not law.
+    expect(typeof rules.expires_at).toBe('string');
+    expect(new Date(rules.expires_at).getTime()).toBeGreaterThan(Date.now());
   });
 
   it('always_allow with target_prefix includes prefix in rules', async () => {
@@ -392,19 +413,19 @@ describe('POST /api/policies/review/verdict', () => {
       Object.assign(new Error('guard_policies_org_name_unique'), { code: '23505' }),
     );
     mockFindPolicyByName.mockResolvedValue([{ id: 'gp_existing' }]);
-    mockReactivateModePolicy.mockResolvedValue({ id: 'gp_existing', name: '[Grant] bash', active: 1 });
+    mockReactivateModePolicy.mockResolvedValue({ id: 'gp_existing', name: '[Grant] bash → scripts/', active: 1 });
 
     const res = await POST(
       makeRequest('http://localhost/api/policies/review/verdict', {
         headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
-        body: { verdict: 'always_allow', shape: { action_type: 'bash' } },
+        body: { verdict: 'always_allow', shape: { action_type: 'bash', target_prefix: 'scripts/' } },
       }),
     );
     expect(res.status).toBe(201);
     const data = await res.json();
     expect(data.ok).toBe(true);
     expect(data.policy.id).toBe('gp_existing');
-    expect(mockFindPolicyByName).toHaveBeenCalledWith(mockSql, 'org_1', '[Grant] bash');
+    expect(mockFindPolicyByName).toHaveBeenCalledWith(mockSql, 'org_1', '[Grant] bash → scripts/');
     expect(mockReactivateModePolicy).toHaveBeenCalledWith(
       mockSql,
       'org_1',
@@ -446,7 +467,7 @@ describe('POST /api/policies/review/verdict', () => {
     const res = await POST(
       makeRequest('http://localhost/api/policies/review/verdict', {
         headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
-        body: { verdict: 'always_allow', shape: { action_type: 'bash' } },
+        body: { verdict: 'always_allow', shape: { action_type: 'bash', target_prefix: 'scripts/' } },
       }),
     );
     expect(res.status).toBe(409);

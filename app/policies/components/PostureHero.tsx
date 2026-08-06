@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Clock, ArrowRight } from 'lucide-react';
+import { Clock, ArrowRight, ShieldOff } from 'lucide-react';
 import type { PolicySummary } from '../lib/modesClient';
 import styles from '../policies.module.css';
 
@@ -34,8 +34,45 @@ export default function PostureHero({ summary, friction, inboxCount }: PostureHe
   const maxOutcome = Math.max(d.allow, d.warn, d.require_approval, d.block, 1);
   const mins = friction ? Math.max(0, Math.round(friction.est_seconds / 60)) : 0;
 
+  const inert = summary.inert ?? [];
+
   return (
     <>
+      {/* F1 (governance gap audit 2026-08-05): a rule an active grant nullifies
+          still reads as active everywhere else — that false confidence is the
+          exact failure DashClaw exists to prevent, so it gets said out loud,
+          above the posture cards, with the suppressing grant named. */}
+      {inert.length > 0 && (
+        <div role="alert" className={`${styles.card} ${styles.inertBanner}`}>
+          <div className={styles.inertHead}>
+            <ShieldOff size={16} aria-hidden="true" />
+            <span>
+              {inert.length} {inert.length === 1 ? 'rule is' : 'rules are'} currently inert — suppressed by an allow grant
+            </span>
+          </div>
+          <ul className={styles.inertList}>
+            {inert.map((p) => (
+              <li key={p.id}>
+                <b>{p.name}</b>{' '}
+                <span className={styles.inertTypes}>({p.action_types.join(', ')})</span>{' '}
+                is downgraded to allow by{' '}
+                {p.suppressed_by.map((g, i) => (
+                  <span key={g.id}>
+                    {i > 0 && ', '}
+                    <b>{g.name}</b>
+                    {g.target_prefix ? <span className={styles.inertTypes}> → {g.target_prefix}</span> : ' (unscoped)'}
+                  </span>
+                ))}
+                .
+              </li>
+            ))}
+          </ul>
+          <Link href="#suppressed" className={styles.inertLink}>
+            Review suppressed patterns <ArrowRight size={12} aria-hidden="true" />
+          </Link>
+        </div>
+      )}
+
       <div className={styles.posture}>
         {/* Enforcement — active rules */}
         <div className={`${styles.card} ${styles.cardHover} ${styles.stat}`}>

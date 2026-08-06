@@ -140,8 +140,10 @@ export async function loadOrgRiskTemplates(sql: GuardSql, orgId: string): Promis
 async function loadOrgPolicies(sql: GuardSql, orgId: string): Promise<PolicyRow[]> {
   const hit = policyCache.get(orgId);
   if (hit && hit.expires > Date.now()) return hit.rows;
+  // created_at rides along for the allow_grant TTL (F1): a legacy grant with
+  // no rules.expires_at ages out from its row age — see grantExpiresAt.
   const allPolicies = await sql`
-    SELECT id, name, policy_type, rules, agent_ids
+    SELECT id, name, policy_type, rules, agent_ids, created_at
     FROM guard_policies
     WHERE org_id = ${orgId} AND active = 1
   ` as PolicyRow[];

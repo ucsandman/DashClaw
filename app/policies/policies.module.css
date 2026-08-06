@@ -107,6 +107,43 @@
 .statBig { font-size: 30px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
 .statSub { color: var(--color-text-tertiary); font-size: 12px; margin-top: 8px; }
 
+/* Inert-rule banner (F1): a gating rule an active grant nullifies. Error
+   tone because a rule that reads active while enforcing nothing is the
+   product's own failure mode, not a routine warning. */
+.inertBanner {
+  border-color: var(--color-error);
+  background: var(--color-error-subtle);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+.inertHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-error);
+  font-size: 14px;
+  font-weight: 600;
+}
+.inertList {
+  margin: 8px 0 0;
+  padding-left: 24px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.inertTypes { color: var(--color-text-tertiary); font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.inertLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  color: var(--color-error);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.inertLink:hover { text-decoration: underline; }
+
 .enfRow { display: flex; align-items: baseline; gap: 10px; }
 .enfTotal { font-size: 30px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
 .splitBar {

@@ -22,6 +22,19 @@ prevents that class of incident, then whether the agent could get around it anyw
 > been corrected: W1–W3 were misattributed to DashClaw. Read F0 before acting on anything
 > else in this report.
 
+> **STATUS 2026-08-06 — every critical finding is closed.** F0 ✅ (v5.7.0),
+> F4 ✅ (matcher fix confirmed), F5 ✅ (v5.7.1), F6 ✅ (v5.7.3), F1 ✅ (v5.8.0),
+> and the machine that ran this audit is flipped to `enforce`. Three
+> post-flip calibration false positives were found and fixed in the same
+> arc (v5.7.1/5.7.2/5.7.4) — every one predated the flip; observe mode just
+> meant nobody ever felt them.
+>
+> **Still open — both are work, not false-confidence bugs:** F2 (classifier
+> coverage backlog: `find -delete`, `git clean -xfd`, `shutil.rmtree`, `dd`,
+> and the script-then-execute composition case) and F3's docs/marketing
+> honesty pass (a hook running at the agent's privilege level is a seatbelt
+> against accidents, not a cage against intent — say so plainly).
+
 DashClaw's **coverage is incomplete** and its **grant model silently nullifies
 `require_approval` policies**. Of the original six findings, four are fixable and one is a
 permanent architectural ceiling that should be documented rather than patched — but F0
@@ -118,7 +131,19 @@ the v4.72.1 timeout bug.
 
 ---
 
-### F1 — CRITICAL — Grants silently nullify `require_approval`, and reclassification compounds it
+### F1 — CRITICAL — Grants silently nullify `require_approval`, and reclassification compounds it *(RESOLVED 2026-08-06, v5.8.0)*
+
+> **RESOLVED.** All four fix directions shipped: grants carry a TTL (30d
+> default stamped at creation; legacy grants age out from `created_at`, so the
+> accumulated June pile is inert without a migration), an explicit
+> `target_prefix` is required at both the validator and the review-feed
+> `always_allow` verdict (the source of the 19 blanket grants), `grantMatches`
+> fails closed across an evidence reclassification (the 3-layer X-post repro
+> below now returns `require_approval`, pinned by test), and a gating rule
+> marked `rules.ungrantable: true` can never be cleared by any grant.
+> `/policies` renders every currently-inert rule with its suppressing grant
+> (`app/lib/inert-policies.ts`); on first render it surfaced a real
+> pre-existing inert rule on the maintainer's instance.
 
 **What happens.** An `allow_grant` policy downgrades a matching `require_approval` verdict to
 `allow`. Grants have **no expiry** and **no mandatory scope**. They accumulate from
@@ -346,11 +371,9 @@ mechanism of F1 and should be swept once grants get expiry.
 
 ## Prioritized fix plan
 
-**P0 — Stop the silent nullification (F1).** Nothing else matters while policies can be
-invisibly disabled. Order: (1) surface inert policies in `/policies` UI — operator can then
-*see* the problem; (2) require scope on grant creation; (3) grant TTL; (4) don't let grants
-cross reclassification. Verify: re-run the 3-layer X-post repro above and confirm
-`require_approval`.
+**P0 — Stop the silent nullification (F1). ✅ DONE 2026-08-06 (v5.8.0).**
+All four shipped (inert surfacing, mandatory scope, TTL, no cross-reclassification)
+plus `ungrantable`. Verified: the 3-layer X-post repro returns `require_approval`.
 
 **P0 — F4 confirmed armed (done 2026-08-06).** Guard decisions now exist for PowerShell.
 
