@@ -13,7 +13,14 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
-## [5.8.2] — 2026-08-06
+## [5.8.3] — 2026-08-06
+
+**OpenClaw integration drift closed — found by an OpenClaw agent following the public docs.** An outside-style setup run (MoltFire, via dashclaw.io) surfaced that the published `@dashclaw/openclaw-plugin` was two minors stale and the install instructions disagreed between surfaces. Platform-only release; no SDK source change.
+
+### Fixed
+- **`@dashclaw/openclaw-plugin` staged as 1.5.0 for republish** (publish itself is gated on npm 2FA, a human-held credential) — npm had been stuck at 1.2.5 since April while the repo advanced to 1.4.0; the 1.3.x/1.4.0 builds (session tracking, codex usage carry-forward, x402 which was later culled) were never published. 1.5.0 ships the post-cull plugin with the `dashclaw` dependency bumped `^4.2.0` → `^5.0.0` (all six SDK methods the plugin uses survive the v5 surface) and a rebuilt `dist/`.
+- **`/connect` OpenClaw card taught the wrong install command** — `npm install @dashclaw/openclaw-plugin` where the guide, the package README, and OpenClaw itself use `openclaw plugins install @dashclaw/openclaw-plugin`. The hosted-onboarding OpenClaw snippet had the same drift plus a stale manual `openclaw.plugin.json` registration step; both now match the canonical CLI install.
+- **Plugin README purged of culled features** — 14 x402 references (config table rows + the entire "x402 capability spend" section) described a subsystem removed from both the plugin and the server in the v5 cull, a dead `scripts/diagnose-cost-attribution.mjs` pointer, and stale example model ids. The README ships inside the npm package, so the drift was public.
 
 **F2 of the 2026-08-05 governance gap audit is closed — the classifier coverage backlog.** The audit's live repro: `find /c/Users/<user> -type f -delete` graded **review/5** (find is a read-only command — until it carries a delete predicate) and a canary actually deleted through the armed hook. Every listed shape is now covered on both classifiers, each pinned by a regression test. Platform + hooks; no SDK source change.
 

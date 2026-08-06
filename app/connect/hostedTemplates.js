@@ -55,15 +55,15 @@ function mcp({ endpoint, apiKey }) {
 }
 
 function openclaw({ endpoint, apiKey }) {
-  return `# 1) Install the plugin in your OpenClaw project:
-npm install @dashclaw/openclaw-plugin dashclaw
+  return `# 1) Install the plugin:
+openclaw plugins install @dashclaw/openclaw-plugin
 
-# 2) Add the env vars (e.g. in your shell profile or OpenClaw env file):
+# 2) Add the env vars before the gateway starts (e.g. in your OpenClaw env file):
 export DASHCLAW_URL="${endpoint}"
 export DASHCLAW_API_KEY="${apiKey}"
 
-# 3) Register the plugin entry in openclaw.plugin.json (see package README for the
-#    'extensions' + 'hooks' block). Restart your OpenClaw runtime to pick it up.`;
+# 3) Enable "dashclaw-governance" in your openclaw.json plugin entries
+#    (see the package README for config options). Restart the gateway to pick it up.`;
 }
 
 function langchain({ endpoint, apiKey }) {

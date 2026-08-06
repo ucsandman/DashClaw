@@ -12,6 +12,42 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-06 — an OpenClaw agent ran the public docs and found the seams (v5.8.3)
+
+**Shipped:** `v5.8.3` — integration-drift fixes prompted by the best kind of
+bug report: Wes pointed his OpenClaw agent (MoltFire) at dashclaw.io and told
+it to set itself up by following the instructions. It succeeded — governance
+enabled, smoke action created and closed — and came back with a drift list
+no internal test had caught, because every item lived in the gap between
+what we ship and what we publish.
+
+The findings, all fixed this session: **(1)** npm's
+`@dashclaw/openclaw-plugin` was frozen at 1.2.5 (April) while the repo
+advanced through 1.3.x/1.4.0 unpublished — so the live site told new users
+to install a package two minors behind the docs describing it. Staged
+1.5.0 for republish: post-cull source, `dashclaw` dep `^4.2.0` → `^5.0.0`,
+rebuilt dist. **(2)** `/connect` said `npm install @dashclaw/openclaw-plugin` while
+the guide and README say `openclaw plugins install ...` — an agent following
+both gets two contradictory setup paths. Both `/connect` surfaces now use
+the CLI form. **(3)** The plugin README still documented x402 spend
+governance — culled from plugin and server a month ago — plus a deleted
+diagnostic script. The README ships inside the npm tarball, so that drift
+was public documentation of features that no longer exist. **(4)** The
+validator MoltFire ran (`validate-integration.mjs`, from the
+platform-intelligence skill retired with livingcode in v5.3.0 but still
+live in its workspace) probed two culled endpoints and printed the first
+12 characters of the API key. Fixed both scripts in place and stamped the
+orphaned skill with an explicit STALE banner pointing at
+`docs/api-inventory.md` — it can never regenerate, so honesty is the fix.
+
+The lesson worth keeping: our gates verify the repo against itself; nothing
+verified the repo against what's *published* (npm latest, live-site copy).
+An outsider-run — an agent with no repo context following the public
+instructions — is the cheapest such gate, and it found four seams in one
+pass. npm publish now requires an OTP, so the 1.5.0 publish waited on Wes
+for the second factor — credential-gated acts stay human, as the charter
+requires.
+
 ## 2026-08-06 — the script-then-execute spec: the last audit item gets its design
 
 **Shipped:** no release — a spec,

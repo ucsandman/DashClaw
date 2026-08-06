@@ -335,7 +335,7 @@ pip install dashclaw`}</CodeBlock>
                   Framework native plugin for OpenClaw agents. Intercepts PreToolUse and PostToolUse, runs guard, records the outcome, and waits for approval automatically.
                 </p>
                 <div className="mt-auto">
-                  <CodeBlock>{`npm install @dashclaw/openclaw-plugin`}</CodeBlock>
+                  <CodeBlock>{`openclaw plugins install @dashclaw/openclaw-plugin`}</CodeBlock>
                   <Link href="/guides/openclaw" className="mt-3 inline-flex items-center gap-1.5 text-xs text-brand hover:text-brand-hover transition-colors font-medium">
                     OpenClaw plugin guide <ArrowRight size={12} aria-hidden="true" />
                   </Link>
