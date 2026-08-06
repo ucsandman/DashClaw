@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.7.3] — 2026-08-06
+
+Predictive debiasing — **F6** of the 2026-08-05 governance gap audit, pulled forward after the enforce flip demonstrated the spiral live: the predictive layer scored partly from the guard's own prior verdicts, so each block raised the next evaluation's adjustment, and one false positive compounded into four within an hour. Platform-only; no SDK source change.
+
+### Fixed
+
+- The predictive layer's basis is now **executed behavior only**: both the statistical history query and the LLM amplifier's context exclude `blocked` / `pending_approval` / `cancelled` rows that never ran — a verdict is not conduct. Rows carrying the v5.7.0 `executed_despite` witness *did* run (past a gating verdict) and stay in the basis, explicitly labeled for the model.
+- An agent whose history is verdict-only is now a cold start (`basis: no_history`, +5 prior, LLM skipped) instead of a "consistent high-risk pattern" — the exact anti-spiral property, pinned by test.
+- The LLM amplifier's system prompt now states that risk numbers in the history are the governor's own prior heuristic scores, never evidence of misconduct.
+
 ## [5.7.2] — 2026-08-06
 
 The first false positive of the enforce era, fixed the hour it fired. Minutes after this machine's observe→enforce flip, the v5.7.1 tag push hard-blocked at 100: the push used the standard credential-hygiene prefix (unsetting the token env vars so git picks the right auth), the evidence classifier graded that prefix as an environment *dump*, the declared/derived mismatch swap lifted the whole evaluation to `security`/80, the deployment goal pattern and the predictive layer (fat on this session's own canary blocks — audit F6's self-referential loop, observed live) topped it to 100. Platform-only; no SDK source change.

@@ -120,7 +120,21 @@ export function computeStatisticalAdjustment(stats: HistoricalStats): Statistica
 }
 
 /**
+ * Executed-behavior basis (F6, governance gap audit 2026-08-05): the
+ * predictive layer must reason over what the agent DID, never over what the
+ * guard DECIDED. A blocked or never-approved row that never ran is a verdict,
+ * not behavior — counting it made the layer self-referential: every block
+ * fed the next evaluation's "consistent high-risk pattern", which produced
+ * more blocks (observed live within an hour of this machine's enforce flip:
+ * one false positive compounded into four). A gated row that carries the
+ * `executed_despite` witness DID run and stays in the basis — executing past
+ * a block is genuinely predictive.
+ */
+const EXECUTED_BASIS_PREDICATE = `(status NOT IN ('blocked', 'pending_approval', 'cancelled') OR executed_despite IS NOT NULL)`;
+
+/**
  * Query historical action stats for this (org, agent, action_type).
+ * Executed behavior only — see EXECUTED_BASIS_PREDICATE.
  */
 async function queryHistoricalStats(
   sql: SqlTag,
@@ -138,7 +152,8 @@ async function queryHistoricalStats(
     WHERE org_id = $1
       AND agent_id = $2
       AND action_type = $3
-      AND timestamp_start::timestamptz > NOW() - INTERVAL '30 days'`,
+      AND timestamp_start::timestamptz > NOW() - INTERVAL '30 days'
+      AND ${EXECUTED_BASIS_PREDICATE}`,
     [orgId, agentId, actionType]
   );
 
@@ -167,24 +182,29 @@ export async function assessRiskWithLLM(
   actionType: string
 ): Promise<LlmRiskAssessment | null> {
   try {
+    // Executed behavior only (F6): a wall of blocked-verdict rows here is what
+    // produced the "all recent similar actions were blocked with maximum risk,
+    // indicating a consistent high-risk pattern" +20 — the model amplifying
+    // the guard's own prior verdicts instead of assessing the agent's conduct.
     const recentActions = await sql`
-      SELECT action_type, status, risk_score, created_at
+      SELECT action_type, status, risk_score, executed_despite, created_at
       FROM action_records
       WHERE org_id = ${orgId}
         AND agent_id = ${agentId}
         AND action_type = ${actionType}
+        AND (status NOT IN ('blocked', 'pending_approval', 'cancelled') OR executed_despite IS NOT NULL)
       ORDER BY created_at DESC
       LIMIT 10
-    ` as Array<{ action_type: string; status: string; risk_score: unknown; created_at: unknown }>;
+    ` as Array<{ action_type: string; status: string; risk_score: unknown; executed_despite: unknown; created_at: unknown }>;
 
     const historyText = recentActions
-      .map((a) => `${a.created_at}: ${a.action_type} → ${a.status} (risk: ${a.risk_score ?? 'N/A'})`)
+      .map((a) => `${a.created_at}: ${a.action_type} → ${a.status}${a.executed_despite ? ' (EXECUTED DESPITE ' + String(a.executed_despite).toUpperCase() + ' — ran past a gating verdict)' : ''} (risk: ${a.risk_score ?? 'N/A'})`)
       .join('\n');
 
     const messages = [
       {
         role: 'system',
-        content: `You are a risk assessment engine for AI agent governance. Given an agent's recent action history, assess the risk of allowing the proposed action. Return ONLY a JSON object with two fields:
+        content: `You are a risk assessment engine for AI agent governance. Given an agent's recent action history, assess the risk of allowing the proposed action. The history contains EXECUTED actions only, and the risk numbers are the governor's own prior heuristic scores — never treat prior scores or verdicts as evidence of misconduct; assess the agent's actual conduct and outcomes. Return ONLY a JSON object with two fields:
 - "adjustment": integer from -20 to +20 (positive = increase risk, negative = decrease risk)
 - "reasoning": 1-2 sentence explanation
 

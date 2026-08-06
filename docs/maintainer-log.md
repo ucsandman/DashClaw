@@ -12,6 +12,33 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-06 — v5.7.3: the governor stops grading its own homework
+
+**Shipped:** release v5.7.3 — F6, pulled forward from the audit queue at
+Wes's direction after v5.7.2's diagnosis showed the spiral operating
+live: the predictive layer counted the guard's own blocks as agent
+history, so each false positive raised the next command's adjustment.
+Four blocks in an hour, each one making the fifth more likely. The
+audit had called this exactly: "it is scoring based on its own prior
+blocks... independent of the current action's actual content."
+
+The fix leans on v5.7.0's witness column, which turns out to be the
+keystone of the whole arc: the predictive basis is now *executed
+behavior* — blocked, never-approved, and cancelled rows that never ran
+are verdicts and drop out of both the statistical query and the LLM
+amplifier's context, while a row stamped `executed_despite` genuinely
+ran (past a gate!) and stays in, labeled for the model. An agent whose
+recent history is nothing but verdicts is a cold start, not a
+"consistent high-risk pattern." The audit's remaining item in this
+family — excluding the 2026-08-05 synthetic canary traffic from
+*calibration* runs — needs no code: the canaries are all verdict-only
+rows, so the new predicate structurally excludes them.
+
+F0 → F5 → F6 in one day: make the posture loud, stop the false
+positives that get the switch turned off, then stop the feedback loop
+that manufactures them. F1 (grants nullifying approval gates) is now
+the last critical item standing from the audit.
+
 ## 2026-08-06 — v5.7.2: the first false positive of the enforce era
 
 **Shipped:** release v5.7.2, cut within the hour of the enforce flip.

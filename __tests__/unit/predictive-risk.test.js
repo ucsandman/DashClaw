@@ -135,6 +135,54 @@ describe('predictive-risk', () => {
     });
   });
 
+  // F6 (governance gap audit 2026-08-05): the predictive basis is EXECUTED
+  // behavior. Blocked / never-approved / cancelled rows that never ran are
+  // verdicts, not conduct — counting them made the layer self-referential
+  // (every block fed the next evaluation's "consistent high-risk pattern").
+  // A row carrying the executed_despite witness DID run and stays in.
+  describe('executed-behavior basis (F6)', () => {
+    it('the stats query excludes verdict-only rows but keeps executed_despite witnesses', async () => {
+      const sql = createSqlMock({ queryResponses: [[{ total: '3', failures: '1', avg_risk: '40', recent_count: '1' }]] });
+      await getPredictiveRisk(sql, 'org_1', 'agent-1', 'deploy', 10, {});
+      const text = sql.queryCalls[0].text;
+      expect(text).toContain("status NOT IN ('blocked', 'pending_approval', 'cancelled')");
+      expect(text).toContain('OR executed_despite IS NOT NULL');
+    });
+
+    it('the LLM history query carries the same predicate and annotates witnesses', async () => {
+      mockExecuteCompletion.mockResolvedValue({
+        content: JSON.stringify({ adjustment: 0, reasoning: 'ok' }),
+        provider: 'openai', model: 'gpt-4.1-mini',
+        usage: { input_tokens: 1, output_tokens: 1 }, cost_usd: 0,
+      });
+      const sql = createSqlMock({
+        taggedResponses: [
+          [{ action_type: 'security', status: 'blocked', risk_score: 100, executed_despite: 'block', created_at: '2026-08-06T00:00:00Z' }],
+          [{ key: 'OPENAI_API_KEY', value: 'sk-test', encrypted: false }],
+        ],
+      });
+      await assessRiskWithLLM(sql, 'org_1', 'agent-1', 'security');
+      const historyQuery = sql.taggedCalls[0].text;
+      expect(historyQuery).toContain("status NOT IN ('blocked', 'pending_approval', 'cancelled')");
+      expect(historyQuery).toContain('OR executed_despite IS NOT NULL');
+      // The witness row is real behavior and must be labeled as such for the model.
+      const userMsg = mockExecuteCompletion.mock.calls[0][3].find((m) => m.role === 'user').content;
+      expect(userMsg).toContain('EXECUTED DESPITE BLOCK');
+    });
+
+    it('an agent with only blocked-verdict history is cold-start, not high-risk', async () => {
+      // The predicate makes the DB return zero rows for a verdict-only history:
+      // basis=no_history (+5 prior), and the LLM is skipped — nothing behavioral
+      // to reason over. This is the exact anti-spiral property.
+      const sql = createSqlMock({ queryResponses: [[{ total: '0', failures: '0', avg_risk: null, recent_count: '0' }]] });
+      const result = await getPredictiveRisk(sql, 'org_1', 'agent-1', 'security', 90, { enabled: true, threshold: 60 });
+      expect(result.statistical.basis).toBe('no_history');
+      expect(result.statistical.adjustment).toBe(5);
+      expect(result.llm).toBeNull();
+      expect(result.llm_skipped).toBe('no_history');
+    });
+  });
+
   describe('getPredictiveRisk', () => {
     it('returns statistical-only when score is below threshold', async () => {
       const sql = createSqlMock({

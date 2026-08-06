@@ -281,7 +281,15 @@ workspace*. This directly reuses `app/lib/guard/protected-path.ts`.
 
 ---
 
-### F6 — MEDIUM — Predictive-risk layer is self-referential
+### F6 — MEDIUM — Predictive-risk layer is self-referential *(RESOLVED 2026-08-06, v5.7.3)*
+
+> **RESOLVED.** The predictive basis (statistical query + LLM history) now
+> counts **executed behavior only** — blocked / pending_approval / cancelled
+> rows that never ran are excluded; rows carrying the v5.7.0
+> `executed_despite` witness stay in. A verdict-only history is a cold start,
+> not a "high-risk pattern". The spiral was observed live post-enforce-flip
+> (one false positive → four in an hour) before this fix; the synthetic
+> canary pollution noted below is excluded structurally (all verdict-only).
 
 The LLM predictive adjustment justified `+20` with: *"All recent similar actions by this agent
 were blocked with maximum risk, indicating a consistent high-risk pattern."* It is scoring
@@ -363,7 +371,7 @@ write to `settings.json` and to `dashclaw_pretool.py` → both block.
 `shutil.rmtree`, `dd`. Add a regression test per shape in the policy smoke suite.
 The script-then-execute composition case is a design question, not a pattern addition.
 
-**P2 — Predictive-risk debiasing (F6).**
+**P2 — Predictive-risk debiasing (F6). ✅ DONE 2026-08-06 (v5.7.3).**
 
 **P3 — Docs/marketing honesty pass.** README + landing must say: guardrail against accidents,
 not a sandbox against intent; real isolation requires a container or separate OS user.
