@@ -39,6 +39,16 @@ positives that get the switch turned off, then stop the feedback loop
 that manufactures them. F1 (grants nullifying approval gates) is now
 the last critical item standing from the audit.
 
+*Continued (v5.7.4):* the flip kept teaching. The very next push —
+push, wait, read the deploy's health — blocked at 100 because
+`Start-Sleep` fell under the PowerShell verb map's start→process-
+management, which maps to action_type security. A *pause* was the
+highest-intent segment of the pipeline. One line in the noun-decides
+cmdlet map (`start-sleep: readonly`), three pinned tests, 527 hook
+tests green. Every one of these false positives existed before the
+flip; observe mode just meant nobody ever felt them. Enforcement isn't
+only a switch — it's the calibration debt the switch makes payable.
+
 ## 2026-08-06 — v5.7.2: the first false positive of the enforce era
 
 **Shipped:** release v5.7.2, cut within the hour of the enforce flip.

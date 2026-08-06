@@ -13,6 +13,14 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.7.4] — 2026-08-06
+
+Third member of the post-enforce-flip false-positive family (after regenerable deletes and the `env` prefix), caught the same evening: `Start-Sleep` — a pause, the most side-effect-free command there is — classified under the PowerShell *verb* map's `start` → process management, which maps to action_type `security` (server base 80) and made a routine push-then-wait pipeline hard-block at 100. Hooks-only; no SDK source change.
+
+### Fixed
+
+- `Start-Sleep` joins the noun-decides cmdlet map as `readonly`; `Start-Process` / `Start-Service` keep their process-management grading. A wait can no longer be the highest-intent segment of a compound command.
+
 ## [5.7.3] — 2026-08-06
 
 Predictive debiasing — **F6** of the 2026-08-05 governance gap audit, pulled forward after the enforce flip demonstrated the spiral live: the predictive layer scored partly from the guard's own prior verdicts, so each block raised the next evaluation's adjustment, and one false positive compounded into four within an hour. Platform-only; no SDK source change.

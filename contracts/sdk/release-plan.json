@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.7.3",
+    "current_version": "5.7.4",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.7.3 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.7.4 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.7.3",
+    "current_version": "5.7.4",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.7.3 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.7.4 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.7.3 debiases the predictive layer (audit F6): the statistical and LLM history bases now count EXECUTED behavior only - blocked / never-approved / cancelled rows that never ran are verdicts, not conduct, and counting them made the layer self-referential (each block fed the next evaluation's 'consistent high-risk pattern'; one false positive compounded into four within an hour of the enforce flip). Rows carrying the v5.7.0 executed_despite witness stay in the basis and are labeled for the model. Platform-only; no SDK surface change.",
+  "reason": "5.7.4 classifies Start-Sleep as readonly in the hook's PowerShell cmdlet map: a pause has no side effects, but the start-verb mapping (right for Start-Process/Start-Service) made it the highest-intent segment of a routine push-then-wait pipeline, declaring action_type security (server base 80) and detonating a 100-block. Third member of the post-enforce-flip false-positive family (regenerable rm, env prefix, now sleep). Hooks-only; no SDK change.",
   "domains": [
     "platform"
   ]

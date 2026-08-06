@@ -50,6 +50,22 @@ class TestPowerShellClassification(unittest.TestCase):
         r = classify_bash("Stop-Process -Id 1234")
         self.assertEqual(r["intent"], "process_management")
 
+    def test_start_sleep_is_readonly(self):
+        # A pause has no side effects; the verb map's start→process_management
+        # made `Start-Sleep 90` the highest-intent segment of a routine
+        # push-then-wait pipeline → action_type security → 100-block
+        # (2026-08-06 post-enforce-flip false-positive family).
+        r = classify_bash("Start-Sleep 90")
+        self.assertEqual(r["intent"], "readonly")
+
+    def test_start_sleep_never_dominates_a_compound(self):
+        r = classify_bash("git push origin main; Start-Sleep 90")
+        self.assertEqual(r["intent"], "write")
+
+    def test_start_process_still_process_management(self):
+        r = classify_bash("Start-Process notepad.exe")
+        self.assertEqual(r["intent"], "process_management")
+
     def test_unmapped_verb_stays_unknown(self):
         r = classify_bash("Frobnicate-Widget -All")
         self.assertEqual(r["intent"], "unknown")

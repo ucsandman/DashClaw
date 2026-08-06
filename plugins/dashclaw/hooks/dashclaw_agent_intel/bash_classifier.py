@@ -127,6 +127,13 @@ _PS_SPECIAL_CMDLETS = {
     "invoke-restmethod": "network",
     "test-connection": "network",
     "test-netconnection": "network",
+    # A pause has no side effects at all. The verb map's start→
+    # process_management (right for Start-Process/Start-Service) made
+    # `Start-Sleep 90` the highest-intent segment of a compound command,
+    # which mapped to action_type security (server base 80) and detonated a
+    # 100-block on a routine push-then-wait pipeline (2026-08-06, the
+    # post-enforce-flip false-positive family).
+    "start-sleep": "readonly",
 }
 
 _PS_VERB_INTENTS = {
