@@ -40,12 +40,16 @@ beforeEach(() => vi.clearAllMocks());
 //   DASHCLAW_AUTONOMY_SPIKE_THRESHOLD      → settings row (config wave)
 //   everything else                        → []
 //
-function makeIntelSql({ stalledSessions = [], recentDecisions = [], recentMcpDecisions = [], greenDecisions = [] } = {}) {
+function makeIntelSql({ stalledSessions = [], recentDecisions = [], recentMcpDecisions = [], greenDecisions = [], executedDespiteRows = [] } = {}) {
   const fn = function (strings, ...values) {
     const text = strings.join(' ');
 
     if (text.includes('DASHCLAW_AUTONOMY_SPIKE_THRESHOLD')) {
       return Promise.resolve([]);
+    }
+    // executed_despite_block: uniquely selects executed_despite IS NOT NULL.
+    if (text.includes('executed_despite IS NOT NULL')) {
+      return Promise.resolve(executedDespiteRows).catch(() => null);
     }
     if (text.includes('agent_sessions')) {
       return Promise.resolve(stalledSessions).catch(() => null);
@@ -196,14 +200,14 @@ describe('observe_mode signal', () => {
     created_at,
   });
 
-  it('emits amber for an agent whose latest decision reports observe', async () => {
+  it('emits red for an agent whose latest decision reports observe (F0: standing unenforced posture is never amber)', async () => {
     const sql = makeIntelSql({
       recentDecisions: [decisionWithMode('dec_1', 'agent_obs', 'observe', '2026-06-12T10:00:00Z')],
     });
     const signals = await computeSignals('org1', null, sql);
     const s = signals.find((sig) => sig.type === 'observe_mode');
     expect(s).toBeTruthy();
-    expect(s.severity).toBe('amber');
+    expect(s.severity).toBe('red');
     expect(s.agent_id).toBe('agent_obs');
     expect(s.label).toContain('observe mode');
   });
@@ -238,6 +242,43 @@ describe('observe_mode signal', () => {
     });
     const signals = await computeSignals('org1', null, sql);
     expect(signals.filter((sig) => sig.type === 'observe_mode')).toHaveLength(2);
+  });
+});
+
+// ── executed_despite_block ─────────────────────────────────────────────────────
+// F0 (governance gap audit 2026-08-05): action rows where PostToolUse
+// witnessed a block/require_approval verdict fail to stop execution.
+describe('executed_despite_block signal', () => {
+  const witnessRow = (action_id, agent_id, executed_despite, declared_goal = 'delete the canary dir') => ({
+    action_id,
+    agent_id,
+    agent_name: agent_id,
+    declared_goal,
+    executed_despite,
+    timestamp_start: '2026-08-06T10:00:00Z',
+  });
+
+  it('emits red per witnessed row, carrying action_id and agent_id', async () => {
+    const sql = makeIntelSql({
+      executedDespiteRows: [
+        witnessRow('act_1', 'agent_obs', 'block'),
+        witnessRow('act_2', 'agent_obs', 'require_approval'),
+      ],
+    });
+    const signals = await computeSignals('org1', null, sql);
+    const s = signals.filter((sig) => sig.type === 'executed_despite_block');
+    expect(s).toHaveLength(2);
+    expect(s.every((sig) => sig.severity === 'red')).toBe(true);
+    expect(s[0].action_id).toBe('act_1');
+    expect(s[0].agent_id).toBe('agent_obs');
+    expect(s[0].label).toContain('block');
+    expect(s[1].label).toContain('approval gate');
+  });
+
+  it('emits nothing when no rows carry the witness stamp', async () => {
+    const sql = makeIntelSql({ executedDespiteRows: [] });
+    const signals = await computeSignals('org1', null, sql);
+    expect(signals.find((sig) => sig.type === 'executed_despite_block')).toBeUndefined();
   });
 });
 

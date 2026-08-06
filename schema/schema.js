@@ -214,6 +214,14 @@ export const actionRecords = pgTable('action_records', {
   // the read-time fan-out join. Both NULL on pre-v4.3 rows; no backfill.
   harnessSessionId: text('harness_session_id'),
   subagentUuid: text('subagent_uuid'),
+  // Enforcement visibility (F0, drizzle/0066). enforcementMode: the client's
+  // enforcement posture at decision time ('enforce' | 'observe'), threaded
+  // from the hook payload — an observe-mode block row must never render
+  // identically to an enforced one. executedDespite: PostToolUse witness that
+  // a gated action executed anyway ('block' | 'require_approval'). Both NULL
+  // on pre-v5.7 rows and non-hook writers; NULL = unreported, never observe.
+  enforcementMode: text('enforcement_mode'),
+  executedDespite: text('executed_despite'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 }, (table) => ({

@@ -289,6 +289,32 @@ export async function setContainmentAwaiting(
   return rows[0] || null;
 }
 
+/**
+ * Enforcement visibility (F0, drizzle/0066): PostToolUse witnessed a gated
+ * action execute anyway — the pretool verdict was block/require_approval but
+ * the tool ran (observe mode, or a bypass). Single-statement WHERE gate: only
+ * a row that IS gated (blocked / pending_approval) and not already stamped
+ * takes the stamp, so a stray or replayed call cannot mark an ordinary allow
+ * row as an enforcement failure. First writer wins; the stamp never clears.
+ */
+export async function stampExecutedDespite(
+  sql: SqlClient,
+  orgId: string,
+  actionId: string,
+  verdict: 'block' | 'require_approval',
+): Promise<Row | null> {
+  const rows = await sql`
+    UPDATE action_records
+    SET executed_despite = ${verdict}
+    WHERE action_id = ${actionId}
+      AND org_id = ${orgId}
+      AND status IN ('blocked', 'pending_approval')
+      AND executed_despite IS NULL
+    RETURNING *
+  `;
+  return rows[0] || null;
+}
+
 interface ResolveContainmentData {
   verdict: 'promote' | 'discard';
   resolvedBy: string;
@@ -659,7 +685,7 @@ async function listActionsViaTaggedSql(
   const [actions, countResult, stats] = await Promise.all([
     sql`
       SELECT
-        action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error, approval_expires_at, act_content_hash, containment_status, containment_ref, containment_resolved_by, containment_resolved_at
+        action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error, approval_expires_at, act_content_hash, containment_status, containment_ref, containment_resolved_by, containment_resolved_at, enforcement_mode, executed_despite
       FROM action_records
       ${where}
       ORDER BY timestamp_start DESC
@@ -869,6 +895,10 @@ interface ActionData {
   // payload's harness_session_id (buildContainmentRef). Never client-set —
   // validateActionRecord's schema whitelist drops it on POST /api/actions.
   containment_ref?: string | null;
+  // Enforcement visibility (F0, drizzle/0066): the client's enforcement
+  // posture at decision time ('enforce' | 'observe'). Normalized by
+  // enforcementModeField in the routes; anything else persists NULL.
+  enforcement_mode?: string | null;
   [field: string]: unknown;
 }
 
@@ -940,6 +970,10 @@ function createActionInsertValues(payload: CreateActionPayload) {
     // NULL when no act was supplied — the grant keeps the tuple match.
     act_content_hash: computeActContentHash(data.act),
     created_by: orNull(payload.createdBy),
+    // Enforcement visibility (F0, drizzle/0066): the client's enforcement
+    // posture at decision time. Routes normalize via enforcementModeField
+    // before it reaches here — anything else persists NULL (unreported).
+    enforcement_mode: orNull(data.enforcement_mode),
   };
 }
 
@@ -978,7 +1012,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       signature, verified, idempotency_key, session_id, guard_decision_id,
       containment_status, containment_ref,
       act_content_hash, created_by, harness_session_id, subagent_uuid,
-      close_source, approval_expires_at
+      enforcement_mode, close_source, approval_expires_at
     ) VALUES (
       ${orgId},
       ${action_id},
@@ -1022,6 +1056,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       ${values.created_by},
       ${values.harness_session_id},
       ${values.subagent_uuid},
+      ${values.enforcement_mode},
       ${closeSource},
       ${approvalExpiresAt}
     )

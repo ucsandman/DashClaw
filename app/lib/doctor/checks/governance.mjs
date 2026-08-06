@@ -178,7 +178,11 @@ export async function runChecks({ env = process.env, orgId = null } = {}) {
         status: 'warn',
         title: 'Agents in observe mode',
         message: `${observeAgents.length} agent${observeAgents.length === 1 ? '' : 's'} (${observeAgents.slice(0, 5).join(', ')}${observeAgents.length > 5 ? ', …' : ''}) ${observeAgents.length === 1 ? 'is' : 'are'} reporting guard decisions in OBSERVE mode — blocks and approval gates are logged but do NOT stop tool calls. Set DASHCLAW_HOOK_MODE=enforce on those agents when ready to enforce.`,
-        fix: null,
+        // F0 (governance gap audit 2026-08-05): the mode is read from the
+        // hook's env at session start — a .env anywhere up the HOOK FILE's
+        // directory tree (not the workspace) can set it, and the flip only
+        // arms on a fresh session.
+        fix: 'Set DASHCLAW_HOOK_MODE=enforce in the hook\'s environment — check every .env from the hook file\'s directory upward (an observe override in one .env applies to every session using that hook install) — then restart the agent session. Verify with the enforcement liveness probe or a canary block.',
       });
     }
   } catch {

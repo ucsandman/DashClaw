@@ -214,6 +214,56 @@ class TestPosttoolIntegration(unittest.TestCase):
         # Completed actions have no error_type
         self.assertNotIn("error_type", body["outcome_metadata"])
 
+    # -----------------------------------------------------------------------
+    # Executed-despite witness (F0, governance gap audit 2026-08-05)
+    # -----------------------------------------------------------------------
+
+    def test_unenforced_verdict_stamps_executed_despite(self):
+        """Observe-mode block state → PATCH {"executed_despite": "block"} only,
+        never an ordinary outcome body (the row must stay blocked)."""
+        tool_use_id = "post-tu-f0-001"
+        path = _action_state_path(tool_use_id, self.base_url)
+        with open(path, "w") as f:
+            f.write(json.dumps({"action_id": "act-f0-001", "unenforced_verdict": "block"}))
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
+
+        code, _, _ = _run_hook(
+            {
+                "tool_use_id": tool_use_id,
+                "tool_response": {"output": "directory deleted"},
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        patches = [r for r in self.log.get_all() if r["method"] == "PATCH"]
+        self.assertEqual(len(patches), 1, "Expected exactly one PATCH")
+        self.assertEqual(patches[0]["path"], "/api/actions/act-f0-001")
+        self.assertEqual(patches[0]["body"], {"executed_despite": "block"})
+        # State file is cleaned up like any other tool_use.
+        self.assertFalse(os.path.exists(path))
+
+    def test_unenforced_verdict_require_approval(self):
+        """Observe-mode require_approval state stamps the matching verdict."""
+        tool_use_id = "post-tu-f0-002"
+        path = _action_state_path(tool_use_id, self.base_url)
+        with open(path, "w") as f:
+            f.write(json.dumps({"action_id": "act-f0-002", "unenforced_verdict": "require_approval"}))
+        self.addCleanup(_cleanup_temp_action, tool_use_id, self.base_url)
+
+        code, _, _ = _run_hook(
+            {
+                "tool_use_id": tool_use_id,
+                "tool_response": {"output": "posted"},
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        patches = [r for r in self.log.get_all() if r["method"] == "PATCH"]
+        self.assertEqual(len(patches), 1)
+        self.assertEqual(patches[0]["body"], {"executed_despite": "require_approval"})
+
     def test_completed_action_summary_truncated_to_500(self):
         """Output longer than 500 chars should be truncated."""
         tool_use_id = "post-tu-002"

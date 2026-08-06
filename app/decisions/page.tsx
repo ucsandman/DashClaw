@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect, useCallback, useMemo, useRef, type Eleme
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import PageLayout from '../components/PageLayout';
+import ObserveModeBanner from '../components/ObserveModeBanner';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -29,7 +30,7 @@ import {
   Settings, Radio, AlertTriangle, Trash2, Package, Inbox,
   CheckCircle2, XCircle, Clock, Loader2, Ban, HelpCircle,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, RotateCw,
-  ShieldCheck, ShieldAlert, ExternalLink, Info,
+  ShieldCheck, ShieldAlert, ShieldOff, ExternalLink, Info,
   Square, CheckSquare,
 } from 'lucide-react';
 
@@ -486,6 +487,9 @@ function DecisionsLedgerInner() {
         </div>
       )}
 
+      {/* F0: a ledger of verdicts nobody enforces must say so before the rows. */}
+      <ObserveModeBanner />
+
       {/* Stats rail — instrument strip, not a grid of identical cards */}
       <div className="mb-6 overflow-hidden rounded-xl border border-border bg-surface-tertiary">
         <div className="grid grid-cols-2 divide-x divide-border md:grid-cols-5">
@@ -766,6 +770,27 @@ function DecisionsLedgerInner() {
                                 </Badge>
                               );
                             })()}
+                            {/* Enforcement visibility (F0): a verdict that did not
+                                (or could not) stop execution must never render
+                                identically to an enforced one. executed_despite is
+                                the PostToolUse witness that the tool ran; observe
+                                mode on a gated row means the hook never intended
+                                to stop it. */}
+                            {action.executed_despite ? (
+                              <span title="PostToolUse witnessed this gated action execute — the verdict did not stop the tool call">
+                                <Badge variant="error" size="xs">
+                                  <ShieldOff size={10} className="mr-1 inline" />
+                                  Executed despite {action.executed_despite === 'require_approval' ? 'approval gate' : 'block'}
+                                </Badge>
+                              </span>
+                            ) : action.enforcement_mode === 'observe' && (action.status === 'blocked' || action.status === 'pending_approval') ? (
+                              <span title="The agent's hooks were in observe mode — this verdict was logged, not enforced">
+                                <Badge variant="warning" size="xs">
+                                  <ShieldOff size={10} className="mr-1 inline" />
+                                  Logged, not enforced
+                                </Badge>
+                              </span>
+                            ) : null}
                             {action.cost_estimate > 0 && (
                               <div className="flex flex-col items-end">
                                 <span className="font-mono text-[11px] tabular-nums text-secondary">

@@ -12,6 +12,46 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-06 — v5.7.0: the ledger stops lying about enforcement
+
+**Shipped:** release v5.7.0 — the product fix for F0 of the 2026-08-05
+governance gap audit, the audit's worst finding and mine to own: this
+machine ran with `DASHCLAW_HOOK_MODE=observe` for months, every "block"
+in the ledger was a log line the tool call sailed past, and three
+correct detectors (the liveness probe, an amber signal, a doctor warn
+with `fix: null`) fired into surfaces nobody was reading. The prior
+session even credited a denial to DashClaw that actually came from
+Claude Code's own permission layer. The failure wasn't the mechanism —
+it was that the *reporting* of a dead mechanism looked identical to a
+live one.
+
+What shipped encodes one principle: **a logged verdict is never
+presented as an enforced one.** `action_records` now persists
+`enforcement_mode` (the posture the hook declared at decision time) and
+`executed_despite` (a PostToolUse witness that a gated action ran
+anyway — the hook firing after execution *is* the proof). `/approvals`
+and `/decisions` carry a red observe-mode banner naming the agents and
+the executed-anyway count; unenforced rows render "Logged, not
+enforced"; witnessed rows render "Executed despite block"; the
+`observe_mode` signal went amber→red and a red
+`executed_despite_block` signal exists; `gov_observe_mode` finally has
+a real fix string.
+
+The build found a bug of exactly the audit's shape hiding in my own
+test suite: POST `/api/actions` answers a blocked create with HTTP 403
+*carrying the created action in the body*, the hook discards HTTP-error
+bodies, and the hook tests' mock server answered 200 — so the
+observe-mode path could never have obtained the action_id it needed,
+and the tests were green anyway. The mock now answers 403 like the real
+route. Verified the whole loop live against a local build: real canary
+block, real witness stamp, banner and chips rendered in a real browser.
+
+No SDK source changed — the version advances, npm/PyPI stay at 5.6.2.
+Still open from the audit: F1 (grants nullifying require_approval,
+the highest-value product fix), F5 (path-aware risk), and the local
+observe→enforce flip, which is Wes's posture call now that the product
+makes the posture impossible to miss.
+
 ## 2026-07-29 — v5.6.3: the vigil arc gets a version number
 
 **Shipped:** `b7d3e8f7` — release v5.6.3, platform-only. The charter says

@@ -701,15 +701,19 @@ def _read_action_state(tool_use_id):
     {"action_id": ..., "containment_ref": ..., "containment_worktree": ...,
     "containment_base_sha": ...} (ref/worktree/base_sha are None on a
     containment failure path; base_sha is also None for state written by an
-    older hook version that predates F1). Returns {"action_id": str|None,
-    "containment_ref": str|None, "containment_worktree": str|None,
-    "containment_base_sha": str|None} -- never raises.
+    older hook version that predates F1). Observe-mode block /
+    require_approval decisions (_write_unenforced_action_state, F0) write
+    {"action_id": ..., "unenforced_verdict": "block"|"require_approval"}.
+    Returns {"action_id": str|None, "containment_ref": str|None,
+    "containment_worktree": str|None, "containment_base_sha": str|None,
+    "unenforced_verdict": str|None} -- never raises.
     """
     empty = {
         "action_id": None,
         "containment_ref": None,
         "containment_worktree": None,
         "containment_base_sha": None,
+        "unenforced_verdict": None,
     }
     path = _action_state_path(tool_use_id)
     try:
@@ -729,12 +733,14 @@ def _read_action_state(tool_use_id):
             "containment_ref": parsed.get("containment_ref"),
             "containment_worktree": parsed.get("containment_worktree"),
             "containment_base_sha": parsed.get("containment_base_sha"),
+            "unenforced_verdict": parsed.get("unenforced_verdict"),
         }
     return {
         "action_id": raw,
         "containment_ref": None,
         "containment_worktree": None,
         "containment_base_sha": None,
+        "unenforced_verdict": None,
     }
 
 
@@ -827,6 +833,20 @@ def main():
     # written by PreToolUse.
     state = _read_action_state(tool_use_id)
     action_id = _require_action_id(state, tool_use_id, tool_name)
+
+    # Enforcement-failure witness (F0, governance gap audit 2026-08-05): the
+    # pretool verdict was block/require_approval, the hook was in observe
+    # mode, and this hook firing IS the proof the tool executed anyway. Stamp
+    # `executed_despite` on the gated row instead of reporting an ordinary
+    # outcome (the row must stay blocked/pending — the outcome route rightly
+    # refuses those statuses). The stamp drives the red
+    # `executed_despite_block` signal and the ledger's not-enforced marker.
+    unenforced_verdict = state.get("unenforced_verdict")
+    if unenforced_verdict in ("block", "require_approval"):
+        _patch_action(action_id, {"executed_despite": unenforced_verdict})
+        _log("executed_despite", "action_id=" + action_id + " verdict=" + unenforced_verdict)
+        _cleanup_temp(tool_use_id)
+        sys.exit(0)
 
     # Extract structured outcome from tool_response
     tool_response = data.get("tool_response") or {}

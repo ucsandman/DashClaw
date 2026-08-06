@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.6.3",
+    "current_version": "5.7.0",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.6.3 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.7.0 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.6.3",
+    "current_version": "5.7.0",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.6.3 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.7.0 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.6.3 is a platform-only maintenance release: plans-machinery hardening (deny-lift held as a SQL precondition, derived expired status in read paths keyed off raw_status for the SoD gates, deny-hash partial index, demo /approvals plans), the 2026-07-29 adversarial security-review remediations (0 critical/high), a seven-route malformed limit/offset 500 fix, five react-hooks v7 compiler rules promoted to error, the actions DELETE repository extraction, and the js-yaml 4->5 migration.",
+  "reason": "5.7.0 is the F0 enforcement-visibility release (governance gap audit 2026-08-05): action_records gains enforcement_mode + executed_despite (drizzle/0066), the hooks witness gated actions that execute anyway (observe-mode block/require_approval state -> PostToolUse executed_despite stamp via a status-gated PATCH branch), /approvals and /decisions carry a red observe-mode banner, unenforced ledger rows render distinctly, observe_mode signal is red, a red executed_despite_block signal exists, and gov_observe_mode carries a concrete fix. Platform + hooks only; no SDK surface change.",
   "domains": [
     "platform"
   ]

@@ -21,6 +21,7 @@ import { BulkActionBar } from '../components/selection/BulkActionBar';
 import { bulkAction } from '../lib/bulkAction';
 import { EntityLink } from '../components/context-menu/EntityLink';
 import ApprovalFloodBanner from '../components/ApprovalFloodBanner';
+import ObserveModeBanner from '../components/ObserveModeBanner';
 import PlanReviewCard from './_components/PlanReviewCard';
 import LivePlansSection from './_components/LivePlansSection';
 import ContainmentSection from './_components/ContainmentSection';
@@ -286,6 +287,8 @@ export default function ApprovalsPage() {
       }
     >
       <div className="mx-auto max-w-5xl">
+        {/* F0: an approval queue whose gates don't stop anything must say so. */}
+        <ObserveModeBanner />
         <ApprovalFloodBanner onResolved={() => fetchPending({ silent: true })} />
         {isDemo && (
           <Banner icon={Info} tone="neutral" title="Demo Mode">

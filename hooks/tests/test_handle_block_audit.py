@@ -7,10 +7,16 @@ Prior to the Phase 1.5 fix, handle_block() logged to stderr and called
 sys.exit(2) without ever posting to /api/actions, so blocked commands
 vanished from the decisions ledger with zero audit trail.
 
+Also covers the F0 unenforced-verdict state (governance gap audit
+2026-08-05): in observe mode a block does not stop the tool call, so the
+pretool must leave {"action_id", "unenforced_verdict"} state for PostToolUse
+to stamp `executed_despite` on the row.
+
 Uses only the Python standard library. Follows the same mock-server
 pattern as test_pretool_integration.py.
 """
 
+import hashlib
 import json
 import os
 import socket
@@ -67,14 +73,27 @@ def _make_handler(log: _RequestLog):
 
             if self.path.partition("?")[0] == "/api/guard":
                 resp = json.dumps(log.guard_response).encode()
+                code = 200
             elif self.path.partition("?")[0] == "/api/actions":
-                resp = json.dumps({"action_id": "act_block_test_001"}).encode()
+                # Mirror the real route: a blocked create answers HTTP 403
+                # with the created action in the body (the observe-mode
+                # executed-despite witness depends on reading that body —
+                # a 200 here masked exactly that bug on 2026-08-06).
+                if isinstance(body, dict) and body.get("status") == "blocked":
+                    resp = json.dumps({
+                        "error": "Action blocked by policy",
+                        "action": {"action_id": "act_block_test_001", "status": "blocked"},
+                    }).encode()
+                    code = 403
+                else:
+                    resp = json.dumps({"action_id": "act_block_test_001"}).encode()
+                    code = 200
             else:
                 self.send_response(404)
                 self.end_headers()
                 return
 
-            self.send_response(200)
+            self.send_response(code)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(resp)))
             self.end_headers()
@@ -236,6 +255,50 @@ class TestHandleBlockAuditTrail(unittest.TestCase):
         self.assertEqual(
             len(blocked_calls), 1,
             "handle_block must set status='blocked' in observe mode too"
+        )
+
+    def _state_path(self, tool_use_id: str) -> str:
+        # Mirrors the hooks' _INSTANCE_STATE_SUFFIX: sha256(BASE_URL + "|" +
+        # AGENT_ID)[:12]. _env() sets DASHCLAW_AGENT_ID=test-agent.
+        suffix = hashlib.sha256((self.base_url + "|test-agent").encode("utf-8")).hexdigest()[:12]
+        return os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + suffix + "_" + tool_use_id)
+
+    def test_handle_block_observe_mode_writes_unenforced_state(self):
+        """F0: an observe-mode block leaves {"action_id", "unenforced_verdict"}
+        state so PostToolUse can stamp executed_despite on the blocked row."""
+        # Distinct tool_use_id: other tests in this class share the default id
+        # and the allow path legitimately writes state for it.
+        stdin = dict(_BLOCKED_BASH_INPUT, tool_use_id="tu-block-audit-f0-observe")
+        state_path = self._state_path(stdin["tool_use_id"])
+        self.addCleanup(lambda: os.path.exists(state_path) and os.remove(state_path))
+
+        code, _out, _err = _run_hook(
+            stdin,
+            self._env(DASHCLAW_HOOK_MODE="observe"),
+        )
+        self.assertEqual(code, 0)
+
+        self.assertTrue(
+            os.path.exists(state_path),
+            "Observe-mode block must write the pretool->posttool state file "
+            "(the executed-despite witness depends on it)"
+        )
+        with open(state_path, "r", encoding="utf-8") as f:
+            state = json.loads(f.read())
+        self.assertEqual(state["action_id"], "act_block_test_001")
+        self.assertEqual(state["unenforced_verdict"], "block")
+
+    def test_handle_block_enforce_mode_writes_no_state(self):
+        """In enforce mode the tool never runs — no posttool state, no stamp."""
+        stdin = dict(_BLOCKED_BASH_INPUT, tool_use_id="tu-block-audit-f0-enforce")
+        state_path = self._state_path(stdin["tool_use_id"])
+        self.addCleanup(lambda: os.path.exists(state_path) and os.remove(state_path))
+
+        code, _out, _err = _run_hook(stdin, self._env())
+        self.assertEqual(code, 2)
+        self.assertFalse(
+            os.path.exists(state_path),
+            "Enforce-mode block must NOT leave posttool state — the tool call is stopped"
         )
 
     def test_allow_decision_does_not_post_blocked_status(self):

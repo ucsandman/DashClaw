@@ -257,7 +257,8 @@ def derive_idempotency_key(parts):
     return hashlib.sha256(ordered.encode("utf-8")).hexdigest()
 
 
-def api_request(method, path, body=None, timeout=None, retries=2, distinguish_auth=False):
+def api_request(method, path, body=None, timeout=None, retries=2, distinguish_auth=False,
+                read_error_body=False):
     """Make an HTTP request to the DashClaw API. Returns parsed JSON or None.
 
     By default retries up to three times total with 0.4s then 0.8s backoff
@@ -268,6 +269,11 @@ def api_request(method, path, body=None, timeout=None, retries=2, distinguish_au
     When distinguish_auth is True, a 401/403 response returns the AUTH_FAILED
     sentinel instead of None, so callers can tell "bad/missing API key" apart
     from "host unreachable".
+
+    When read_error_body is True, a non-2xx response's JSON body is parsed and
+    returned instead of None. POST /api/actions answers 403 for a blocked
+    create *with the created action in the body* — the observe-mode block
+    path needs that action_id for the executed-despite witness (F0).
     """
     if timeout is None:
         timeout = GUARD_TIMEOUT
@@ -291,6 +297,11 @@ def api_request(method, path, body=None, timeout=None, retries=2, distinguish_au
         # collapses to None as before.
         if distinguish_auth and exc.code in (401, 403):
             return AUTH_FAILED
+        if read_error_body:
+            try:
+                return json.loads(exc.read().decode("utf-8"))
+            except Exception:
+                return None
         return None
     except Exception:
         return None
@@ -337,10 +348,15 @@ def guard_check(context):
 
 
 def create_action(context, status="running"):
-    """POST /api/actions. Returns response dict or None on failure."""
+    """POST /api/actions. Returns response dict or None on failure.
+
+    A blocked create answers HTTP 403 with the created action in the body —
+    read it, don't discard it: the observe-mode block path extracts the
+    action_id from it for the executed-despite witness (F0)."""
     payload = dict(context)
     payload["status"] = status
-    return api_request("POST", "/api/actions", body=payload)
+    return api_request("POST", "/api/actions", body=payload,
+                       read_error_body=(status == "blocked"))
 
 
 def get_action(action_id):
@@ -616,6 +632,24 @@ def write_action_id(tool_use_id, action_id):
     try:
         with open(path, "w", encoding="utf-8") as f:
             f.write(action_id)
+    except Exception:
+        pass
+    if _SESSION_ID and tool_use_id and action_id:
+        _append_session_tool_map(_SESSION_ID, tool_use_id, action_id)
+
+
+def _write_unenforced_action_state(tool_use_id, action_id, verdict):
+    """Observe-mode block / require_approval: the tool call is about to
+    execute DESPITE a gating verdict. Write the pretool->posttool temp file
+    as JSON so PostToolUse stamps `executed_despite` on the row instead of
+    reporting an ordinary outcome — the durable witness that a logged verdict
+    did not stop execution (F0, governance gap audit 2026-08-05). Mirrors
+    write_action_id's session-map append so coverage counting still sees the
+    governed tool_use."""
+    path = _action_state_path(tool_use_id)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"action_id": action_id or "", "unenforced_verdict": verdict}))
     except Exception:
         pass
     if _SESSION_ID and tool_use_id and action_id:
@@ -1101,7 +1135,7 @@ def handle_warn(guard_resp, context, tool_use_id):
     sys.exit(0)
 
 
-def handle_block(guard_resp, context):
+def handle_block(guard_resp, context, tool_use_id):
     """Block in enforce mode, warn in observe mode. Always records the action."""
     reasons = guard_resp.get("reasons") or []
     policies = guard_resp.get("matched_policies") or []
@@ -1110,9 +1144,17 @@ def handle_block(guard_resp, context):
 
     # RECORD THE BLOCK — this was missing, causing blocks to vanish from the ledger
     # with zero audit trail (BUG-02, fixed 2026-04-11 in Phase 1.5).
-    create_action(context, status="blocked")
+    resp = create_action(context, status="blocked")
 
     if HOOK_MODE == "observe":
+        # The tool call is about to execute despite the block. Leave the
+        # unenforced-verdict state for PostToolUse so the row gets its
+        # `executed_despite` witness stamp (F0) — and route the turn's token
+        # usage to the row, since in observe mode the work actually happens.
+        action_id = _extract_action_id(resp) if resp else ""
+        if action_id:
+            _write_unenforced_action_state(tool_use_id, action_id, "block")
+            append_turn_action(_SESSION_ID, action_id)
         log("[DashClaw] [observe] Would block: " + reason)
         sys.exit(0)
 
@@ -1173,7 +1215,11 @@ def handle_require_approval(guard_resp, context, tool_use_id):
 
     if HOOK_MODE == "observe":
         log("[DashClaw] [observe] Would require approval for: " + context["declared_goal"])
-        write_action_id(tool_use_id, action_id)
+        # Unenforced-verdict state (not the bare action_id): the tool executes
+        # without waiting for approval, so PostToolUse must stamp
+        # `executed_despite` on the pending row instead of reporting an
+        # ordinary outcome (F0).
+        _write_unenforced_action_state(tool_use_id, action_id, "require_approval")
         append_turn_action(_SESSION_ID, action_id)
         sys.exit(0)
 
@@ -1665,7 +1711,7 @@ def _dispatch_decision(decision, guard_resp, context, tool_use_id, tool_name=Non
     if decision == "warn":
         handle_warn(guard_resp, context, tool_use_id)
     elif decision == "block":
-        handle_block(guard_resp, context)
+        handle_block(guard_resp, context, tool_use_id)
     elif decision == "require_approval":
         handle_require_approval(guard_resp, context, tool_use_id)
     elif decision == "allow_contained":

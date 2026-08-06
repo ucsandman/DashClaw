@@ -287,9 +287,12 @@ export function buildObserveModeSignals(recentDecisions: Row[] | null): Signal[]
     try {
       const ctx = typeof dec.context === 'string' ? JSON.parse(dec.context) : dec.context;
       if (ctx?.enforcement_mode === 'observe') {
+        // Red, not amber (F0, governance gap audit 2026-08-05): observe mode
+        // is a standing "nothing is enforced" posture, not a degradation.
+        // Amber let 153 unenforced blocks read as a healthy ledger.
         signals.push({
           type: 'observe_mode',
-          severity: 'amber',
+          severity: 'red',
           label: `Hooks in observe mode: ${dec.agent_id}`,
           detail: `This agent's governance hooks are reporting decisions in OBSERVE mode — a "block" is logged but the tool call proceeds anyway.`,
           help: 'Set DASHCLAW_HOOK_MODE=enforce in the agent\'s hook env (see `dashclaw doctor`) when you are ready for blocks and approval gates to physically stop tool calls.',
@@ -300,6 +303,29 @@ export function buildObserveModeSignals(recentDecisions: Row[] | null): Signal[]
     } catch (e) {
       console.warn(`[signals] observe_mode: failed to parse context for decision ${dec.id}:`, (e as Error)?.message || e);
     }
+  }
+  return signals;
+}
+
+/**
+ * Executed-despite witnesses (F0, governance gap audit 2026-08-05): action
+ * rows where PostToolUse recorded that a block / require_approval verdict did
+ * not stop execution. Each row is a concrete enforcement failure — the exact
+ * evidence class whose absence let an unenforced ledger read as healthy.
+ */
+export function buildExecutedDespiteSignals(executedDespiteRows: Row[] | null): Signal[] {
+  const signals: Signal[] = [];
+  for (const row of executedDespiteRows || []) {
+    signals.push({
+      type: 'executed_despite_block',
+      severity: 'red',
+      label: `Executed despite ${row.executed_despite === 'require_approval' ? 'approval gate' : 'block'}: ${row.agent_id}`,
+      detail: `"${String(row.declared_goal || 'unknown action').slice(0, 200)}" was ${row.executed_despite === 'require_approval' ? 'gated on approval' : 'blocked'} but the tool call executed anyway — enforcement did not stop it (observe mode, or a bypass).`,
+      help: 'Set DASHCLAW_HOOK_MODE=enforce and restart the agent session. Review the action in /decisions to assess what ran.',
+      agent_id: row.agent_id,
+      action_id: row.action_id,
+      detected_at: row.timestamp_start || null,
+    });
   }
   return signals;
 }
@@ -394,7 +420,7 @@ export async function computeSignals(
     return null;
   };
 
-  const [autonomySpikes, highImpact, repeatedFailures, assumptionDrift, staleAssumptions, staleRunning, stalePresence, staleApprovals, connections, health, stalledSessions, recentDecisions, recentMcpDecisions, greenDecisions] = (await Promise.all([
+  const [autonomySpikes, highImpact, repeatedFailures, assumptionDrift, staleAssumptions, staleRunning, stalePresence, staleApprovals, connections, health, stalledSessions, recentDecisions, recentMcpDecisions, greenDecisions, executedDespiteRows] = (await Promise.all([
     sql`
       SELECT agent_id, agent_name, COUNT(*) as action_count,
              MAX(timestamp_start::timestamptz) AS last_seen
@@ -524,10 +550,21 @@ export async function computeSignals(
       ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
       ORDER BY created_at DESC LIMIT 10
     `.catch(warnNull('green_insufficient')),
+    // Executed-despite witnesses (F0, drizzle/0066) — column may predate this
+    // schema on an un-migrated instance; skip silently (null).
+    sql`
+      SELECT action_id, agent_id, agent_name, declared_goal, executed_despite, timestamp_start
+      FROM action_records
+      WHERE org_id = ${orgId}
+        AND executed_despite IS NOT NULL
+        AND timestamp_start::timestamptz > NOW() - INTERVAL '24 hours'
+      ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
+      ORDER BY timestamp_start DESC LIMIT 10
+    `.catch(warnNull('executed_despite_block')),
     // Tuple cast: each Promise.all result is a non-empty Row[] (or null for a
     // failed best-effort query); a plain array type makes destructured
     // positions possibly-undefined under noUncheckedIndexedAccess.
-  ])) as [Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null];
+  ])) as [Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null];
 
   const signals: Signal[] = [];
 
@@ -562,6 +599,12 @@ export async function computeSignals(
     signals.push(...buildMcpDegradedSignals(recentMcpDecisions));
   } catch (e) {
     console.warn('[signals] mcp_degraded category failed:', (e as Error)?.message || e);
+  }
+
+  try {
+    signals.push(...buildExecutedDespiteSignals(executedDespiteRows));
+  } catch (e) {
+    console.warn('[signals] executed_despite_block category failed:', (e as Error)?.message || e);
   }
 
   try {

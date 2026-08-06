@@ -34,6 +34,34 @@ product must say so.
 | Claude Desktop / consumer web chat (OAuth connector, `/api/mcp`) | Cooperative | The governance skill guides the model to call `dashclaw_guard` first; consumer chat exposes no tool-interception layer, so there is no mechanical backstop |
 | Org emergency halt | Decision-layer absolute | Every guard evaluation returns `block` within ~3s across instances; execution stops mechanically only on the mechanical rows above |
 
+## Observe mode must be loud, and execution is witnessed (F0, 2026-08-06)
+
+The 2026-08-05 governance gap audit found the cooperative rows above can
+manufacture false confidence: a hook in `observe` mode logs `block` verdicts
+that render identically to enforced ones, and three correct detectors (the
+liveness probe, the `observe_mode` signal, the `gov_observe_mode` doctor
+check) fired into surfaces nobody was reading while the operator concluded
+enforcement was live. The audit trail records what was *decided*, never what
+was *executed* — so the ledger cannot distinguish a block that stopped a tool
+from a block that didn't.
+
+Two mechanisms close the class (`drizzle/0066`):
+
+1. **Posture is persisted and rendered.** Every create path persists the
+   client's `enforcement_mode`; `/approvals` and `/decisions` show a red
+   observe-mode banner, gated ledger rows render "Logged, not enforced," the
+   `observe_mode` signal is red (a standing unenforced posture is never
+   amber), and `gov_observe_mode` carries a concrete fix.
+2. **Execution is witnessed.** When a gated verdict does not stop the call
+   (observe mode, or a bypass), PreToolUse leaves an unenforced-verdict state
+   and PostToolUse — whose firing is itself the proof of execution — stamps
+   `executed_despite` on the row via a status-gated PATCH. The row renders
+   "Executed despite block/approval gate" and drives the red
+   `executed_despite_block` signal.
+
+A logged verdict is never evidence of enforcement; only a witnessed
+non-execution (or the stamp's absence alongside PostToolUse coverage) is.
+
 ## Decision: the universal enforcing proxy is killed
 
 A guard-enforcing gateway that hard-blocks tool execution for

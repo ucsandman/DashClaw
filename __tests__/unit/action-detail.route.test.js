@@ -8,6 +8,7 @@ const {
   mockGetActionWithRelations,
   mockUpdateActionOutcome,
   mockSetContainmentAwaiting,
+  mockStampExecutedDespite,
   mockResolveAgentIdentity,
   mockPublishOrgEvent,
   mockScanSensitiveData,
@@ -21,6 +22,7 @@ const {
   mockGetActionWithRelations: vi.fn(),
   mockUpdateActionOutcome: vi.fn(),
   mockSetContainmentAwaiting: vi.fn(),
+  mockStampExecutedDespite: vi.fn(),
   mockResolveAgentIdentity: vi.fn(),
   mockPublishOrgEvent: vi.fn(),
   mockScanSensitiveData: vi.fn(),
@@ -59,6 +61,7 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   getActionWithRelations: mockGetActionWithRelations,
   updateActionOutcome: mockUpdateActionOutcome,
   setContainmentAwaiting: mockSetContainmentAwaiting,
+  stampExecutedDespite: mockStampExecutedDespite,
 }));
 vi.mock('@/lib/learningLoop.service.js', () => ({
   scoreAndStoreActionEpisode: mockScoreAndStoreActionEpisode,
@@ -222,6 +225,47 @@ describe('/api/actions/[actionId]', () => {
     // the outcome-field path above: this is the ONLY containment_status
     // transition an agent-key PATCH may drive (operator promote/discard
     // lives at POST /api/actions/[actionId]/containment).
+    describe('executed_despite witness stamp (F0, drizzle/0066)', () => {
+      it('stamps a gated row and publishes the update, bypassing outcome validation', async () => {
+        const stamped = { action_id: 'act_1', status: 'blocked', executed_despite: 'block' };
+        mockStampExecutedDespite.mockResolvedValue(stamped);
+
+        const res = await PATCH(req({ executed_despite: 'block' }), routeCtx);
+        const data = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(data.action).toEqual(stamped);
+        expect(mockStampExecutedDespite).toHaveBeenCalledWith(mockSql, 'org_test', 'act_1', 'block');
+        expect(mockPublishOrgEvent).toHaveBeenCalledWith('action.updated', { orgId: 'org_test', action: stamped });
+        expect(mockValidateActionOutcome).not.toHaveBeenCalled();
+      });
+
+      it('accepts require_approval as a verdict', async () => {
+        mockStampExecutedDespite.mockResolvedValue({ action_id: 'act_1', status: 'pending_approval', executed_despite: 'require_approval' });
+
+        const res = await PATCH(req({ executed_despite: 'require_approval' }), routeCtx);
+
+        expect(res.status).toBe(200);
+        expect(mockStampExecutedDespite).toHaveBeenCalledWith(mockSql, 'org_test', 'act_1', 'require_approval');
+      });
+
+      it('rejects any other verdict value with 400', async () => {
+        const res = await PATCH(req({ executed_despite: 'allow' }), routeCtx);
+
+        expect(res.status).toBe(400);
+        expect(mockStampExecutedDespite).not.toHaveBeenCalled();
+      });
+
+      it('returns 409 when the row is not gated or already stamped (no existence oracle)', async () => {
+        mockStampExecutedDespite.mockResolvedValue(null);
+
+        const res = await PATCH(req({ executed_despite: 'block' }), routeCtx);
+
+        expect(res.status).toBe(409);
+        expect(mockPublishOrgEvent).not.toHaveBeenCalled();
+      });
+    });
+
     describe('containment transition (drizzle/0064)', () => {
       it('flips a contained action to awaiting_promotion and stamps the ref', async () => {
         const flipped = { action_id: 'act_1', containment_status: 'awaiting_promotion', containment_ref: 'dashclaw/contained-act-1' };

@@ -203,7 +203,7 @@ dashclaw install codex --project /path/to/repo   # wires manifest, hooks, AGENTS
 bash scripts/install-hermes-plugin.sh            # macOS / Linux (.ps1 on Windows)
 ```
 
-Claude Code hooks govern Bash, Edit, Write, MultiEdit, sub-agent spawns, and every `mcp__*` call with a fail-closed PreToolUse check. Fresh installs start in enforce mode (the seeded catastrophe pack holds the irreversible class); pass `--observe` or set `DASHCLAW_HOOK_MODE=observe` to log without blocking, and re-installs keep whichever mode you chose. Verify the wiring fires:
+Claude Code hooks govern Bash, Edit, Write, MultiEdit, sub-agent spawns, and every `mcp__*` call with a fail-closed PreToolUse check. Fresh installs start in enforce mode (the seeded catastrophe pack holds the irreversible class); pass `--observe` or set `DASHCLAW_HOOK_MODE=observe` to log without blocking, and re-installs keep whichever mode you chose. Observe mode is loud, never silent: `/approvals` and `/decisions` show a red banner while any agent reports it, unenforced verdicts render "Logged, not enforced" in the ledger, and a gated action that executes anyway gets an `executed_despite` witness stamp from PostToolUse — a logged block is never presented as an enforced one. Verify the wiring fires:
 
 ```bash
 echo '{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_use_id":"t1","session_id":"smoke"}' | python .claude/hooks/dashclaw_pretool.py

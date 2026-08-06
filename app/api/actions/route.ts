@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import { NextResponse, after } from 'next/server';
 import { getSql } from '../../lib/db';
-import { validateActionRecord, boundedIdField } from '../../lib/validate.js';
+import { validateActionRecord, boundedIdField, enforcementModeField } from '../../lib/validate.js';
 import { getOrgId, getOrgRole, getUserId } from '../../lib/org';
 import { logActivityStrict } from '../../lib/audit';
 import { apiErrorResponse } from '../../lib/apiErrors';
@@ -206,6 +206,11 @@ export async function POST(request: Request) {
     // and blocked create paths persist them; sanitize to ≤ 200 chars (else null).
     data.harness_session_id = boundedIdField(body.harness_session_id);
     data.subagent_uuid = boundedIdField(body.subagent_uuid);
+    // Enforcement visibility (F0, drizzle/0066): the hook stamps its
+    // enforcement posture on every payload — including the blocked-action
+    // create in observe mode. Persisting it is what lets the ledger render an
+    // unenforced block differently from an enforced one.
+    data.enforcement_mode = enforcementModeField(body.enforcement_mode);
 
     // Idempotency short-circuit. If the caller supplied an idempotency_key and
     // we already have a row for (org_id, idempotency_key), return that row

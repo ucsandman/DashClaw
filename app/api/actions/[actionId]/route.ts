@@ -19,6 +19,7 @@ import {
   isApprovalOverdue,
   expireOverdueApproval,
   setContainmentAwaiting,
+  stampExecutedDespite,
 } from '../../../lib/repositories/actions.repository';
 
 // Fleet attribution (v4.3): the ONE outcome_metadata key the server persists —
@@ -166,6 +167,34 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
       }
       void publishOrgEvent(EVENTS.ACTION_UPDATED, { orgId, action: flipped });
       return NextResponse.json({ action: flipped });
+    }
+
+    // Enforcement visibility (F0, drizzle/0066): PostToolUse witnessed a
+    // gated action execute anyway — the pretool verdict was block /
+    // require_approval but the tool ran (observe mode, or a bypass). Isolated
+    // branch like containment_status above: this is NOT an outcome (the
+    // outcome route rightly refuses blocked/pending rows); it is evidence
+    // that the verdict did not stop execution. The repository's WHERE gate
+    // (status IN blocked/pending_approval, stamp NULL) makes a stray or
+    // forged call against an ordinary row a no-op 409, and first writer wins.
+    if (body.executed_despite !== undefined) {
+      if (body.executed_despite !== 'block' && body.executed_despite !== 'require_approval') {
+        return NextResponse.json(
+          { error: 'executed_despite may only be "block" or "require_approval"' },
+          { status: 400 },
+        );
+      }
+      const stamped = await stampExecutedDespite(sql, orgId, actionId, body.executed_despite);
+      if (!stamped) {
+        // Not found, not a gated row, or already stamped — indistinguishable
+        // by design (no action_id existence oracle, same as containment).
+        return NextResponse.json(
+          { error: 'Action not found, not in a gated status, or already stamped' },
+          { status: 409 },
+        );
+      }
+      void publishOrgEvent(EVENTS.ACTION_UPDATED, { orgId, action: stamped });
+      return NextResponse.json({ action: stamped });
     }
 
     const { valid, data, errors } = validateActionOutcome(body);

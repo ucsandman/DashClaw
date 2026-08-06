@@ -54,7 +54,12 @@ vi.mock('next/server', async () => {
 });
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
-vi.mock('@/lib/validate.js', () => ({ validateActionRecord: mockValidateActionRecord, boundedIdField: (v) => (typeof v === 'string' && v.length > 0 && v.length <= 200 ? v : null) }));
+vi.mock('@/lib/validate.js', () => ({
+  validateActionRecord: mockValidateActionRecord,
+  boundedIdField: (v) => (typeof v === 'string' && v.length > 0 && v.length <= 200 ? v : null),
+  // Mirrors app/lib/validate.js enforcementModeField: normalize or null.
+  enforcementModeField: (v) => (typeof v === 'string' && ['enforce', 'observe', 'warn', 'off'].includes(v.trim().toLowerCase()) ? v.trim().toLowerCase() : null),
+}));
 vi.mock('@/lib/repositories/actions.repository.js', () => ({
   listActions: mockListActions,
   createActionRecord: mockCreateActionRecord,
@@ -462,6 +467,48 @@ describe('/api/actions POST', () => {
     expect(mockCreateBlockedActionRecord).toHaveBeenCalledWith(
       mockSql,
       expect.objectContaining({ riskScore: 91 }),
+    );
+  });
+
+  // Enforcement visibility (F0, drizzle/0066): the hook's posture rides the
+  // body outside the schema whitelist (like harness_session_id) and must
+  // reach BOTH create paths — an observe-mode blocked row is exactly the row
+  // the ledger needs to render as "logged, not enforced".
+  it('threads enforcement_mode into the created record; garbage normalizes to null', async () => {
+    await POST(makeRequest('http://localhost/api/actions', {
+      headers: { 'x-org-id': 'org_1' },
+      body: { ...validBody, enforcement_mode: 'observe' },
+    }));
+    expect(mockCreateActionRecord).toHaveBeenCalledWith(
+      mockSql,
+      expect.objectContaining({ data: expect.objectContaining({ enforcement_mode: 'observe' }) }),
+    );
+
+    mockCreateActionRecord.mockClear();
+    await POST(makeRequest('http://localhost/api/actions', {
+      headers: { 'x-org-id': 'org_1' },
+      body: { ...validBody, enforcement_mode: 'definitely-not-a-mode' },
+    }));
+    expect(mockCreateActionRecord).toHaveBeenCalledWith(
+      mockSql,
+      expect.objectContaining({ data: expect.objectContaining({ enforcement_mode: null }) }),
+    );
+  });
+
+  it('threads enforcement_mode into the blocked action record (observe-mode hook block path)', async () => {
+    mockEvaluateGuard.mockResolvedValue({
+      decision: 'block', reasons: ['Policy violation'], warnings: [], matched_policies: ['gp_1'], risk_score: 100,
+    });
+    mockCreateBlockedActionRecord.mockResolvedValue({ action_id: 'act_blocked', status: 'blocked' });
+
+    await POST(makeRequest('http://localhost/api/actions', {
+      headers: { 'x-org-id': 'org_1' },
+      body: { ...validBody, enforcement_mode: 'observe' },
+    }));
+
+    expect(mockCreateBlockedActionRecord).toHaveBeenCalledWith(
+      mockSql,
+      expect.objectContaining({ data: expect.objectContaining({ enforcement_mode: 'observe' }) }),
     );
   });
 

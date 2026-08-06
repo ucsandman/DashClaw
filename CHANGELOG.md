@@ -13,6 +13,25 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.7.0] — 2026-08-06
+
+Enforcement-visibility release — the product fix for **F0** of the 2026-08-05 governance gap audit, which found `DASHCLAW_HOOK_MODE=observe` had silently disabled enforcement machine-wide while `/decisions` showed 153 blocks that read as healthy. The principle this release encodes: **a logged verdict is never presented as an enforced one.** Platform + hooks only; no SDK source change (registries stay at 5.6.2).
+
+### Added
+
+- `action_records.enforcement_mode` (drizzle/0066): every create path now persists the client's enforcement posture — the hook already stamped it on guard calls, but POST `/api/actions` dropped it, so an observe-mode blocked row was indistinguishable from an enforced one in the ledger.
+- `action_records.executed_despite` (drizzle/0066) + PostToolUse witness: when an observe-mode block or approval gate does not stop the tool call, PreToolUse leaves `{"action_id", "unenforced_verdict"}` state and PostToolUse — whose firing is itself the proof of execution — stamps the row via a new isolated PATCH branch (status-gated, first-writer-wins, no action-id existence oracle). This is the durable, class-closing fix: the ledger now records what *executed*, not just what was *decided*.
+- Red observe-mode banner on `/approvals` and `/decisions` (`ObserveModeBanner`): names the observe-mode agents, links the executed-anyway count, and states the exact fix (`DASHCLAW_HOOK_MODE=enforce` + session restart).
+- Ledger chips: gated rows render **"Executed despite block/approval gate"** (error) when the witness stamp exists, or **"Logged, not enforced"** (warning) when the row was created under observe mode — never identically to an enforced block.
+- New red `executed_despite_block` signal (24h window) alongside the `observe_mode` signal, which is now **red** instead of amber — a standing "nothing is enforced" posture is not a degradation-severity condition.
+- `docs/architecture/enforcement-boundary.md` gains the "Observe mode must be loud, and execution is witnessed" section; hooks README and `.env.example` now warn that the hook's `.env` walk applies one observe override to every session using that hook install.
+
+### Fixed
+
+- The pretool hook discarded the body of HTTP-error responses, so the observe-mode block path never saw the `action_id` that POST `/api/actions` returns *inside its 403 response* — `create_action` now reads the error body for blocked creates, and the hook test mock answers 403 like the real route (a 200 mock is what masked this).
+- `/api/actions` list responses now include `enforcement_mode` and `executed_despite` (the list SELECT uses an explicit column list; detail routes already returned them via `SELECT *`).
+- `gov_observe_mode` doctor check: `fix: null` → a concrete fix (where the mode is read from, why the override is machine-wide, restart requirement, and how to verify with the liveness probe).
+
 ## [5.6.3] — 2026-07-29
 
 Platform-only maintenance release — one day's vigil arc: dependency triage, plans-machinery hardening, and an adversarial security pass over its own diffs. No SDK source changes; the Node + Python SDKs are intentionally not republished (registries stay at 5.6.2).
