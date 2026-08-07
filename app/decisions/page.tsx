@@ -9,6 +9,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
+import { CollapsibleSection } from '../components/ui/CollapsibleSection';
 import { getAgentColor } from '../lib/colors';
 import { EntityLink } from '../components/context-menu/EntityLink';
 import { isDemoMode } from '../lib/isDemoMode';
@@ -20,6 +21,8 @@ import { formatCost, formatTokens } from '../lib/formatCost';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { useListControls, type ListColumn } from '../lib/useListControls';
+import { ListControlsBar } from '../components/ListControlsBar';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
 import { useRealtime } from '../hooks/useRealtime';
 import { OutcomeBadge } from '../components/OutcomeBadge';
@@ -88,6 +91,15 @@ const CONTAINMENT_CHIP: Record<string, { variant: string; label: string; icon: E
   discarded: { variant: 'default', label: 'Discarded', icon: Ban },
 };
 
+// Sort-only over the loaded server page (rule: server-paginated lists keep
+// every server-side filter dropdown untouched; this never adds a filter).
+const decisionsColumns: ListColumn<any>[] = [
+  { key: 'time', label: 'Time', accessor: (a) => a.timestamp_start, sortable: true },
+  { key: 'risk', label: 'Risk', accessor: (a) => a.risk_score, sortable: true },
+  { key: 'agent', label: 'Agent', accessor: (a) => a.agent_name || a.agent_id, sortable: true },
+  { key: 'status', label: 'Status', accessor: (a) => a.status, sortable: true },
+];
+
 // One-shot read of the supported /decisions URL params. Lazy state seeds so
 // shared links (?agent_id=&action_type=&status=&outcome_status=&swarm_id=
 // &risk_min=&decision=) actually filter — they used to be silently ignored.
@@ -123,11 +135,25 @@ function DecisionsLedgerInner() {
   const [clearing, setClearing] = useState(false);
   const [sweeping, setSweeping] = useState(false);
   const [deletingId, setDeletingId] = useState<any>(null);
-  const selection = useSelection<any>(actions, (a) => a.action_id);
+  // Sort-only client controls over the currently-loaded server page.
+  const decisionsControls = useListControls(actions, decisionsColumns);
+  const selection = useSelection<any>(decisionsControls.rows, (a) => a.action_id);
   const selectedActions = selection.selectedSet;
   const clearSelection = selection.clear;
   const [bulkDeleting, setBulkDeleting] = useState(false);
   useSelectAllHotkey(selection.toggleAll);
+
+  // The selection covers the current server page; client-side sort/search
+  // narrows which of those rows are visible. A selected id must never point
+  // at a row the operator can no longer see (same pattern as identities.tsx).
+  useEffect(() => {
+    const visibleIds = new Set(decisionsControls.rows.map((a) => a.action_id));
+    const pruned = selection.selectedIds.filter((id) => visibleIds.has(id));
+    if (pruned.length !== selection.selectedIds.length) {
+      selection.setSelected(pruned);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decisionsControls.rows]);
 
   const [filterAgent, setFilterAgent] = useState(initialFilters.agent);
   const [filterType, setFilterType] = useState(initialFilters.type);
@@ -602,15 +628,15 @@ function DecisionsLedgerInner() {
       </Card>
 
       {/* Actions List */}
-      <Card hover={false}>
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <div className="flex items-baseline gap-2">
-            <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
-              Decisions
-            </h2>
-            <span className="text-[11px] tabular-nums text-tertiary">· {total}</span>
-          </div>
-          {totalPages > 1 && (
+      <CollapsibleSection
+        id="decisions.stream"
+        title="Decisions"
+        count={total}
+        controls={
+          <ListControlsBar columns={decisionsColumns} controls={decisionsControls} searchPlaceholder="Search this page…" />
+        }
+        actions={
+          totalPages > 1 ? (
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage(p => Math.max(0, p - 1))}
@@ -632,10 +658,11 @@ function DecisionsLedgerInner() {
                 <ChevronRight size={16} />
               </button>
             </div>
-          )}
-        </div>
-
-        <CardContent>
+          ) : undefined
+        }
+      >
+      <Card hover={false}>
+        <CardContent className="pt-5">
           {loading ? (
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -658,20 +685,20 @@ function DecisionsLedgerInner() {
             />
           ) : (
             <div className="space-y-2">
-              {/* Select all row */}
-              {isAdmin && actions.length > 1 && (
+              {/* Select all row (scoped to the currently visible/sorted rows) */}
+              {isAdmin && decisionsControls.rows.length > 1 && (
                 <div className="flex items-center gap-2 px-2 py-1">
-                  <button onClick={toggleSelectAllActions} className="text-tertiary hover:text-white transition-colors p-0.5" aria-label={selectedActions.size === actions.length ? 'Deselect all decisions' : 'Select all decisions'}>
-                    {selectedActions.size === actions.length
+                  <button onClick={toggleSelectAllActions} className="text-tertiary hover:text-white transition-colors p-0.5" aria-label={selectedActions.size === decisionsControls.rows.length ? 'Deselect all decisions' : 'Select all decisions'}>
+                    {selectedActions.size === decisionsControls.rows.length
                       ? <CheckSquare size={16} className="text-brand" />
                       : <Square size={16} />}
                   </button>
                   <span className="text-xs text-tertiary">
-                    {selectedActions.size === actions.length ? 'Deselect all' : `Select all (${actions.length})`}
+                    {selectedActions.size === decisionsControls.rows.length ? 'Deselect all' : `Select all (${decisionsControls.rows.length})`}
                   </span>
                 </div>
               )}
-              {actions.map((action) => {
+              {decisionsControls.rows.map((action) => {
                 const isExpanded = expandedId === action.action_id;
                 const detail = expandedData[action.action_id];
                 const systems = parseJsonArray(action.systems_touched);
@@ -941,6 +968,7 @@ function DecisionsLedgerInner() {
           )}
         </CardContent>
       </Card>
+      </CollapsibleSection>
     </PageLayout>
   );
 }

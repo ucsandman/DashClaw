@@ -9,6 +9,7 @@ import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
+import { CollapsibleSection } from '../components/ui/CollapsibleSection';
 import { isDemoMode } from '../lib/isDemoMode';
 import { parseJsonArray as safeJsonArray } from '../lib/parseJson';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
@@ -16,6 +17,8 @@ import { useRealtime } from '../hooks/useRealtime';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { useListControls, type ListColumn } from '../lib/useListControls';
+import { ListControlsBar } from '../components/ListControlsBar';
 import { SelectCheckbox } from '../components/selection/SelectCheckbox';
 import { BulkActionBar } from '../components/selection/BulkActionBar';
 import { bulkAction } from '../lib/bulkAction';
@@ -34,6 +37,19 @@ interface BannerProps {
   title: React.ReactNode;
   children?: React.ReactNode;
 }
+
+// Sort-only client columns for the two approvals queues (both fetches are
+// server-paginated/status-filtered already, so no filterable columns here).
+const pendingColumns: ListColumn<any>[] = [
+  { key: 'time', label: 'Requested', accessor: (a) => a.timestamp_start, sortable: true },
+  { key: 'agent', label: 'Agent', accessor: (a) => a.agent_name || a.agent_id, sortable: true },
+  { key: 'risk', label: 'Risk', accessor: (a) => a.risk_score, sortable: true },
+];
+
+const resolvedColumns: ListColumn<any>[] = [
+  { key: 'time', label: 'Requested', accessor: (a) => a.timestamp_start, sortable: true },
+  { key: 'agent', label: 'Agent', accessor: (a) => a.agent_name || a.agent_id, sortable: true },
+];
 
 function Banner({ icon: Icon, tone, title, children }: BannerProps) {
   const tones: Record<BannerTone, string> = {
@@ -232,8 +248,22 @@ export default function ApprovalsPage() {
   const isDemo = isDemoMode();
   const canDecide = isAdmin && !isDemo;
 
-  const selection = useSelection<any>(pendingActions, (a) => a.action_id);
+  const pendingControls = useListControls(pendingActions, pendingColumns);
+  const resolvedControls = useListControls(expiredActions, resolvedColumns);
+
+  const selection = useSelection<any>(pendingControls.rows, (a) => a.action_id);
   useSelectAllHotkey(selection.toggleAll);
+
+  // The pending queue is sort/search-narrowed client-side; a selected id must
+  // never point at a row the operator can no longer see (see identities.tsx).
+  useEffect(() => {
+    const visibleIds = new Set(pendingControls.rows.map((a) => a.action_id));
+    const pruned = selection.selectedIds.filter((id) => visibleIds.has(id));
+    if (pruned.length !== selection.selectedIds.length) {
+      selection.setSelected(pruned);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingControls.rows]);
 
   const handleBulkApprove = async () => {
     const ids = selection.selectedIds;
@@ -327,17 +357,28 @@ export default function ApprovalsPage() {
           onResolvedAction={() => { fetchAwaitingContainment(); fetchPending({ silent: true }); }}
         />
 
-        {pendingActions.length > 0 && isAdmin && (
-          <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-2 text-xs text-secondary">
-            <SelectCheckbox
-              checked={selection.allSelected}
-              onToggle={() => selection.toggleAll()}
-              label="Select all"
-            />
-            <span>Select all</span>
-          </div>
-        )}
-
+        <CollapsibleSection
+          id="approvals.pending"
+          title="Pending approvals"
+          icon={Clock}
+          iconClassName="text-warning"
+          count={pendingActions.length}
+          badgeVariant="warning"
+          controls={
+            pendingControls.rows.length > 0 ? (
+              <ListControlsBar columns={pendingColumns} controls={pendingControls} searchPlaceholder="Search pending…" />
+            ) : undefined
+          }
+          actions={
+            pendingActions.length > 0 && isAdmin ? (
+              <SelectCheckbox
+                checked={selection.allSelected}
+                onToggle={() => selection.toggleAll()}
+                label="Select all"
+              />
+            ) : undefined
+          }
+        >
         {pendingActions.length === 0 ? (
           <div className="py-12">
             <EmptyState
@@ -348,7 +389,7 @@ export default function ApprovalsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {pendingActions.map((action) => {
+            {pendingControls.rows.map((action) => {
               const systems = safeJsonArray(action.systems_touched) as string[];
               const isProcessing = processingId === action.action_id;
               const riskColor = action.risk_score >= 70 ? 'text-error' : 'text-warning';
@@ -476,29 +517,38 @@ export default function ApprovalsPage() {
             })}
           </div>
         )}
+        </CollapsibleSection>
 
         {expiredActions.length > 0 && (
           <div className="mt-10">
-            <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
-              <Hourglass size={12} /> Expired
-              {canDecide && (
-                <button
-                  type="button"
-                  onClick={handleClearExpired}
-                  disabled={clearingExpired}
-                  className="ml-auto inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-tertiary transition-colors hover:border-border-hover hover:text-secondary disabled:opacity-50"
-                  aria-label="Clear expired approvals from this list"
-                >
-                  {clearingExpired ? 'Clearing…' : 'Clear expired'}
-                </button>
-              )}
-            </div>
+            <CollapsibleSection
+              id="approvals.resolved"
+              title="Expired"
+              icon={Hourglass}
+              count={expiredActions.length}
+              controls={
+                <ListControlsBar columns={resolvedColumns} controls={resolvedControls} searchPlaceholder="Search expired…" />
+              }
+              actions={
+                canDecide ? (
+                  <button
+                    type="button"
+                    onClick={handleClearExpired}
+                    disabled={clearingExpired}
+                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-tertiary transition-colors hover:border-border-hover hover:text-secondary disabled:opacity-50"
+                    aria-label="Clear expired approvals from this list"
+                  >
+                    {clearingExpired ? 'Clearing…' : 'Clear expired'}
+                  </button>
+                ) : undefined
+              }
+            >
             <p className="mb-3 text-xs text-tertiary">
               These approvals outlived the requesting agent&rsquo;s wait window; approving them
               would release nothing. If the action is still wanted, have the agent retry it.
             </p>
             <div className="space-y-2">
-              {expiredActions.map((action) => (
+              {resolvedControls.rows.map((action) => (
                 <div
                   key={action.action_id}
                   data-entity-type="decision"
@@ -525,6 +575,7 @@ export default function ApprovalsPage() {
                 </div>
               ))}
             </div>
+            </CollapsibleSection>
           </div>
         )}
       </div>
