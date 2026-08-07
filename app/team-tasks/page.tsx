@@ -6,7 +6,10 @@ import PageLayout from '../components/PageLayout';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Skeleton } from '../components/ui/Skeleton';
 import { EmptyState } from '../components/ui/EmptyState';
+import { CollapsibleSection } from '../components/ui/CollapsibleSection';
 import { useRealtime } from '../hooks/useRealtime';
+import { useListControls, type ListColumn } from '../lib/useListControls';
+import { ListControlsBar } from '../components/ListControlsBar';
 import TeamTaskTimeline from './_components/TeamTaskTimeline';
 
 const STATUS_BADGE: Record<string, string> = {
@@ -81,6 +84,14 @@ export default function TeamTasksPage() {
     }, 800);
   }, [selectedId, fetchTasks, fetchDetail]));
 
+  const taskColumns: ListColumn<any>[] = [
+    { key: 'title', label: 'Instruction', accessor: (t) => t.instruction, sortable: true },
+    { key: 'agent', label: 'Lead agent', accessor: (t) => t.lead_agent, sortable: true },
+    { key: 'status', label: 'Status', accessor: (t) => t.status, filterable: true },
+    { key: 'updated', label: 'Updated', accessor: (t) => t.updated_at, sortable: true },
+  ];
+  const taskControls = useListControls(tasks, taskColumns);
+
   return (
     <PageLayout
       title="Team Tasks"
@@ -90,8 +101,14 @@ export default function TeamTasksPage() {
     >
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-2">
+          <CollapsibleSection
+            id="team-tasks.list"
+            title="Tasks"
+            icon={Users}
+            count={taskControls.rows.length}
+            controls={tasks.length > 0 ? <ListControlsBar columns={taskColumns} controls={taskControls} searchPlaceholder="Search tasks…" /> : undefined}
+          >
           <Card hover={false}>
-            <CardHeader title="Tasks" icon={Users} count={tasks.length} />
             <CardContent className="p-0">
               {loading ? (
                 <div className="p-6 space-y-4">
@@ -109,7 +126,7 @@ export default function TeamTasksPage() {
                 </div>
               ) : (
                 <ul>
-                  {tasks.map((t) => (
+                  {taskControls.rows.map((t) => (
                     <li key={t.id}>
                       <button
                         onClick={() => setSelectedId(t.id)}
@@ -129,6 +146,7 @@ export default function TeamTasksPage() {
               )}
             </CardContent>
           </Card>
+          </CollapsibleSection>
         </div>
         <div className="lg:col-span-3">
           <Card hover={false}>
