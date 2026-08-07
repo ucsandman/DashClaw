@@ -266,7 +266,13 @@ export default function ApprovalsPage() {
   }, [pendingControls.rows]);
 
   const handleBulkApprove = async () => {
-    const ids = selection.selectedIds;
+    // Defensive re-scope to currently-visible rows: the pruning effect keeps
+    // the selection in sync, but a decision that can't be undone must never
+    // trust a selection snapshot that could include a hidden/stale id (the
+    // effect-race window between a render and this handler firing).
+    const visibleIds = new Set(pendingControls.rows.map((a) => a.action_id));
+    const ids = selection.selectedIds.filter((id) => visibleIds.has(id));
+    if (ids.length === 0) return;
     const { ok } = await bulkAction(ids, (id) =>
       fetch(`/api/approvals/${id}`, {
         method: 'POST',
@@ -279,7 +285,10 @@ export default function ApprovalsPage() {
   };
 
   const handleBulkDeny = async () => {
-    const ids = selection.selectedIds;
+    // Same call-time visible-ids re-scope as handleBulkApprove above.
+    const visibleIds = new Set(pendingControls.rows.map((a) => a.action_id));
+    const ids = selection.selectedIds.filter((id) => visibleIds.has(id));
+    if (ids.length === 0) return;
     const { ok } = await bulkAction(ids, (id) =>
       fetch(`/api/approvals/${id}`, {
         method: 'POST',
@@ -365,7 +374,7 @@ export default function ApprovalsPage() {
           count={pendingActions.length}
           badgeVariant="warning"
           controls={
-            pendingControls.rows.length > 0 ? (
+            pendingActions.length > 0 ? (
               <ListControlsBar columns={pendingColumns} controls={pendingControls} searchPlaceholder="Search pending…" />
             ) : undefined
           }

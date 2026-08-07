@@ -367,19 +367,26 @@ function DecisionsLedgerInner() {
   };
 
   const handleBulkDeleteSelected = async () => {
-    if (selectedActions.size === 0) return;
-    const msg = `Delete ${selectedActions.size} selected ${selectedActions.size === 1 ? 'decision' : 'decisions'}? This cannot be undone.`;
+    // Defensive re-scope to currently-visible rows: the pruning effect keeps
+    // the selection in sync, but a destructive delete must never trust a
+    // selection snapshot that could include a hidden/stale id (the
+    // effect-race window between a render and this handler firing) — same
+    // pattern as identities.tsx's handleBulkDeleteAgents.
+    const visibleIds = new Set(decisionsControls.rows.map((a) => a.action_id));
+    const ids = selection.selectedIds.filter((id) => visibleIds.has(id));
+    if (ids.length === 0) return;
+    const msg = `Delete ${ids.length} selected ${ids.length === 1 ? 'decision' : 'decisions'}? This cannot be undone.`;
     if (!confirm(msg)) return;
     setBulkDeleting(true);
     try {
-      const ids = Array.from(selectedActions).join(',');
-      const res = await fetch(`/api/actions?action_ids=${ids}`, { method: 'DELETE' });
+      const deletedSet = new Set(ids);
+      const res = await fetch(`/api/actions?action_ids=${ids.join(',')}`, { method: 'DELETE' });
       if (res.ok) {
         const data = await res.json();
-        setActions(prev => prev.filter(a => !selectedActions.has(a.action_id)));
+        setActions(prev => prev.filter(a => !deletedSet.has(a.action_id)));
         setTotal(prev => Math.max(0, prev - (data.deleted || 0)));
         selection.clear();
-        if (expandedId && selectedActions.has(expandedId)) setExpandedId(null);
+        if (expandedId && deletedSet.has(expandedId)) setExpandedId(null);
       } else {
         const err = await res.json();
         showToast(err.error || 'Failed to delete actions');
