@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+export const maxDuration = 60;
 
 import { NextResponse, after } from 'next/server';
 import { getSql } from '../../lib/db';
@@ -509,6 +510,8 @@ export async function POST(request: Request) {
  *   ?agent_id=X          — scope to a specific agent
  *   ?status=completed    — scope to a specific status
  *   ?action_id=act_xxx   — delete a single action by ID
+ *   ?synthetic=true       — delete rows matching the synthetic-agent/action-type registry (test-agent cleanup)
+ *   ?agent_ids=a,b,c      — delete rows for a specific set of agent ids
  */
 export async function DELETE(request: Request) {
   try {
@@ -560,6 +563,41 @@ export async function DELETE(request: Request) {
       const result = await deleteActionsByIds(sql, orgId, [actionId]);
       const deletedIds = result.map((r: Record<string, any>) => r.action_id);
       return NextResponse.json({ deleted: result.length, action_ids: deletedIds });
+    }
+
+    const syntheticParam = searchParams.get('synthetic') === 'true';
+    const agentIdsParam = searchParams.get('agent_ids');
+
+    // Agent-scoped + synthetic cleanup modes (identities page + retention sweep).
+    // Unified path: resolve ids via the shared WHERE builder, audit write-ahead,
+    // then delete in chunks so a 100k-row cleanup stays inside serverless limits.
+    if (syntheticParam || agentIdsParam) {
+      const agentIdList = agentIdsParam
+        ? agentIdsParam.split(',').map((s) => s.trim()).filter(Boolean)
+        : null;
+      if (agentIdsParam && (!agentIdList || agentIdList.length === 0)) {
+        return NextResponse.json({ error: 'No valid agent ids provided' }, { status: 400 });
+      }
+      if (agentIdList && agentIdList.length > 1000) {
+        return NextResponse.json({ error: 'Too many agent ids (max 1000)' }, { status: 400 });
+      }
+      const filter: Record<string, unknown> = {
+        synthetic: syntheticParam || undefined,
+        agent_ids: agentIdList || undefined,
+        before: before || undefined,
+      };
+      const targetIds = await listActionIdsByFilter(sql, orgId, {
+        synthetic: syntheticParam, agentIds: agentIdList, before,
+      });
+      if (targetIds.length === 0) return NextResponse.json({ deleted: 0 });
+      await auditDeletion(targetIds, filter);
+      let deleted = 0;
+      const CHUNK = 10_000;
+      for (let i = 0; i < targetIds.length; i += CHUNK) {
+        const result = await deleteActionsByIds(sql, orgId, targetIds.slice(i, i + CHUNK));
+        deleted += result.length;
+      }
+      return NextResponse.json({ deleted });
     }
 
     // Bulk deletion requires at least one filter to prevent accidental wipe

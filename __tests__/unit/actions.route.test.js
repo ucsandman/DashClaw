@@ -22,6 +22,7 @@ const {
   mockResolveAgentIdentity,
   mockGuardDecisionExists,
   mockAfter,
+  mockLogActivityStrict,
 } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockValidateActionRecord: vi.fn(),
@@ -43,6 +44,7 @@ const {
   mockResolveAgentIdentity: vi.fn(),
   mockGuardDecisionExists: vi.fn(),
   mockAfter: vi.fn(),
+  mockLogActivityStrict: vi.fn(async () => undefined),
 }));
 
 // next/server's `after()` throws "outside a request scope" in unit tests.
@@ -98,6 +100,7 @@ vi.mock('@/lib/security.js', () => ({
 }));
 vi.mock('@/lib/billing.js', () => ({ estimateCost: mockEstimateCost }));
 vi.mock('@/lib/repositories/guard.repository.js', () => ({ guardDecisionExists: mockGuardDecisionExists }));
+vi.mock('@/lib/audit.js', () => ({ logActivityStrict: mockLogActivityStrict }));
 
 import { GET, POST, DELETE } from '@/api/actions/route.js';
 
@@ -779,8 +782,7 @@ describe('/api/actions DELETE', () => {
   });
 
   it('fails closed: nothing is deleted when the erasure audit row cannot be written', async () => {
-    // The audit INSERT is the only tagged-sql call on this path; reject it.
-    mockSql.mockRejectedValueOnce(new Error('audit insert failed'));
+    mockLogActivityStrict.mockRejectedValueOnce(new Error('audit insert failed'));
 
     const res = await DELETE(makeRequest('http://localhost/api/actions?action_id=act_1', {
       headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
@@ -798,5 +800,52 @@ describe('/api/actions DELETE', () => {
     }));
 
     expect(res.status).toBe(500);
+  });
+
+  it('synthetic=true deletes via chunked ids and audits write-ahead', async () => {
+    mockListActionIdsByFilter.mockResolvedValue(['a1', 'a2', 'a3']);
+    mockDeleteActionsByIds.mockImplementation(async (_sql, _orgId, ids) => ids.map((id) => ({ action_id: id })));
+
+    const res = await DELETE(makeRequest('http://localhost/api/actions?synthetic=true', {
+      headers: { 'x-org-id': 'org_default', 'x-org-role': 'admin' },
+    }));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ deleted: 3 });
+    expect(mockListActionIdsByFilter).toHaveBeenCalledWith(
+      expect.anything(), 'org_default', expect.objectContaining({ synthetic: true }),
+    );
+    // audit called BEFORE delete
+    expect(mockLogActivityStrict.mock.invocationCallOrder[0]).toBeLessThan(mockDeleteActionsByIds.mock.invocationCallOrder[0]);
+  });
+
+  it('agent_ids deletes only the named agents', async () => {
+    mockListActionIdsByFilter.mockResolvedValue(['a1']);
+    mockDeleteActionsByIds.mockImplementation(async (_sql, _orgId, ids) => ids.map((id) => ({ action_id: id })));
+
+    const res = await DELETE(makeRequest('http://localhost/api/actions?agent_ids=smoke-a,smoke-b', {
+      headers: { 'x-org-id': 'org_default', 'x-org-role': 'admin' },
+    }));
+
+    expect(res.status).toBe(200);
+    expect(mockListActionIdsByFilter).toHaveBeenCalledWith(
+      expect.anything(), 'org_default', expect.objectContaining({ agentIds: ['smoke-a', 'smoke-b'] }),
+    );
+  });
+
+  it('agent_ids empty after trim -> 400', async () => {
+    const res = await DELETE(makeRequest('http://localhost/api/actions?agent_ids=%2C%2C', {
+      headers: { 'x-org-id': 'org_default', 'x-org-role': 'admin' },
+    }));
+
+    expect(res.status).toBe(400);
+  });
+
+  it('synthetic=true is admin-gated', async () => {
+    const res = await DELETE(makeRequest('http://localhost/api/actions?synthetic=true', {
+      headers: { 'x-org-id': 'org_default', 'x-org-role': 'member' },
+    }));
+
+    expect(res.status).toBe(403);
   });
 });
