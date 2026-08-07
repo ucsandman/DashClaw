@@ -121,8 +121,28 @@ empty because the wait target didn't exist. Fixed in `1.0.1`.
 | `agentId` | string | `"openclaw"` | Identifier this OpenClaw instance reports to DashClaw. |
 | `defaultModel` | string | `""` | Fallback model id (e.g. `claude-sonnet-5`, `openai-codex/gpt-5.4`) used when `llm_output` events don't include a `model` field. Without this, unpriced turns land `tokens_in`/`tokens_out` but `cost_estimate` stays `$0`. Env var: `DASHCLAW_DEFAULT_MODEL`. |
 | `failClosed` | boolean | `true` | If DashClaw is unreachable, block the tool call. Set `false` to fail open. |
+| `autoPairing` | boolean | `true` | Automatically answer operator pairing requests from the DashClaw `/identities` page. The private key is stored at `~/.dashclaw/identity/<agentId>.pem` and never leaves this machine. Set `false` to require manual pairing (MCP `dashclaw_pair` or SDK `createPairing`). |
 | `riskScoreDefault` | number | `50` | Fallback risk score for tool calls the classifier doesn't recognize. Recognized commands (git, curl, rm, npm, etc.) compute their own risk score automatically. |
 | `highRiskTools` | string[] | `[]` | Tool names that should always start at risk score 85 before classification. The classifier may raise the score further (e.g. `rm -rf` → 90) but will never lower it below 85 for tools in this list. |
+
+## Automatic identity pairing
+
+When an admin clicks **Request pairing** for this agent on the DashClaw
+`/identities` page, the plugin answers on the agent's next tool call — no LLM
+involvement:
+
+1. It reads the agent's unread DashClaw inbox and finds the
+   `dashclaw.pairing_request` directive.
+2. It generates an RSA-2048 keypair locally. The private key is written to
+   `~/.dashclaw/identity/<agentId>.pem` (mode 600) and never leaves the
+   machine.
+3. It POSTs the public key to `/api/pairings` and marks the message read.
+
+The pairing then appears under **Pending Pairings** on `/identities` for the
+admin's one-click approval — approval is what creates the identity. Disable
+with `autoPairing: false`. To rotate keys, delete the `.pem` file and click
+**Request pairing** again. Auto-pairing is fire-and-forget: it runs once per
+gateway process and can never block or fail a tool call.
 
 ## Fail-closed vs fail-open
 

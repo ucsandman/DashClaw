@@ -46,8 +46,8 @@ self-hosters who don't run an OIDC issuer:
 agents to pair from **/identities → Unidentified Agents → Request pairing**.
 The request is delivered over the agent's message inbox (pull-based — the agent
 sees it the next time it runs with DashClaw attached and checks
-`dashclaw_inbox_list` / `claw.getInbox()`). The message body carries a fenced
-JSON directive the agent can recognize:
+`GET /api/messages?agent_id=<id>&direction=inbox&unread=true`). The message
+body carries a fenced JSON directive the agent can recognize:
 
 ```json
 {
@@ -59,7 +59,26 @@ JSON directive the agent can recognize:
 ```
 
 On seeing it, run enrollment path A above (MCP: `dashclaw_pair`), then mark the
-message read (`dashclaw_messages_mark_read`).
+message read (`PATCH /api/messages` with `{ message_ids, action: "read",
+agent_id }`).
+
+**OpenClaw agents answer automatically.** The `@dashclaw/openclaw-plugin`
+consumes the pairing directive without an LLM in the loop. On the agent's
+first tool call after you click **Request pairing**, the plugin:
+
+1. reads its unread inbox and finds the `dashclaw.pairing_request` directive,
+2. generates an RSA-2048 keypair locally — the private key is written to
+   `~/.dashclaw/identity/<agent_id>.pem` (mode 600) and never leaves the
+   machine,
+3. POSTs the public key to `/api/pairings` and marks the message read.
+
+The pairing then appears under **Pending Pairings** on **/identities** for
+one-click approval. Approval remains the only step that creates the identity.
+
+- Disable with `autoPairing: false` in the plugin config.
+- Key rotation: delete the `.pem` file, then click **Request pairing** again.
+- The trigger is the agent's next tool call — an idle gateway does nothing
+  until it runs a tool (delivery is pull-based by design).
 
 **B. JWKS-verified JWT (bring your own issuer).** If you already run an
 OIDC-compatible issuer (Keycloak, Auth0, AgentLair, or a custom JWKS server),
