@@ -297,13 +297,21 @@ export default function IdentitiesPage() {
   }, [unidentifiedControls.rows]);
 
   const handleCleanupTestAgents = async () => {
-    if (!window.confirm(`Delete ${syntheticCount} test agents and ALL their recorded actions? The decisions ledger totals will shrink. This cannot be undone.`)) return;
+    const confirmMsg = `Delete all test-agent data org-wide? This removes actions from agents matching the test patterns (smoke-*, loadtest-*, bench-agent-*, test-*, ...) AND any smoke.*/loadtest.*/liveproof.* actions recorded by real agents — ${syntheticCount} unidentified test agents are currently visible. The decisions ledger totals will shrink. This cannot be undone.`;
+    if (!window.confirm(confirmMsg)) return;
     setCleaning(true);
     try {
       const res = await fetch('/api/actions?synthetic=true', { method: 'DELETE' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setError(data.error || 'Cleanup failed'); return; }
-      showSuccess(`Deleted ${data.deleted} test-agent actions. Roster refreshed.`);
+      const traceTotal = data.traces
+        ? (data.traces.presence || 0) + (data.traces.goals || 0) + (data.traces.decisions || 0)
+        : 0;
+      showSuccess(
+        data.traces
+          ? `Deleted ${data.deleted} test-agent actions and ${traceTotal} agent traces. Roster refreshed.`
+          : `Deleted ${data.deleted} test-agent actions. Roster refreshed.`
+      );
       await fetchAll();
     } catch { setError('Cleanup failed'); }
     finally { setCleaning(false); }
@@ -344,10 +352,27 @@ export default function IdentitiesPage() {
   const selection = useSelection<Identity>(identitiesControls.rows, (identity) => identity.agent_id);
   useSelectAllHotkey(selection.toggleAll);
 
+  // Same visibility-scoping rule as unidentifiedSelection above: the approved
+  // list is now searchable/filterable, so a selected id can fall out of view
+  // (search narrows, filter changes) without leaving the selection. Prune it
+  // there so the count shown next to Revoke always matches what's visible.
+  useEffect(() => {
+    const visibleIds = new Set(identitiesControls.rows.map((identity) => identity.agent_id));
+    const pruned = selection.selectedIds.filter((id) => visibleIds.has(id));
+    if (pruned.length !== selection.selectedIds.length) {
+      selection.setSelected(pruned);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identitiesControls.rows]);
+
   const handleBulkRevoke = async () => {
-    if (selection.count === 0) return;
-    if (typeof window !== 'undefined' && !window.confirm(`Revoke ${selection.count} identity(s)? This cannot be undone.`)) return;
-    await bulkAction(selection.selectedIds, (id) => fetch(`/api/identities/${encodeURIComponent(id)}`, { method: 'DELETE' }));
+    // Defensive re-scope to currently-visible ids: never let a destructive
+    // revoke trust a selection snapshot that could include a hidden/stale id.
+    const visibleIds = new Set(identitiesControls.rows.map((identity) => identity.agent_id));
+    const ids = selection.selectedIds.filter((id) => visibleIds.has(id));
+    if (ids.length === 0) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Revoke ${ids.length} identity(s)? This cannot be undone.`)) return;
+    await bulkAction(ids, (id) => fetch(`/api/identities/${encodeURIComponent(id)}`, { method: 'DELETE' }));
     await fetchAll();
     selection.clear();
   };

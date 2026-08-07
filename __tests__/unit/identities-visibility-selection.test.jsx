@@ -136,4 +136,67 @@ describe('/identities unidentified-agents visibility + selection scoping', () =>
       expect(screen.getByText('1 selected')).toBeTruthy();
     });
   });
+
+  // REGRESSION (C2, final-fix wave): the approved-identities list is
+  // searchable, but `selection` (unlike `unidentifiedSelection`) had no
+  // pruning effect and handleBulkRevoke trusted the raw selectedIds — a
+  // search-hidden identity that was selected before narrowing the search
+  // would still be revoked. Both the pruning effect and the call-time
+  // intersection with visible rows must hold this shut.
+  it('a search-hidden approved identity is not revoked by bulk revoke (finding C2)', async () => {
+    const REAL_IDENTITY = { agent_id: 'prod-identity-1', agent_name: null, permission_level: 'readonly', created_at: null };
+    const HIDDEN_IDENTITY = { agent_id: 'test-identity-1', agent_name: null, permission_level: 'readonly', created_at: null };
+    const deletedIds = [];
+    global.fetch = vi.fn(async (url, opts = {}) => {
+      const u = String(url);
+      const method = opts.method || 'GET';
+      if (u.startsWith('/api/pairings?')) {
+        return { ok: true, status: 200, json: async () => ({ pairings: [] }) };
+      }
+      if (u.startsWith('/api/identities/') && method === 'DELETE') {
+        deletedIds.push(decodeURIComponent(u.split('/api/identities/')[1]));
+        return { ok: true, status: 200, json: async () => ({}) };
+      }
+      if (u.startsWith('/api/identities')) {
+        return { ok: true, status: 200, json: async () => ({ identities: [REAL_IDENTITY, HIDDEN_IDENTITY] }) };
+      }
+      if (u.startsWith('/api/settings')) {
+        return { ok: true, status: 200, json: async () => ({ settings: [] }) };
+      }
+      if (u.startsWith('/api/agents')) {
+        return { ok: true, status: 200, json: async () => ({ agents: [] }) };
+      }
+      if (u.startsWith('/api/messages')) {
+        return { ok: true, status: 200, json: async () => ({ messages: [] }) };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    const { default: Page } = await import('../../app/identities/page.jsx');
+    render(<Page />);
+
+    await screen.findByRole('heading', { name: 'Approved Identities' });
+
+    fireEvent.click(screen.getByLabelText('Select prod-identity-1'));
+    fireEvent.click(screen.getByLabelText('Select test-identity-1'));
+    await screen.findByText('2 selected');
+
+    // Narrow the visible list to just the real identity via search.
+    fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'prod-identity' } });
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Select test-identity-1')).toBeNull();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('1 selected')).toBeTruthy();
+    });
+
+    const bulkBar = screen.getByRole('region', { name: 'Bulk actions' });
+    fireEvent.click(within(bulkBar).getByRole('button', { name: 'Revoke' }));
+
+    await waitFor(() => {
+      expect(deletedIds).toContain('prod-identity-1');
+    });
+    expect(deletedIds).not.toContain('test-identity-1');
+  });
 });

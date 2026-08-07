@@ -46,6 +46,11 @@ export default function PolicyWorkbench() {
   const [error, setError] = useState(false);
   const [refreshSignal, setRefreshSignal] = useState(0);
   const [inboxCount, setInboxCount] = useState(0);
+  // The top action row calls into Ledger's modals, which live inside the
+  // collapsible ledger section. If that section is collapsed (persisted in
+  // localStorage), the click would silently no-op behind a hidden div —
+  // force the section open the moment any of those actions fires.
+  const [forceLedgerOpen, setForceLedgerOpen] = useState(false);
 
   const ledgerActions = useRef<LedgerActions | null>(null);
 
@@ -104,19 +109,19 @@ export default function PolicyWorkbench() {
     <div className={styles.shell}>
       {/* Top action row — the four previously-buried authoring verbs + create. */}
       <div className={styles.topActions}>
-        <button type="button" className={styles.btn} onClick={() => ledgerActions.current?.openImport()}>
+        <button type="button" className={styles.btn} onClick={() => { setForceLedgerOpen(true); ledgerActions.current?.openImport(); }}>
           <Upload size={15} />Import pack / YAML
         </button>
-        <button type="button" className={styles.btn} onClick={() => ledgerActions.current?.openGenerate()}>
+        <button type="button" className={styles.btn} onClick={() => { setForceLedgerOpen(true); ledgerActions.current?.openGenerate(); }}>
           <Sparkles size={15} />Generate with AI
         </button>
-        <button type="button" className={styles.btn} onClick={() => ledgerActions.current?.runTests()}>
+        <button type="button" className={styles.btn} onClick={() => { setForceLedgerOpen(true); ledgerActions.current?.runTests(); }}>
           <CheckCheck size={15} />Test guardrails
         </button>
-        <button type="button" className={styles.btn} onClick={() => ledgerActions.current?.openProof()}>
+        <button type="button" className={styles.btn} onClick={() => { setForceLedgerOpen(true); ledgerActions.current?.openProof(); }}>
           <FileText size={15} />Export proof
         </button>
-        <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => ledgerActions.current?.openNewRule()}>
+        <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => { setForceLedgerOpen(true); ledgerActions.current?.openNewRule(); }}>
           <Plus size={15} />New rule
         </button>
       </div>
@@ -140,7 +145,7 @@ export default function PolicyWorkbench() {
         count={summary.enforcement.total}
         // A `?policy=` deep link must always land on a visible row — never let
         // a persisted collapse hide the section the link is trying to reveal.
-        forceOpen={Boolean(highlightPolicy)}
+        forceOpen={Boolean(highlightPolicy) || forceLedgerOpen}
         // The top action row (Import/Generate/Test/New rule) calls into Ledger
         // via a ref Ledger populates on mount. Unmounting Ledger on collapse
         // would leave that ref stale — clicks would silently no-op instead of

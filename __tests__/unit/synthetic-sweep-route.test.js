@@ -11,13 +11,14 @@ const FIXTURE_TOKEN = 'test-token';
 
 const {
   mockSql, mockTimingSafeCompare, mockListActionIdsByFilter, mockDeleteActionsByIds,
-  mockDeleteSyntheticAgentTraces,
+  mockDeleteSyntheticAgentTraces, mockLogActivityStrict,
 } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockTimingSafeCompare: vi.fn(),
   mockListActionIdsByFilter: vi.fn(),
   mockDeleteActionsByIds: vi.fn(),
   mockDeleteSyntheticAgentTraces: vi.fn(),
+  mockLogActivityStrict: vi.fn(async () => undefined),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
@@ -29,6 +30,7 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
 vi.mock('@/lib/repositories/agents.repository.js', () => ({
   deleteSyntheticAgentTraces: mockDeleteSyntheticAgentTraces,
 }));
+vi.mock('@/lib/audit.js', () => ({ logActivityStrict: mockLogActivityStrict }));
 
 import { GET } from '@/api/cron/synthetic-sweep/route.js';
 
@@ -51,6 +53,7 @@ describe('/api/cron/synthetic-sweep', () => {
     mockListActionIdsByFilter.mockResolvedValue([]);
     mockDeleteActionsByIds.mockResolvedValue([]);
     mockDeleteSyntheticAgentTraces.mockResolvedValue({ presence: 0, goals: 0, decisions: 0 });
+    mockLogActivityStrict.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -122,6 +125,45 @@ describe('/api/cron/synthetic-sweep', () => {
     const expectedCutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
     expect(mockDeleteSyntheticAgentTraces).toHaveBeenCalledWith(mockSql, 'org_default', { before: expectedCutoff });
     vi.useRealTimers();
+  });
+
+  it('writes an audit row before deleting any action rows (write-ahead)', async () => {
+    mockTimingSafeCompare.mockReturnValue(true);
+    mockListActionIdsByFilter.mockResolvedValue(['act_1', 'act_2']);
+    mockDeleteActionsByIds.mockResolvedValue([{ action_id: 'act_1' }, { action_id: 'act_2' }]);
+
+    const res = await GET(req({ authorization: `Bearer ${FIXTURE_TOKEN}` }));
+
+    expect(res.status).toBe(200);
+    expect(mockLogActivityStrict).toHaveBeenCalledTimes(1);
+    expect(mockLogActivityStrict).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: 'org_default',
+        actorId: 'cron:synthetic-sweep',
+        action: 'synthetic.sweep',
+        details: expect.objectContaining({
+          deleted_count: 2,
+          action_ids: ['act_1', 'act_2'],
+          filter: expect.objectContaining({ synthetic: true, org: 'org_default' }),
+        }),
+      }),
+      mockSql,
+    );
+    expect(mockLogActivityStrict.mock.invocationCallOrder[0]).toBeLessThan(
+      mockDeleteActionsByIds.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('fails closed with a 500 and deletes nothing when the audit write rejects', async () => {
+    mockTimingSafeCompare.mockReturnValue(true);
+    mockListActionIdsByFilter.mockResolvedValue(['act_1', 'act_2']);
+    mockLogActivityStrict.mockRejectedValueOnce(new Error('audit insert failed'));
+
+    const res = await GET(req({ authorization: `Bearer ${FIXTURE_TOKEN}` }));
+
+    expect(res.status).toBe(500);
+    expect(mockDeleteActionsByIds).not.toHaveBeenCalled();
+    expect(mockDeleteSyntheticAgentTraces).not.toHaveBeenCalled();
   });
 
   it('honors DASHCLAW_SYNTHETIC_RETENTION_DAYS and DASHCLAW_SYNTHETIC_SWEEP_ORG overrides', async () => {

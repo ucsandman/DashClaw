@@ -7,6 +7,7 @@ import { getSql } from '../../../lib/db';
 import { timingSafeCompare } from '../../../lib/timing-safe';
 import { listActionIdsByFilter, deleteActionsByIds } from '../../../lib/repositories/actions.repository';
 import { deleteSyntheticAgentTraces } from '../../../lib/repositories/agents.repository';
+import { logActivityStrict } from '../../../lib/audit';
 
 /**
  * GET /api/cron/synthetic-sweep — retention GC for test traffic.
@@ -35,6 +36,29 @@ export async function GET(request: Request) {
     const org = process.env.DASHCLAW_SYNTHETIC_SWEEP_ORG || 'org_default';
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
     const targetIds = await listActionIdsByFilter(sql, org, { synthetic: true, before: cutoff });
+
+    // Same write-ahead-audit contract as the manual /api/actions DELETE path
+    // (see auditDeletion there): the cron sweep erases governed-action rows
+    // unattended, so the erasure record must land BEFORE any row is deleted,
+    // and a failed audit write must fail the whole sweep closed — otherwise
+    // a scheduled job could silently wipe ledger history with no trace.
+    // There's no human requester here, so the actor is the cron job itself
+    // and `request` is the actual inbound cron-trigger request (honest IP
+    // extraction, not a fabricated user).
+    await logActivityStrict({
+      orgId: org,
+      actorId: 'cron:synthetic-sweep',
+      actorType: 'system',
+      action: 'synthetic.sweep',
+      resourceType: 'action',
+      details: {
+        deleted_count: targetIds.length,
+        action_ids: targetIds.slice(0, 100),
+        filter: { synthetic: true, before: cutoff, org },
+      },
+      request,
+    }, sql);
+
     let deleted = 0;
     for (let i = 0; i < targetIds.length; i += 10_000) {
       deleted += (await deleteActionsByIds(sql, org, targetIds.slice(i, i + 10_000))).length;
