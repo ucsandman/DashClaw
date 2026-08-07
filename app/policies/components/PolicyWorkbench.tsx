@@ -141,6 +141,12 @@ export default function PolicyWorkbench() {
         // A `?policy=` deep link must always land on a visible row — never let
         // a persisted collapse hide the section the link is trying to reveal.
         forceOpen={Boolean(highlightPolicy)}
+        // The top action row (Import/Generate/Test/New rule) calls into Ledger
+        // via a ref Ledger populates on mount. Unmounting Ledger on collapse
+        // would leave that ref stale — clicks would silently no-op instead of
+        // opening their modal. Keep it mounted (hidden, not removed) so those
+        // refs stay live no matter the section's open state.
+        keepMounted
       >
         <Ledger
           summary={summary}

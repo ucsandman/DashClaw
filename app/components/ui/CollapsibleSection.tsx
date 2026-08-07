@@ -32,6 +32,17 @@ export interface CollapsibleSectionProps {
    * only overrides what gets *rendered*.
    */
   forceOpen?: boolean;
+  /**
+   * When true, `controls` and `children` stay mounted while the section is
+   * collapsed — hidden via the `hidden` attribute instead of being removed
+   * from the tree. Use this when the collapsed content owns state or refs
+   * that other parts of the page depend on staying alive (e.g. a ref an
+   * outer toolbar calls into) — the default (false) unmounts on collapse,
+   * which is right for most lists (search/sort/selection state resets
+   * cleanly on reopen) but wrong when something outside the section holds
+   * a live reference into it.
+   */
+  keepMounted?: boolean;
   children: React.ReactNode;
 }
 
@@ -48,6 +59,7 @@ export function CollapsibleSection({
   controls,
   defaultOpen = true,
   forceOpen = false,
+  keepMounted = false,
   children,
 }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
@@ -103,11 +115,18 @@ export function CollapsibleSection({
         )}
       </div>
 
-      {isOpen && (
-        <>
+      {keepMounted ? (
+        <div hidden={!isOpen}>
           {controls}
           {children}
-        </>
+        </div>
+      ) : (
+        isOpen && (
+          <>
+            {controls}
+            {children}
+          </>
+        )
       )}
     </div>
   );

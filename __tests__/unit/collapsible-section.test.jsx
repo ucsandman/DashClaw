@@ -65,6 +65,31 @@ describe('CollapsibleSection', () => {
     expect(localStorage.getItem('dashclaw.section.test-section')).toBe('0');
   });
 
+  it('keepMounted keeps children in the DOM (hidden) while collapsed', () => {
+    render(
+      <CollapsibleSection id="test-section" title="Pending Pairings" defaultOpen={false} keepMounted>
+        <div>section content</div>
+      </CollapsibleSection>
+    );
+
+    // Present in the DOM (a live ref into it stays valid)...
+    const content = screen.getByText('section content');
+    expect(content).toBeTruthy();
+    // ...but hidden, via the wrapper's `hidden` attribute.
+    expect(content.closest('[hidden]')).not.toBeNull();
+    expect(screen.getByRole('button', { name: /Pending Pairings/ }).getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('without keepMounted, children are removed from the DOM while collapsed (default behavior unchanged)', () => {
+    render(
+      <CollapsibleSection id="test-section" title="Pending Pairings" defaultOpen={false}>
+        <div>section content</div>
+      </CollapsibleSection>
+    );
+
+    expect(screen.queryByText('section content')).toBeNull();
+  });
+
   it('keeps actions clickable without toggling the section', () => {
     let actionClicks = 0;
     render(
