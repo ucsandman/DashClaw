@@ -7,10 +7,14 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { StatCompact } from '../components/ui/Stat';
 import { EmptyState } from '../components/ui/EmptyState';
+import { CollapsibleSection } from '../components/ui/CollapsibleSection';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
 import { isDemoMode } from '../lib/isDemoMode';
+import { isSyntheticAgentId } from '../lib/synthetic-agents';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { useListControls, type ListColumn } from '../lib/useListControls';
+import { ListControlsBar } from '../components/ListControlsBar';
 import { SelectCheckbox } from '../components/selection/SelectCheckbox';
 import { BulkActionBar } from '../components/selection/BulkActionBar';
 import { bulkAction } from '../lib/bulkAction';
@@ -85,6 +89,8 @@ export default function IdentitiesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [showTestAgents, setShowTestAgents] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
 
   // Per-row state
   const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -98,7 +104,7 @@ export default function IdentitiesPage() {
         fetch('/api/pairings?status=pending&limit=200'),
         fetch('/api/identities'),
         fetch('/api/settings?key=ENFORCE_AGENT_SIGNATURES'),
-        fetch('/api/agents'),
+        fetch('/api/agents?include_synthetic=true'),
         // Previously-sent pairing requests (dashboard outbox) so requested
         // state survives reloads.
         fetch('/api/messages?agent_id=dashboard&direction=sent&type=action&limit=200'),
@@ -255,7 +261,47 @@ export default function IdentitiesPage() {
     }
   };
 
-  const unidentifiedSelection = useSelection<UnidentifiedAgent>(unidentified, (a) => a.agent_id);
+  // Synthetic (test-agent) traffic is hidden by default on this page; the
+  // toggle below reveals it for cleanup without changing the "unidentified"
+  // count used to gate the section itself (see Step 4's render condition).
+  const syntheticCount = unidentified.filter((a) => isSyntheticAgentId(a.agent_id)).length;
+  const visibleUnidentified = showTestAgents ? unidentified : unidentified.filter((a) => !isSyntheticAgentId(a.agent_id));
+
+  const unidentifiedColumns: ListColumn<UnidentifiedAgent>[] = [
+    { key: 'agent', label: 'Agent', accessor: (a) => a.agent_name || a.agent_id, sortable: true },
+    { key: 'actions', label: 'Actions', accessor: (a) => a.action_count, sortable: true },
+    { key: 'last_active', label: 'Last active', accessor: (a) => a.last_active, sortable: true },
+  ];
+  const unidentifiedControls = useListControls(visibleUnidentified, unidentifiedColumns, { defaultSortKey: 'actions', defaultSortDir: 'desc' });
+
+  // Selection is built over the control-processed (filtered/sorted) rows so
+  // "select all" only selects what's currently visible.
+  const unidentifiedSelection = useSelection<UnidentifiedAgent>(unidentifiedControls.rows, (a) => a.agent_id);
+
+  const handleCleanupTestAgents = async () => {
+    if (!window.confirm(`Delete ${syntheticCount} test agents and ALL their recorded actions? The decisions ledger totals will shrink. This cannot be undone.`)) return;
+    setCleaning(true);
+    try {
+      const res = await fetch('/api/actions?synthetic=true', { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error || 'Cleanup failed'); return; }
+      showSuccess(`Deleted ${data.deleted} test-agent actions. Roster refreshed.`);
+      await fetchAll();
+    } catch { setError('Cleanup failed'); }
+    finally { setCleaning(false); }
+  };
+
+  const handleBulkDeleteAgents = async () => {
+    const ids = unidentifiedSelection.selectedIds;
+    if (ids.length === 0) return;
+    if (!window.confirm(`Delete ${ids.length} agent(s) and ALL their recorded actions? This cannot be undone.`)) return;
+    const res = await fetch(`/api/actions?agent_ids=${encodeURIComponent(ids.join(','))}`, { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { setError(data.error || 'Delete failed'); return; }
+    showSuccess(`Deleted ${data.deleted} actions across ${ids.length} agent(s).`);
+    unidentifiedSelection.clear();
+    await fetchAll();
+  };
 
   const handleBulkRequestPairing = async () => {
     if (unidentifiedSelection.count === 0) return;
@@ -266,7 +312,14 @@ export default function IdentitiesPage() {
     unidentifiedSelection.clear();
   };
 
-  const selection = useSelection<Identity>(identities, (identity) => identity.agent_id);
+  const identitiesColumns: ListColumn<Identity>[] = [
+    { key: 'agent', label: 'Agent', accessor: (i) => i.agent_name || i.agent_id, sortable: true },
+    { key: 'permission', label: 'Permission', accessor: (i) => i.permission_level, filterable: true },
+    { key: 'enrolled', label: 'Enrolled', accessor: (i) => i.created_at, sortable: true },
+  ];
+  const identitiesControls = useListControls(identities, identitiesColumns);
+
+  const selection = useSelection<Identity>(identitiesControls.rows, (identity) => identity.agent_id);
   useSelectAllHotkey(selection.toggleAll);
 
   const handleBulkRevoke = async () => {
@@ -359,7 +412,7 @@ export default function IdentitiesPage() {
         </Card>
         <Card hover={false}>
           <CardContent className="pt-4 pb-4">
-            <StatCompact label="Unidentified Agents" value={unidentified.length} color={unidentified.length > 0 ? 'text-warning' : 'text-secondary'} />
+            <StatCompact label="Unidentified Agents" value={visibleUnidentified.length} color={visibleUnidentified.length > 0 ? 'text-warning' : 'text-secondary'} />
           </CardContent>
         </Card>
         <Card hover={false}>
@@ -380,81 +433,119 @@ export default function IdentitiesPage() {
 
       {/* Unidentified agents — the coverage gap to drive to zero. */}
       {unidentified.length > 0 && (
-        <div className="mb-6" data-testid="unidentified-section">
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <SelectCheckbox
-              checked={unidentifiedSelection.allSelected}
-              onToggle={() => unidentifiedSelection.toggleAll()}
-              label="Select all unidentified agents"
-            />
-            <UserX size={16} className="text-warning" />
-            <h2 className="text-sm font-medium text-secondary">Unidentified Agents</h2>
-            <Badge variant="warning" size="xs">{unidentified.length}</Badge>
-            <BulkActionBar
-              count={unidentifiedSelection.count}
-              actions={[{ id: 'request-pairing', label: 'Request pairing', icon: Send, onClick: handleBulkRequestPairing }]}
-              onClear={unidentifiedSelection.clear}
-            />
-          </div>
-          <Card hover={false}>
-            <div className="divide-y divide-white/[0.04]">
-              {unidentified.map((agent) => {
-                const requested = requestedIds.has(agent.agent_id);
-                const requesting = requestingIds.has(agent.agent_id);
-                return (
-                  <div key={agent.agent_id} data-entity-type="agent" data-entity-id={agent.agent_id} className="px-5 py-3 flex items-center gap-4">
-                    <SelectCheckbox
-                      checked={unidentifiedSelection.isSelected(agent.agent_id)}
-                      onToggle={() => unidentifiedSelection.toggle(agent.agent_id)}
-                      label={`Select ${agent.agent_id}`}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-secondary truncate">{agent.agent_name || agent.agent_id}</span>
-                        {agent.agent_name && (
-                          <code className="text-[10px] font-mono text-tertiary truncate">{agent.agent_id}</code>
-                        )}
+        <CollapsibleSection
+          id="identities.unidentified"
+          title="Unidentified Agents"
+          icon={UserX}
+          iconClassName="text-warning"
+          count={unidentified.length}
+          badgeVariant="warning"
+          controls={<ListControlsBar columns={unidentifiedColumns} controls={unidentifiedControls} searchPlaceholder="Search agents…" />}
+          actions={
+            <>
+              <SelectCheckbox
+                checked={unidentifiedSelection.allSelected}
+                onToggle={() => unidentifiedSelection.toggleAll()}
+                label="Select all unidentified agents"
+              />
+              <BulkActionBar
+                count={unidentifiedSelection.count}
+                actions={[
+                  { id: 'request-pairing', label: 'Request pairing', icon: Send, onClick: handleBulkRequestPairing },
+                  { id: 'delete', label: 'Delete', icon: Trash2, danger: true, onClick: handleBulkDeleteAgents },
+                ]}
+                onClear={unidentifiedSelection.clear}
+              />
+              {isAdmin && syntheticCount > 0 && !demo && (
+                <button
+                  type="button"
+                  onClick={handleCleanupTestAgents}
+                  disabled={cleaning}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-error/30 px-2.5 py-1 text-xs text-error transition-colors hover:bg-error-subtle disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Trash2 size={13} aria-hidden="true" />
+                  {cleaning ? 'Cleaning…' : `Clean up test agents (${syntheticCount})`}
+                </button>
+              )}
+              {syntheticCount > 0 && (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showTestAgents}
+                  onClick={() => setShowTestAgents((v) => !v)}
+                  className={[
+                    'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors',
+                    showTestAgents
+                      ? 'border-brand/40 bg-brand/10 text-brand'
+                      : 'border-border text-tertiary hover:border-border-hover hover:text-white',
+                  ].join(' ')}
+                >
+                  Show test agents
+                </button>
+              )}
+            </>
+          }
+        >
+          <div data-testid="unidentified-section">
+            <Card hover={false}>
+              <div className="divide-y divide-white/[0.04]">
+                {unidentifiedControls.rows.map((agent) => {
+                  const requested = requestedIds.has(agent.agent_id);
+                  const requesting = requestingIds.has(agent.agent_id);
+                  return (
+                    <div key={agent.agent_id} data-entity-type="agent" data-entity-id={agent.agent_id} className="px-5 py-3 flex items-center gap-4">
+                      <SelectCheckbox
+                        checked={unidentifiedSelection.isSelected(agent.agent_id)}
+                        onToggle={() => unidentifiedSelection.toggle(agent.agent_id)}
+                        label={`Select ${agent.agent_id}`}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-secondary truncate">{agent.agent_name || agent.agent_id}</span>
+                          {agent.agent_name && (
+                            <code className="text-[10px] font-mono text-tertiary truncate">{agent.agent_id}</code>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5 text-[10px] text-disabled tabular-nums">
+                          <span>{agent.action_count} actions</span>
+                          {agent.last_active && <span>Last active {formatDate(agent.last_active)}</span>}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 mt-0.5 text-[10px] text-disabled tabular-nums">
-                        <span>{agent.action_count} actions</span>
-                        {agent.last_active && <span>Last active {formatDate(agent.last_active)}</span>}
-                      </div>
+                      {requested ? (
+                        <span className="flex items-center gap-1.5 text-[11px] text-tertiary" title="Delivered to the agent's inbox; it pairs next time it runs with DashClaw attached.">
+                          <CheckCircle size={12} aria-hidden="true" /> Requested
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleRequestPairing(agent.agent_id)}
+                          disabled={requesting}
+                          className="flex items-center gap-1.5 rounded-lg border border-brand/20 bg-brand/10 px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:border-brand/40 hover:bg-brand/15 disabled:opacity-50"
+                        >
+                          <Send size={11} aria-hidden="true" /> {requesting ? 'Requesting…' : 'Request pairing'}
+                        </button>
+                      )}
                     </div>
-                    {requested ? (
-                      <span className="flex items-center gap-1.5 text-[11px] text-tertiary" title="Delivered to the agent's inbox; it pairs next time it runs with DashClaw attached.">
-                        <CheckCircle size={12} aria-hidden="true" /> Requested
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => handleRequestPairing(agent.agent_id)}
-                        disabled={requesting}
-                        className="flex items-center gap-1.5 rounded-lg border border-brand/20 bg-brand/10 px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:border-brand/40 hover:bg-brand/15 disabled:opacity-50"
-                      >
-                        <Send size={11} aria-hidden="true" /> {requesting ? 'Requesting…' : 'Request pairing'}
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-          <p className="mt-2 text-[11px] text-tertiary">
-            Requests ride the agent inbox: each agent sees its request the next time it runs with DashClaw attached
-            (MCP <code className="font-mono">dashclaw_pair</code>, Node <code className="font-mono">claw.createPairing()</code>, Python <code className="font-mono">claw.create_pairing()</code>).
-          </p>
-        </div>
+                  );
+                })}
+              </div>
+            </Card>
+            <p className="mt-2 text-[11px] text-tertiary">
+              Requests ride the agent inbox: each agent sees its request the next time it runs with DashClaw attached
+              (MCP <code className="font-mono">dashclaw_pair</code>, Node <code className="font-mono">claw.createPairing()</code>, Python <code className="font-mono">claw.create_pairing()</code>).
+            </p>
+          </div>
+        </CollapsibleSection>
       )}
 
       {/* Pending Pairings */}
-      <div className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <Clock size={16} className="text-warning" />
-          <h2 className="text-sm font-medium text-secondary">Pending Pairings</h2>
-          {pendingPairings.length > 0 && (
-            <Badge variant="warning" size="xs">{pendingPairings.length}</Badge>
-          )}
-        </div>
-
+      <CollapsibleSection
+        id="identities.pending"
+        title="Pending Pairings"
+        icon={Clock}
+        iconClassName="text-warning"
+        count={pendingPairings.length}
+        badgeVariant="warning"
+      >
         {pendingPairings.length === 0 ? (
           <Card hover={false}>
             <CardContent className="pt-4">
@@ -531,25 +622,27 @@ export default function IdentitiesPage() {
             </div>
           </Card>
         )}
-      </div>
+      </CollapsibleSection>
 
       {/* Approved Identities */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          {identities.length > 0 && (
+      <CollapsibleSection
+        id="identities.approved"
+        title="Approved Identities"
+        icon={Shield}
+        iconClassName="text-success"
+        count={identities.length}
+        badgeVariant="success"
+        controls={identities.length > 0 ? <ListControlsBar columns={identitiesColumns} controls={identitiesControls} searchPlaceholder="Search identities…" /> : undefined}
+        actions={
+          identities.length > 0 ? (
             <SelectCheckbox
               checked={selection.allSelected}
               onToggle={() => selection.toggleAll()}
               label="Select all"
             />
-          )}
-          <Shield size={16} className="text-success" />
-          <h2 className="text-sm font-medium text-secondary">Approved Identities</h2>
-          {identities.length > 0 && (
-            <Badge variant="success" size="xs">{identities.length}</Badge>
-          )}
-        </div>
-
+          ) : undefined
+        }
+      >
         {identities.length === 0 ? (
           <Card hover={false}>
             <CardContent className="pt-4">
@@ -563,7 +656,7 @@ export default function IdentitiesPage() {
         ) : (
           <Card hover={false}>
             <div className="divide-y divide-white/[0.04]">
-              {identities.map((identity) => {
+              {identitiesControls.rows.map((identity) => {
                 const isConfirmingRevoke = revokingId === identity.agent_id;
                 const permLevel = identity.permission_level || 'readonly';
 
@@ -635,7 +728,7 @@ export default function IdentitiesPage() {
             </div>
           </Card>
         )}
-      </div>
+      </CollapsibleSection>
     </PageLayout>
   );
 }
