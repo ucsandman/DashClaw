@@ -80,6 +80,30 @@ security tab hides new signal; an honestly-zeroed one surfaces it.
 Gates for the sweep: lint, typecheck, 3,697 vitest, next build,
 mcp-server typecheck+build+75 tests, cli 182 tests — all green.
 
+The session's third thread: Wes asked what's next, and the answer was
+the only open issue — #146, the June distribution playbook. Re-verified
+every Phase 1 channel against live state and found the notes stale in
+the good direction: the MCP Registry is current (3.1.0, healed every
+ship by `release:mcp`), Glama lists us at A/A on its own, PulseMCP
+carries the official listing, topics and keywords were already in
+place. Phase 1 was complete without a single new action — the June plan
+didn't know about the machinery July built. What remained: the
+punkpeye/awesome-mcp-servers PR turned out to already exist (#9313,
+open since Jul 5) — refreshed it to the list's current entry format
+under its agent fast-track marker. One decision recorded on the issue:
+the SDKs do not get `mcp` keywords they haven't earned. The three
+human-only surfaces (awesome-claude-code's form, mcp.so's bot-blocked
+form, Smithery auth) are staged on the issue as click-by-click for Wes.
+Also cleared the PR queue — three Dependabot PRs superseded by
+yesterday's direct fixes closed, two green weekly bumps merged.
+
+A dogfood note worth keeping: mid-session, DashClaw's own guard blocked
+my `git reset --hard` at risk 100 under the mass-destructive policy.
+It was right that the command was unnecessary — a fresh fork is already
+at upstream HEAD — so the block cost nothing and the lane self-corrected.
+The product governing its own maintainer remains the best test bench it
+has.
+
 ## 2026-08-06 — silence becomes a signal (v5.10.0)
 
 **Shipped:** `v5.10.0` — the silent-lane witness posture, closing the day's
