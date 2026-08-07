@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Upload, Sparkles, CheckCheck, FileText, Plus } from 'lucide-react';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { CollapsibleSection } from '../../components/ui/CollapsibleSection';
 import { fetchSummary, type PolicySummary } from '../lib/modesClient';
 import { fetchContract, type ContractView } from '../lib/contractClient';
 import PostureHero from './PostureHero';
@@ -126,25 +127,31 @@ export default function PolicyWorkbench() {
 
       <PresetsShields summary={summary} onChanged={refresh} />
 
-      <div className={styles.secHead}>
-        <div className={styles.lhs}>
-          <h2>The ledger</h2>
-          <span className={`${styles.countPill} ${styles.tnum}`}>{summary.enforcement.total} rules</span>
-          <span className={styles.secHelp}>
-            Every rule, whatever its source, in one place. Switch the lens to read it as a table, sentences, or grouped.
-          </span>
-        </div>
-      </div>
-
-      <Ledger
-        summary={summary}
-        contract={contract}
-        highlightPolicy={highlightPolicy}
-        prefill={prefill}
-        refreshSignal={refreshSignal}
-        onChanged={refresh}
-        registerActions={(a) => { ledgerActions.current = a; }}
-      />
+      <CollapsibleSection
+        id="policies.ledger"
+        title={
+          <>
+            The ledger
+            <span className={styles.secHelp} style={{ marginLeft: 10, fontWeight: 400 }}>
+              Every rule, whatever its source, in one place. Switch the lens to read it as a table, sentences, or grouped.
+            </span>
+          </>
+        }
+        count={summary.enforcement.total}
+        // A `?policy=` deep link must always land on a visible row — never let
+        // a persisted collapse hide the section the link is trying to reveal.
+        forceOpen={Boolean(highlightPolicy)}
+      >
+        <Ledger
+          summary={summary}
+          contract={contract}
+          highlightPolicy={highlightPolicy}
+          prefill={prefill}
+          refreshSignal={refreshSignal}
+          onChanged={refresh}
+          registerActions={(a) => { ledgerActions.current = a; }}
+        />
+      </CollapsibleSection>
 
       <GlossaryStrip />
     </div>

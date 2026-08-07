@@ -23,6 +23,15 @@ export interface CollapsibleSectionProps {
   controls?: React.ReactNode;
   /** default true */
   defaultOpen?: boolean;
+  /**
+   * When true, renders the section open regardless of the collapsed/stored
+   * state, without writing to localStorage. For deep links that scroll to
+   * content inside a section (e.g. `?policy=` on /policies) — a persisted
+   * collapse must not unmount the target the link is trying to reveal.
+   * The user's manual toggle still works and still persists as normal; this
+   * only overrides what gets *rendered*.
+   */
+  forceOpen?: boolean;
   children: React.ReactNode;
 }
 
@@ -38,9 +47,11 @@ export function CollapsibleSection({
   actions,
   controls,
   defaultOpen = true,
+  forceOpen = false,
   children,
 }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
+  const isOpen = forceOpen || open;
 
   // Hydrate from localStorage after mount only — reading it during render
   // would produce a client/server markup mismatch on first paint.
@@ -71,13 +82,13 @@ export function CollapsibleSection({
       <div className="flex items-center gap-2 mb-3">
         <button
           type="button"
-          aria-expanded={open}
+          aria-expanded={isOpen}
           onClick={toggle}
           className="flex items-center gap-2 flex-1 min-w-0 text-left"
         >
           <ChevronDown
             size={16}
-            className={`text-tertiary transition-transform ${open ? '' : '-rotate-90'}`}
+            className={`text-tertiary transition-transform ${isOpen ? '' : '-rotate-90'}`}
           />
           {Icon && <Icon size={16} className={iconClassName} />}
           <h2 className="text-sm font-medium text-secondary">{title}</h2>
@@ -92,7 +103,7 @@ export function CollapsibleSection({
         )}
       </div>
 
-      {open && (
+      {isOpen && (
         <>
           {controls}
           {children}

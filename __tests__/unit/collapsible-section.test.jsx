@@ -50,6 +50,21 @@ describe('CollapsibleSection', () => {
     expect(screen.queryByText('section content')).toBeNull();
   });
 
+  it('forceOpen renders content even when localStorage holds "0", without writing to localStorage', () => {
+    localStorage.setItem('dashclaw.section.test-section', '0');
+
+    render(
+      <CollapsibleSection id="test-section" title="Pending Pairings" forceOpen>
+        <div>section content</div>
+      </CollapsibleSection>
+    );
+
+    expect(screen.getByText('section content')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Pending Pairings/ }).getAttribute('aria-expanded')).toBe('true');
+    // forceOpen only overrides what renders — it must not itself persist "1".
+    expect(localStorage.getItem('dashclaw.section.test-section')).toBe('0');
+  });
+
   it('keeps actions clickable without toggling the section', () => {
     let actionClicks = 0;
     render(
