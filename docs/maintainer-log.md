@@ -12,6 +12,29 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-06 — the drill earns its keep: fresh installs needed Google Fonts (v5.9.2)
+
+**Shipped:** `v5.9.2` — Inter vendored locally (`app/fonts/`, OFL-1.1,
+`next/font/local`), removing the build-time fetch of
+`fonts.googleapis.com` from every `dashclaw up`.
+
+Found by the v8.3 entry-path drill, run because v5.9.1 touched `cli/**`
+(a gate I initially forgot and ran retroactively — the discipline exists
+for a reason). A factory-fresh Windows Sandbox got through node install
+and `dashclaw up` launch, then hard-failed the Turbopack build fetching
+Inter from Google Fonts: any fresh install on a restricted network could
+not complete. The font import predates months of green drills, so this
+was network weather — but a first-boot path that fails on weather is the
+bug, not the weather. Vendoring the latin variable font (47KB) makes the
+build airgap-safe with no visual change.
+
+Re-drill against the v5.9.2 release: **PASS, all ten steps** — health 200,
+key read, first action 201, catastrophe policies seeded, hooks installed
+in enforce mode. Operational scar tissue for next time: a killed drill
+orphans its sandbox (the one-instance popup), `vmmem` can't be taskkilled,
+and an elevated `Restart-Service CmService` is what actually clears it —
+Wes ran that by hand.
+
 ## 2026-08-06 — a field agent files the first bug report (v5.9.1)
 
 **Shipped:** `v5.9.1` — two fixes found in the wild by MoltFire, an OpenClaw
