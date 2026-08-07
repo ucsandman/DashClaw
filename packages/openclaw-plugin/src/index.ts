@@ -48,6 +48,13 @@ interface PluginConfig {
   autoPairing: boolean;
   riskScoreDefault: number;
   highRiskTools: ReadonlySet<string>;
+  // Bounded human-approval wait. Codex's embedded dynamic-tool RPC enforces a
+  // per-call watchdog (~90s): a longer synchronous wait is killed mid-flight
+  // and the tool result (e.g. an outbound message) is silently dropped, so the
+  // default stays under that ceiling. The server-side approval window
+  // (approval_wait_seconds, 300s) is intentionally longer — see
+  // waitForRequiredApproval for the retry-after-approval path.
+  approvalWaitMs: number;
 }
 
 /**
@@ -93,6 +100,7 @@ function resolveConfig(raw: Record<string, unknown> | undefined): PluginConfig {
   const autoPairing = cfg.autoPairing !== false; // default true
   const riskScoreDefault = numberFromConfig(cfg.riskScoreDefault, 50);
   const highRiskTools = stringSetFromConfig(cfg.highRiskTools);
+  const approvalWaitMs = numberFromConfig(cfg.approvalWaitMs, 60_000, false) || 60_000;
 
   const dashclawUrl = firstString(
     cfg.dashclawUrl,
@@ -120,6 +128,7 @@ function resolveConfig(raw: Record<string, unknown> | undefined): PluginConfig {
     autoPairing,
     riskScoreDefault,
     highRiskTools,
+    approvalWaitMs,
   };
 }
 
@@ -705,7 +714,7 @@ async function openActionRecord(ctx: OpenActionContext): Promise<HookResult> {
   const created = await createGovernanceAction(ctx);
   if ('result' in created) return created.result;
 
-  const approval = await waitForRequiredApproval(ctx.client, ctx.decision, created.value);
+  const approval = await waitForRequiredApproval(ctx, created.value);
   if (approval) return approval;
   rememberPendingAction(ctx.key, created.value.actionId, ctx.runId);
   return;
@@ -747,28 +756,54 @@ async function createGovernanceAction(
 }
 
 async function waitForRequiredApproval(
-  client: DashClaw,
-  decision: GuardDecision,
+  ctx: OpenActionContext,
   created: CreatedAction,
 ): Promise<HookBlockResult | undefined> {
   const needsApproval =
-    decision.decision === 'require_approval' ||
+    ctx.decision.decision === 'require_approval' ||
     created.status === 'pending_approval';
   if (!needsApproval || !created.actionId) return undefined;
 
+  const timeout = ctx.config.approvalWaitMs;
   try {
-    const { action } = await client.waitForApproval(created.actionId);
+    const { action } = await ctx.client.waitForApproval(created.actionId, {
+      timeout,
+      interval: approvalPollInterval(timeout),
+    });
     if (isApproved(action)) return undefined;
     return {
       block: true,
       blockReason: action?.error_message || 'Action denied by operator',
     };
   } catch (err) {
+    if (isApprovalTimeout(err)) {
+      // The server keeps the approval open past this bounded wait
+      // (approval_wait_seconds = 300): the operator can still approve, and a
+      // retry of the same call passes via the guard's approval grant and
+      // createAction's idempotent-retry dedupe instead of opening a duplicate.
+      return {
+        block: true,
+        blockReason:
+          `Approval not received within ${Math.round(timeout / 1000)}s — ` +
+          `action ${created.actionId} is still awaiting the operator. ` +
+          `Approve it at ${ctx.config.dashclawUrl}/approvals, then retry this tool call.`,
+      };
+    }
     return {
       block: true,
       blockReason: `Approval denied or wait failed: ${errorMessage(err) || 'denied'}`,
     };
   }
+}
+
+/** Sample the approval at least ~4 times inside the window; keep the SDK's 5s ceiling. */
+function approvalPollInterval(timeoutMs: number): number {
+  return Math.min(5000, Math.max(50, Math.floor(timeoutMs / 4)));
+}
+
+/** Matches the SDK's approval-timeout error (a plain Error, distinct from denial). */
+function isApprovalTimeout(err: unknown): boolean {
+  return errorMessage(err).startsWith('Timed out waiting for approval');
 }
 
 function rememberPendingAction(

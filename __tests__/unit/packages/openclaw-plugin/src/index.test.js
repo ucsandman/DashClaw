@@ -257,6 +257,50 @@ describe('@dashclaw/openclaw-plugin', () => {
     assert.equal(findCall(calls, '/api/actions/act_approval', 'GET').body, undefined);
   });
 
+  it('bounds the approval wait and blocks with a parked-action reason on timeout', async () => {
+    // The wait must resolve inside the runtime's per-tool-call watchdog
+    // (Codex embedded dynamic-tool RPC kills the call at ~90s). An operator
+    // who never answers must produce a clean block, not a killed RPC.
+    installFetchMock((request) => {
+      if (request.path === '/api/guard') {
+        return { decision: 'require_approval', action_id: 'gd_parked' };
+      }
+      if (request.path === '/api/actions' && request.method === 'POST') {
+        return {
+          action_id: 'act_parked',
+          action: { action_id: 'act_parked', status: 'pending_approval' },
+        };
+      }
+      if (request.path === '/api/actions/act_parked') {
+        // Operator never responds — stays pending forever.
+        return { action: { action_id: 'act_parked', status: 'pending_approval' } };
+      }
+      return defaultFetchHandler(request);
+    });
+    const { api } = await registerPlugin({
+      pluginConfig: { approvalWaitMs: 120 },
+    });
+
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    let result;
+    try {
+      result = await api.emit('before_tool_call', {
+        toolName: 'sessions_send',
+        params: { action: 'send', message: 'hello' },
+        toolCallId: 'call_parked',
+        runId: 'run_parked',
+      });
+    } finally {
+      stdoutWrite.mockRestore();
+    }
+
+    assert.equal(result?.block, true);
+    assert.match(result.blockReason, /act_parked/);
+    assert.match(result.blockReason, /still awaiting the operator/);
+    assert.match(result.blockReason, /https:\/\/dashclaw\.test\/approvals/);
+    assert.doesNotMatch(result.blockReason, /denied/i);
+  });
+
   it('flushes pending token usage and closes the DashClaw session at run end', async () => {
     const calls = installFetchMock();
     const { api } = await registerPlugin({

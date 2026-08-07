@@ -124,6 +124,7 @@ empty because the wait target didn't exist. Fixed in `1.0.1`.
 | `autoPairing` | boolean | `true` | Automatically answer operator pairing requests from the DashClaw `/identities` page. The private key is stored at `~/.dashclaw/identity/<agentId>.pem` and never leaves this machine. Set `false` to require manual pairing (MCP `dashclaw_pair` or SDK `createPairing`). |
 | `riskScoreDefault` | number | `50` | Fallback risk score for tool calls the classifier doesn't recognize. Recognized commands (git, curl, rm, npm, etc.) compute their own risk score automatically. |
 | `highRiskTools` | string[] | `[]` | Tool names that should always start at risk score 85 before classification. The classifier may raise the score further (e.g. `rm -rf` → 90) but will never lower it below 85 for tools in this list. |
+| `approvalWaitMs` | number | `60000` | How long a `require_approval` decision waits for the operator before blocking with a retry hint. Keep it below your runtime's per-tool-call watchdog — Codex's embedded dynamic-tool RPC kills calls at ~90s, which would silently drop the tool result instead of blocking cleanly. The approval stays open ~300s server-side, so the operator can approve after the wait and the agent's retry of the same call passes (guard approval grant + idempotent `createAction`). |
 
 ## Automatic identity pairing
 

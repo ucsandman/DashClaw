@@ -2,7 +2,7 @@
   "id": "dashclaw-governance",
   "name": "DashClaw Governance",
   "description": "Policy enforcement, human-in-the-loop approval, and decision recording for every OpenClaw tool call. Powered by DashClaw.",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "entry": "src/index.ts",
   "main": "./src/index.ts",
   "configSchema": {
@@ -55,6 +55,11 @@
         "items": { "type": "string" },
         "default": [],
         "description": "Tool names that should always get risk_score 80+ (e.g. bash, exec, deploy)"
+      },
+      "approvalWaitMs": {
+        "type": "number",
+        "default": 60000,
+        "description": "How long (ms) a require_approval decision waits for the operator before blocking with a retry hint. Keep below your runtime's per-tool-call watchdog (Codex embedded dynamic-tool RPC kills calls at ~90s). The DashClaw approval stays open ~300s server-side, so approving after the wait and retrying the call still works."
       }
     }
   },
@@ -68,6 +73,7 @@
     "failClosed": { "label": "Fail-closed when DashClaw unreachable", "advanced": true },
     "autoPairing": { "label": "Auto-answer pairing requests", "advanced": true },
     "riskScoreDefault": { "label": "Default risk score", "advanced": true },
-    "highRiskTools": { "label": "High-risk tool names", "advanced": true }
+    "highRiskTools": { "label": "High-risk tool names", "advanced": true },
+    "approvalWaitMs": { "label": "Approval wait (ms)", "advanced": true }
   }
 }

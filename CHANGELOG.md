@@ -13,6 +13,10 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Fixed
+
+- **`@dashclaw/openclaw-plugin` 1.6.1 — bounded approval wait.** Field-found by MoltFire: a `require_approval` decision parked the tool call in `waitForApproval` for up to 300s, but Codex's embedded dynamic-tool RPC watchdog kills the call at ~90s — so a governed Telegram `sessions_send` was silently dropped instead of delivered, even when the operator approved later. The plugin now bounds the wait with a new `approvalWaitMs` config (default 60s, under the watchdog) and on timeout blocks with an actionable reason (action id + `/approvals` link + retry hint). The server-side approval window stays 300s, so approving after the timeout and retrying the same call passes via the guard approval grant and `createAction`'s idempotent-retry dedupe. New unit test covers the never-answered operator path.
+
 ## [5.11.0] — 2026-08-07
 
 **Test-agent cleanup + site-wide list controls — the 729-phantom-agent problem, solved at every layer.** Smoke, load, and bench runs had accumulated ~700 synthetic agents that polluted `/identities`, the global agent dropdown, and the policy picker, and inflated the Decisions ledger. This release removes them with one click, hides them everywhere by default, auto-purges future test traffic, and gives every list page collapsible sections with sort/filter.

@@ -59,6 +59,7 @@ function resolveConfig(raw) {
     const autoPairing = cfg.autoPairing !== false; // default true
     const riskScoreDefault = numberFromConfig(cfg.riskScoreDefault, 50);
     const highRiskTools = stringSetFromConfig(cfg.highRiskTools);
+    const approvalWaitMs = numberFromConfig(cfg.approvalWaitMs, 60_000, false) || 60_000;
     const dashclawUrl = firstString(cfg.dashclawUrl, cfg.baseUrl, env.DASHCLAW_BASE_URL, env.DASHCLAW_URL);
     const dashclawApiKey = firstString(cfg.dashclawApiKey, cfg.apiKey, env.DASHCLAW_API_KEY);
     const agentId = firstString(cfg.agentId, env.DASHCLAW_AGENT_ID) || 'openclaw';
@@ -72,6 +73,7 @@ function resolveConfig(raw) {
         autoPairing,
         riskScoreDefault,
         highRiskTools,
+        approvalWaitMs,
     };
 }
 // ---------------------------------------------------------------------------
@@ -457,7 +459,7 @@ async function openActionRecord(ctx) {
     const created = await createGovernanceAction(ctx);
     if ('result' in created)
         return created.result;
-    const approval = await waitForRequiredApproval(ctx.client, ctx.decision, created.value);
+    const approval = await waitForRequiredApproval(ctx, created.value);
     if (approval)
         return approval;
     rememberPendingAction(ctx.key, created.value.actionId, ctx.runId);
@@ -495,13 +497,17 @@ async function createGovernanceAction(ctx) {
         return { result: undefined };
     }
 }
-async function waitForRequiredApproval(client, decision, created) {
-    const needsApproval = decision.decision === 'require_approval' ||
+async function waitForRequiredApproval(ctx, created) {
+    const needsApproval = ctx.decision.decision === 'require_approval' ||
         created.status === 'pending_approval';
     if (!needsApproval || !created.actionId)
         return undefined;
+    const timeout = ctx.config.approvalWaitMs;
     try {
-        const { action } = await client.waitForApproval(created.actionId);
+        const { action } = await ctx.client.waitForApproval(created.actionId, {
+            timeout,
+            interval: approvalPollInterval(timeout),
+        });
         if (isApproved(action))
             return undefined;
         return {
@@ -510,11 +516,31 @@ async function waitForRequiredApproval(client, decision, created) {
         };
     }
     catch (err) {
+        if (isApprovalTimeout(err)) {
+            // The server keeps the approval open past this bounded wait
+            // (approval_wait_seconds = 300): the operator can still approve, and a
+            // retry of the same call passes via the guard's approval grant and
+            // createAction's idempotent-retry dedupe instead of opening a duplicate.
+            return {
+                block: true,
+                blockReason: `Approval not received within ${Math.round(timeout / 1000)}s — ` +
+                    `action ${created.actionId} is still awaiting the operator. ` +
+                    `Approve it at ${ctx.config.dashclawUrl}/approvals, then retry this tool call.`,
+            };
+        }
         return {
             block: true,
             blockReason: `Approval denied or wait failed: ${errorMessage(err) || 'denied'}`,
         };
     }
+}
+/** Sample the approval at least ~4 times inside the window; keep the SDK's 5s ceiling. */
+function approvalPollInterval(timeoutMs) {
+    return Math.min(5000, Math.max(50, Math.floor(timeoutMs / 4)));
+}
+/** Matches the SDK's approval-timeout error (a plain Error, distinct from denial). */
+function isApprovalTimeout(err) {
+    return errorMessage(err).startsWith('Timed out waiting for approval');
 }
 function rememberPendingAction(key, actionId, runId) {
     if (!actionId)
