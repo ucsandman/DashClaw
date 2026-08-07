@@ -216,8 +216,25 @@ function classifyShellSegment(seg: string): EvidenceClassification {
 function classifyShell(command: string): EvidenceClassification {
   // Pipe-to-shell is destroyed by chain-splitting, so detect it on the whole
   // command first: `curl … | sh` / `wget … | bash` executes remote code.
-  if (/\b(curl|wget)\b[^\n]*\|\s*(sudo\s+)?(sh|bash|zsh|python[0-9]?|node)\b/i.test(command)) {
-    return { derived_action_type: 'security', base_risk: 70, modifiers: [], reversible_hint: false, flags: ['remote_exec'] };
+  // Exemption (2026-08-07 false-positive class): piping fetched bytes into an
+  // INLINE interpreter script (`curl … | python -c "…"`, `… | node -e "…"`)
+  // feeds them to the script as stdin DATA — jq-style processing, not remote
+  // execution — so it falls through to segment classification (a destructive
+  // inline payload still grades 80 via INTERPRETER_DESTRUCTIVE_FULL_RE
+  // below). Shells always execute stdin, a bare interpreter or `python -`
+  // executes stdin, and an inline payload that re-executes stdin
+  // (`exec(`/`eval(`) keeps the remote_exec grade — all of those stay 70.
+  const pipeToInterp = /\b(curl|wget)\b[^\n]*\|\s*(sudo\s+)?(sh|bash|zsh|python[0-9]?|node(?:js)?)\b\s*(\S*)/i.exec(command);
+  if (pipeToInterp) {
+    const interp = (pipeToInterp[3] || '').toLowerCase();
+    const firstArg = pipeToInterp[4] || '';
+    const inlineDataPipe =
+      !/^(sh|bash|zsh)$/.test(interp) &&
+      /^(-c|-e|-p|--eval|--print)$/.test(firstArg) &&
+      !/\b(exec|eval)\s*\(/i.test(command);
+    if (!inlineDataPipe) {
+      return { derived_action_type: 'security', base_risk: 70, modifiers: [], reversible_hint: false, flags: ['remote_exec'] };
+    }
   }
   // Interpreter one-liners are detected pre-split too: the quoted payload
   // legitimately contains `;` (`python -c "import shutil; shutil.rmtree(…)"`),

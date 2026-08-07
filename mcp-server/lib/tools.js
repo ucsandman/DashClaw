@@ -19,8 +19,11 @@ export const TOOL_DEFINITIONS = [
         description: 'Evaluate DashClaw governance policies before taking a risky action. Call this BEFORE ' +
             'any action that modifies external systems, deploys code, sends messages, or touches ' +
             'production data. Returns a decision: "allow" (proceed), "warn" (proceed with caution), ' +
-            '"block" (stop), or "require_approval" (wait for human in the Approvals inbox). If the ' +
-            'decision is "block", do NOT proceed with the action.',
+            '"block" (stop), or "require_approval". This tool only EVALUATES — it creates no ' +
+            'approval request. On "require_approval", call dashclaw_record with status ' +
+            '"pending_approval" to put the action in the human Approvals inbox, then ' +
+            'dashclaw_wait_for_approval with the returned action_id. If the decision is "block", ' +
+            'do NOT proceed with the action.',
         inputSchema: {
             type: 'object',
             properties: {
