@@ -17,7 +17,9 @@ export async function GET(request: Request) {
   try {
     const sql = getSql();
     const orgId = getOrgId(request);
-    const agents = await listAgentsForOrg(sql, orgId);
+    const { searchParams } = new URL(request.url);
+    const includeSynthetic = searchParams.get('include_synthetic') === 'true';
+    const agents = await listAgentsForOrg(sql, orgId, { includeSynthetic });
     return NextResponse.json({ agents, lastUpdated: new Date().toISOString() });
   } catch (error) {
     console.error('Agents API error:', error);

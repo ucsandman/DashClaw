@@ -1,4 +1,5 @@
 import { baseAgentId } from '../agent-identity-resolve';
+import { isSyntheticAgentId } from '../synthetic-agents';
 
 type SqlClient = {
   (s: TemplateStringsArray, ...v: unknown[]): Promise<Record<string, unknown>[]>;
@@ -103,7 +104,8 @@ function maxIso(a: unknown, b: unknown): string | null {
  */
 export async function listAgentsForOrg(
   sql: SqlClient,
-  orgId: string
+  orgId: string,
+  opts: { includeSynthetic?: boolean } = {}
 ): Promise<AgentRecord[]> {
   const byId = new Map<string, AgentRecord>();
 
@@ -300,7 +302,12 @@ export async function listAgentsForOrg(
     if (!isMissingTable(err)) throw err;
   }
 
-  agents.sort((a, b) => {
+  // Test traffic (smoke/loadtest/bench/CI) is hidden from every roster consumer
+  // (identities fleet, global agent dropdown, policy picker) unless explicitly
+  // requested — the registry lives in app/lib/synthetic-agents.js.
+  const visible = opts.includeSynthetic ? agents : agents.filter((a) => !isSyntheticAgentId(a.agent_id));
+
+  visible.sort((a, b) => {
     // Sort online agents to top
     if (a.presence_state === 'online' && b.presence_state !== 'online') return -1;
     if (b.presence_state === 'online' && a.presence_state !== 'online') return 1;
@@ -310,7 +317,7 @@ export async function listAgentsForOrg(
     const bTime = b.last_seen_at || '';
     return String(bTime).localeCompare(String(aTime));
   });
-  return agents;
+  return visible;
 }
 
 interface PresencePayload {
