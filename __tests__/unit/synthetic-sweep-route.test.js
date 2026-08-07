@@ -9,11 +9,15 @@ import { makeRequest } from '../helpers.js';
 // compared — this just needs to be a truthy env var.
 const FIXTURE_TOKEN = 'test-token';
 
-const { mockSql, mockTimingSafeCompare, mockListActionIdsByFilter, mockDeleteActionsByIds } = vi.hoisted(() => ({
+const {
+  mockSql, mockTimingSafeCompare, mockListActionIdsByFilter, mockDeleteActionsByIds,
+  mockDeleteSyntheticAgentTraces,
+} = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockTimingSafeCompare: vi.fn(),
   mockListActionIdsByFilter: vi.fn(),
   mockDeleteActionsByIds: vi.fn(),
+  mockDeleteSyntheticAgentTraces: vi.fn(),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
@@ -21,6 +25,9 @@ vi.mock('@/lib/timing-safe.js', () => ({ timingSafeCompare: mockTimingSafeCompar
 vi.mock('@/lib/repositories/actions.repository.js', () => ({
   listActionIdsByFilter: mockListActionIdsByFilter,
   deleteActionsByIds: mockDeleteActionsByIds,
+}));
+vi.mock('@/lib/repositories/agents.repository.js', () => ({
+  deleteSyntheticAgentTraces: mockDeleteSyntheticAgentTraces,
 }));
 
 import { GET } from '@/api/cron/synthetic-sweep/route.js';
@@ -43,6 +50,7 @@ describe('/api/cron/synthetic-sweep', () => {
     mockTimingSafeCompare.mockReturnValue(false);
     mockListActionIdsByFilter.mockResolvedValue([]);
     mockDeleteActionsByIds.mockResolvedValue([]);
+    mockDeleteSyntheticAgentTraces.mockResolvedValue({ presence: 0, goals: 0, decisions: 0 });
   });
 
   afterEach(() => {
@@ -72,6 +80,7 @@ describe('/api/cron/synthetic-sweep', () => {
     mockTimingSafeCompare.mockReturnValue(true);
     mockListActionIdsByFilter.mockResolvedValue(['act_1', 'act_2']);
     mockDeleteActionsByIds.mockResolvedValue([{ action_id: 'act_1' }, { action_id: 'act_2' }]);
+    mockDeleteSyntheticAgentTraces.mockResolvedValue({ presence: 3, goals: 1, decisions: 0 });
 
     const res = await GET(req({ authorization: `Bearer ${FIXTURE_TOKEN}` }));
     expect(res.status).toBe(200);
@@ -80,6 +89,7 @@ describe('/api/cron/synthetic-sweep', () => {
     expect(data.deleted).toBe(2);
     expect(data.org).toBe('org_default');
     expect(typeof data.cutoff).toBe('string');
+    expect(data.traces).toEqual({ presence: 3, goals: 1, decisions: 0 });
     expect(mockDeleteActionsByIds).toHaveBeenCalledWith(mockSql, 'org_default', ['act_1', 'act_2']);
   });
 
@@ -98,6 +108,19 @@ describe('/api/cron/synthetic-sweep', () => {
     );
     const [, , filter] = mockListActionIdsByFilter.mock.calls[0];
     expect(filter.before).toBe(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString());
+    vi.useRealTimers();
+  });
+
+  it('passes the same before=cutoff to deleteSyntheticAgentTraces', async () => {
+    const now = new Date('2026-08-07T00:00:00.000Z');
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    mockTimingSafeCompare.mockReturnValue(true);
+
+    await GET(req({ authorization: `Bearer ${FIXTURE_TOKEN}` }));
+
+    const expectedCutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    expect(mockDeleteSyntheticAgentTraces).toHaveBeenCalledWith(mockSql, 'org_default', { before: expectedCutoff });
     vi.useRealTimers();
   });
 

@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 import { getSql } from '../../../lib/db';
 import { timingSafeCompare } from '../../../lib/timing-safe';
 import { listActionIdsByFilter, deleteActionsByIds } from '../../../lib/repositories/actions.repository';
+import { deleteSyntheticAgentTraces } from '../../../lib/repositories/agents.repository';
 
 /**
  * GET /api/cron/synthetic-sweep — retention GC for test traffic.
@@ -38,8 +39,9 @@ export async function GET(request: Request) {
     for (let i = 0; i < targetIds.length; i += 10_000) {
       deleted += (await deleteActionsByIds(sql, org, targetIds.slice(i, i + 10_000))).length;
     }
+    const traces = await deleteSyntheticAgentTraces(sql, org, { before: cutoff });
 
-    return NextResponse.json({ ok: true, deleted, cutoff, org });
+    return NextResponse.json({ ok: true, deleted, cutoff, org, traces });
   } catch (err) {
     console.error('[cron/synthetic-sweep] Error:', err);
     return NextResponse.json({ error: 'Sweep failed' }, { status: 500 });

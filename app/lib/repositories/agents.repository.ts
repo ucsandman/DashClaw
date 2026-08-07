@@ -1,5 +1,5 @@
 import { baseAgentId } from '../agent-identity-resolve';
-import { isSyntheticAgentId } from '../synthetic-agents';
+import { isSyntheticAgentId, SYNTHETIC_AGENT_LIKE_PATTERNS } from '../synthetic-agents';
 
 type SqlClient = {
   (s: TemplateStringsArray, ...v: unknown[]): Promise<Record<string, unknown>[]>;
@@ -362,4 +362,107 @@ export async function upsertAgentPresence(
       updated_at = EXCLUDED.updated_at
     RETURNING *
   `;
+}
+
+export interface AgentTraceCounts {
+  presence: number;
+  goals: number;
+  decisions: number;
+}
+
+/**
+ * Delete every trace of synthetic (test/smoke/loadtest/bench) agents from the
+ * three tables listAgentsForOrg derives a roster from beyond action_records:
+ * agent_presence (heartbeats), goals, and decisions. Without this, an agent
+ * with only a heartbeat or an imported goal/decision — and zero recorded
+ * actions — survives `DELETE /api/actions?synthetic=true` (observed live:
+ * 292/655 smoke agents had no action rows but still showed up in the roster).
+ *
+ * opts.before restricts each table to its own timestamp column predating the
+ * cutoff (agent_presence.last_heartbeat_at, goals.created_at,
+ * decisions.timestamp — the last is a legacy TEXT column, hence the cast).
+ * Each table is wrapped independently in isMissingTable try/catch — fresh
+ * schemas may lack one of them.
+ */
+export async function deleteSyntheticAgentTraces(
+  sql: SqlClient,
+  orgId: string,
+  opts: { before?: string | null } = {}
+): Promise<AgentTraceCounts> {
+  const { before } = opts;
+  const counts: AgentTraceCounts = { presence: 0, goals: 0, decisions: 0 };
+
+  try {
+    const params: unknown[] = [orgId, SYNTHETIC_AGENT_LIKE_PATTERNS];
+    let sqlText = `DELETE FROM agent_presence WHERE org_id = $1 AND agent_id LIKE ANY($2)`;
+    if (before) {
+      params.push(before);
+      sqlText += ` AND last_heartbeat_at::timestamptz < $3::timestamptz`;
+    }
+    const rows = await sql.query(`${sqlText} RETURNING agent_id`, params);
+    counts.presence = rows.length;
+  } catch (err) { if (!isMissingTable(err)) throw err; }
+
+  try {
+    const params: unknown[] = [orgId, SYNTHETIC_AGENT_LIKE_PATTERNS];
+    let sqlText = `DELETE FROM goals WHERE org_id = $1 AND agent_id LIKE ANY($2)`;
+    if (before) {
+      params.push(before);
+      sqlText += ` AND created_at::timestamptz < $3::timestamptz`;
+    }
+    const rows = await sql.query(`${sqlText} RETURNING id`, params);
+    counts.goals = rows.length;
+  } catch (err) { if (!isMissingTable(err)) throw err; }
+
+  try {
+    const params: unknown[] = [orgId, SYNTHETIC_AGENT_LIKE_PATTERNS];
+    let sqlText = `DELETE FROM decisions WHERE org_id = $1 AND agent_id LIKE ANY($2)`;
+    if (before) {
+      params.push(before);
+      sqlText += ` AND timestamp::timestamptz < $3::timestamptz`;
+    }
+    const rows = await sql.query(`${sqlText} RETURNING id`, params);
+    counts.decisions = rows.length;
+  } catch (err) { if (!isMissingTable(err)) throw err; }
+
+  return counts;
+}
+
+/**
+ * Same trace cleanup as deleteSyntheticAgentTraces, scoped to an explicit set
+ * of agent ids instead of the synthetic-agent pattern registry (used by the
+ * `?agent_ids=` cleanup mode). No time filter.
+ */
+export async function deleteAgentTracesByIds(
+  sql: SqlClient,
+  orgId: string,
+  agentIds: string[]
+): Promise<AgentTraceCounts> {
+  const counts: AgentTraceCounts = { presence: 0, goals: 0, decisions: 0 };
+
+  try {
+    const rows = await sql.query(
+      `DELETE FROM agent_presence WHERE org_id = $1 AND agent_id = ANY($2) RETURNING agent_id`,
+      [orgId, agentIds]
+    );
+    counts.presence = rows.length;
+  } catch (err) { if (!isMissingTable(err)) throw err; }
+
+  try {
+    const rows = await sql.query(
+      `DELETE FROM goals WHERE org_id = $1 AND agent_id = ANY($2) RETURNING id`,
+      [orgId, agentIds]
+    );
+    counts.goals = rows.length;
+  } catch (err) { if (!isMissingTable(err)) throw err; }
+
+  try {
+    const rows = await sql.query(
+      `DELETE FROM decisions WHERE org_id = $1 AND agent_id = ANY($2) RETURNING id`,
+      [orgId, agentIds]
+    );
+    counts.decisions = rows.length;
+  } catch (err) { if (!isMissingTable(err)) throw err; }
+
+  return counts;
 }

@@ -23,6 +23,8 @@ const {
   mockGuardDecisionExists,
   mockAfter,
   mockLogActivityStrict,
+  mockDeleteSyntheticAgentTraces,
+  mockDeleteAgentTracesByIds,
 } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockValidateActionRecord: vi.fn(),
@@ -45,6 +47,8 @@ const {
   mockGuardDecisionExists: vi.fn(),
   mockAfter: vi.fn(),
   mockLogActivityStrict: vi.fn(async () => undefined),
+  mockDeleteSyntheticAgentTraces: vi.fn(async () => ({ presence: 0, goals: 0, decisions: 0 })),
+  mockDeleteAgentTracesByIds: vi.fn(async () => ({ presence: 0, goals: 0, decisions: 0 })),
 }));
 
 // next/server's `after()` throws "outside a request scope" in unit tests.
@@ -73,6 +77,10 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   hasAgentAction: mockHasAgentAction,
   insertActionEmbedding: mockInsertActionEmbedding,
   getActionByIdempotencyKey: mockGetActionByIdempotencyKey,
+}));
+vi.mock('@/lib/repositories/agents.repository.js', () => ({
+  deleteSyntheticAgentTraces: mockDeleteSyntheticAgentTraces,
+  deleteAgentTracesByIds: mockDeleteAgentTracesByIds,
 }));
 vi.mock('@/lib/guard.js', () => ({ evaluateGuard: mockEvaluateGuard }));
 vi.mock('@/lib/identity.js', () => ({ verifyAgentSignature: mockVerifyAgentSignature }));
@@ -802,26 +810,64 @@ describe('/api/actions DELETE', () => {
     expect(res.status).toBe(500);
   });
 
-  it('synthetic=true deletes via chunked ids and audits write-ahead', async () => {
+  it('synthetic=true deletes via chunked ids, audits write-ahead, and reports trace counts', async () => {
     mockListActionIdsByFilter.mockResolvedValue(['a1', 'a2', 'a3']);
     mockDeleteActionsByIds.mockImplementation(async (_sql, _orgId, ids) => ids.map((id) => ({ action_id: id })));
+    mockDeleteSyntheticAgentTraces.mockResolvedValue({ presence: 5, goals: 2, decisions: 1 });
 
     const res = await DELETE(makeRequest('http://localhost/api/actions?synthetic=true', {
       headers: { 'x-org-id': 'org_default', 'x-org-role': 'admin' },
     }));
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ deleted: 3 });
+    expect(await res.json()).toEqual({ deleted: 3, traces: { presence: 5, goals: 2, decisions: 1 } });
     expect(mockListActionIdsByFilter).toHaveBeenCalledWith(
       expect.anything(), 'org_default', expect.objectContaining({ synthetic: true }),
     );
+    expect(mockDeleteSyntheticAgentTraces).toHaveBeenCalledWith(expect.anything(), 'org_default', {});
+    expect(mockDeleteAgentTracesByIds).not.toHaveBeenCalled();
     // audit called BEFORE delete
     expect(mockLogActivityStrict.mock.invocationCallOrder[0]).toBeLessThan(mockDeleteActionsByIds.mock.invocationCallOrder[0]);
   });
 
-  it('agent_ids deletes only the named agents', async () => {
+  it('synthetic=true with zero matching actions still purges roster traces', async () => {
+    mockListActionIdsByFilter.mockResolvedValue([]);
+    mockDeleteSyntheticAgentTraces.mockResolvedValue({ presence: 4, goals: 0, decisions: 0 });
+
+    const res = await DELETE(makeRequest('http://localhost/api/actions?synthetic=true', {
+      headers: { 'x-org-id': 'org_default', 'x-org-role': 'admin' },
+    }));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ deleted: 0, traces: { presence: 4, goals: 0, decisions: 0 } });
+    expect(mockDeleteActionsByIds).not.toHaveBeenCalled();
+    expect(mockDeleteSyntheticAgentTraces).toHaveBeenCalledWith(expect.anything(), 'org_default', {});
+    // trace-only cleanup still gets an audit row when something was actually deleted
+    expect(mockLogActivityStrict).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({ filter: expect.objectContaining({ traces: 4 }) }),
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('synthetic=true with zero matching actions AND zero traces skips the audit write', async () => {
+    mockListActionIdsByFilter.mockResolvedValue([]);
+    mockDeleteSyntheticAgentTraces.mockResolvedValue({ presence: 0, goals: 0, decisions: 0 });
+
+    const res = await DELETE(makeRequest('http://localhost/api/actions?synthetic=true', {
+      headers: { 'x-org-id': 'org_default', 'x-org-role': 'admin' },
+    }));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ deleted: 0, traces: { presence: 0, goals: 0, decisions: 0 } });
+    expect(mockLogActivityStrict).not.toHaveBeenCalled();
+  });
+
+  it('agent_ids deletes only the named agents and their traces by id', async () => {
     mockListActionIdsByFilter.mockResolvedValue(['a1']);
     mockDeleteActionsByIds.mockImplementation(async (_sql, _orgId, ids) => ids.map((id) => ({ action_id: id })));
+    mockDeleteAgentTracesByIds.mockResolvedValue({ presence: 1, goals: 0, decisions: 0 });
 
     const res = await DELETE(makeRequest('http://localhost/api/actions?agent_ids=smoke-a,smoke-b', {
       headers: { 'x-org-id': 'org_default', 'x-org-role': 'admin' },
@@ -831,6 +877,10 @@ describe('/api/actions DELETE', () => {
     expect(mockListActionIdsByFilter).toHaveBeenCalledWith(
       expect.anything(), 'org_default', expect.objectContaining({ agentIds: ['smoke-a', 'smoke-b'] }),
     );
+    expect(mockDeleteAgentTracesByIds).toHaveBeenCalledWith(expect.anything(), 'org_default', ['smoke-a', 'smoke-b']);
+    expect(mockDeleteSyntheticAgentTraces).not.toHaveBeenCalled();
+    const data = await res.json();
+    expect(data.traces).toEqual({ presence: 1, goals: 0, decisions: 0 });
   });
 
   it('agent_ids empty after trim -> 400', async () => {

@@ -34,6 +34,7 @@ import {
 import { getModelPricing, getSettings } from '../../lib/repositories/settings.repository';
 import { getLatestPatchRefs } from '../../lib/repositories/artifacts.repository';
 import { guardDecisionExists } from '../../lib/repositories/guard.repository';
+import { deleteSyntheticAgentTraces, deleteAgentTracesByIds } from '../../lib/repositories/agents.repository';
 import crypto from 'crypto';
 
 const GUARD_DECISION_ID_RE = /^act_gd_[a-f0-9]{16}$/;
@@ -589,7 +590,23 @@ export async function DELETE(request: Request) {
       const targetIds = await listActionIdsByFilter(sql, orgId, {
         synthetic: syntheticParam, agentIds: agentIdList, before,
       });
-      if (targetIds.length === 0) return NextResponse.json({ deleted: 0 });
+
+      // Agent roster traces (agent_presence/goals/decisions) can survive with
+      // zero action_records — heartbeat-only or imported-goal/decision agents
+      // never hit this filter. Run the trace cleanup even when there are no
+      // actions to delete (the observed live gap: 292/655 smoke agents had
+      // no action rows but still showed up in the roster).
+      if (targetIds.length === 0) {
+        const traces = agentIdList
+          ? await deleteAgentTracesByIds(sql, orgId, agentIdList)
+          : await deleteSyntheticAgentTraces(sql, orgId, {});
+        const tracesTotal = traces.presence + traces.goals + traces.decisions;
+        if (tracesTotal > 0) {
+          await auditDeletion([], { ...filter, traces: tracesTotal });
+        }
+        return NextResponse.json({ deleted: 0, traces });
+      }
+
       await auditDeletion(targetIds, filter);
       let deleted = 0;
       const CHUNK = 10_000;
@@ -597,7 +614,10 @@ export async function DELETE(request: Request) {
         const result = await deleteActionsByIds(sql, orgId, targetIds.slice(i, i + CHUNK));
         deleted += result.length;
       }
-      return NextResponse.json({ deleted });
+      const traces = agentIdList
+        ? await deleteAgentTracesByIds(sql, orgId, agentIdList)
+        : await deleteSyntheticAgentTraces(sql, orgId, {});
+      return NextResponse.json({ deleted, traces });
     }
 
     // Bulk deletion requires at least one filter to prevent accidental wipe
