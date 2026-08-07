@@ -1644,6 +1644,13 @@
       "liveVerified": false
     },
     {
+      "item": "GET /api/cron/synthetic-sweep",
+      "kind": "api",
+      "status": "beta",
+      "section": "Cron & Maintenance Jobs (#api-cron)",
+      "liveVerified": false
+    },
+    {
       "item": "GET /api/cron/learning-episodes-backfill",
       "kind": "api",
       "status": "beta",
