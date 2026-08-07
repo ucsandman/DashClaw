@@ -47,6 +47,9 @@ export default function PublicFooter() {
           <Link href="/self-host" className="hover:text-text-primary transition-colors">
             Get Started
           </Link>
+          <Link href="/agents" className="hover:text-text-primary transition-colors">
+            For AI agents
+          </Link>
           <Link href="/privacy" className="hover:text-text-primary transition-colors">
             Privacy
           </Link>

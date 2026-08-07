@@ -263,7 +263,7 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 | Surface | Ceiling | Counted from |
 |---|---|---|
 | Active API routes | 123 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
-| App pages | 47 | `app/**/page.{js,jsx,ts,tsx}` |
+| App pages | 48 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 17 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
 | Node SDK methods | 39 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
@@ -368,6 +368,14 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   governed merge itself. One top-level command housing a `runSubcommand`
   group, the same pattern as `install`/`codex`, not three separate top-level
   commands. RFC: docs/superpowers/plans/2026-07-27-containment-verdicts.md.
+- **2026-08-07 — App pages 47 → 48 (`/agents`, agent-onboarding pass).** One
+  public marketing page: the "tell your agent to set DashClaw up" runbook,
+  human-readable twin of the new `/llms.txt` route (routes under
+  `app/llms.txt/` are not pages and do not move this counter). Exists so the
+  zero-human setup path (`npx dashclaw up --yes --no-browser`) is
+  discoverable by the agents being asked to run it; the hosted-trial door
+  stays deliberately human-gated (Turnstile). Static content, no data access,
+  shares `PublicNavbar`/`PublicFooter`. Not a revival of any culled surface.
 
 ## Version story
 

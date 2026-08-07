@@ -37,6 +37,8 @@
 npx dashclaw up      # no account, first caught action in minutes
 ```
 
+> **AI agents:** setting DashClaw up for your user? Run `npx dashclaw up --yes --no-browser` — the plain command prompts and will hang a non-interactive shell. The API key lands in `~/.dashclaw/instance.json`; verify with `GET http://localhost:3000/api/health` and `npx dashclaw doctor`. Full runbook: [dashclaw.io/llms.txt](https://www.dashclaw.io/llms.txt). Do not attempt the hosted trial headlessly — its captcha needs your human.
+
 <div align="center">
   <br />
   <img src="public/media/marketing/readme-demo.gif" alt="The Approvals inbox holding a risk-scored deploy action; one click on Allow releases it and the decision is recorded" width="760" />

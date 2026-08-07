@@ -38,6 +38,7 @@ export const MARKETING_ROUTES = [
   '/self-host',
   '/privacy',
   '/connect',
+  '/agents',
   '/downloads',
   '/practical-systems',
 ] as const;

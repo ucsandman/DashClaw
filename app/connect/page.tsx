@@ -238,6 +238,14 @@ function FullConnectGuide({ showBreadcrumb = true }: FullConnectGuideProps = {})
             <p className="mt-5 text-sm text-text-tertiary italic max-w-2xl">
               First connection takes 5 to 15 minutes depending on the integration surface you pick.
             </p>
+            <p className="mt-2 text-sm text-text-tertiary max-w-2xl">
+              AI agent doing this setup? Follow{' '}
+              <a href="https://www.dashclaw.io/llms.txt" className="text-brand hover:underline">
+                dashclaw.io/llms.txt
+              </a>{' '}
+              — <code className="font-mono">npx dashclaw up --yes</code> is the path you can finish
+              without a human. The hosted trial&apos;s captcha is not.
+            </p>
           </header>
 
           {/* Step 1: API key */}
