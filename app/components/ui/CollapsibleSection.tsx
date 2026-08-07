@@ -43,6 +43,15 @@ export interface CollapsibleSectionProps {
    * a live reference into it.
    */
   keepMounted?: boolean;
+  /**
+   * Called with the new open state whenever the human clicks the header
+   * button to toggle the section manually — not on the initial localStorage
+   * hydration, and not when `forceOpen` alone changes what renders. Use this
+   * to release whatever set `forceOpen` (e.g. a one-shot "reveal this
+   * section" flag) the moment the human takes over with their own click, so
+   * their toggle behaves normally instead of being pinned open forever.
+   */
+  onToggle?: (open: boolean) => void;
   children: React.ReactNode;
 }
 
@@ -60,6 +69,7 @@ export function CollapsibleSection({
   defaultOpen = true,
   forceOpen = false,
   keepMounted = false,
+  onToggle,
   children,
 }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
@@ -80,13 +90,22 @@ export function CollapsibleSection({
   }, [id]);
 
   const toggle = () => {
-    const next = !open;
+    // Flip relative to what's actually rendered (`isOpen`), not the raw
+    // `open` state. When `forceOpen` is masking a `false` `open` (e.g. the
+    // section was collapsed, then a one-shot action forced it open), basing
+    // the flip on `open` would toggle it from false to true — invisible to
+    // the human, since `isOpen` was already true — so their next click would
+    // still be needed to actually close it. Flipping `isOpen` instead means
+    // one click always does what the human sees: closes an open section,
+    // opens a closed one.
+    const next = !isOpen;
     setOpen(next);
     try {
       localStorage.setItem(`${STORAGE_PREFIX}${id}`, next ? '1' : '0');
     } catch {
       // ignore storage failures
     }
+    onToggle?.(next);
   };
 
   return (

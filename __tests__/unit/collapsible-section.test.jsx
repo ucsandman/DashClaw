@@ -90,6 +90,40 @@ describe('CollapsibleSection', () => {
     expect(screen.queryByText('section content')).toBeNull();
   });
 
+  // REGRESSION (C1 follow-up): a one-shot forceOpen (e.g. a top-row action
+  // revealing a previously-collapsed section) must not pin the section open
+  // forever. onToggle lets the consumer release the force on the human's
+  // first manual click; that click must close the section immediately —
+  // not require a second click to catch up.
+  it('a manual toggle on a forced-open section closes it in one click via onToggle', () => {
+    localStorage.setItem('dashclaw.section.test-section', '0');
+
+    function Wrapper() {
+      const [force, setForce] = React.useState(true);
+      return (
+        <CollapsibleSection
+          id="test-section"
+          title="Pending Pairings"
+          forceOpen={force}
+          onToggle={() => setForce(false)}
+        >
+          <div>section content</div>
+        </CollapsibleSection>
+      );
+    }
+
+    render(<Wrapper />);
+
+    // forceOpen renders it open even though the persisted/internal state is
+    // collapsed — this is the state that previously caused the bug.
+    expect(screen.getByText('section content')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /Pending Pairings/ }));
+
+    expect(screen.queryByText('section content')).toBeNull();
+    expect(screen.getByRole('button', { name: /Pending Pairings/ }).getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('keeps actions clickable without toggling the section', () => {
     let actionClicks = 0;
     render(
