@@ -278,6 +278,24 @@ export default function IdentitiesPage() {
   // "select all" only selects what's currently visible.
   const unidentifiedSelection = useSelection<UnidentifiedAgent>(unidentifiedControls.rows, (a) => a.agent_id);
 
+  // Destructive scope must always equal visible scope: hiding synthetic
+  // agents (the toggle), narrowing via search/filter, or a cleanup/refresh
+  // that removes rows outright must all drop any now-invisible ids from the
+  // selection — otherwise "Delete" could erase rows the operator can no
+  // longer see (or that no longer exist).
+  useEffect(() => {
+    const visibleIds = new Set(unidentifiedControls.rows.map((a) => a.agent_id));
+    const pruned = unidentifiedSelection.selectedIds.filter((id) => visibleIds.has(id));
+    if (pruned.length !== unidentifiedSelection.selectedIds.length) {
+      unidentifiedSelection.setSelected(pruned);
+    }
+    // Intentionally scoped to the visible row set only — `unidentifiedSelection`
+    // is a fresh object every render, so depending on it (or its `selectedIds`)
+    // would re-run this on every unrelated render instead of only when
+    // visibility actually changes (toggle/search/filter/cleanup refresh).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unidentifiedControls.rows]);
+
   const handleCleanupTestAgents = async () => {
     if (!window.confirm(`Delete ${syntheticCount} test agents and ALL their recorded actions? The decisions ledger totals will shrink. This cannot be undone.`)) return;
     setCleaning(true);
@@ -292,7 +310,11 @@ export default function IdentitiesPage() {
   };
 
   const handleBulkDeleteAgents = async () => {
-    const ids = unidentifiedSelection.selectedIds;
+    // Defensive re-scope to currently-visible ids: the pruning effect above
+    // keeps the selection in sync, but never let a destructive delete trust
+    // a selection snapshot that could include a hidden/stale id.
+    const visibleIds = new Set(unidentifiedControls.rows.map((a) => a.agent_id));
+    const ids = unidentifiedSelection.selectedIds.filter((id) => visibleIds.has(id));
     if (ids.length === 0) return;
     if (!window.confirm(`Delete ${ids.length} agent(s) and ALL their recorded actions? This cannot be undone.`)) return;
     const res = await fetch(`/api/actions?agent_ids=${encodeURIComponent(ids.join(','))}`, { method: 'DELETE' });
@@ -438,7 +460,7 @@ export default function IdentitiesPage() {
           title="Unidentified Agents"
           icon={UserX}
           iconClassName="text-warning"
-          count={unidentified.length}
+          count={visibleUnidentified.length}
           badgeVariant="warning"
           controls={<ListControlsBar columns={unidentifiedColumns} controls={unidentifiedControls} searchPlaceholder="Search agents…" />}
           actions={
