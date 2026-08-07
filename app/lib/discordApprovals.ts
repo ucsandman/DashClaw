@@ -74,7 +74,12 @@ function isEnabled(): boolean {
 export function buildEmbedPayload(action: ApprovalAction): DiscordMessagePayload {
   const risk = action.risk_score ?? 0;
   const reversible = action.reversible === false ? 'irreversible' : 'reversible';
-  const goal = (action.declared_goal || '—').slice(0, 200);
+  // Discord embed field values cap at 1024 chars — use the room we have and
+  // mark any cut honestly (same rule as the Telegram bridge).
+  const fullGoal = action.declared_goal || '—';
+  const goal = fullGoal.length > 1000
+    ? `${fullGoal.slice(0, 1000)}… (+${fullGoal.length - 1000} more chars)`
+    : fullGoal;
 
   const embed: DiscordEmbed = {
     color: BRAND_ORANGE,

@@ -238,7 +238,13 @@ export default function DecisionReplayPage() {
   return (
     <PageLayout
       title="Decision Replay"
-      subtitle={`${action.agent_name || action.agent_id} -- ${action.declared_goal}`}
+      subtitle={`${action.agent_name || action.agent_id} -- ${
+        // Header is orientation only — the full goal renders in the causal
+        // timeline below. Goals can now run to 2000 chars (full commands).
+        (action.declared_goal || '').length > 140
+          ? `${action.declared_goal.slice(0, 140)}…`
+          : action.declared_goal
+      }`}
       breadcrumbs={['Governance', 'Decisions', action.action_id]}
       maturity="stable"
       actions={

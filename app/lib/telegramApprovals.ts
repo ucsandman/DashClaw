@@ -44,7 +44,15 @@ function isEnabled(): boolean {
 function buildMessage(action: ApprovalAction): TelegramMessage {
   const risk = action.risk_score ?? 0;
   const reversible = action.reversible === false ? 'irreversible' : 'reversible';
-  const goal = (action.declared_goal || '—').slice(0, 200);
+  // Show the operator the FULL goal (they judge the approval by it). Telegram's
+  // hard message limit is 4096 chars; fixed parts stay well under 300, so 3500
+  // leaves safe headroom. When we do cut, say so honestly instead of ending
+  // mid-word — an invisible truncation made a real command unjudgeable
+  // (field report 2026-08-07).
+  const fullGoal = action.declared_goal || '—';
+  const goal = fullGoal.length > 3500
+    ? `${fullGoal.slice(0, 3500)}\n… (+${fullGoal.length - 3500} more chars — open the action link for the rest)`
+    : fullGoal;
 
   const text = [
     '⏳ DashClaw approval needed',

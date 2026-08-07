@@ -13,6 +13,20 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.11.2] — 2026-08-07
+
+**Approvals are now judgeable — the operator sees the full command.** Field-found the same afternoon it shipped: a Telegram approval card showed a `Bash: grep …; node -e "import(…` goal cut mid-word at the hook's 120-char record cap. An operator cannot approve or reject what they cannot read.
+
+### Fixed
+
+- **Pretool hook records the full command** — `declared_goal` now carries the whole command up to the server's 2000-char validation cap (was the first 120 chars; the non-Bash tool path had the same bug). More goal text also means more signal for content-pattern policies.
+- **Telegram approval card shows up to 3500 chars** (was 200) inside Telegram's 4096 limit, with an honest `… (+N more chars)` marker when a cut is unavoidable; **Discord** likewise uses its full 1024-char field with a marker.
+- **/approvals pending cards** render long goals as a scrollable monospace block instead of a giant headline; **Decision Replay** renders the full goal in the causal timeline (mono, wrapped) and clamps only the page subtitle.
+
+### Notes
+
+- No Node/Python SDK source change — the SDKs are not republished; npm + PyPI stay at 5.6.2.
+
 ## [5.11.1] — 2026-08-07
 
 ### Fixed

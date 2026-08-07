@@ -433,7 +433,17 @@ export default function ApprovalsPage() {
                                 className="font-mono text-[11px] text-tertiary"
                               />
                             </div>
-                            <h3 className="text-lg font-semibold text-white">{action.declared_goal}</h3>
+                            {/* Short goals read as a headline; long ones (full
+                                commands since the hook stopped truncating at 120
+                                chars) render as a scrollable mono block so the
+                                operator can judge the WHOLE command. */}
+                            {(action.declared_goal || '').length > 160 ? (
+                              <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-surface-tertiary px-3 py-2 font-mono text-xs leading-relaxed text-secondary">
+                                {action.declared_goal}
+                              </pre>
+                            ) : (
+                              <h3 className="break-words text-lg font-semibold text-white">{action.declared_goal}</h3>
+                            )}
                           </div>
                           <div className="shrink-0 text-right">
                             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">

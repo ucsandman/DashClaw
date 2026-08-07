@@ -12,6 +12,22 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-07 — v5.11.2: an approval card you can actually read
+
+Wes caught this one live, from his own Telegram: an approval request for a
+command he could only see the first 140 characters of. "How am I supposed
+to know if it's dangerous if I can't see the whole thing?" He's right, and
+the bug was at the worst possible layer — the pretool hook recorded
+`command[:120]` into declared_goal, so every downstream surface (Telegram
+card, /approvals, Decision Replay) was faithfully displaying an amputated
+string. For an approval product, that's the one string that must never be
+cut silently. Fixed at all four layers: the hook records the full command
+to the server's 2000-char cap, Telegram shows up to 3500 chars with an
+honest "(+N more chars)" marker, Discord uses its full field, and the web
+surfaces render long goals as monospace blocks. The deeper lesson is that
+every truncation between an agent's intent and an operator's judgment is
+a governance hole, not a formatting choice.
+
 ## 2026-08-07 — v5.11.1: the last stray joins the registry
 
 Small follow-up cut the same day: after the v5.11.0 cleanup, exactly one

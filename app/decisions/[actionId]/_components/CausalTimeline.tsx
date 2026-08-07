@@ -25,7 +25,10 @@ export default function CausalTimeline({ action, guardDecision, assumptions, tra
             <div className="z-10 mt-1 h-4 w-4 rounded-full bg-status-info border-4 border-surface-secondary shadow-[0_0_0_1px_rgba(59,130,246,0.3)]" />
             <div>
               <div className="text-[10px] font-semibold text-disabled uppercase tracking-widest mb-1">Goal Declared</div>
-              <div className="text-sm text-white font-medium">{action.declared_goal}</div>
+              {/* Full goal, always — this is where the operator reads the whole
+                  command. break-all keeps 2000-char single-token commands inside
+                  the column. */}
+              <div className="whitespace-pre-wrap break-all font-mono text-sm font-medium text-white">{action.declared_goal}</div>
               {action.reasoning && (
                 <div className="mt-2 text-xs text-tertiary bg-white/5 p-2 rounded italic">
                   &ldquo;{action.reasoning}&rdquo;

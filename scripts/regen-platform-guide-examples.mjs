@@ -38,7 +38,10 @@ const sanitizeText = (s) => s
   .replace(/asm_[a-f0-9-]{20,}/g, 'asm_<UUID>')
   .replace(/cap_[a-f0-9-]{20,}/g, 'cap_<UUID>')
   .replace(/gp_[a-f0-9]{8,}/g, 'gp_<ID>')
-  .replace(/key_[a-f0-9-]{20,}/g, 'key_<ID>')
+  // {8,} matches the leak scanner's threshold below — the auto-provisioned
+  // self-host key id is key_<hash16>, which the old {20,} rule missed while
+  // the scanner (correctly) failed closed on it.
+  .replace(/key_[a-f0-9-]{8,}/g, 'key_<ID>')
   .replace(/org_[a-f0-9-]{20,}/g, 'org_<ID>')
   .replace(/C:\\\\(?:Users|Projects)\\\\[^"]+/g, 'C:\\\\<LOCAL_PATH>');
 

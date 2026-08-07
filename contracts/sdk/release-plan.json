@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.11.1",
+    "current_version": "5.11.2",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.11.1 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.11.2 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.11.1",
+    "current_version": "5.11.2",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.11.1 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.11.2 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.11.1 adds guide-capture-agent to the synthetic-agent registry and ships the accumulated CLI install-codex fixes and OpenClaw plugin manifest/approval-wait notes (plugin versions independently, 1.6.2 already published). Platform + CLI only; no Node/Python SDK surface change.",
+  "reason": "5.11.2 makes approvals judgeable: the pretool hook records the full command in declared_goal (2000-char server cap, was 120), and the Telegram/Discord approval cards plus /approvals and Decision Replay render the whole goal with honest truncation markers. Platform + hooks only; no Node/Python SDK surface change.",
   "domains": [
     "platform"
   ]

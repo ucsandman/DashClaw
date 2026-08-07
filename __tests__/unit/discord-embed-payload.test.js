@@ -35,17 +35,21 @@ describe('buildEmbedPayload', () => {
     expect(goal.inline).toBe(false);
   });
 
-  it('truncates declared_goal at 200 characters (untrusted input bound)', () => {
-    const longGoal = 'x'.repeat(500);
+  it('shows the full goal up to 1000 chars, then cuts with an honest marker (v5.11.2)', () => {
+    // The operator judges the approval by this string — the old 200-char cut
+    // made real commands unjudgeable (field report 2026-08-07). Discord's
+    // embed-field hard limit is 1024, so 1000 + marker stays within it.
+    const midGoal = 'x'.repeat(500);
+    const midPayload = buildEmbedPayload({ ...baseAction, declared_goal: midGoal });
+    expect(midPayload.embeds[0].fields[3].value).toBe(midGoal); // no cut under 1000
+
+    const longGoal = 'y'.repeat(2000);
     const payload = buildEmbedPayload({ ...baseAction, declared_goal: longGoal });
     const goalField = payload.embeds[0].fields[3];
-    // Value may include some framing (e.g. wrapped in backticks) but the
-    // underlying goal content must not exceed 200 chars. The test asserts the
-    // truncation happened: 500 char input should produce value ≤ 220 (with
-    // reasonable framing overhead).
-    expect(goalField.value.length).toBeLessThanOrEqual(220);
-    // And the full 500-char payload must have been truncated (not all 500 present).
-    expect(goalField.value).not.toContain('x'.repeat(500));
+    expect(goalField.value).toContain('y'.repeat(1000));
+    expect(goalField.value).toContain('(+1000 more chars)');
+    expect(goalField.value.length).toBeLessThanOrEqual(1024); // Discord hard limit
+    expect(goalField.value).not.toContain('y'.repeat(1001));
   });
 
   it('uses color 0xf97316 (brand orange — the one permitted in-code hex)', () => {
