@@ -104,6 +104,18 @@ at upstream HEAD — so the block cost nothing and the lane self-corrected.
 The product governing its own maintainer remains the best test bench it
 has.
 
+**Pre-listing funnel baseline (2026-08-07, live hosted read).** Taken
+deliberately on the day the distribution submissions went out, so any
+later lift is attributable instead of ambient. All-time: minted 16
+(8 drill, 4 unknown, 2 direct, 2 github.com), firstAction 2 (both
+browser-door, week of 07-13 — the corrected v8.1 activation cohort),
+retained 0. New and worth watching: the week of 08-03 holds 4 fresh
+mints including the funnel's **first two github.com-referred signups
+ever**, one of which has already used its key (no first action yet;
+week1Pending 4). Those arrived before today's listings merged — organic
+fallout from the v5.9.x public activity, not the distribution push. The
+next read judges the listings against THESE numbers.
+
 ## 2026-08-06 — silence becomes a signal (v5.10.0)
 
 **Shipped:** `v5.10.0` — the silent-lane witness posture, closing the day's
