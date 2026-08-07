@@ -19,6 +19,8 @@ import { getActivePolicies } from '../repositories/guardrails.repository';
 import { getLatestLiveCanaryRunForOrg } from '../repositories/live-canary.repository';
 import { getAgentCoverage } from '../repositories/coverage.repository';
 import { getLatestEnforcementLivenessRunForOrg } from '../repositories/enforcement-liveness.repository';
+import { getAgentLaneWitness } from '../repositories/silent-lane-witness.repository';
+import { getWitnessWindowMinutes } from '../silent-lane-witness';
 import { evaluatePolicy } from '../guard';
 import { isSyntheticEvent } from '../calibration-mining.js';
 import {
@@ -28,6 +30,7 @@ import {
 } from './model';
 import {
   deriveFindings, deriveLiveCanaryFinding, deriveCoverageFinding, deriveEnforcementLivenessFinding,
+  deriveSilentLaneWitnessFinding,
 } from './findings';
 import type {
   GovernableUnit,
@@ -425,9 +428,10 @@ export async function computePosturePayload(
   const sinceTs = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   // 1. Parallel data fetch.
+  const witnessWindowMinutes = getWitnessWindowMinutes();
   const [
     capUnits, actionUnits, activePolicies, decisionRows, x402Rows, findingStates, canaryRun,
-    coverageStats, enforcementLivenessRun,
+    coverageStats, enforcementLivenessRun, agentLaneWitness,
   ] = await Promise.all([
     getCapabilityUnits(sql, orgId),
     getObservedActionUnits(sql, orgId),
@@ -438,6 +442,7 @@ export async function computePosturePayload(
     getLatestLiveCanaryRunForOrg(sql, orgId),
     getAgentCoverage(sql, orgId),
     getLatestEnforcementLivenessRunForOrg(sql, orgId),
+    getAgentLaneWitness(sql, orgId, witnessWindowMinutes),
   ]);
 
   const x402Slugs = new Set(x402Rows.map((r) => String(r.slug || '')));
@@ -503,6 +508,16 @@ export async function computePosturePayload(
     const idx = derived.findIndex((f) => f.scoreDelta < enforcementLivenessFinding.scoreDelta);
     if (idx === -1) derived.push(enforcementLivenessFinding);
     else derived.splice(idx, 0, enforcementLivenessFinding);
+  }
+  // v8.3: silent-lane witness joins the queue the same way — informational
+  // only (F5), so it never touches an action's own risk score, only the
+  // display-weight scoreDelta on this collapsed finding (see
+  // deriveSilentLaneWitnessFinding).
+  const silentLaneWitnessFinding = deriveSilentLaneWitnessFinding(agentLaneWitness, witnessWindowMinutes, Date.now());
+  if (silentLaneWitnessFinding) {
+    const idx = derived.findIndex((f) => f.scoreDelta < silentLaneWitnessFinding.scoreDelta);
+    if (idx === -1) derived.push(silentLaneWitnessFinding);
+    else derived.splice(idx, 0, silentLaneWitnessFinding);
   }
   const findings = applyFindingStates(derived, stateByKey);
 

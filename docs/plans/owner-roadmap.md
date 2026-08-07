@@ -59,7 +59,7 @@ Anything not on the thesis's loop (or directly supporting it) is out of scope
 by definition. Adding a surface back is a deliberate, recorded act that must
 amend the thesis — never a drift.
 
-## Open item — silent-lane witness alarm (qualified under (a), 2026-08-06)
+## Silent-lane witness alarm — SHIPPED v5.10.0, 2026-08-06 (was: open item, qualified under (a))
 
 Surfaced by an actual governed run, per the bar above: MoltFire (an OpenClaw
 agent under the DashClaw plugin) ran a full Codex work loop that produced
@@ -76,6 +76,11 @@ anomaly. Surface it as a risk signal and on `/setup`'s enforcement-liveness
 panel ("lane active, no witness") so a silent bypass is loud instead of
 invisible. This extends the v8.2 verdicts-by-witness machinery from
 "blocks must prove execution stopped" to "activity must prove governance
-saw it." No commitment to shape or date — needs a short spec first; the
-detection inputs (liveness probes, witness stamps, action recency per
-agent) all exist server-side today.
+saw it."
+
+Shipped same-day per the spec
+(`docs/plans/2026-08-06-silent-lane-witness-spec.md`): per-agent
+derivation + `lane_without_witness` posture signal +
+`/setup#silent-lane-witness` panel, with the implementation deviations
+(activity keys off `action_type`; liveness runs excluded as per-agent
+witness) recorded in the spec's status line.

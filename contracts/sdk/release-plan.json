@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.9.2",
+    "current_version": "5.10.0",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.9.2 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.10.0 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.9.2",
+    "current_version": "5.10.0",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.9.2 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.10.0 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.9.2 vendors the Inter font locally (next/font/local) so `next build` \u2014 and therefore fresh `dashclaw up` installs \u2014 no longer depend on fonts.googleapis.com being reachable. Platform-only; no SDK surface change.",
+  "reason": "5.10.0 ships the silent-lane witness posture (spec docs/plans/2026-08-06-silent-lane-witness-spec.md): per-agent activity-vs-witness derivation, lane_without_witness posture signal, and a /setup panel \u2014 the detector the MoltFire silent-lane incident showed was missing. Server + dashboard only; no SDK surface change.",
   "domains": [
     "platform"
   ]

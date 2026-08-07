@@ -13,6 +13,21 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.10.0] — 2026-08-06
+
+**Silent-lane witness posture — silence is no longer indistinguishable from idleness.** The v5.9.1 incident's product lesson, shipped same-day per its spec (`docs/plans/2026-08-06-silent-lane-witness-spec.md`): MoltFire's ungoverned Codex lane was only caught because a human eyeballed the ledger. Now the server watches for the shape itself.
+
+### Added
+
+- **Per-agent activity/witness derivation** (`app/lib/silent-lane-witness.ts`, `app/lib/repositories/silent-lane-witness.repository.ts`) — over a trailing window (`DASHCLAW_WITNESS_WINDOW_MINUTES`, default 60), each agent's self-reported activity (`agent_turn` rows from the notify bridge) is compared against governance witness (guard decisions + hook-attributed action rows). Activity without witness derives **`recorded-ungoverned`** — a standing posture, not a transient alert: a bridged-but-unhookable lane correctly stays in it until real hooks exist.
+- **`lane_without_witness` posture signal** — joins the posture findings queue with the same discipline as the v8.2 enforcement-liveness finding. Informational only (F5): it never escalates the agent's own action risk and never blocks.
+- **`/setup#silent-lane-witness` panel** — per-agent rows (state badge, last activity source, last witness time) beside the enforcement-liveness card. 31 new unit tests including a MoltFire-shaped fixture and a rendered-panel test.
+
+### Notes
+
+- `enforcement_liveness_runs` is deliberately not counted as per-agent witness (it has no `agent_id`; org-wide joining would clear every agent's alarm whenever the synthetic probe ran). Documented in the repository header.
+- Server + dashboard only; no route, SDK, or MCP surface change — SDKs are not republished.
+
 ## [5.9.2] — 2026-08-06
 
 ### Fixed

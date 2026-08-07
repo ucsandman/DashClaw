@@ -12,6 +12,33 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-06 — silence becomes a signal (v5.10.0)
+
+**Shipped:** `v5.10.0` — the silent-lane witness posture, closing the day's
+arc: the morning's incident was only caught by a human noticing the ledger
+had gone quiet; by evening the server watches for that shape itself.
+
+Per-agent, over a trailing window: self-reported activity (the notify
+bridge's `agent_turn` rows) compared against governance witness (guard
+decisions, hook-attributed rows). Activity without witness derives
+**recorded-ungoverned** — deliberately a standing posture, not an alert
+that can be snoozed into silence, because MoltFire's embedded-codex lane
+*should* read that way until OpenClaw vendors a codex that executes hooks.
+Surfaces: a `lane_without_witness` posture signal and a `/setup` panel
+beside the enforcement-liveness card. F5 holds: informational only.
+
+Process notes, honestly kept: implementation was delegated to a scoped
+subagent; its report claimed clean gates and I re-ran every gate myself
+before trusting it (all held — lint, typecheck, 3,694 vitest, build,
+rendered `/setup` proof). The subagent surfaced three spec-vs-schema
+deviations worth recording: `action_records` has no metadata column (the
+notify bridge's `metadata.source` is silently dropped in flight — activity
+detection keys off `action_type` instead), `enforcement_liveness_runs`
+carries no `agent_id` (org-wide joining would have cleared every agent's
+alarm whenever the synthetic probe ran — excluded), and heartbeats were
+retired in the v5 cull. Spec updated to record all three rather than
+pretending the literal spec shipped.
+
 ## 2026-08-06 — the drill earns its keep: fresh installs needed Google Fonts (v5.9.2)
 
 **Shipped:** `v5.9.2` — Inter vendored locally (`app/fonts/`, OFL-1.1,

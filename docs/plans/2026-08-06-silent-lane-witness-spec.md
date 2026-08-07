@@ -1,6 +1,6 @@
 # Silent-lane witness posture — spec
 
-Status: **proposed** (roadmap open item, qualified under the (a) bar 2026-08-06)
+Status: **shipped** in v5.10.0, 2026-08-06 (roadmap open item, qualified under the (a) bar). Implementation deviations from the literal spec — activity keys off `action_type` (metadata is not persisted by the write path), `enforcement_liveness_runs` excluded (no `agent_id` column; org-wide join would clear every agent's alarm), heartbeats retired pre-v5 — are documented in `app/lib/repositories/silent-lane-witness.repository.ts`.
 Origin: v5.9.1 incident (maintainer log 2026-08-06, "a field agent files the first bug report")
 
 ## Incident and class

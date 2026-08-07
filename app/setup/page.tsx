@@ -18,6 +18,12 @@ import {
   deriveEnforcementLivenessState,
   type EnforcementLivenessRun,
 } from '../lib/repositories/enforcement-liveness.repository';
+import {
+  getAgentLaneWitness,
+  deriveSilentLaneWitnessState,
+  getWitnessWindowMinutes,
+  type AgentLaneWitnessAggregate,
+} from '../lib/repositories/silent-lane-witness.repository';
 import { getJtiReplayMode } from '../lib/replay-protection';
 import { getActBindingMode } from '../lib/act-binding';
 import { resolveDegradedAction } from '../lib/guard';
@@ -207,6 +213,21 @@ async function readEnforcementLiveness(): Promise<{ run: EnforcementLivenessRun 
   }
 }
 
+// v8.3 silent-lane witness: the prior question to enforcement-liveness's "did
+// the block actually stop execution?" — "did governance see the activity at
+// all?" Same public-page org rule as the canary/liveness reads above.
+async function readSilentLaneWitness(): Promise<{ agents: AgentLaneWitnessAggregate[]; error: boolean }> {
+  try {
+    const sql = getSql();
+    const windowMinutes = getWitnessWindowMinutes();
+    const agents = await getAgentLaneWitness(sql, canaryDisplayOrgId(), windowMinutes);
+    return { agents, error: false };
+  } catch (err) {
+    console.error('[Setup] silent-lane-witness read failed:', err);
+    return { agents: [], error: true };
+  }
+}
+
 function relativeAgo(iso: string | null | undefined): string {
   const ms = iso ? Date.now() - Date.parse(iso) : NaN;
   if (!Number.isFinite(ms) || ms < 0) return 'an unknown time';
@@ -247,11 +268,12 @@ export default async function SetupPage() {
   // The canary runs alongside the readiness report: real writes under the
   // isolated canary org, so a dead write path fails HERE before an agent
   // ever hits it. An engine error is rendered, never swallowed.
-  const [report, canary, liveCanary, enforcementLiveness] = await Promise.all([
+  const [report, canary, liveCanary, enforcementLiveness, silentLaneWitness] = await Promise.all([
     getReadinessReport(process.env),
     runCanaryMemoized(),
     readLiveCanary(),
     readEnforcementLiveness(),
+    readSilentLaneWitness(),
   ]);
   const view = projectReadinessReport(report, { isAuthenticated: true });
   const overall = view.verification;
@@ -348,6 +370,17 @@ export default async function SetupPage() {
     status: c.status,
     nextAction: null,
   }));
+
+  // v8.3 silent-lane witness card. One row per agent in 'governed' or
+  // 'recorded-ungoverned' state over the trailing window — 'quiet' agents
+  // (no claim either way) don't render, same as the spec's acceptance bar.
+  // recorded-ungoverned sorts first: it's the state an operator needs to see.
+  const witnessWindowMinutes = getWitnessWindowMinutes();
+  const laneWitnessRows = silentLaneWitness.agents
+    // eslint-disable-next-line react-hooks/purity -- server component: evaluated per request, same shared derivation the posture signal calls with Date.now()
+    .map((a) => deriveSilentLaneWitnessState(a, witnessWindowMinutes, Date.now()))
+    .filter((r) => r.state !== 'quiet')
+    .sort((a, b) => (a.state === b.state ? a.agentId.localeCompare(b.agentId) : a.state === 'recorded-ungoverned' ? -1 : 1));
 
   // v3.6: enforcement posture. Values come from the guard's own getters, so
   // this card is the instance's live truth, not a copy of the docs.
@@ -615,6 +648,59 @@ export default async function SetupPage() {
                     </div>
                     <CheckList checks={livenessChecks} />
                   </>
+                )}
+              </div>
+            </article>
+            <article id="silent-lane-witness" className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold text-primary">Silent-lane witness</h2>
+                  <p className="mt-1 text-sm text-secondary">
+                    Agents that self-report activity (the Codex notify bridge, for now) with no guard
+                    evaluation or hook-attributed row arriving from them in the trailing {witnessWindowMinutes}{' '}
+                    minutes. Recorded but ungoverned is a standing posture, not an alarm — it clears the
+                    moment a witness row lands.
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-tertiary">
+                Checked: self-reported action rows against guard_decisions and hook-attributed rows for the
+                same agent. Informational only — never changes an action&rsquo;s risk score, never blocks.
+              </p>
+              <div className="mt-4">
+                {silentLaneWitness.error ? (
+                  <p className="rounded-xl border border-status-warning/40 bg-warning-subtle p-3 text-sm text-warning">
+                    Silent-lane witness reports could not be read (database unreachable or not yet migrated).
+                    The full error is logged server-side.
+                  </p>
+                ) : laneWitnessRows.length === 0 ? (
+                  <p className="text-sm text-secondary">
+                    No agent activity or governance witness in the trailing {witnessWindowMinutes} minutes.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {laneWitnessRows.map((row) => (
+                      <div key={row.agentId} className="rounded-xl border border-white/10 bg-primary/40 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <code className="text-sm font-medium text-primary">{row.agentId}</code>
+                          <span
+                            className={`text-xs font-semibold uppercase tracking-wide ${
+                              row.state === 'governed' ? 'text-success' : 'text-warning'
+                            }`}
+                          >
+                            {row.state === 'governed' ? 'governed' : 'recorded, ungoverned'}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs text-secondary">
+                          Last activity: {row.lastActivitySource ?? 'none'}
+                          {row.lastActivityAt ? ` (${relativeAgo(row.lastActivityAt)} ago)` : ''}
+                        </p>
+                        <p className="mt-1 text-xs text-secondary">
+                          Last witness: {row.lastWitnessAt ? `${relativeAgo(row.lastWitnessAt)} ago` : 'none in this window'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </article>
