@@ -15,6 +15,7 @@ import { listGuardDecisions, getGuardDecisionByIdempotencyKey } from '../../lib/
 import { createActionRecord, createBlockedActionRecord, getActionByIdempotencyKey } from '../../lib/repositories/actions.repository';
 import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository';
 import { fireActionAlert } from '../../lib/actionAlerts';
+import { fireApprovalSurfaces } from '../../lib/approvalSurfaces';
 import { EVENTS, publishOrgEvent } from '../../lib/events';
 import { resolveAgentIdentity } from '../../lib/guard-identity';
 import { buildContainmentRef } from '../../lib/guard/containment';
@@ -143,6 +144,18 @@ async function recordRunningAction(
       console.warn('[Guard] record=true background updates failed:', (err as Error).message);
     });
   });
+
+  // A require_approval verdict must notify operators the same way POST
+  // /api/actions does — fireApprovalSurfaces (Telegram / Discord / webhook,
+  // flood-budgeted) plus the pending_approval action alert. Without this the
+  // single-call hook path parks approvals on /approvals silently.
+  if (result.decision === 'require_approval' && createdAction) {
+    fireApprovalSurfaces(createdAction as Record<string, unknown>, sql, orgId, {
+      matched_policies: result.matched_policies ?? [],
+      reason: result.reason ?? null,
+    });
+    after(() => fireActionAlert('pending_approval', createdAction as Record<string, unknown>, sql, orgId));
+  }
 
   return { recorded: true, action_id };
 }
