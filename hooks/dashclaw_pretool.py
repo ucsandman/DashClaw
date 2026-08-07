@@ -1751,7 +1751,14 @@ def _warn_secret_scan(guard_resp, decision):
     try:
         scan = guard_resp.get("secret_scan") or {}
         if scan.get("detected") and decision != "block":
-            cats = ", ".join(sorted({f.get("category", "secret") for f in scan.get("findings", [])})) or "secret"
+            # Category LABELS only (e.g. "api_key"), never matched content —
+            # charset-restricted so a hostile server response can't smuggle
+            # ANSI escapes or secret bytes into the operator's terminal.
+            labels = {
+                re.sub(r"[^A-Za-z0-9_-]", "", str(f.get("category", "secret")))[:32]
+                for f in scan.get("findings", [])
+            }
+            cats = ", ".join(sorted(x for x in labels if x)) or "secret"
             log("[DashClaw] ⚠ Possible secret in this content (%s) — flagged by auto-scan. Review before it leaves your machine." % cats)
     except Exception:
         pass

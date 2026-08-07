@@ -35,7 +35,7 @@ describe('resolveAppVersion', () => {
     assert.strictEqual(version, '4.66.0');
     assert.ok(urls[0].endsWith('/releases/latest'));
     assert.ok(urls[1].endsWith('/refs/tags/v4.66.0'));
-    assert.ok(!urls.some((u) => u.includes('registry.npmjs.org')), 'npm must not be consulted when GitHub answers');
+    assert.ok(!urls.some((u) => new URL(u).hostname === 'registry.npmjs.org'), 'npm must not be consulted when GitHub answers');
   });
 
   test('falls back to npm latest when the GitHub releases lookup fails', async () => {

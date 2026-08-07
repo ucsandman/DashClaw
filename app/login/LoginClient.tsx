@@ -38,10 +38,20 @@ export default function LoginClient({ localAuthEnabled }: LoginClientProps) {
     const params = new URLSearchParams(window.location.search);
     const ott = params.get('ott');
     if (!ott) return;
-    // Only same-origin paths (single leading slash) — never a protocol-relative
-    // or absolute URL — so the link can't be abused as an open redirect.
+    // Only same-origin paths — never a protocol-relative or absolute URL — so
+    // the link can't be abused as an open redirect. Resolved through the URL
+    // constructor because browsers normalize `\` to `/` (a bare leading-slash
+    // regex passes `/\evil.com`, which navigates cross-origin).
     const next = params.get('next');
-    const dest = next && /^\/(?!\/)/.test(next) ? next : '/approvals';
+    let dest = '/approvals';
+    if (next) {
+      try {
+        const resolved = new URL(next, window.location.origin);
+        if (resolved.origin === window.location.origin && next.startsWith('/')) {
+          dest = resolved.pathname + resolved.search + resolved.hash;
+        }
+      } catch { /* best-effort: unparseable next param — keep the default */ }
+    }
     // Strip the token from the address bar (and history) before exchanging.
     window.history.replaceState(null, '', '/login');
     setOttStatus('exchanging');

@@ -12,6 +12,74 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-07 — the security tab goes to zero (no release)
+
+A maintenance arc across two sittings: housekeeping first, then Wes
+pointed at the Security and quality tab (34 open findings) and said fix
+them. Nothing feature-shaped in it, recorded anyway because the
+roadmap's bar for new build work (evidence from real use) is also a bar
+against inventing work to fill the quiet.
+
+Verified v5.10.0 landed clean: main == origin, all five workflows green.
+Then cleared two kinds of accumulated litter. First, `git status` noise:
+`.launch/` (an empty /launch scaffold from July 10) and `costclaw-out/`
+(a CostClaw harness-audit work order from Aug 3) are now gitignored as
+local tool output. The CostClaw work order itself was triaged rather
+than executed: its permission-allowlist suggestion is already applied
+verbatim in `.claude/settings.json`, the pre-commit gate and the
+stop-condition/model-routing lines it asks for already exist (the
+2026-08-03 session-discipline section came from the same audit), and its
+"optimized" CLAUDE.md is a 214-line generic scaffold that would replace
+a hand-curated 171-line file three days newer — declined, and this line
+is the record of that decision.
+
+Second, Dependabot: 32 open alerts on main. 18 live in
+`packages/openclaw-plugin`'s vendored openclaw tree and stay open until
+openclaw ships 2026.7.2 (still unreleased as of today — checked). The
+other 14 were ours: undici/js-yaml/brace-expansion in the root lockfile,
+fast-uri/hono/ip-address in `mcp-server`, fast-uri in `media/remotion`.
+All cleared with per-lockfile `npm audit fix` (lockfile-only, no manifest
+changes), gated on the full suite before push: lint, 3,697 vitest, build,
+and mcp-server's own 75 tests, all green. One process note: the first
+`npm audit fix` silently ran in `mcp-server/` because a prior command's
+`cd` had persisted in the shell — caught by the package count looking
+wrong (156 audited at "root"). Ground on actual output remains the rule.
+
+Then the code-scanning side: 14 CodeQL alerts, triaged one by one
+rather than batch-dismissed. One was a real bug worth having: the
+`/login?ott=…&next=…` redirect validated `next` with a leading-slash
+regex, which passes `/\evil.com` — and browsers normalize `\` to `/`,
+making it an open redirect. Now resolved through the URL constructor
+with a same-origin check. The rest: four polynomial-ReDoS regexes made
+linear with no language change worth naming (guard evidence's nvme
+device pattern and env/cat secret-exposure branch, the containment
+branch-segment trim — now index-based, still byte-identical to the
+Python hook mirror — and the MCP client's redaction pattern, rewritten
+as a single-quantifier match with the keyword test in a callback); the
+silent-catch guard test's exponential body regex replaced with a
+tokenizer walk that preserves the best-effort-pragma semantics; the
+deviation dedup key moved sha1→sha256; markdown escaping now escapes
+the escape character; and a CLI test's substring URL assertion became a
+hostname compare. One dismissal, documented: the "clear-text logging of
+sensitive data" hit on the pretool hook logs secret-scan *category
+labels* to the operator's own stderr, never content — hardened with a
+charset cap anyway, then dismissed as false positive.
+
+The 20 remaining Dependabot alerts all lived in the OpenClaw plugin's
+lockfile projection of openclaw's npm-shrinkwrap — a tree our overrides
+provably cannot reach, and one that even openclaw's newest build
+(2026.7.1-2, checked: undici 8.5.0 < 8.9.0, tar 7.5.19 ≤ 7.5.20, hono
+4.12.25 < 4.12.34) still pins inside the vulnerable ranges. I tried
+dev-pinning the newest openclaw; it changed nothing, so I reverted the
+churn and dismissed all 20 as `not_used` with the rationale on each:
+dev-only, nothing we ship includes those copies. The standing order that
+replaces them: **when openclaw publishes past 2026.7.1-2, re-run `npm
+audit` in `packages/openclaw-plugin` and re-triage.** A permanently red
+security tab hides new signal; an honestly-zeroed one surfaces it.
+
+Gates for the sweep: lint, typecheck, 3,697 vitest, next build,
+mcp-server typecheck+build+75 tests, cli 182 tests — all green.
+
 ## 2026-08-06 — silence becomes a signal (v5.10.0)
 
 **Shipped:** `v5.10.0` — the silent-lane witness posture, closing the day's

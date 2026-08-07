@@ -116,6 +116,11 @@ _load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dashclaw_agent_intel import classify_bash, scan_file_operation, classify_tool, McpHealthMonitor
 from dashclaw_agent_intel.bash_classifier import is_bounded_rm, is_regenerable_artifact_rm
+from dashclaw_agent_intel.written_paths_ledger import (
+    extract_exec_candidates,
+    grade_script_content,
+    lookup_written_path,
+)
 from dashclaw_agent_intel.file_scanner import is_placeholder_path
 from dashclaw_agent_intel.http_client import request_with_retry, env_retries
 
@@ -257,7 +262,8 @@ def derive_idempotency_key(parts):
     return hashlib.sha256(ordered.encode("utf-8")).hexdigest()
 
 
-def api_request(method, path, body=None, timeout=None, retries=2, distinguish_auth=False):
+def api_request(method, path, body=None, timeout=None, retries=2, distinguish_auth=False,
+                read_error_body=False):
     """Make an HTTP request to the DashClaw API. Returns parsed JSON or None.
 
     By default retries up to three times total with 0.4s then 0.8s backoff
@@ -268,6 +274,11 @@ def api_request(method, path, body=None, timeout=None, retries=2, distinguish_au
     When distinguish_auth is True, a 401/403 response returns the AUTH_FAILED
     sentinel instead of None, so callers can tell "bad/missing API key" apart
     from "host unreachable".
+
+    When read_error_body is True, a non-2xx response's JSON body is parsed and
+    returned instead of None. POST /api/actions answers 403 for a blocked
+    create *with the created action in the body* — the observe-mode block
+    path needs that action_id for the executed-despite witness (F0).
     """
     if timeout is None:
         timeout = GUARD_TIMEOUT
@@ -291,6 +302,11 @@ def api_request(method, path, body=None, timeout=None, retries=2, distinguish_au
         # collapses to None as before.
         if distinguish_auth and exc.code in (401, 403):
             return AUTH_FAILED
+        if read_error_body:
+            try:
+                return json.loads(exc.read().decode("utf-8"))
+            except Exception:
+                return None
         return None
     except Exception:
         return None
@@ -337,10 +353,15 @@ def guard_check(context):
 
 
 def create_action(context, status="running"):
-    """POST /api/actions. Returns response dict or None on failure."""
+    """POST /api/actions. Returns response dict or None on failure.
+
+    A blocked create answers HTTP 403 with the created action in the body —
+    read it, don't discard it: the observe-mode block path extracts the
+    action_id from it for the executed-despite witness (F0)."""
     payload = dict(context)
     payload["status"] = status
-    return api_request("POST", "/api/actions", body=payload)
+    return api_request("POST", "/api/actions", body=payload,
+                       read_error_body=(status == "blocked"))
 
 
 def get_action(action_id):
@@ -383,6 +404,57 @@ def _bash_path_boosts(risk_score: int, all_paths: list, redirect_targets: list) 
     return risk_score
 
 
+def _apply_script_then_execute(parsed, risk_score):
+    """Script-then-execute composition detection (spec
+    docs/plans/2026-08-06-script-then-execute-spec.md): when this command
+    executes a script the SESSION itself recently wrote, grade the script's
+    content with the same classifiers inline commands get and fold that grade
+    in. The composition signal never escalates risk by itself (F5 lesson) —
+    `bash cleanup.sh` with regenerable-delete content stays in the cleanup
+    band exactly as the inline command would. Returns
+    (risk_score, extra_validations, target_or_None). Fail-soft: any error
+    degrades to pre-spec behavior."""
+    try:
+        if not _SESSION_ID:
+            return risk_score, [], None
+        for cand in extract_exec_candidates(parsed or {}):
+            norm = lookup_written_path(_SESSION_ID, _INSTANCE_STATE_SUFFIX, cand, _HOOK_CWD)
+            if not norm:
+                continue
+            graded = grade_script_content(norm)
+            if not graded["readable"]:
+                # A recently-self-written executable whose content can't be
+                # inspected is the evasion shape — review band, not block
+                # (large legitimate generated scripts exist).
+                return (
+                    max(risk_score, 60),
+                    [{
+                        "check": "script_then_execute_unreadable",
+                        "result": "warn",
+                        "reason": "self-written script content unreadable or oversized: " + norm,
+                    }],
+                    norm,
+                )
+            escalated = graded["risk_score"] > risk_score
+            validations = [{
+                "check": "script_then_execute",
+                "result": "warn" if escalated else "allow",
+                "reason": "executing a script this session wrote; content graded "
+                + str(graded["risk_score"]),
+            }]
+            for v in graded["validations"]:
+                validations.append({
+                    "check": "script_content:" + str(v.get("check", "")),
+                    "result": v.get("result", "allow"),
+                    "reason": v.get("reason", ""),
+                })
+            return max(risk_score, graded["risk_score"]), validations, norm
+        return risk_score, [], None
+    except Exception as e:
+        _log_hook_error("script_then_execute: " + type(e).__name__ + ": " + str(e))
+        return risk_score, [], None
+
+
 def _enrich_bash(tool_input: dict, tool_info: dict, label: str = "Bash") -> dict:
     """Run the command classifier and build enriched intel for a Bash or
     PowerShell tool call. PowerShell rides the same path: the classifier
@@ -422,6 +494,10 @@ def _enrich_bash(tool_input: dict, tool_info: dict, label: str = "Bash") -> dict
 
     risk_score = _bash_path_boosts(risk_score, all_paths, redirect_targets)
 
+    # Script-then-execute composition (spec §3.3): a hit routes the script's
+    # CONTENT grade into this call; a miss changes nothing.
+    risk_score, stx_validations, stx_target = _apply_script_then_execute(parsed, risk_score)
+
     risk_score = min(risk_score, 100)
 
     return {
@@ -431,13 +507,15 @@ def _enrich_bash(tool_input: dict, tool_info: dict, label: str = "Bash") -> dict
         "declared_goal": label + ": " + command[:120],
         # A shell redirection target is a write path; forward it as `target` so a
         # protected_path policy can gate `echo secret > app/secrets/x` style writes.
-        "target": redirect_targets[0] if redirect_targets else None,
+        # A script-then-execute hit forwards the script path instead, so
+        # protected_path policies can match the file being executed.
+        "target": stx_target or (redirect_targets[0] if redirect_targets else None),
         "intel": {
             "bash": {
                 "intent": bash_intel["intent"],
                 "risk_score": bash_intel["risk_score"],
                 "reversible": bash_intel["reversible"],
-                "validations": bash_intel["validations"],
+                "validations": bash_intel["validations"] + stx_validations,
             },
         },
     }
@@ -622,6 +700,24 @@ def write_action_id(tool_use_id, action_id):
         _append_session_tool_map(_SESSION_ID, tool_use_id, action_id)
 
 
+def _write_unenforced_action_state(tool_use_id, action_id, verdict):
+    """Observe-mode block / require_approval: the tool call is about to
+    execute DESPITE a gating verdict. Write the pretool->posttool temp file
+    as JSON so PostToolUse stamps `executed_despite` on the row instead of
+    reporting an ordinary outcome — the durable witness that a logged verdict
+    did not stop execution (F0, governance gap audit 2026-08-05). Mirrors
+    write_action_id's session-map append so coverage counting still sees the
+    governed tool_use."""
+    path = _action_state_path(tool_use_id)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"action_id": action_id or "", "unenforced_verdict": verdict}))
+    except Exception:
+        pass
+    if _SESSION_ID and tool_use_id and action_id:
+        _append_session_tool_map(_SESSION_ID, tool_use_id, action_id)
+
+
 def _append_session_tool_map(session_id, tool_use_id, action_id):
     """Append "<tool_use_id>\\t<action_id>" to a per-session log the Stop hook's
     coverage counter reads. Best-effort; never raises."""
@@ -640,6 +736,10 @@ def _append_session_tool_map(session_id, tool_use_id, action_id):
 # route action_ids into the per-session turn log without threading it
 # through every signature. Consumed by dashclaw_stop.py.
 _SESSION_ID = ""
+
+# Hook-stdin cwd; set in main(). Relative script paths in a Bash command are
+# resolved against this for the written-paths ledger lookup (spec §4).
+_HOOK_CWD = ""
 
 
 def _log_hook_error(message):
@@ -1101,7 +1201,7 @@ def handle_warn(guard_resp, context, tool_use_id):
     sys.exit(0)
 
 
-def handle_block(guard_resp, context):
+def handle_block(guard_resp, context, tool_use_id):
     """Block in enforce mode, warn in observe mode. Always records the action."""
     reasons = guard_resp.get("reasons") or []
     policies = guard_resp.get("matched_policies") or []
@@ -1110,9 +1210,27 @@ def handle_block(guard_resp, context):
 
     # RECORD THE BLOCK — this was missing, causing blocks to vanish from the ledger
     # with zero audit trail (BUG-02, fixed 2026-04-11 in Phase 1.5).
-    create_action(context, status="blocked")
+    # A 5.10.1+ server already recorded the blocked action inside the
+    # ?record=true guard call (recorded:true, action_id = the blocked row) —
+    # calling create_action again would re-evaluate guard server-side and
+    # write a DUPLICATE guard_decisions row, so every block showed twice in
+    # the ledger. Fall back to create_action only when the server did not
+    # record (older server, or record failure).
+    action_id = ""
+    if guard_resp.get("recorded") is True:
+        action_id = guard_resp.get("action_id") or ""
+    if not action_id:
+        resp = create_action(context, status="blocked")
+        action_id = _extract_action_id(resp) if resp else ""
 
     if HOOK_MODE == "observe":
+        # The tool call is about to execute despite the block. Leave the
+        # unenforced-verdict state for PostToolUse so the row gets its
+        # `executed_despite` witness stamp (F0) — and route the turn's token
+        # usage to the row, since in observe mode the work actually happens.
+        if action_id:
+            _write_unenforced_action_state(tool_use_id, action_id, "block")
+            append_turn_action(_SESSION_ID, action_id)
         log("[DashClaw] [observe] Would block: " + reason)
         sys.exit(0)
 
@@ -1173,7 +1291,11 @@ def handle_require_approval(guard_resp, context, tool_use_id):
 
     if HOOK_MODE == "observe":
         log("[DashClaw] [observe] Would require approval for: " + context["declared_goal"])
-        write_action_id(tool_use_id, action_id)
+        # Unenforced-verdict state (not the bare action_id): the tool executes
+        # without waiting for approval, so PostToolUse must stamp
+        # `executed_despite` on the pending row instead of reporting an
+        # ordinary outcome (F0).
+        _write_unenforced_action_state(tool_use_id, action_id, "require_approval")
         append_turn_action(_SESSION_ID, action_id)
         sys.exit(0)
 
@@ -1629,7 +1751,14 @@ def _warn_secret_scan(guard_resp, decision):
     try:
         scan = guard_resp.get("secret_scan") or {}
         if scan.get("detected") and decision != "block":
-            cats = ", ".join(sorted({f.get("category", "secret") for f in scan.get("findings", [])})) or "secret"
+            # Category LABELS only (e.g. "api_key"), never matched content —
+            # charset-restricted so a hostile server response can't smuggle
+            # ANSI escapes or secret bytes into the operator's terminal.
+            labels = {
+                re.sub(r"[^A-Za-z0-9_-]", "", str(f.get("category", "secret")))[:32]
+                for f in scan.get("findings", [])
+            }
+            cats = ", ".join(sorted(x for x in labels if x)) or "secret"
             log("[DashClaw] ⚠ Possible secret in this content (%s) — flagged by auto-scan. Review before it leaves your machine." % cats)
     except Exception:
         pass
@@ -1665,7 +1794,7 @@ def _dispatch_decision(decision, guard_resp, context, tool_use_id, tool_name=Non
     if decision == "warn":
         handle_warn(guard_resp, context, tool_use_id)
     elif decision == "block":
-        handle_block(guard_resp, context)
+        handle_block(guard_resp, context, tool_use_id)
     elif decision == "require_approval":
         handle_require_approval(guard_resp, context, tool_use_id)
     elif decision == "allow_contained":
@@ -1688,8 +1817,9 @@ def main():
     tool_input = data.get("tool_input") or {}
     tool_use_id = data.get("tool_use_id") or "unknown"
 
-    global _SESSION_ID
+    global _SESSION_ID, _HOOK_CWD
     _SESSION_ID = data.get("session_id") or ""
+    _HOOK_CWD = data.get("cwd") or ""
 
     # Step 1: Classify the tool using the intel module
     tool_info = classify_tool(tool_name, tool_input)

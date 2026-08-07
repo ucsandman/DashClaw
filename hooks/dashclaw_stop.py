@@ -523,7 +523,7 @@ def _capture_deviations(entries, last_uuid, session_id, cwd):
         posted = _read_posted_deviation_keys(session_id)
         new_keys = []
         for item in items:
-            key = hashlib.sha1(
+            key = hashlib.sha256(
                 (session_id + "\x00" + item).encode("utf-8")
             ).hexdigest()
             if key in posted:

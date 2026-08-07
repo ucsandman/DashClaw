@@ -84,8 +84,49 @@ describe('silent-catch regression guard (interactive code)', () => {
 // app/api/_archive/** is excluded (legacy platform surface, not extended).
 
 // Catch whose body is only whitespace and/or comments — swallows silently
-// unless the comment declares the best-effort pragma.
-const SILENT_CATCH = /catch\s*(\([^)]*\))?\s*\{(?:\s|\/\/[^\n]*|\/\*[\s\S]*?\*\/)*\}/g;
+// unless the comment declares the best-effort pragma. Found by locating each
+// `catch … {` opener and walking the body token-wise; the previous
+// whole-body regex was exponential on adversarial input (CodeQL js/redos).
+const CATCH_OPEN = /catch\s*(\([^)]*\)\s*)?\{/g;
+
+// If the block starting at bodyStart holds only whitespace/comments up to its
+// closing brace, return { end, comments }; otherwise null (real code inside).
+function commentOnlyBody(src, bodyStart) {
+  let i = bodyStart;
+  let comments = '';
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '}') return { end: i, comments };
+    if (/\s/.test(ch)) { i += 1; continue; }
+    if (ch === '/' && src[i + 1] === '/') {
+      const nl = src.indexOf('\n', i);
+      if (nl === -1) return null;
+      comments += src.slice(i, nl);
+      i = nl;
+      continue;
+    }
+    if (ch === '/' && src[i + 1] === '*') {
+      const close = src.indexOf('*/', i + 2);
+      if (close === -1) return null;
+      comments += src.slice(i, close + 2);
+      i = close + 2;
+      continue;
+    }
+    return null;
+  }
+  return null;
+}
+
+function silentCatches(src) {
+  const out = [];
+  for (const m of src.matchAll(CATCH_OPEN)) {
+    const body = commentOnlyBody(src, m.index + m[0].length);
+    if (body && !body.comments.includes('best-effort:')) {
+      out.push(src.slice(m.index, body.end + 1));
+    }
+  }
+  return out;
+}
 
 function walkServer(dir) {
   const out = [];
@@ -114,8 +155,8 @@ describe('silent-catch regression guard (server-side write surfaces)', () => {
     for (const file of serverFiles) {
       const rel = path.relative(APP_DIR, file).replace(/\\/g, '/');
       const src = readFileSync(file, 'utf8');
-      for (const match of src.match(SILENT_CATCH) || []) {
-        if (!match.includes('best-effort:')) violations.push(`${rel}: ${match.replace(/\s+/g, ' ')}`);
+      for (const match of silentCatches(src)) {
+        violations.push(`${rel}: ${match.replace(/\s+/g, ' ')}`);
       }
       if (EMPTY_ARROW_CATCH.test(src)) violations.push(`${rel}: empty .catch(() => {})`);
     }

@@ -1,7 +1,9 @@
 import { DashclawError } from "../util.js";
 const DEFAULT_DASHCLAW_TIMEOUT_MS = 30_000;
 export function redactDashclawMessage(text, configOrApiKey) {
-    let out = text.replace(/\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API_?KEY|ACCESS_TOKEN)[A-Z0-9_]*)\s*[=:]\s*("?)[^\s",}]+\2/gi, "$1=***REDACTED***");
+    // Single-quantifier name match + keyword test in the callback — the inline
+    // `[A-Z0-9_]*(?:TOKEN|…)[A-Z0-9_]*` form is polynomial (CodeQL js/polynomial-redos).
+    let out = text.replace(/\b([A-Z0-9_]+)\s*[=:]\s*("?)[^\s",}]+\2/gi, (match, name) => /TOKEN|SECRET|PASSWORD|API_?KEY|ACCESS_TOKEN/i.test(name) ? `${name}=***REDACTED***` : match);
     const secrets = typeof configOrApiKey === "string"
         ? [configOrApiKey]
         : [configOrApiKey?.apiKey, configOrApiKey?.authHeader];

@@ -46,8 +46,14 @@ export function clientAdvertisesContainment(context: GuardEvalContext): boolean 
  */
 export function safeBranchSegment(sessionId: unknown): string {
   const raw = typeof sessionId === 'string' ? sessionId : '';
-  const cleaned = raw.replace(/[^A-Za-z0-9-]/g, '-').replace(/^-+/, '').replace(/-+$/, '');
-  return cleaned.slice(0, 64) || 'session';
+  const subbed = raw.replace(/[^A-Za-z0-9-]/g, '-');
+  // Index-based strip('-') — regex trims (`/^-+/`, `/-+$/`) are quadratic on
+  // adversarial all-dash input (CodeQL js/polynomial-redos).
+  let start = 0;
+  let end = subbed.length;
+  while (start < end && subbed[start] === '-') start++;
+  while (end > start && subbed[end - 1] === '-') end--;
+  return subbed.slice(start, end).slice(0, 64) || 'session';
 }
 
 /**

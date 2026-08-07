@@ -429,7 +429,7 @@ export function buildProposals(candidatesByRule, { windowDays, generatedAt, topP
   return proposals;
 }
 
-const mdEscape = (s) => String(s).replace(/\|/g, '\\|').replace(/`/g, "'");
+const mdEscape = (s) => String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/`/g, "'");
 
 /**
  * GitHub-flavored markdown rendering of a proposal report, written for

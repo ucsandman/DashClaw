@@ -81,7 +81,7 @@ const INTERPRETER_DESTRUCTIVE_FULL_RE =
 // Raw block devices (Linux sd/hd/nvme/mmcblk/vd/xvd, macOS disk, Windows
 // PhysicalDrive) reached via output redirect or dd's of=.
 const DEVICE_WRITE_RE =
-  /(>\s*|\bof=)("|')?(\/dev\/(sd[a-z]|hd[a-z]|nvme\d+n?\d*(p\d+)?|disk\d+|mmcblk\d+|vd[a-z]|xvd[a-z])\b|\\\\\.\\physicaldrive\d+)/i;
+  /(>\s*|\bof=)("|')?(\/dev\/(sd[a-z]|hd[a-z]|nvme\d+(?:n\d+)?(?:p\d+)?|disk\d+|mmcblk\d+|vd[a-z]|xvd[a-z])\b|\\\\\.\\physicaldrive\d+)/i;
 
 /** Path arguments of a find command: tokens after `find` up to the first predicate/flag. */
 function findRootTargets(segment: string): string[] {
@@ -182,7 +182,7 @@ function classifyShellSegment(seg: string): EvidenceClassification {
     base = 75; action = 'deploy'; flags.push('deploy');
   } else if (/\b(npm|pnpm|yarn)\s+(i\b|install\b|add\b)|\bpip3?\s+install\b|\bpipx\s+install\b|\b(gem|cargo|go|brew|apt|apt-get|dnf|yum)\s+install\b/.test(s)) {
     base = 30; action = 'build'; flags.push('package');
-  } else if (/(^|\s)printenv(\s|$)|(^|\s)env\s*(-[0i]*\s*)?$|\bcat\s+[^&|;]*(\.env\b|id_rsa|\.pem\b|secret)/.test(s)) {
+  } else if (/(^|\s)printenv(\s|$)|(^|\s)env(\s+-[0i]*)?\s*$|\bcat\s[^&|;]*(\.env\b|id_rsa|\.pem\b|secret)/.test(s)) {
     // Bare `env` / `printenv` DUMPS the environment — secret exposure. But
     // `env -u TOKEN cmd` / `env VAR=x cmd` is a launcher prefix (unsetting a
     // credential before a push is hygiene, not exposure) — classify those as

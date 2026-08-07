@@ -18,9 +18,12 @@ export interface DashclawRequestOptions {
 }
 
 export function redactDashclawMessage(text: string, configOrApiKey?: DashclawRequestConfig | string): string {
+  // Single-quantifier name match + keyword test in the callback — the inline
+  // `[A-Z0-9_]*(?:TOKEN|…)[A-Z0-9_]*` form is polynomial (CodeQL js/polynomial-redos).
   let out = text.replace(
-    /\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API_?KEY|ACCESS_TOKEN)[A-Z0-9_]*)\s*[=:]\s*("?)[^\s",}]+\2/gi,
-    "$1=***REDACTED***",
+    /\b([A-Z0-9_]+)\s*[=:]\s*("?)[^\s",}]+\2/gi,
+    (match: string, name: string) =>
+      /TOKEN|SECRET|PASSWORD|API_?KEY|ACCESS_TOKEN/i.test(name) ? `${name}=***REDACTED***` : match,
   );
   const secrets = typeof configOrApiKey === "string"
     ? [configOrApiKey]
