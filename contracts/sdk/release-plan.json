@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.10.1",
+    "current_version": "5.11.0",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.10.1 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.11.0 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.10.1",
+    "current_version": "5.11.0",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.10.1 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.11.0 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.10.1 ships the OpenClaw auto-pairing consumer (spec docs/superpowers/specs/2026-08-07-openclaw-auto-pairing-design.md): the @dashclaw/openclaw-plugin (1.6.0, versioned independently) now answers /identities Request-pairing directives automatically - local keypair, public-key submission, one-click admin approval. Plugin + docs only; no Node/Python SDK surface change.",
+  "reason": "5.11.0 ships the test-agent cleanup (synthetic-agent registry, DELETE /api/actions synthetic+agent_ids modes with trace purge, hide-synthetic-by-default roster, daily synthetic-sweep cron) and the site-wide CollapsibleSection/useListControls rollout across 10 list pages. Platform + UI only; no Node/Python SDK surface change.",
   "domains": [
     "platform"
   ]

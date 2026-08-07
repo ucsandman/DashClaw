@@ -12,6 +12,40 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-07 — v5.11.0: the 729-phantom-agent cleanup + list controls everywhere
+
+Wes opened `/identities` and found 729 unidentified agents — smoke, load,
+and bench artifacts accumulated over months — burying the eight real
+identities and stuffing the global agent dropdown. The ask was twofold:
+clear them out and keep them out, and give every list page collapse +
+sort/filter. Shipped as one arc: a shared synthetic-agent registry, a
+one-click admin cleanup on `/identities` (backed by new admin-gated,
+write-ahead-audited `DELETE /api/actions?synthetic=true` / `?agent_ids=`
+modes), hide-synthetic-by-default at the roster choke point, a daily
+retention cron (`synthetic-sweep`, route 124, budget amended), and two new
+primitives — `CollapsibleSection` + `useListControls` — rolled out across
+ten list pages.
+
+The honest parts. First, the rendered drill earned its place in the
+process: after the "everything green" gates, the live cleanup click left
+292 ghosts standing — agents surviving on `agent_presence` heartbeat rows
+the delete never touched. The spec had explicitly parked non-action tables
+as "revisit if they visibly bloat"; they did, same hour, and the trace
+purge (presence/goals/decisions) was built on the spot. Unit suites can't
+catch what only a rendered page shows. Second, the review loop paid for
+itself repeatedly: a Strict-Mode double-toggle bug in the sort hook, a
+bulk-delete that could reach rows a filter had hidden, an approvals
+controls bar that unmounted with a search term stranded in it, five dead
+`/policies` buttons while the ledger section was collapsed (fixed, then
+the fix's own missing-reset bug fixed too), and a cron sweep that erased
+ledger rows without writing the audit row the manual path treats as
+non-negotiable. All caught pre-merge by adversarial reviewers, none by the
+test suite alone.
+
+Drill numbers, for the record: agent roster 797 → 89, decisions ledger
+150,510 → 148,668, zero synthetic agents left visible or hidden. No SDK
+source change; npm + PyPI stay at 5.6.2.
+
 ## 2026-08-07 — the security tab goes to zero (no release)
 
 A maintenance arc across two sittings: housekeeping first, then Wes

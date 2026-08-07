@@ -13,6 +13,28 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.11.0] — 2026-08-07
+
+**Test-agent cleanup + site-wide list controls — the 729-phantom-agent problem, solved at every layer.** Smoke, load, and bench runs had accumulated ~700 synthetic agents that polluted `/identities`, the global agent dropdown, and the policy picker, and inflated the Decisions ledger. This release removes them with one click, hides them everywhere by default, auto-purges future test traffic, and gives every list page collapsible sections with sort/filter.
+
+### Added
+
+- **Shared synthetic-agent registry** (`app/lib/synthetic-agents.js`) — the `smoke-%`/`loadtest-%`/`ci-smoke`/… pattern list (plus the previously missing `bench-agent-%`) extracted from calibration mining into one module consumed by cleanup, roster hiding, and the retention sweep. `ps-*` fleet agents are explicitly non-synthetic.
+- **One-click test-agent cleanup on `/identities`** — an admin-only "Clean up test agents (N)" button and a bulk **Delete** action on the unidentified-agents checkboxes. Backed by new `DELETE /api/actions?synthetic=true` and `?agent_ids=` modes: admin-gated, write-ahead audited, org-scoped, chunked (10k rows/statement), and they purge `agent_presence`/`goals`/`decisions` traces so roster ghosts can't survive (found live: 292 agents outlived the first pass on heartbeat rows alone). The confirm dialog states the real org-wide blast radius, including `smoke.*`/`loadtest.*`/`liveproof.*` action types on real agents.
+- **Synthetic agents hidden by default** — `listAgentsForOrg` filters the merged roster (actions + goals + decisions + presence) unless `include_synthetic=true`; cleans the identities fleet, the global agent dropdown, and the policy agent picker at one choke point. A "Show test agents" toggle on `/identities` reveals them.
+- **Daily retention sweep** — `GET /api/cron/synthetic-sweep` (CRON_SECRET-gated, write-ahead audited, org-scoped to `DASHCLAW_SYNTHETIC_SWEEP_ORG`, default `org_default`) deletes synthetic-agent rows older than `DASHCLAW_SYNTHETIC_RETENTION_DAYS` (default 7), scheduled by `.github/workflows/synthetic-sweep.yml`. Route count 123 → 124, amended in `THESIS.md` + `contracts/surface-budget.json` with a written reason.
+- **`CollapsibleSection` + `useListControls`/`ListControlsBar` primitives** — persisted per-section collapse (localStorage), column sort, text search, and per-column value filters, rolled out across `/identities`, `/decisions`, `/approvals`, `/audit-log`, `/assumptions`, `/sessions`, `/webhooks`, `/api-keys`, `/policies` (collapse-only — the One-Ledger keeps its own filter pipeline, `keepMounted` so its action refs stay live), and `/team-tasks`. Server-paginated pages (decisions, audit-log) are sort-only over the loaded page by design.
+- **Selection-visibility invariant** — every destructive/bulk handler on the rolled-out pages (delete, revoke, approve, deny) prunes its selection to currently visible rows and re-intersects at call time, so filters and toggles can never hide a row that a bulk action still targets.
+
+### Fixed
+
+- Decisions ledger totals now reflect real traffic (drill instance: 150,510 → 148,668 actions after synthetic purge; agent roster 797 → 89).
+
+### Notes
+
+- No Node/Python SDK source change — the SDKs are not republished; npm + PyPI stay at 5.6.2.
+- Rendered proof: authenticated headless drill across all 10 pages, including the live destructive cleanup path.
+
 ## [5.10.1] — 2026-08-07
 
 **OpenClaw auto-pairing — the /identities "Request pairing" click now works end to end.** Field-found by MoltFire: clicking Request pairing delivered the inbox directive but nothing agent-side acted on it, so no pending pairing ever appeared. The button's contract is now two clicks total: Request pairing → Approve.
