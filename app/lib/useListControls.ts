@@ -113,20 +113,22 @@ export function useListControls<T>(
   columns: ListColumn<T>[],
   opts?: { defaultSortKey?: string; defaultSortDir?: 'asc' | 'desc' }
 ): ListControlsState<T> {
-  const [sortKey, setSortKey] = useState<string | null>(opts?.defaultSortKey ?? null);
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(opts?.defaultSortDir ?? 'asc');
+  // sortKey/sortDir live in one state object updated by a single pure functional
+  // updater. Two separate useState calls (with setSortDir nested inside the
+  // setSortKey updater) broke under React Strict Mode's double-invocation of
+  // updaters in dev: both invocations read the same committed prevKey, so a
+  // same-key click flipped sortDir twice and it never visibly toggled.
+  const [sortState, setSortState] = useState<{ key: string | null; dir: 'asc' | 'desc' }>({
+    key: opts?.defaultSortKey ?? null,
+    dir: opts?.defaultSortDir ?? 'asc',
+  });
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Record<string, string>>({});
 
   const setSort = useCallback((key: string) => {
-    setSortKey((prevKey) => {
-      if (prevKey === key) {
-        setSortDir((prevDir) => (prevDir === 'asc' ? 'desc' : 'asc'));
-        return prevKey;
-      }
-      setSortDir('asc');
-      return key;
-    });
+    setSortState((prev) =>
+      prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }
+    );
   }, []);
 
   const setFilter = useCallback((key: string, value: string | null) => {
@@ -146,8 +148,8 @@ export function useListControls<T>(
   }, []);
 
   const processed = useMemo(
-    () => processRows(rows, columns, { sortKey, sortDir, search, filters }),
-    [rows, columns, sortKey, sortDir, search, filters]
+    () => processRows(rows, columns, { sortKey: sortState.key, sortDir: sortState.dir, search, filters }),
+    [rows, columns, sortState, search, filters]
   );
 
   const activeCount = Object.keys(filters).length + (search.trim() ? 1 : 0);
@@ -155,8 +157,8 @@ export function useListControls<T>(
   return {
     rows: processed,
     allRows: rows,
-    sortKey,
-    sortDir,
+    sortKey: sortState.key,
+    sortDir: sortState.dir,
     setSort,
     search,
     setSearch,

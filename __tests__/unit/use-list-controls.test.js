@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { processRows } from '@/lib/useListControls';
+import React from 'react';
+import { renderHook, act } from '@testing-library/react';
+import { processRows, useListControls } from '@/lib/useListControls';
 
 const columns = [
   { key: 'name', label: 'Name', accessor: (r) => r.name, sortable: true },
@@ -61,5 +63,31 @@ describe('processRows', () => {
       filters: { status: 'ok' },
     });
     expect(noMatch.map((r) => r.name)).toEqual([]);
+  });
+});
+
+describe('useListControls setSort', () => {
+  // Regression test for a Strict Mode bug: setSort previously nested
+  // setSortDir(...) inside the setSortKey(prevKey => ...) functional updater.
+  // React Strict Mode double-invokes updater functions in dev; both
+  // invocations saw the same committed prevKey, so a same-key click fired
+  // the direction flip twice and it canceled out (never visibly toggled).
+  // Rendering under React.StrictMode reproduces that double-invocation here.
+  const strictWrapper = ({ children }) => React.createElement(React.StrictMode, null, children);
+
+  it('toggles direction on repeated same-key setSort calls under Strict Mode', () => {
+    const { result } = renderHook(() => useListControls(rows, columns), { wrapper: strictWrapper });
+
+    act(() => {
+      result.current.setSort('name');
+    });
+    expect(result.current.sortKey).toBe('name');
+    expect(result.current.sortDir).toBe('asc');
+
+    act(() => {
+      result.current.setSort('name');
+    });
+    expect(result.current.sortKey).toBe('name');
+    expect(result.current.sortDir).toBe('desc');
   });
 });
