@@ -3,8 +3,8 @@
   "name": "DashClaw Governance",
   "description": "Policy enforcement, human-in-the-loop approval, and decision recording for every OpenClaw tool call. Powered by DashClaw.",
   "version": "1.6.1",
-  "entry": "src/index.ts",
-  "main": "./src/index.ts",
+  "entry": "dist/index.js",
+  "main": "./dist/index.js",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

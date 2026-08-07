@@ -49,6 +49,14 @@ export const DASHCLAW_HOOKS_SUBDIR = 'hooks/dashclaw';
 export const MANAGED_START = '# >>> dashclaw start — managed block, do not edit by hand';
 export const MANAGED_END = '# <<< dashclaw end';
 
+// Root-level TOML keys (approval_policy, notify) must appear BEFORE any
+// [table] header or they silently bind to the preceding table's scope. They
+// live in their own managed block so the merge can place it above the first
+// table while the hook/MCP tables stay appended at the end of the file.
+export const ROOT_MANAGED_START =
+  '# >>> dashclaw root-keys start — managed block, do not edit by hand';
+export const ROOT_MANAGED_END = '# <<< dashclaw root-keys end';
+
 export const AGENTS_MANAGED_START =
   '<!-- >>> dashclaw start — managed block, do not edit by hand -->';
 export const AGENTS_MANAGED_END = '<!-- <<< dashclaw end -->';
@@ -179,25 +187,15 @@ function tomlString(value) {
   return '"' + String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
 }
 
-export function buildConfigTomlBlock({
-  mcpServerPath,
-  hooksDir,
+export function buildRootKeysBlock({
   approvalPolicy = 'on-request',
   includeNotify = false,
   dashclawCliPath = null,
 }) {
-  const py = pythonCommand();
-  const pre = join(hooksDir, 'dashclaw_pretool.py');
-  const post = join(hooksDir, 'dashclaw_posttool.py');
-  const stop = join(hooksDir, 'dashclaw_stop.py');
-  const sessionStart = join(hooksDir, 'enforcement_liveness_probe.py');
-
   const lines = [
-    MANAGED_START,
-    '#',
-    '# Re-run `dashclaw install codex` to refresh this block. Edits made',
-    '# between these markers will be overwritten on next install.',
-    '',
+    ROOT_MANAGED_START,
+    '# Kept above the first [table]: TOML root keys after a table header would',
+    '# silently bind to that table. Re-run `dashclaw install codex` to refresh.',
     `approval_policy = ${tomlString(approvalPolicy)}`,
   ];
 
@@ -212,11 +210,32 @@ export function buildConfigTomlBlock({
     );
   }
 
-  lines.push(
+  lines.push(ROOT_MANAGED_END);
+  return lines.join('\n');
+}
+
+export function buildConfigTomlBlock({
+  mcpServerPath,
+  hooksDir,
+  agentId = 'codex',
+}) {
+  const py = pythonCommand();
+  const pre = join(hooksDir, 'dashclaw_pretool.py');
+  const post = join(hooksDir, 'dashclaw_posttool.py');
+  const stop = join(hooksDir, 'dashclaw_stop.py');
+  const sessionStart = join(hooksDir, 'enforcement_liveness_probe.py');
+
+  const lines = [
+    MANAGED_START,
+    '#',
+    '# Re-run `dashclaw install codex` to refresh this block. Edits made',
+    '# between these markers will be overwritten on next install.',
+    '# Changing a hook command (or its timeout) changes its trust hash —',
+    '# codex will ask you to re-trust the hook on next use.',
     '',
     '[mcp_servers.dashclaw]',
-    `command = ${tomlString(py)}`,
-    `args = [${tomlString(mcpServerPath)}, "--agent-id", "codex"]`,
+    'command = "node"',
+    `args = [${tomlString(mcpServerPath)}, "--agent-id", ${tomlString(agentId)}]`,
     '',
     '[[hooks.PreToolUse]]',
     'matcher = "Bash|Edit|Write|MultiEdit"',
@@ -226,19 +245,21 @@ export function buildConfigTomlBlock({
     // the hooks' argv identity beats the machine-ambient DASHCLAW_AGENT_ID
     // env var, so Codex tool calls are never mis-attributed to another
     // harness (roadmap v2.2).
-    `command = ${tomlString(`${py} ${pre} --agent-id codex`)}`,
-    'timeoutSec = 3600',
+    `command = ${tomlString(`${py} ${pre} --agent-id ${agentId}`)}`,
+    // serde renames codex's timeout_sec field to `timeout` in config.toml;
+    // any other spelling is silently ignored and the 600s default applies.
+    'timeout = 3600',
     '',
     '[[hooks.PostToolUse]]',
     'matcher = "Bash|Edit|Write|MultiEdit"',
     '[[hooks.PostToolUse.hooks]]',
     'type = "command"',
-    `command = ${tomlString(`${py} ${post} --agent-id codex`)}`,
+    `command = ${tomlString(`${py} ${post} --agent-id ${agentId}`)}`,
     '',
     '[[hooks.Stop]]',
     '[[hooks.Stop.hooks]]',
     'type = "command"',
-    `command = ${tomlString(`${py} ${stop} --agent-id codex`)}`,
+    `command = ${tomlString(`${py} ${stop} --agent-id ${agentId}`)}`,
     '',
     // Codex CLI 0.139.0's hook-event enum contains SessionStart alongside
     // Pre/Post/Stop; wired once that lifecycle was verified to fire
@@ -251,7 +272,7 @@ export function buildConfigTomlBlock({
     'type = "command"',
     `command = ${tomlString(`${py} ${sessionStart} --source session-start`)}`,
     MANAGED_END,
-  );
+  ];
 
   return lines.join('\n');
 }
@@ -336,23 +357,55 @@ function backupOnce(path) {
   return bak;
 }
 
+// Insert the root-keys block above the first [table] header that sits outside
+// the tables managed block, so approval_policy stays a true root key. When the
+// block already exists it is refreshed in place.
+export function upsertRootKeysBlock(source, rootBlock) {
+  if (source.includes(ROOT_MANAGED_START)) {
+    return replaceManagedBlock(source, rootBlock, {
+      startMarker: ROOT_MANAGED_START,
+      endMarker: ROOT_MANAGED_END,
+    });
+  }
+
+  // Only search the region before the tables managed block — inserting inside
+  // that block would get the root keys deleted on the next tables refresh.
+  const tablesAt = source.indexOf(MANAGED_START);
+  const head = tablesAt === -1 ? source : source.slice(0, tablesAt);
+  const firstTableAt = head.search(/^\s*\[/m);
+  const insertAt = firstTableAt !== -1 ? firstTableAt : head.length;
+
+  const before = source.slice(0, insertAt);
+  const after = source.slice(insertAt);
+  return ensureTrailingNewline(
+    stripTrailingBlankLines(before) +
+      (before.trim() ? '\n\n' : '') +
+      rootBlock +
+      '\n\n' +
+      after.replace(/^\n+/, ''),
+  );
+}
+
 export function mergeConfigToml({
   configPath,
   mcpServerPath,
   hooksDir,
   approvalPolicy,
+  agentId = 'codex',
   includeNotify = false,
   dashclawCliPath = null,
 }) {
   const before = existsSync(configPath) ? readFileSync(configPath, 'utf8') : '';
-  const block = buildConfigTomlBlock({
-    mcpServerPath,
-    hooksDir,
+  const tablesBlock = buildConfigTomlBlock({ mcpServerPath, hooksDir, agentId });
+  const rootBlock = buildRootKeysBlock({
     approvalPolicy,
     includeNotify,
     dashclawCliPath,
   });
-  const after = replaceManagedBlock(before, block);
+  const after = upsertRootKeysBlock(
+    replaceManagedBlock(before, tablesBlock),
+    rootBlock,
+  );
   mkdirSync(dirname(configPath), { recursive: true });
   const backup = backupOnce(configPath);
   writeFileSync(configPath, after);
@@ -381,6 +434,7 @@ export async function installCodex({
   projectDir = process.cwd(),
   baseUrl,
   approvalPolicy = 'on-request',
+  agentId = 'codex',
   includeNotify = false,
   env = process.env,
   logger = console,
@@ -413,6 +467,7 @@ export async function installCodex({
     mcpServerPath,
     hooksDir: hooksDst,
     approvalPolicy,
+    agentId,
     includeNotify,
     dashclawCliPath: includeNotify ? dashclawCliPath : null,
   });

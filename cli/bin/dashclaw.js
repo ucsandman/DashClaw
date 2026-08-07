@@ -96,7 +96,9 @@ ${bold('Usage:')}
   dashclaw install codex                 Provision DashClaw governance into Codex CLI
     --project <path>                     Project to receive AGENTS.md (default: cwd)
     --approval-policy <p>                Codex approval_policy (default: on-request)
+    --agent-id <id>                      Ledger identity for governed tool calls (default: codex)
     --include-notify                     Also wire Codex's notify config to dashclaw codex notify
+                                         (targets $CODEX_HOME/config.toml when CODEX_HOME is set)
   dashclaw codex notify '<json>'         Record a Codex turn-complete event
     --agent-id <id>                      Ledger identity for the turn (beats DASHCLAW_AGENT_ID)
                                          (called by Codex's notify config; always exits 0)
@@ -383,6 +385,7 @@ const REPO_ROOT = resolve(__dirname, '..', '..');
 async function cmdInstallCodex() {
   const projectDir = getFlag('--project') || process.cwd();
   const approvalPolicy = getFlag('--approval-policy') || 'on-request';
+  const installAgentId = getFlag('--agent-id') || 'codex';
   const includeNotify = args.includes('--include-notify');
 
   try {
@@ -391,6 +394,7 @@ async function cmdInstallCodex() {
       projectDir,
       baseUrl,
       approvalPolicy,
+      agentId: installAgentId,
       includeNotify,
       logger: console,
     });
@@ -899,6 +903,13 @@ const COMMAND_HANDLERS = {
 };
 
 async function main() {
+  // Subcommand-level --help must never run the subcommand. Before this guard,
+  // `dashclaw install codex --help` silently ignored the flag and RAN the
+  // install (mutating config.toml and AGENTS.md).
+  if (command !== 'help' && (args.includes('--help') || args.includes('-h'))) {
+    await cmdHelp();
+    return;
+  }
   await loadCommandConfig();
   const handler = COMMAND_HANDLERS[command];
   if (handler) {
