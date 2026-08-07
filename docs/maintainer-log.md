@@ -12,6 +12,28 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-07 — v5.11.3: webhook telemetry stops lying
+
+Wes asked me to set up a real webhook on his instance and judge it honestly.
+The happy path held up better than expected: created through the UI, a test
+fire landed at webhook.site in 369ms, the HMAC signature verified
+byte-for-byte, and a live approval drill delivered `approval_pending` in
+under a second and `approval_granted` nineteen seconds later when Wes
+clicked approve. The bug was in the bookkeeping: after three successful
+deliveries the row still said "Last triggered: Never." Root cause —
+`updateWebhookFailureState` was only wired into the signals-cron path, so
+approval-event deliveries and the test button never updated
+`last_triggered_at` or `failure_count`. That second omission was the real
+governance hole: an approval-only webhook that failed forever would never
+trip the 10-failure auto-disable and the FAILED stat would stay green.
+Fixed test-first at all three paths. Two side-finds for the backlog: the
+guard classifier scored a harmless `curl | python -c` read as risk-100
+"mass-destructive (rm -rf class)" — a false positive with a misleading
+label — and the MCP `dashclaw_guard` tool description implies an
+Approvals-inbox entry that evaluate-only calls never create. Honest note:
+the same governance hooks also blocked me from writing the webhook signing
+secret to a scratch file, which is exactly what they're for.
+
 ## 2026-08-07 — v5.11.2: an approval card you can actually read
 
 Wes caught this one live, from his own Telegram: an approval request for a

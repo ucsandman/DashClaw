@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { getOrgId, getOrgRole, getUserId } from '../../../../lib/org';
-import { deliverWebhook } from '../../../../lib/webhooks';
+import { deliverWebhook, updateWebhookFailureState } from '../../../../lib/webhooks';
 import { logActivity } from '../../../../lib/audit';
 import { getSql } from '../../../../lib/db';
 import { findWebhookForDelivery } from '../../../../lib/repositories/webhooks.repository';
@@ -55,6 +55,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ web
       payload: testPayload,
       sql,
     });
+
+    updateWebhookFailureState(
+      { id: wh.id as string, failure_count: wh.failure_count as number | string | null },
+      orgId,
+      result.success,
+      sql,
+    );
 
     logActivity({
       orgId, actorId: userId, action: 'webhook.tested',

@@ -13,6 +13,19 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.11.3] — 2026-08-07
+
+**Webhook health telemetry is now honest on every delivery path.** Found by a live end-to-end drill: a webhook could deliver three real events and still show "Last triggered: Never," and a webhook subscribed only to approval events could fail forever without ever tripping the 10-failure auto-disable.
+
+### Fixed
+
+- **Approval-event webhook deliveries (`approval_pending` / `approval_granted` / `approval_denied`) now update `last_triggered_at` and `failure_count`** — previously only the signals-cron path did, so approval-only webhooks never healed or auto-disabled and the FAILED stat stayed 0.
+- **The webhook test button now updates the same failure state**, so a successful test immediately clears "Last triggered: Never" and resets the failure counter.
+
+### Notes
+
+- No Node/Python SDK source change — the SDKs are not republished; npm + PyPI stay at 5.6.2.
+
 ## [5.11.2] — 2026-08-07
 
 **Approvals are now judgeable — the operator sees the full command.** Field-found the same afternoon it shipped: a Telegram approval card showed a `Bash: grep …; node -e "import(…` goal cut mid-word at the hook's 120-char record cap. An operator cannot approve or reject what they cannot read.

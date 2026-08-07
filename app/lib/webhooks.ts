@@ -619,8 +619,18 @@ function filterRelevantSignals(
   return signals.filter((s) => subscribedEvents.includes(s.type as string));
 }
 
-/** Reset, increment, or disable-at-10 a webhook's failure_count after a delivery. */
-function updateWebhookFailureState(wh: WebhookRow, orgId: string, success: boolean, sql: SqlClient): void {
+/**
+ * Reset, increment, or disable-at-10 a webhook's failure_count after a
+ * delivery, stamping last_triggered_at. Every real-webhook delivery path
+ * (signals, approval events, test route) must call this — guard webhooks
+ * (policy-based, keyed by policyId) have no webhooks row and must not.
+ */
+export function updateWebhookFailureState(
+  wh: Pick<WebhookRow, 'id' | 'failure_count'>,
+  orgId: string,
+  success: boolean,
+  sql: SqlClient,
+): void {
   if (success) {
     // Reset failure count on success
     sql`UPDATE webhooks SET failure_count = 0, last_triggered_at = ${new Date().toISOString()} WHERE id = ${wh.id} AND org_id = ${orgId}`.catch((err) => {
@@ -729,7 +739,7 @@ export async function fireWebhooksForApproval(
 ): Promise<void> {
   try {
     const webhooks = (await sql`
-      SELECT id, url, secret, events FROM webhooks
+      SELECT id, url, secret, events, failure_count FROM webhooks
       WHERE org_id = ${orgId} AND active = 1
     `) as unknown as WebhookRow[];
 
@@ -746,6 +756,8 @@ export async function fireWebhooksForApproval(
         eventType,
         payload,
         sql,
+      }).then((result) => {
+        updateWebhookFailureState(wh, orgId, result.success, sql);
       }).catch((err) =>
         console.error(`[WEBHOOK] Delivery failed for ${wh.id}:`, (err as Error)?.message)
       );

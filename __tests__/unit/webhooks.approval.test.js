@@ -168,6 +168,63 @@ describe('fireWebhooksForApproval', () => {
     expect(body.action.status).toBe('failed');
   });
 
+  it('resets failure_count and stamps last_triggered_at on successful approval delivery', async () => {
+    const sql = createSqlMock({
+      taggedResponses: [
+        // SELECT webhooks (carries failure_count so failure state can update)
+        [{ id: 'wh_1', url: 'https://example.com/hook', secret: 'sec', events: '["all"]', failure_count: 3 }],
+        [], // delivery INSERT
+        [], // failure state UPDATE
+      ],
+    });
+    mockFetch.mockResolvedValue({ ok: true, status: 200, text: async () => 'ok' });
+
+    const action = {
+      action_id: 'act_7',
+      agent_id: 'agent_7',
+      action_type: 'deploy',
+      declared_goal: 'test',
+      risk_score: 90,
+      status: 'pending_approval',
+    };
+
+    await fireWebhooksForApproval('org_1', 'approval_pending', action, sql);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const updateCall = sql.taggedCalls.find((c) => c.text.includes('UPDATE webhooks'));
+    expect(updateCall).toBeDefined();
+    expect(updateCall.text).toContain('failure_count = 0');
+    expect(updateCall.text).toContain('last_triggered_at');
+  });
+
+  it('increments failure_count when an approval delivery fails', async () => {
+    const sql = createSqlMock({
+      taggedResponses: [
+        [{ id: 'wh_1', url: 'https://example.com/hook', secret: 'sec', events: '["all"]', failure_count: 2 }],
+        [], // delivery INSERT
+        [], // failure state UPDATE
+      ],
+    });
+    mockFetch.mockResolvedValue({ ok: false, status: 500, text: async () => 'error' });
+
+    const action = {
+      action_id: 'act_8',
+      agent_id: 'agent_8',
+      action_type: 'deploy',
+      declared_goal: 'test',
+      risk_score: 90,
+      status: 'pending_approval',
+    };
+
+    await fireWebhooksForApproval('org_1', 'approval_pending', action, sql);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const updateCall = sql.taggedCalls.find((c) => c.text.includes('UPDATE webhooks'));
+    expect(updateCall).toBeDefined();
+    expect(updateCall.text).toContain('failure_count = ?');
+    expect(updateCall.values[0]).toBe(3);
+  });
+
   it('does not throw when db query fails', async () => {
     const sql = createSqlMock({ taggedResponses: [] });
     // Override to throw

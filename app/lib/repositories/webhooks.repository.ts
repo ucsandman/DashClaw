@@ -76,13 +76,13 @@ export async function listWebhookDeliveries(
     `;
 }
 
-/** Fetch a webhook's id/url/secret scoped to an org (for test delivery). */
+/** Fetch a webhook's id/url/secret/failure_count scoped to an org (for test delivery). */
 export async function findWebhookForDelivery(
   sql: SqlTag,
   webhookId: string,
   orgId: string,
 ): Promise<Record<string, unknown>[]> {
   return sql`
-      SELECT id, url, secret FROM webhooks WHERE id = ${webhookId} AND org_id = ${orgId}
+      SELECT id, url, secret, failure_count FROM webhooks WHERE id = ${webhookId} AND org_id = ${orgId}
     `;
 }
