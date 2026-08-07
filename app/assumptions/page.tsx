@@ -10,12 +10,25 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ListSkeleton } from '../components/ui/Skeleton';
+import { CollapsibleSection } from '../components/ui/CollapsibleSection';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { deriveAssumptionStatus, ASSUMPTION_FILTER_OPTIONS as FILTER_OPTIONS } from '../lib/assumptions-status';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { useListControls, type ListColumn } from '../lib/useListControls';
+import { ListControlsBar } from '../components/ListControlsBar';
 import { SelectCheckbox } from '../components/selection/SelectCheckbox';
 import { BulkActionBar } from '../components/selection/BulkActionBar';
+
+// Sort-only columns. The existing status *tabs* (FILTER_OPTIONS below) already
+// give a filterable status control over the same four values a `filterable`
+// status column would offer — adding a second one would be a redundant,
+// stacked status filter, so this section intentionally omits it (deviation
+// from the task-10 brief's "status filterable" bullet; see report).
+const assumptionsColumns: ListColumn<any>[] = [
+  { key: 'agent', label: 'Agent', accessor: (a) => a.agent_id, sortable: true },
+  { key: 'created', label: 'Created', accessor: (a) => a.created_at, sortable: true },
+];
 
 const STATUS_CONFIG: Record<string, { icon: React.ElementType; color: string; variant: string; label: string }> = {
   validated: { icon: CheckCircle2, color: 'text-success', variant: 'success', label: 'validated' },
@@ -73,8 +86,20 @@ export default function AssumptionsPage() {
     ? assumptions
     : assumptions.filter(a => deriveAssumptionStatus(a) === filter);
 
-  const selection = useSelection<any>(visibleAssumptions, (a) => a.assumption_id || a.id);
+  const assumptionsControls = useListControls(visibleAssumptions, assumptionsColumns);
+  const selection = useSelection<any>(assumptionsControls.rows, (a) => a.assumption_id || a.id);
   useSelectAllHotkey(selection.toggleAll);
+
+  // The rendered rows are sort/search-narrowed client-side; a selected id
+  // must never point at a row the operator can no longer see (see identities.tsx).
+  useEffect(() => {
+    const visibleIds = new Set(assumptionsControls.rows.map((a) => a.assumption_id || a.id));
+    const pruned = selection.selectedIds.filter((id) => visibleIds.has(id));
+    if (pruned.length !== selection.selectedIds.length) {
+      selection.setSelected(pruned);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assumptionsControls.rows]);
 
   const handleInvalidate = async (assumptionId: string) => {
     setInvalidateBusy(true);
@@ -176,25 +201,38 @@ export default function AssumptionsPage() {
       {/* List */}
       {loading ? (
         <ListSkeleton rows={6} />
-      ) : visibleAssumptions.length === 0 ? (
-        <EmptyState
-          icon={Brain}
-          title={filter === 'all' ? 'No assumptions recorded' : `No ${filter === 'pending' ? 'awaiting-validation' : filter} assumptions`}
-          description={filter === 'all'
-            ? 'Agents record assumptions using claw.recordAssumption() when making decisions based on uncertain information. Claude Code sessions auto-capture "ASSUMPTIONS I\'M MAKING:" blocks via the Stop hook.'
-            : 'No assumptions match this filter. Switch to “All” to see every recorded assumption.'}
-        />
       ) : (
-        <div className="space-y-3">
-          <div className="mb-3 flex items-center gap-2">
-            <SelectCheckbox
-              checked={selection.allSelected}
-              onToggle={() => selection.toggleAll()}
-              label="Select all"
-            />
-            <span className="text-xs text-tertiary">Select all</span>
-          </div>
-          {visibleAssumptions.map((a) => {
+        <CollapsibleSection
+          id="assumptions.list"
+          title="Assumptions"
+          icon={Brain}
+          count={visibleAssumptions.length}
+          controls={
+            visibleAssumptions.length > 0 ? (
+              <ListControlsBar columns={assumptionsColumns} controls={assumptionsControls} searchPlaceholder="Search assumptions…" />
+            ) : undefined
+          }
+          actions={
+            visibleAssumptions.length > 0 ? (
+              <SelectCheckbox
+                checked={selection.allSelected}
+                onToggle={() => selection.toggleAll()}
+                label="Select all"
+              />
+            ) : undefined
+          }
+        >
+        {visibleAssumptions.length === 0 ? (
+          <EmptyState
+            icon={Brain}
+            title={filter === 'all' ? 'No assumptions recorded' : `No ${filter === 'pending' ? 'awaiting-validation' : filter} assumptions`}
+            description={filter === 'all'
+              ? 'Agents record assumptions using claw.recordAssumption() when making decisions based on uncertain information. Claude Code sessions auto-capture "ASSUMPTIONS I\'M MAKING:" blocks via the Stop hook.'
+              : 'No assumptions match this filter. Switch to “All” to see every recorded assumption.'}
+          />
+        ) : (
+          <div className="space-y-3">
+          {assumptionsControls.rows.map((a) => {
             const status = deriveAssumptionStatus(a);
             const cfg = STATUS_CONFIG[status]!;
             const StatusIcon = cfg.icon;
@@ -295,7 +333,9 @@ export default function AssumptionsPage() {
               </Card>
             );
           })}
-        </div>
+          </div>
+        )}
+        </CollapsibleSection>
       )}
     </PageLayout>
   );

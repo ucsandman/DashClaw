@@ -10,12 +10,29 @@ import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
+import { CollapsibleSection } from '../components/ui/CollapsibleSection';
 import { isDemoMode } from '../lib/isDemoMode';
 import { demoAuditLogs, demoAuditStats } from '../lib/demoAuditData';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { useListControls, type ListColumn } from '../lib/useListControls';
+import { ListControlsBar } from '../components/ListControlsBar';
 import { SelectCheckbox } from '../components/selection/SelectCheckbox';
 import { BulkActionBar } from '../components/selection/BulkActionBar';
+
+// Sort-only over the loaded page (rule: server-paginated lists keep the
+// existing server-side action-type filter untouched; this never adds one).
+const auditColumns: ListColumn<any>[] = [
+  { key: 'time', label: 'Time', accessor: (l) => l.created_at, sortable: true },
+  {
+    key: 'actor',
+    label: 'Actor',
+    accessor: (l) =>
+      l.actor_name || (l.actor_type === 'system' ? '(system)' : l.actor_type === 'cron' ? '(cron)' : l.actor_id) || 'Unknown',
+    sortable: true,
+  },
+  { key: 'action', label: 'Action', accessor: (l) => l.action, sortable: true },
+];
 
 export default function AuditLogPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -112,8 +129,20 @@ export default function AuditLogPage() {
     }
   };
 
-  const selection = useSelection<any>(logs, (log) => log.id);
+  const auditControls = useListControls(logs, auditColumns);
+  const selection = useSelection<any>(auditControls.rows, (log) => log.id);
   useSelectAllHotkey(selection.toggleAll);
+
+  // The rendered rows are sort/search-narrowed client-side; a selected id
+  // must never point at a row the operator can no longer see (see identities.tsx).
+  useEffect(() => {
+    const visibleIds = new Set(auditControls.rows.map((log) => log.id));
+    const pruned = selection.selectedIds.filter((id) => visibleIds.has(id));
+    if (pruned.length !== selection.selectedIds.length) {
+      selection.setSelected(pruned);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auditControls.rows]);
 
   const handleCopyIds = () => {
     if (selection.count === 0) return;
@@ -291,6 +320,26 @@ export default function AuditLogPage() {
       )}
 
       {/* Activity timeline */}
+      <CollapsibleSection
+        id="audit.entries"
+        title="Audit entries"
+        icon={Clock}
+        count={stats?.total || logs.length}
+        controls={
+          logs.length > 0 ? (
+            <ListControlsBar columns={auditColumns} controls={auditControls} searchPlaceholder="Search this page…" />
+          ) : undefined
+        }
+        actions={
+          logs.length > 0 ? (
+            <SelectCheckbox
+              checked={selection.allSelected}
+              onToggle={() => selection.toggleAll()}
+              label="Select all"
+            />
+          ) : undefined
+        }
+      >
       <Card hover={false}>
         <CardContent className="pt-0">
           {logs.length === 0 ? (
@@ -303,16 +352,8 @@ export default function AuditLogPage() {
             </div>
           ) : (
             <>
-              <div className="mb-2 flex items-center gap-2 border-b border-border pb-2">
-                <SelectCheckbox
-                  checked={selection.allSelected}
-                  onToggle={() => selection.toggleAll()}
-                  label="Select all"
-                />
-                <span className="text-xs text-tertiary">Select all</span>
-              </div>
               <div className="divide-y divide-border">
-              {logs.map((log) => {
+              {auditControls.rows.map((log) => {
                 const ActionIcon = getActionIcon(log.action);
                 const details = parseDetails(log.details);
 
@@ -424,6 +465,7 @@ export default function AuditLogPage() {
           )}
         </CardContent>
       </Card>
+      </CollapsibleSection>
     </PageLayout>
   );
 }
