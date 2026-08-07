@@ -13,6 +13,7 @@ import {
 import { runDoctor as runDoctorCommand } from '../lib/doctor.js';
 import { resolveConfig, clearConfigFile, configPath, ask, askSecret } from '../lib/config.js';
 import { installCodex, codexConfigPath, codexHooksDir } from '../lib/codex/install.js';
+import { isHelpInvocation } from '../lib/argv.js';
 import { installClaude } from '../lib/claude/install.js';
 import { upCommand, runDown, resolveBaseDir } from '../lib/up/index.js';
 import { runCodexNotify } from '../lib/codex/notify.js';
@@ -906,7 +907,7 @@ async function main() {
   // Subcommand-level --help must never run the subcommand. Before this guard,
   // `dashclaw install codex --help` silently ignored the flag and RAN the
   // install (mutating config.toml and AGENTS.md).
-  if (command !== 'help' && (args.includes('--help') || args.includes('-h'))) {
+  if (command !== 'help' && isHelpInvocation(args)) {
     await cmdHelp();
     return;
   }

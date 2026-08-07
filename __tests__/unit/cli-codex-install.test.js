@@ -20,6 +20,7 @@ import {
   buildRootKeysBlock,
   mergeConfigToml,
 } from '../../cli/lib/codex/install.js';
+import { isHelpInvocation } from '../../cli/lib/argv.js';
 
 const MCP = 'C:\\repo\\mcp-server\\bin\\dashclaw-mcp.js';
 const HOOKS = 'C:\\home\\hooks\\dashclaw';
@@ -144,8 +145,20 @@ describe('mergeConfigToml placement', () => {
   });
 });
 
-describe('dashclaw install codex --help', () => {
-  it('prints usage and installs nothing', () => {
+describe('subcommand --help guard', () => {
+  it('flags --help and -h anywhere in argv', () => {
+    expect(isHelpInvocation(['install', 'codex', '--help'])).toBe(true);
+    expect(isHelpInvocation(['install', 'codex', '-h'])).toBe(true);
+    expect(isHelpInvocation(['approve', 'act_1', '--reason', 'ok'])).toBe(false);
+  });
+
+  // Full e2e (bin dispatch prints usage, installs nothing). The bin's import
+  // graph needs cli-only deps (`tar`) that repo-root CI doesn't install, so
+  // this only runs where `npm install` has been done inside cli/.
+  const cliDepsPresent = existsSync(
+    resolve(__dirname, '../../cli/node_modules/tar')
+  );
+  it.runIf(cliDepsPresent)('prints usage and installs nothing', () => {
     const home = mkdtempSync(join(tmpdir(), 'dc-help-'));
     const bin = resolve(__dirname, '../../cli/bin/dashclaw.js');
     const out = execFileSync(process.execPath, [bin, 'install', 'codex', '--help'], {
