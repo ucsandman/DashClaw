@@ -181,6 +181,9 @@ DashClaw__AI_Governance.mp4
 .offlocal/
 .playwright-cli/
 .playwright-mcp/
+# /launch skill scaffold + CostClaw audit output (local tool dirs, never project artifacts)
+.launch/
+costclaw-out/
 
 # One-off audit/spec/ratchet artifacts belong in docs/archive, never at root (cleanup 2026-07-05)
 /*-mega.md
