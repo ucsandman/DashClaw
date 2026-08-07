@@ -182,6 +182,7 @@ describe('synthetic-traffic filter (v2.6)', () => {
       'test-guard-agent',
       'loadtest-mr6y5eev', // guard-load.mjs (v4.1)
       'bench-agent-bench_mr9e9luj', // scripts/bench-guard-hotpath.mjs
+      'guide-capture-agent', // scripts/regen-platform-guide-examples.mjs
       'analytics-agent', // homepage LiveDemo presets (real rows under session auth)
       'openai-deployer-1',
       'rogue-agent',
@@ -221,10 +222,10 @@ describe('SQL LIKE mirror of the synthetic filter (v3.1)', () => {
     const corpus = [
       // positives (one per family)
       'smoke-ping-mcgz1x2a', 'ci-smoke', 'sdk-live-test-agent-py', 'demo-e2e-verifier', 'test', 'test-guard-agent',
-      'loadtest-mr6y5eev', 'bench-agent-bench_mr9e9luj', 'analytics-agent', 'openai-deployer-1', 'rogue-agent',
+      'loadtest-mr6y5eev', 'bench-agent-bench_mr9e9luj', 'guide-capture-agent', 'analytics-agent', 'openai-deployer-1', 'rogue-agent',
       // negatives / near-misses
       'claude-code', 'codex', 'hermes', 'codex:test-writer', 'latest-deployer', 'smokey',
-      'ci-smoke-extra', 'demo-e2e-verifier-2', 'testing', 'attest', 'loadtester', 'payload-test',
+      'ci-smoke-extra', 'demo-e2e-verifier-2', 'guide-capture-agent-2', 'testing', 'attest', 'loadtester', 'payload-test',
       'analytics-agent-2', 'rogue-agents', 'openai-deployer-11',
     ];
     for (const agent_id of corpus) {

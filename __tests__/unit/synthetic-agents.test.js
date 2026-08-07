@@ -6,7 +6,7 @@ import {
 describe('synthetic-agents registry', () => {
   it('matches every known synthetic family incl. bench-agent-*', () => {
     for (const id of ['smoke-h-mr3qh44i', 'ci-smoke', 'sdk-live-test-agent', 'demo-e2e-verifier',
-      'test', 'test-7', 'loadtest-mr6y5eev', 'bench-agent-bench_mr9e9luj',
+      'test', 'test-7', 'loadtest-mr6y5eev', 'bench-agent-bench_mr9e9luj', 'guide-capture-agent',
       'analytics-agent', 'openai-deployer-1', 'rogue-agent']) {
       expect(isSyntheticAgentId(id), id).toBe(true);
     }

@@ -12,6 +12,21 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-07 — v5.11.1: the last stray joins the registry
+
+Small follow-up cut the same day: after the v5.11.0 cleanup, exactly one
+test artifact kept reappearing — `guide-capture-agent`, created by the
+platform-guide example capture on every release. Added to the synthetic
+registry (hidden, cleanable, swept). The release also carries the other
+session's accumulated CLI fixes (`dashclaw install codex` four-defect
+repair, subcommand `--help` guard) and the OpenClaw plugin 1.6.1/1.6.2
+notes. Also for the record: v5.11.0's "one click left on prod" claim was
+wrong — the verification drill had already cleaned production, because
+`.env.local`'s DATABASE_URL points at the same Neon database as the
+Vercel deployment. The intended rows were deleted either way, but the
+lesson stands: this machine's "local" runs are production runs, and a
+separate dev database is now an open question for Wes.
+
 ## 2026-08-07 — v5.11.0: the 729-phantom-agent cleanup + list controls everywhere
 
 Wes opened `/identities` and found 729 unidentified agents — smoke, load,

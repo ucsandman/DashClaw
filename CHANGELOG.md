@@ -13,13 +13,20 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.11.1] — 2026-08-07
+
 ### Fixed
 
+- **`guide-capture-agent` joins the synthetic-agent registry** — the platform-guide example capture (`scripts/regen-platform-guide-examples.mjs`) recreates this agent on every release, and after v5.11.0's cleanup it was the one test artifact still reappearing as an unidentified agent. Now hidden from rosters by default, covered by the one-click cleanup, and purged by the daily retention sweep like the other test families.
 - **`dashclaw install codex` — four defects found wiring the OpenClaw embedded-codex lane.** (1) The DashClaw MCP server (a Node entry) was registered with `command = "python"` — that spawn could never have worked. (2) The managed config block was appended after any user `[tables]`, so its top-level `approval_policy` silently bound to the preceding table's scope; root keys now live in a separate managed block inserted above the first table (legacy single-block installs migrate cleanly). (3) `--agent-id` is now threaded into the MCP args and every hook command (previously hardcoded `codex`, mis-attributing governed actions). (4) Hook timeout is written as `timeout` — codex's config.toml parser ignored the old `timeoutSec` spelling and applied its 600s default. Note: fixes 3–4 change hook command identity, so codex will ask to re-trust the hooks after a re-install. New test file covers all four plus the help guard below.
 - **CLI: subcommand `--help` no longer executes the subcommand.** `dashclaw install codex --help` previously ignored the flag and ran the install (mutating `config.toml` and `AGENTS.md`); any `--help`/`-h` now prints usage and exits.
 - **`@dashclaw/openclaw-plugin` 1.6.2 — manifests point at `dist/index.js`** instead of `src/index.ts`. OpenClaw 2026.7.x refuses TypeScript entries for installed packages (source checkouts excepted) — the stale entry broke the gateway's startup plugin repair. (1.6.1 was published before this fix and still carries the broken entry; install 1.6.2+ on OpenClaw 2026.7.x.)
 
 - **`@dashclaw/openclaw-plugin` 1.6.1 — bounded approval wait.** Field-found by MoltFire: a `require_approval` decision parked the tool call in `waitForApproval` for up to 300s, but Codex's embedded dynamic-tool RPC watchdog kills the call at ~90s — so a governed Telegram `sessions_send` was silently dropped instead of delivered, even when the operator approved later. The plugin now bounds the wait with a new `approvalWaitMs` config (default 60s, under the watchdog) and on timeout blocks with an actionable reason (action id + `/approvals` link + retry hint). The server-side approval window stays 300s, so approving after the timeout and retrying the same call passes via the guard approval grant and `createAction`'s idempotent-retry dedupe. New unit test covers the never-answered operator path.
+
+### Notes
+
+- No Node/Python SDK source change — the SDKs are not republished; npm + PyPI stay at 5.6.2. `@dashclaw/openclaw-plugin` 1.6.1/1.6.2 were published independently ahead of this release.
 
 ## [5.11.0] — 2026-08-07
 
