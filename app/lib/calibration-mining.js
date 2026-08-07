@@ -14,6 +14,9 @@ import crypto from 'node:crypto';
 // .js specifier to .ts from a .js importer, while tsx (scripts), vitest, and
 // Turbopack all resolve the extensionless form.
 import { RISK_MEDIUM_MIN } from './riskThresholds';
+import {
+  SYNTHETIC_AGENT_RE, SYNTHETIC_AGENT_LIKE_PATTERNS, SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS,
+} from './synthetic-agents';
 
 const MAX_EVIDENCE = 10;
 
@@ -47,38 +50,8 @@ export function normalizeGoal(goal) {
     .slice(0, 160);
 }
 
-// Synthetic-traffic filter (roadmap v2.6). The platform's own verification
-// traffic is DESIGNED to trip policies (inflated client scores, deliberate
-// blocks/denials), so mining it would calibrate the scorer against a fiction.
-// Explicit families, one per generator in this repo — keep in sync with:
-//   smoke-*              scripts/policy-smoke.mjs (agentFor -> `smoke-{tag}-{run}`)
-//   ci-smoke             .github/workflows/up-smoke.yml
-//   sdk-live-test-agent* .github/workflows/sdk-live.yml
-//   demo-e2e-verifier    scripts/verify-demo-e2e.mjs
-//   test, test-*         scripts/test-full-api.mjs, scripts/test-actions.mjs, dev suites
-//   loadtest-*           scripts/guard-load.mjs (AGENT = `loadtest-{run}`)
-// The last three exact ids are the homepage LiveDemo presets
-// (app/lib/homepageDemoActions.ts): on a session/trial-cookie-authenticated
-// instance the demo's "Evaluate" click POSTs a REAL /api/guard, so its rows
-// exist in the ledger (by design — the visitor sees them on /decisions) but
-// are browser clicks, not agent traffic. Discovered 2026-07-26 when the
-// hosted funnel counted one as an agent-door first action.
-const SYNTHETIC_AGENT_RE = /^(smoke-|ci-smoke$|sdk-live-test-agent|demo-e2e-verifier$|test$|test-|loadtest-|analytics-agent$|openai-deployer-1$|rogue-agent$)/;
-
-// SQL-side mirror of SYNTHETIC_AGENT_RE for consumers that must exclude
-// synthetic rows BEFORE aggregation or LIMIT (posture repository, v3.1).
-// A unit test pins regex↔patterns agreement so the two can't drift.
-export const SYNTHETIC_AGENT_LIKE_PATTERNS = [
-  'smoke-%', 'ci-smoke', 'sdk-live-test-agent%', 'demo-e2e-verifier', 'test', 'test-%', 'loadtest-%',
-  'analytics-agent', 'openai-deployer-1', 'rogue-agent',
-];
-// Synthetic action-type families (v4.1 widened from the single `smoke.%`):
-//   smoke.*     scripts/policy-smoke.mjs (run-unique types)
-//   loadtest.*  scripts/guard-load.mjs
-//   liveproof.* ad-hoc ship-verification traffic recorded during live proofs
-export const SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS = ['smoke.%', 'loadtest.%', 'liveproof.%'];
-// JS-side prefixes derived from the LIKE patterns so the two can't drift
-// (every pattern is `prefix%` by construction; a unit test pins this).
+// Re-export for existing consumers (posture repository, policy-tuning, tests).
+export { SYNTHETIC_AGENT_LIKE_PATTERNS, SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS };
 const SYNTHETIC_ACTION_TYPE_PREFIXES = SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS.map((p) => p.slice(0, -1));
 
 export function isSyntheticEvent(event) {
