@@ -55,6 +55,21 @@ const nextConfig = {
   // secret rotation, skill safety, open loops, learning, audit retrospection).
   async redirects() {
     return [
+      // The marketing project's default *.vercel.app alias predates the custom
+      // domain and is still Google-indexed under the retired "AI Agent
+      // Observability" title. robots.txt answers Disallow: / on non-marketing
+      // hosts, which BLOCKS recrawl, so that stale entry can never expire on
+      // its own. A permanent host-level redirect (it covers /robots.txt too,
+      // so the alias no longer has robots of its own) lets Google follow
+      // through, consolidate onto the canonical host, and drop the alias.
+      // Exact host match only: my-dashclaw.vercel.app and hosted.dashclaw.io
+      // are live instances and must never redirect.
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'dash-claw.vercel.app' }],
+        destination: 'https://www.dashclaw.io/:path*',
+        permanent: true,
+      },
       {
         source: '/toolkit',
         destination: '/docs#mcp-tools',
