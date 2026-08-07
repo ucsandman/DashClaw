@@ -1210,14 +1210,24 @@ def handle_block(guard_resp, context, tool_use_id):
 
     # RECORD THE BLOCK — this was missing, causing blocks to vanish from the ledger
     # with zero audit trail (BUG-02, fixed 2026-04-11 in Phase 1.5).
-    resp = create_action(context, status="blocked")
+    # A 5.10.1+ server already recorded the blocked action inside the
+    # ?record=true guard call (recorded:true, action_id = the blocked row) —
+    # calling create_action again would re-evaluate guard server-side and
+    # write a DUPLICATE guard_decisions row, so every block showed twice in
+    # the ledger. Fall back to create_action only when the server did not
+    # record (older server, or record failure).
+    action_id = ""
+    if guard_resp.get("recorded") is True:
+        action_id = guard_resp.get("action_id") or ""
+    if not action_id:
+        resp = create_action(context, status="blocked")
+        action_id = _extract_action_id(resp) if resp else ""
 
     if HOOK_MODE == "observe":
         # The tool call is about to execute despite the block. Leave the
         # unenforced-verdict state for PostToolUse so the row gets its
         # `executed_despite` witness stamp (F0) — and route the turn's token
         # usage to the row, since in observe mode the work actually happens.
-        action_id = _extract_action_id(resp) if resp else ""
         if action_id:
             _write_unenforced_action_state(tool_use_id, action_id, "block")
             append_turn_action(_SESSION_ID, action_id)

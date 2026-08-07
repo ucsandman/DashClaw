@@ -174,7 +174,11 @@ describe('POST /api/guard?record=true', () => {
     expect(inserts.length).toBe(0);
   });
 
-  it('block decision → no action record created, recorded:false', async () => {
+  it('block decision → blocked record created in-request, recorded:true', async () => {
+    // Contract change (2026-08-06): the record path creates the blocked action
+    // row itself, reusing this evaluation. The old recorded:false answer made
+    // the hook fall back to POST /api/actions, whose re-evaluation wrote a
+    // duplicate guard_decisions row for every block.
     routeSqlHolder.sql = createSqlMock({
       // Response order: settings (halt check, P4) first, then guard_policies.
       taggedResponses: [[], [{
@@ -187,9 +191,11 @@ describe('POST /api/guard?record=true', () => {
     }));
     const data = await res.json();
     expect(data.decision).toBe('block');
-    expect(data.recorded).toBe(false);
+    expect(data.recorded).toBe(true);
+    expect(data.action_id).not.toBe(data.decision_id);
     const inserts = routeSqlHolder.sql.taggedCalls.filter((c) => c.text.includes('INSERT INTO action_records'));
-    expect(inserts.length).toBe(0);
+    expect(inserts.length).toBe(1);
+    expect(inserts[0].values).toContain('blocked');
   });
 
   it('require_approval decision → record created with pending_approval status', async () => {

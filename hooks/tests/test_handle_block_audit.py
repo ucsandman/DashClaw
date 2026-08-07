@@ -315,6 +315,77 @@ class TestHandleBlockAuditTrail(unittest.TestCase):
             "Allow path must post status=running, not blocked"
         )
 
+    # -----------------------------------------------------------------------
+    # Duplicate-decision regression (2026-08-06): a 5.10.1+ server records the
+    # blocked action inside the ?record=true guard call. The hook must then
+    # SKIP create_action — the fallback POST /api/actions re-evaluates guard
+    # server-side and wrote a second guard_decisions row for every block.
+    # -----------------------------------------------------------------------
+
+    def test_handle_block_server_recorded_skips_create_action(self):
+        """recorded:true in the guard response means no /api/actions call."""
+        self.log.guard_response = {
+            "decision": "block",
+            "reasons": ["Test: block reason"],
+            "matched_policies": ["gp_test123"],
+            "recorded": True,
+            "action_id": "act_server_recorded_001",
+        }
+        code, _out, _err = _run_hook(_BLOCKED_BASH_INPUT, self._env())
+
+        self.assertEqual(code, 2, "Expected exit code 2 for block in enforce mode")
+        action_calls = [r for r in self.log.get_all() if r["path"] == "/api/actions"]
+        self.assertEqual(
+            len(action_calls), 0,
+            "Server already recorded the blocked action — a create_action call "
+            "here re-evaluates guard and duplicates the guard_decisions row"
+        )
+
+    def test_handle_block_server_recorded_observe_uses_server_action_id(self):
+        """Observe mode: the executed-despite witness state must carry the
+        server-recorded action_id, still without a second /api/actions call."""
+        self.log.guard_response = {
+            "decision": "block",
+            "reasons": ["Test: block reason"],
+            "matched_policies": ["gp_test123"],
+            "recorded": True,
+            "action_id": "act_server_recorded_002",
+        }
+        stdin = dict(_BLOCKED_BASH_INPUT, tool_use_id="tu-block-audit-recorded-observe")
+        state_path = self._state_path(stdin["tool_use_id"])
+        self.addCleanup(lambda: os.path.exists(state_path) and os.remove(state_path))
+
+        code, _out, _err = _run_hook(stdin, self._env(DASHCLAW_HOOK_MODE="observe"))
+
+        self.assertEqual(code, 0, "Expected exit code 0 for block in observe mode")
+        action_calls = [r for r in self.log.get_all() if r["path"] == "/api/actions"]
+        self.assertEqual(len(action_calls), 0, "No create_action fallback when server recorded")
+        self.assertTrue(os.path.exists(state_path), "Observe-mode block must write posttool state")
+        with open(state_path, "r", encoding="utf-8") as f:
+            state = json.loads(f.read())
+        self.assertEqual(state["action_id"], "act_server_recorded_002")
+        self.assertEqual(state["unenforced_verdict"], "block")
+
+    def test_handle_block_recorded_false_falls_back_to_create_action(self):
+        """A pre-5.10.1 server answers recorded:false on block — the hook must
+        keep the legacy create_action fallback so the blocked row still exists."""
+        self.log.guard_response = {
+            "decision": "block",
+            "reasons": ["Test: block reason"],
+            "matched_policies": ["gp_test123"],
+            "recorded": False,
+            "recorded_error": "decision is block",
+        }
+        code, _out, _err = _run_hook(_BLOCKED_BASH_INPUT, self._env())
+
+        self.assertEqual(code, 2)
+        blocked_calls = [
+            r for r in self.log.get_all()
+            if r["path"] == "/api/actions"
+            and isinstance(r.get("body"), dict) and r["body"].get("status") == "blocked"
+        ]
+        self.assertEqual(len(blocked_calls), 1, "recorded:false must fall back to create_action")
+
     def test_handle_block_exits_2_when_action_record_fails(self):
         """Block enforcement is authoritative even when the audit write fails.
 

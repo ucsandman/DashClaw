@@ -12,8 +12,9 @@ import { scanForPromptInjection } from '../../lib/promptInjection';
 import { scanSensitiveData, redactAny } from '../../lib/security';
 import { getSettings } from '../../lib/repositories/settings.repository';
 import { listGuardDecisions, getGuardDecisionByIdempotencyKey } from '../../lib/repositories/guard.repository';
-import { createActionRecord, getActionByIdempotencyKey } from '../../lib/repositories/actions.repository';
+import { createActionRecord, createBlockedActionRecord, getActionByIdempotencyKey } from '../../lib/repositories/actions.repository';
 import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository';
+import { fireActionAlert } from '../../lib/actionAlerts';
 import { EVENTS, publishOrgEvent } from '../../lib/events';
 import { resolveAgentIdentity } from '../../lib/guard-identity';
 import { buildContainmentRef } from '../../lib/guard/containment';
@@ -21,14 +22,15 @@ import { getAssumptionAlerts } from '../../lib/assumption-notify';
 
 type GuardSql = ReturnType<typeof getSql>;
 type GuardData = Record<string, unknown> & { agent_id?: string; agent_name?: string; declared_goal?: string; verification_status?: string };
-type GuardResult = { decision: string; risk_score?: number; decision_id?: string; containment?: { status: string; basis: string; ref: string } | null };
+type GuardResult = { decision: string; risk_score?: number; decision_id?: string; reason?: string | null; reasons?: string[]; matched_policies?: string[]; containment?: { status: string; basis: string; ref: string } | null };
 
 
 /**
- * ?record=true support: create the running action record in-request (the same
- * insert POST /api/actions performs, via the shared repository function) so a
- * governed hook needs ONE HTTP call instead of guard + record. Additive — the
- * response without the param is unchanged.
+ * ?record=true support: create the action record in-request (the same insert
+ * POST /api/actions performs, via the shared repository functions — running/
+ * pending for allow-ish verdicts, blocked for a block) so a governed hook
+ * needs ONE HTTP call instead of guard + record. Additive — the response
+ * without the param is unchanged.
  */
 /**
  * The record path's idempotency read depends only on the request payload —
@@ -54,9 +56,6 @@ async function recordRunningAction(
   createdBy: string | null,
   prepared?: Promise<PreparedRecordReads | null> | null,
 ): Promise<{ recorded: boolean; action_id?: string; reason?: string }> {
-  // Mirrors the two-call flow: the hook never records a blocked action
-  // (the guard_decisions audit row already captures the block).
-  if (result.decision === 'block') return { recorded: false, reason: 'decision is block' };
   if (!data.agent_id || !data.declared_goal) {
     return { recorded: false, reason: 'agent_id and declared_goal are required to record an action' };
   }
@@ -81,6 +80,31 @@ async function recordRunningAction(
   // it so approval outcomes join back to matched_policies (policy-tuning
   // proposal loop, drizzle/0035). Overrides any client-supplied value.
   record.guard_decision_id = typeof result.decision_id === 'string' ? result.decision_id : null;
+
+  // Blocked verdict: create the blocked action record in-request, reusing THIS
+  // evaluation. The pre-5.10.1 contract returned recorded:false here and the
+  // hook fell back to POST /api/actions, whose unconditional re-evaluation
+  // wrote a second guard_decisions row — every block appeared twice in the
+  // ledger. Same insert + side effects as the actions route's blocked path
+  // (no trial-count increment: a blocked action never ran).
+  if (result.decision === 'block') {
+    const blocked_action_id = `act_${crypto.randomUUID()}`;
+    const blockedAction = await createBlockedActionRecord(sql, {
+      orgId,
+      action_id: blocked_action_id,
+      data: record as Parameters<typeof createBlockedActionRecord>[1]['data'],
+      guardDecision: result,
+      signature: null,
+      verified: data.verification_status === 'verified',
+      timestamp_start: new Date().toISOString(),
+      riskScore: result.risk_score ?? null,
+    });
+    after(() => {
+      void publishOrgEvent(EVENTS.ACTION_CREATED, { orgId, action: blockedAction });
+      void fireActionAlert('blocked', blockedAction as Record<string, unknown>, sql, orgId);
+    });
+    return { recorded: true, action_id: blocked_action_id };
+  }
 
   // Containment Verdicts (drizzle/0064): a negotiated+eligible allow_contained
   // verdict starts the row's staged-effect lifecycle at 'contained'. Every
@@ -178,7 +202,7 @@ async function tryIdempotentReplay(
     try {
       // recordRunningAction short-circuits on the existing action row;
       // when the prior record attempt failed it heals by creating one.
-      const rec = await recordRunningAction(sql, orgId, data, { decision: String(prior.decision), risk_score: prior.risk_score != null ? Number(prior.risk_score) : undefined, decision_id: String(prior.id) }, opts.createdBy, opts.prepared);
+      const rec = await recordRunningAction(sql, orgId, data, { decision: String(prior.decision), risk_score: prior.risk_score != null ? Number(prior.risk_score) : undefined, decision_id: String(prior.id), reason: prior.reason != null ? String(prior.reason) : null, matched_policies: priorPolicies as string[] }, opts.createdBy, opts.prepared);
       replay.recorded = rec.recorded;
       if (rec.recorded && rec.action_id) replay.action_id = rec.action_id;
       else if (rec.reason) replay.recorded_error = rec.reason;
@@ -215,10 +239,11 @@ async function attachAssumptionAlerts(
  *
  * Body: { action_type, risk_score?, agent_id?, agent_name?, systems_touched?, reversible?, declared_goal? }
  * Query: ?include_signals=true (optional, adds live signal warnings)
- * Query: ?record=true (optional, additive) — also creates the running action
- *        record (same insert as POST /api/actions) and returns its action_id,
- *        so a governed hook needs one HTTP call instead of two. On a block
- *        decision no record is created (`recorded: false`).
+ * Query: ?record=true (optional, additive) — also creates the action record
+ *        (same insert as POST /api/actions; a block creates the blocked
+ *        record) and returns its action_id, so a governed hook needs one HTTP
+ *        call instead of two — and the blocked record reuses this evaluation
+ *        instead of re-evaluating into a duplicate guard_decisions row.
  *
  * Agent identity — two tiers:
  *
