@@ -226,6 +226,23 @@ DASHCLAW_AGENT_ID=my-openclaw-agent`,
               .
             </p>
           </section>
+
+          {/* Automatic identity pairing (v1.6.0+ plugin behavior) */}
+          <section className="mt-6 rounded-xl border border-border-hover bg-surface-secondary p-6 sm:p-8">
+            <p className="text-xs uppercase tracking-[0.32em] text-tertiary">
+              Automatic identity pairing
+            </p>
+            <p className="mt-4 text-sm text-secondary leading-relaxed">
+              Click <span className="font-mono text-secondary">Request pairing</span> next to your agent on{' '}
+              <span className="font-mono text-secondary">/identities</span> and the plugin answers on the
+              agent&apos;s next tool call: it generates an RSA-2048 keypair locally, submits the public key,
+              and the pairing appears under Pending Pairings for your one-click approval. The private key is
+              written to <span className="font-mono text-secondary">~/.dashclaw/identity/&lt;agentId&gt;.pem</span>{' '}
+              and never leaves the agent&apos;s machine. Approval is what creates the identity — the agent
+              cannot enroll itself. Disable with <span className="font-mono text-secondary">autoPairing: false</span>{' '}
+              in the plugin config.
+            </p>
+          </section>
         </div>
       </main>
 

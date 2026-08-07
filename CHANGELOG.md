@@ -13,6 +13,24 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.10.1] — 2026-08-07
+
+**OpenClaw auto-pairing — the /identities "Request pairing" click now works end to end.** Field-found by MoltFire: clicking Request pairing delivered the inbox directive but nothing agent-side acted on it, so no pending pairing ever appeared. The button's contract is now two clicks total: Request pairing → Approve.
+
+### Added
+
+- **`@dashclaw/openclaw-plugin` 1.6.0 — auto-pairing consumer** (`packages/openclaw-plugin/src/auto-pairing.ts`, spec `docs/superpowers/specs/2026-08-07-openclaw-auto-pairing-design.md`). On the agent's first tool call per gateway process the plugin reads its unread DashClaw inbox; when a `dashclaw.pairing_request` directive targets its agent id it generates an RSA-2048 keypair locally (private key → `~/.dashclaw/identity/<agent_id>.pem`, mode 600, never sent or logged — same custody contract as the MCP `dashclaw_pair` tool), POSTs the public PEM to `/api/pairings`, and marks the message read. The pairing lands under Pending Pairings on `/identities`; admin approval remains the only step that creates the identity (P10 invariant unchanged). Fire-and-forget: it can never block or fail a tool call. New `autoPairing` config flag, default **on** — the operator's Request-pairing click is the consent. POST-then-write key ordering so a failed submission retries cleanly at the next gateway start. 8 new unit tests.
+- **OpenClaw guide + docs**: `/guides/openclaw` gains an "Automatic identity pairing" section; `docs/agent-identity.md` documents the automatic flow, the flag, and key rotation (delete the pem, click again).
+
+### Fixed
+
+- **v5-cull drift in `docs/agent-identity.md`** — the operator-pairing section still pointed agents at `dashclaw_inbox_list` / `claw.getInbox()` / `dashclaw_messages_mark_read`, all removed in the v5.0.0 cull; replaced with the live `GET`/`PATCH /api/messages` contract.
+
+### Notes
+
+- Claude Code / Codex / Hermes hooks runtimes deliberately defer the auto-consumer (recorded in the spec) — MCP-connected agents already answer the directive via `dashclaw_pair`.
+- No Node/Python SDK source change — the SDKs are not republished; npm + PyPI stay at 5.6.2. The OpenClaw plugin (independently versioned) republishes at 1.6.0.
+
 ## [5.10.0] — 2026-08-06
 
 **Silent-lane witness posture — silence is no longer indistinguishable from idleness.** The v5.9.1 incident's product lesson, shipped same-day per its spec (`docs/plans/2026-08-06-silent-lane-witness-spec.md`): MoltFire's ungoverned Codex lane was only caught because a human eyeballed the ledger. Now the server watches for the shape itself.

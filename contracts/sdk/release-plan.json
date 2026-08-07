@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.10.0",
+    "current_version": "5.10.1",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.10.0 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.10.1 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.10.0",
+    "current_version": "5.10.1",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.10.0 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.10.1 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.10.0 ships the silent-lane witness posture (spec docs/plans/2026-08-06-silent-lane-witness-spec.md): per-agent activity-vs-witness derivation, lane_without_witness posture signal, and a /setup panel \u2014 the detector the MoltFire silent-lane incident showed was missing. Server + dashboard only; no SDK surface change.",
+  "reason": "5.10.1 ships the OpenClaw auto-pairing consumer (spec docs/superpowers/specs/2026-08-07-openclaw-auto-pairing-design.md): the @dashclaw/openclaw-plugin (1.6.0, versioned independently) now answers /identities Request-pairing directives automatically - local keypair, public-key submission, one-click admin approval. Plugin + docs only; no Node/Python SDK surface change.",
   "domains": [
     "platform"
   ]
