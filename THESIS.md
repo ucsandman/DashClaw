@@ -262,7 +262,7 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 
 | Surface | Ceiling | Counted from |
 |---|---|---|
-| Active API routes | 123 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
+| Active API routes | 124 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
 | App pages | 48 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 17 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
@@ -376,6 +376,18 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   discoverable by the agents being asked to run it; the hosted-trial door
   stays deliberately human-gated (Turnstile). Static content, no data access,
   shares `PublicNavbar`/`PublicFooter`. Not a revival of any culled surface.
+- **2026-08-07 — Active API routes 123 → 124 (synthetic-traffic retention
+  sweep).** One route, `GET /api/cron/synthetic-sweep` — a `CRON_SECRET`-gated
+  daily GC that deletes synthetic-agent (smoke/loadtest/bench/CI)
+  `action_records` rows older than `DASHCLAW_SYNTHETIC_RETENTION_DAYS`
+  (default 7). Companion to hiding synthetic agents from `listAgentsForOrg`
+  by default (same change): without this sweep, test traffic never leaves the
+  ledger and pollutes the agent roster and calibration data indefinitely.
+  Org-scoped (`DASHCLAW_SYNTHETIC_SWEEP_ORG`, default `org_default`)
+  deliberately, since `test`/`test-%` could name a real hosted-tenant agent
+  elsewhere. Reuses the existing `listActionIdsByFilter`/`deleteActionsByIds`
+  repository primitives (same shape as the filtered-delete audit path); no
+  new tables, no MCP/SDK surface.
 
 ## Version story
 

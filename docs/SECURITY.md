@@ -462,6 +462,8 @@ Current cron endpoints (see `vercel.json` for the registered schedule on the hos
 - `/api/cron/integration-health` — credential validation
 - `/api/cron/reset-meters` — monthly meter rollover
 - `/api/cron/outcome-sweep` — mark stale `pending` outcomes as `lost_confirmation`
+- `/api/cron/jti-sweep` — GC expired JWT replay-log + OAuth rows
+- `/api/cron/synthetic-sweep` — delete synthetic-agent (smoke/loadtest/bench) action_records older than `DASHCLAW_SYNTHETIC_RETENTION_DAYS` (default 7)
 - `/api/hosted/cleanup` — sweep expired trial workspaces (hosted operators only)
 
 ### CORS

@@ -13,9 +13,9 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `123`
+- Total routes: `124`
 - Stable routes: `39`
-- Beta routes: `17`
+- Beta routes: `18`
 - Experimental routes: `67`
 
 ## Routes
@@ -56,6 +56,7 @@ doc-type: architecture
 | `/api/cron/outcome-sweep` | `GET` | `beta` | `/api/cron` | `app/api/cron/outcome-sweep/route.ts` |
 | `/api/cron/policy-suggestions` | `GET` | `beta` | `/api/cron` | `app/api/cron/policy-suggestions/route.ts` |
 | `/api/cron/signals` | `GET` | `beta` | `/api/cron` | `app/api/cron/signals/route.ts` |
+| `/api/cron/synthetic-sweep` | `GET` | `beta` | `/api/cron` | `app/api/cron/synthetic-sweep/route.ts` |
 | `/api/discord/interactions` | `POST` | `experimental` | `(default)` | `app/api/discord/interactions/route.ts` |
 | `/api/docs/raw` | `GET` | `beta` | `/api/docs` | `app/api/docs/raw/route.ts` |
 | `/api/doctor` | `GET` | `experimental` | `(default)` | `app/api/doctor/route.ts` |

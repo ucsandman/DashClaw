@@ -24,7 +24,7 @@ Generated inventories remain authoritative for generated facts:
 | SDK parity by domain | `docs/sdk-parity.md` |
 | Durable execution finality spec | `docs/architecture/durable-execution-finality.md` |
 
-As of this verification (2026-07-27), generated API inventory reports **123 routes**: **39 stable**, **17 beta**, **67 experimental**.
+As of this verification (2026-07-27), generated API inventory reports **124 routes**: **39 stable**, **18 beta**, **67 experimental**.
 
 ## Product boundary
 

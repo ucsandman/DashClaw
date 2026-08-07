@@ -1,0 +1,44 @@
+name: Synthetic-traffic retention sweep
+
+# Scheduler for `/api/cron/synthetic-sweep`. Deletes action_records rows
+# belonging to synthetic (smoke/loadtest/bench/CI) agents older than
+# DASHCLAW_SYNTHETIC_RETENTION_DAYS (default 7). Without this, test traffic
+# accumulates in the ledger forever and pollutes the agent roster.
+#
+# Setup (same secrets as jti-sweep.yml / outcome-sweep.yml):
+#   1. In repo Settings → Secrets and variables → Actions, ensure:
+#        - DASHCLAW_BASE_URL  (e.g. https://my-dashclaw.vercel.app)
+#        - CRON_SECRET        (matches the CRON_SECRET env on Vercel)
+#   2. Enable this workflow (disabled for forks by default).
+#
+# Manual trigger: Actions tab → "Synthetic-traffic retention sweep" → "Run workflow".
+
+on:
+  schedule:
+    # Daily. Minute offset (:17 past 06:00 UTC) avoids the top-of-hour GH
+    # Actions crush.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Hit /api/cron/synthetic-sweep
+        env:
+          BASE_URL: ${{ secrets.DASHCLAW_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::warning::Synthetic-traffic retention sweep: required secrets not configured — run skipped."
+            exit 0
+          fi
+          status=$(curl -sS --max-time 30 --connect-timeout 10 -o /tmp/resp.json -w '%{http_code}' \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$BASE_URL/api/cron/synthetic-sweep")
+          echo "HTTP $status"
+          cat /tmp/resp.json
+          if [ "$status" != "200" ]; then
+            exit 1
+          fi

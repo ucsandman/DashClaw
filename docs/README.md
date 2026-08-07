@@ -72,7 +72,7 @@ You connected an agent. Now you are the operator.
 | Surface | Canonical reference |
 |---|---|
 | HTTP API — the core loop | [Runtime API contract](./architecture/runtime-api.md) |
-| HTTP API — all routes with maturity tier | [API inventory](./api-inventory.md) (generated; **123 routes**: 39 stable, 17 beta, 67 experimental) |
+| HTTP API — all routes with maturity tier | [API inventory](./api-inventory.md) (generated; **124 routes**: 39 stable, 18 beta, 67 experimental) |
 | HTTP API — pinned stable contract | [OpenAPI spec](./openapi/critical-stable.openapi.json) ([about](./openapi/README.md)) — covers the stable tier only; beta/experimental routes have no OpenAPI coverage by design |
 | Node SDK (`dashclaw` on npm) | [`sdk/README.md`](../sdk/README.md) — the canonical method catalogue |
 | Python SDK (`dashclaw` on PyPI) | [`sdk-python/README.md`](../sdk-python/README.md) — broader surface, snake_case, framework integrations |
