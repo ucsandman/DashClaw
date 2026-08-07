@@ -3,6 +3,7 @@ import { computeActContentHash } from '../act-content-hash';
 import { buildAgentDefense, type AgentDefense } from '../agent-defense';
 import { getGuardDecisionById } from './guardrails.repository';
 import { buildPromotionGoal } from '../guard/containment';
+import { SYNTHETIC_AGENT_LIKE_PATTERNS, SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS } from '../synthetic-agents';
 
 type Row = Record<string, unknown>;
 
@@ -2145,13 +2146,16 @@ export async function deleteActionsByIds(sql: SqlClient, orgId: string, idList: 
   return sql`DELETE FROM action_records WHERE action_id = ANY(${idList}) AND org_id = ${orgId} RETURNING action_id`;
 }
 
-type ActionDeleteFilter = { before?: string | null; agentId?: string | null; status?: string | null };
+type ActionDeleteFilter = {
+  before?: string | null; agentId?: string | null; status?: string | null;
+  agentIds?: string[] | null; synthetic?: boolean;
+};
 
 /**
  * One WHERE builder shared by the filtered-delete read (audit target set) and
  * the delete itself, so the two can never diverge on filter semantics.
  */
-function buildActionFilterWhere(orgId: string, { before, agentId, status }: ActionDeleteFilter): { where: string; params: unknown[] } {
+function buildActionFilterWhere(orgId: string, { before, agentId, status, agentIds, synthetic }: ActionDeleteFilter): { where: string; params: unknown[] } {
   const conditions = ['org_id = $1'];
   const params: unknown[] = [orgId];
   let paramIdx = 2;
@@ -2167,6 +2171,17 @@ function buildActionFilterWhere(orgId: string, { before, agentId, status }: Acti
     conditions.push(`status = $${paramIdx++}`);
     params.push(status);
   }
+  if (agentIds && agentIds.length > 0) {
+    conditions.push(`agent_id = ANY($${paramIdx++})`);
+    params.push(agentIds);
+  }
+  if (synthetic) {
+    // Test traffic: agent-name families OR synthetic action-type families
+    // (some liveproof.* rows ride real agent ids).
+    conditions.push(`(agent_id LIKE ANY($${paramIdx}) OR action_type LIKE ANY($${paramIdx + 1}))`);
+    params.push(SYNTHETIC_AGENT_LIKE_PATTERNS, SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS);
+    paramIdx += 2;
+  }
   return { where: `WHERE ${conditions.join(' AND ')}`, params };
 }
 
@@ -2179,10 +2194,12 @@ export async function listActionIdsByFilter(
   sql: SqlClient,
   orgId: string,
   filter: ActionDeleteFilter,
+  limit?: number,
 ): Promise<string[]> {
   const { where, params } = buildActionFilterWhere(orgId, filter);
+  const limitClause = Number.isInteger(limit) && (limit as number) > 0 ? ` LIMIT ${limit}` : '';
   const rows = await sql.query(
-    `SELECT action_id FROM action_records ${where}`,
+    `SELECT action_id FROM action_records ${where}${limitClause}`,
     params
   );
   return rows.map((r: Row) => String(r.action_id));
