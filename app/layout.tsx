@@ -1,11 +1,16 @@
-import { Inter } from 'next/font/google'
+import localFont from 'next/font/local'
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import SessionWrapper from './components/SessionWrapper'
 import { Analytics } from '@vercel/analytics/next'
 
-const inter = Inter({
-  subsets: ['latin'],
+// Vendored (app/fonts/, OFL-1.1) instead of next/font/google: a build-time
+// fetch of fonts.googleapis.com hard-fails `next build` on machines that
+// can't reach it, which broke fresh `dashclaw up` installs on restricted
+// networks (drill:fresh-windows, 2026-08-06).
+const inter = localFont({
+  src: './fonts/inter-latin-var.woff2',
+  weight: '100 900',
   variable: '--font-inter',
   display: 'swap',
 })

@@ -1,0 +1,10 @@
+Inter font family — Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter)
+
+Licensed under the SIL Open Font License, Version 1.1 (OFL-1.1).
+Full license text: https://openfontlicense.org
+
+inter-latin-var.woff2 is the latin-subset variable font (weights 100-900),
+fetched from Google Fonts (Inter v20) and vendored locally so `next build`
+never depends on fonts.googleapis.com being reachable — fresh installs on
+restricted networks previously hard-failed the Turbopack build on that fetch
+(drill:fresh-windows, 2026-08-06).

@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.9.1",
+    "current_version": "5.9.2",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.9.1 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.9.2 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.9.1",
+    "current_version": "5.9.2",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.9.1 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.9.2 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.9.1 closes the Windows .bat/.cmd script-then-execute gap in the hooks and adds the OpenClaw embedded-codex notify bridge (dashclaw codex notify --agent-id + kebab-case payload support). Hooks + CLI only; no SDK surface change.",
+  "reason": "5.9.2 vendors the Inter font locally (next/font/local) so `next build` \u2014 and therefore fresh `dashclaw up` installs \u2014 no longer depend on fonts.googleapis.com being reachable. Platform-only; no SDK surface change.",
   "domains": [
     "platform"
   ]

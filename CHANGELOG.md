@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.9.2] — 2026-08-06
+
+### Fixed
+
+- **Fresh installs no longer depend on Google Fonts** (`app/layout.tsx`, `app/fonts/`) — `next/font/google` fetches Inter at build time, and Turbopack hard-fails the build when `fonts.googleapis.com` is unreachable, which broke `dashclaw up` on restricted networks (caught by `drill:fresh-windows`: a factory-fresh sandbox died in `health_poll` with the font fetch as the build error). Inter's latin variable font (weights 100–900, OFL-1.1) is now vendored at `app/fonts/inter-latin-var.woff2` and loaded via `next/font/local` — no network dependency, same `--font-inter` variable, no visual change.
+
+### Notes
+
+- Platform-only; no SDK surface change — SDKs are not republished.
+
 ## [5.9.1] — 2026-08-06
 
 **OpenClaw embedded-codex ledger bridge + the Windows `.bat`/`.cmd` composition gap.** Field-found by MoltFire (an OpenClaw Telegram agent): its embedded Codex app-server lane never appeared in the decisions ledger, and its Windows batch-script probes never raised the v5.9.0 `script_then_execute` signal.
