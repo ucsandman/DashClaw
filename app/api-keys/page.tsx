@@ -6,11 +6,14 @@ import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
+import { CollapsibleSection } from '../components/ui/CollapsibleSection';
 import ConnectAgentButton from '../components/ConnectAgentButton';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
 import { API_KEY_ROLE_OPTIONS } from '../lib/apiKeyRoles';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { useListControls, type ListColumn } from '../lib/useListControls';
+import { ListControlsBar } from '../components/ListControlsBar';
 import { SelectCheckbox } from '../components/selection/SelectCheckbox';
 import { BulkActionBar } from '../components/selection/BulkActionBar';
 import { bulkAction } from '../lib/bulkAction';
@@ -130,12 +133,39 @@ export default function ApiKeysPage() {
   const activeKeys = keys.filter((k) => !k.revoked_at);
   const revokedKeys = keys.filter((k) => k.revoked_at);
 
-  const selection = useSelection<any>(keys, (k) => k.id);
+  const keysColumns: ListColumn<any>[] = [
+    { key: 'name', label: 'Name', accessor: (k) => k.label, sortable: true },
+    { key: 'role', label: 'Role', accessor: (k) => k.role, filterable: true },
+    { key: 'created', label: 'Created', accessor: (k) => k.created_at, sortable: true },
+    { key: 'last_used', label: 'Last used', accessor: (k) => k.last_used_at, sortable: true },
+  ];
+  const keysControls = useListControls(keys, keysColumns);
+
+  // Selection is built over the control-processed (filtered/sorted) rows so
+  // "select all" and bulk revoke only ever touch what's currently visible.
+  const selection = useSelection<any>(keysControls.rows, (k) => k.id);
   useSelectAllHotkey(selection.toggleAll);
 
+  // A search/filter narrowing (or a revoke) can shrink the visible set out
+  // from under an existing selection — drop any now-invisible ids so a bulk
+  // action never operates on a hidden/stale row.
+  useEffect(() => {
+    const visibleIds = new Set(keysControls.rows.map((k) => k.id));
+    const pruned = selection.selectedIds.filter((id) => visibleIds.has(id));
+    if (pruned.length !== selection.selectedIds.length) {
+      selection.setSelected(pruned);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keysControls.rows]);
+
   const handleBulkRevoke = async () => {
-    if (!window.confirm(`Revoke ${selection.count} key${selection.count === 1 ? '' : 's'}? This cannot be undone.`)) return;
-    const ids = selection.selectedIds;
+    // Defensive re-scope to currently-visible ids: the pruning effect above
+    // keeps the selection in sync, but a destructive revoke should never trust
+    // a selection snapshot that could include a hidden/stale id.
+    const visibleIds = new Set(keysControls.rows.map((k) => k.id));
+    const ids = selection.selectedIds.filter((id) => visibleIds.has(id));
+    if (ids.length === 0) return;
+    if (!window.confirm(`Revoke ${ids.length} key${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
     const { ok } = await bulkAction(ids, (id) =>
       fetch(`/api/keys?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
     );
@@ -342,19 +372,23 @@ export default function ApiKeysPage() {
         </Card>
       )}
 
-      {/* Select-all toolbar — only visible when there are keys */}
-      {keys.length > 0 && isAdmin && (
-        <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-2 text-xs text-secondary">
-          <SelectCheckbox
-            checked={selection.allSelected}
-            onToggle={() => selection.toggleAll()}
-            label="Select all"
-          />
-          <span>Select all</span>
-        </div>
-      )}
-
       {/* Key list */}
+      <CollapsibleSection
+        id="apikeys.list"
+        title="Keys"
+        icon={KeyRound}
+        count={keysControls.rows.length}
+        controls={keys.length > 0 ? <ListControlsBar columns={keysColumns} controls={keysControls} searchPlaceholder="Search keys…" /> : undefined}
+        actions={
+          keys.length > 0 && isAdmin ? (
+            <SelectCheckbox
+              checked={selection.allSelected}
+              onToggle={() => selection.toggleAll()}
+              label="Select all"
+            />
+          ) : undefined
+        }
+      >
       {keys.length === 0 ? (
         <Card hover={false}>
           <CardContent className="pt-4">
@@ -379,7 +413,7 @@ export default function ApiKeysPage() {
       ) : (
         <Card hover={false}>
           <div className="divide-y divide-border">
-            {keys.map((key) => {
+            {keysControls.rows.map((key) => {
               const isRevoked = !!key.revoked_at;
               const isConfirmingRevoke = revokingId === key.id;
 
@@ -462,6 +496,7 @@ export default function ApiKeysPage() {
           </div>
         </Card>
       )}
+      </CollapsibleSection>
     </PageLayout>
   );
 }

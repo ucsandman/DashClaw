@@ -10,9 +10,12 @@ import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
+import { CollapsibleSection } from '../components/ui/CollapsibleSection';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { useListControls, type ListColumn } from '../lib/useListControls';
+import { ListControlsBar } from '../components/ListControlsBar';
 import { SelectCheckbox } from '../components/selection/SelectCheckbox';
 import { BulkActionBar } from '../components/selection/BulkActionBar';
 
@@ -98,8 +101,29 @@ export default function SessionsPage() {
     return s.status === filterStatus;
   });
 
-  const selection = useSelection<any>(filtered, (s) => s.id);
+  const sessionColumns: ListColumn<any>[] = [
+    { key: 'agent', label: 'Agent', accessor: (s) => s.agent_id, sortable: true },
+    { key: 'workspace', label: 'Workspace', accessor: (s) => s.workspace },
+    { key: 'started', label: 'Started', accessor: (s) => s.created_at, sortable: true },
+  ];
+  const sessionControls = useListControls(filtered, sessionColumns);
+
+  // Selection is built over the control-processed (status/search/sort) rows so
+  // "select all" and bulk actions only ever touch what's currently visible.
+  const selection = useSelection<any>(sessionControls.rows, (s) => s.id);
   useSelectAllHotkey(selection.toggleAll);
+
+  // A status filter, a search term, or the periodic refetch can all shrink the
+  // visible set out from under an existing selection — drop any now-invisible
+  // ids so a bulk action never operates on a hidden/stale row.
+  useEffect(() => {
+    const visibleIds = new Set(sessionControls.rows.map((s) => s.id));
+    const pruned = selection.selectedIds.filter((id) => visibleIds.has(id));
+    if (pruned.length !== selection.selectedIds.length) {
+      selection.setSelected(pruned);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionControls.rows]);
 
   const stats = {
     total: sessions.length,
@@ -122,7 +146,11 @@ export default function SessionsPage() {
               id: 'copy',
               label: 'Copy IDs',
               icon: Copy,
-              onClick: () => { navigator.clipboard?.writeText(selection.selectedIds.join('\n')); },
+              onClick: () => {
+                const visibleIds = new Set(sessionControls.rows.map((s) => s.id));
+                const ids = selection.selectedIds.filter((id) => visibleIds.has(id));
+                navigator.clipboard?.writeText(ids.join('\n'));
+              },
             }]}
             onClear={selection.clear}
           />
@@ -187,6 +215,13 @@ export default function SessionsPage() {
       </div>
 
       {/* Sessions Table */}
+      <CollapsibleSection
+        id="sessions.list"
+        title="Sessions"
+        icon={Activity}
+        count={sessionControls.rows.length}
+        controls={filtered.length > 0 ? <ListControlsBar columns={sessionColumns} controls={sessionControls} searchPlaceholder="Search sessions…" /> : undefined}
+      >
       <Card hover={false}>
         <CardContent className="p-0">
           {loading ? (
@@ -221,7 +256,7 @@ export default function SessionsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filtered.map((session) => (
+                  {sessionControls.rows.map((session) => (
                     <tr key={session.id} data-entity-type="session" data-entity-id={session.id} data-entity-status={session.status} className="hover:bg-white/[0.02] transition-colors group">
                       <td className="px-3"><SelectCheckbox checked={selection.isSelected(session.id)} onToggle={(e) => { e.stopPropagation(); selection.selectClick(session.id, e.shiftKey); }} label="Select row" /></td>
                       <td className="px-6 py-4">
@@ -267,6 +302,7 @@ export default function SessionsPage() {
           )}
         </CardContent>
       </Card>
+      </CollapsibleSection>
     </PageLayout>
   );
 }

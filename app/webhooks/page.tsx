@@ -9,11 +9,14 @@ import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
+import { CollapsibleSection } from '../components/ui/CollapsibleSection';
 import { isDemoMode } from '../lib/isDemoMode';
 import { demoWebhooks, demoWebhookDeliveries } from '../lib/demoWebhooksData';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { useListControls, type ListColumn } from '../lib/useListControls';
+import { ListControlsBar } from '../components/ListControlsBar';
 import { SelectCheckbox } from '../components/selection/SelectCheckbox';
 import { BulkActionBar } from '../components/selection/BulkActionBar';
 import { bulkAction } from '../lib/bulkAction';
@@ -248,13 +251,16 @@ export default function WebhooksPage() {
     failed: webhooks.filter((w) => w.failure_count > 0).length,
   };
 
-  const selection = useSelection<any>(webhooks, (w) => w.id);
-  useSelectAllHotkey(selection.toggleAll);
-
   async function bulkDelete() {
     if (selection.count === 0) return;
-    if (typeof window !== 'undefined' && !window.confirm(`Delete ${selection.count} webhook${selection.count === 1 ? '' : 's'}? This cannot be undone.`)) return;
-    const { ok } = await bulkAction(selection.selectedIds, (id) => fetch(`/api/webhooks?id=${encodeURIComponent(id)}`, { method: 'DELETE' }));
+    // Defensive re-scope to currently-visible ids: the pruning effect below
+    // keeps the selection in sync, but a destructive delete should never trust
+    // a selection snapshot that could include a hidden/stale id.
+    const visibleIds = new Set(webhookControls.rows.map((w) => w.id));
+    const ids = selection.selectedIds.filter((id) => visibleIds.has(id));
+    if (ids.length === 0) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Delete ${ids.length} webhook${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    const { ok } = await bulkAction(ids, (id) => fetch(`/api/webhooks?id=${encodeURIComponent(id)}`, { method: 'DELETE' }));
     setWebhooks((prev) => prev.filter((x) => !ok.includes(x.id)));
     selection.clear();
   }
@@ -286,6 +292,30 @@ export default function WebhooksPage() {
       return [];
     }
   };
+
+  const webhookColumns: ListColumn<any>[] = [
+    { key: 'url', label: 'URL', accessor: (w) => w.url, sortable: true },
+    { key: 'events', label: 'Event type', accessor: (w) => parseEvents(w.events).join(', '), filterable: true },
+    { key: 'created', label: 'Created', accessor: (w) => w.created_at, sortable: true },
+  ];
+  const webhookControls = useListControls(webhooks, webhookColumns);
+
+  // Selection is built over the control-processed (filtered/sorted) rows so
+  // "select all" and bulk delete only ever touch what's currently visible.
+  const selection = useSelection<any>(webhookControls.rows, (w) => w.id);
+  useSelectAllHotkey(selection.toggleAll);
+
+  // A search/filter narrowing (or a delete) can shrink the visible set out
+  // from under an existing selection — drop any now-invisible ids so a bulk
+  // action never operates on a hidden/stale row.
+  useEffect(() => {
+    const visibleIds = new Set(webhookControls.rows.map((w) => w.id));
+    const pruned = selection.selectedIds.filter((id) => visibleIds.has(id));
+    if (pruned.length !== selection.selectedIds.length) {
+      selection.setSelected(pruned);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [webhookControls.rows]);
 
   const primaryBtn = 'flex items-center gap-1.5 rounded-lg border border-brand/20 bg-brand/10 px-4 py-2 text-sm font-medium text-brand transition-colors hover:border-brand/40 hover:bg-brand/15 disabled:cursor-not-allowed disabled:opacity-50';
   const secondaryBtn = 'rounded-lg border border-border bg-surface-tertiary px-4 py-2 text-sm text-secondary transition-colors hover:border-border-hover hover:text-white';
@@ -458,6 +488,22 @@ export default function WebhooksPage() {
       )}
 
       {/* Webhook list */}
+      <CollapsibleSection
+        id="webhooks.destinations"
+        title="Webhooks"
+        icon={Webhook}
+        count={webhookControls.rows.length}
+        controls={webhooks.length > 0 ? <ListControlsBar columns={webhookColumns} controls={webhookControls} searchPlaceholder="Search webhooks…" /> : undefined}
+        actions={
+          webhooks.length > 0 ? (
+            <SelectCheckbox
+              checked={selection.allSelected}
+              onToggle={() => selection.toggleAll()}
+              label="Select all"
+            />
+          ) : undefined
+        }
+      >
       {loading ? (
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -487,17 +533,8 @@ export default function WebhooksPage() {
           </CardContent>
         </Card>
       ) : (
-        <>
-          <div className="mb-3 flex items-center gap-2">
-            <SelectCheckbox
-              checked={selection.allSelected}
-              onToggle={() => selection.toggleAll()}
-              label="Select all"
-            />
-            <span className="text-xs text-tertiary">Select all</span>
-          </div>
           <div className="space-y-4">
-          {webhooks.map((webhook) => {
+          {webhookControls.rows.map((webhook) => {
             const events = parseEvents(webhook.events);
             const testResult = testResults[webhook.id];
             const isExpanded = expandedWebhook === webhook.id;
@@ -674,8 +711,8 @@ export default function WebhooksPage() {
             );
           })}
           </div>
-        </>
       )}
+      </CollapsibleSection>
 
       {/* Admin guide */}
       {!isAdmin && webhooks.length > 0 && (
