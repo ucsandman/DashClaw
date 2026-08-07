@@ -67,6 +67,10 @@ declare module 'dashclaw' {
       sessionId: string,
       updates: Record<string, unknown>
     ): Promise<unknown>;
+    createPairing(
+      publicKeyPem: string,
+      opts?: { algorithm?: string; agentName?: string }
+    ): Promise<{ pairing?: { id?: string; status?: string }; [key: string]: unknown }>;
   }
 
   export class ApprovalDeniedError extends Error {
