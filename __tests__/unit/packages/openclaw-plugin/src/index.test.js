@@ -9,6 +9,14 @@ vi.mock('openclaw/plugin-sdk/plugin-entry', () => ({
   definePluginEntry: mockRuntime.definePluginEntry,
 }));
 
+// Mock the auto-pairing module: the real one touches fs + homedir and adds
+// its own fetches, which would leak into every before_tool_call assertion.
+const autoPairMock = vi.hoisted(() => ({ maybeAutoPair: vi.fn(async () => {}) }));
+
+vi.mock('../../../../../packages/openclaw-plugin/src/auto-pairing.ts', () => ({
+  maybeAutoPair: autoPairMock.maybeAutoPair,
+}));
+
 function createPluginApi(pluginConfig = {}) {
   const handlers = new Map();
   return {
@@ -108,6 +116,7 @@ function actionPatch(calls, actionId) {
 async function registerPlugin({ pluginConfig = {} } = {}) {
   vi.resetModules();
   mockRuntime.definePluginEntry.mockClear();
+  autoPairMock.maybeAutoPair.mockClear();
 
   const mod = await import('../../../../../packages/openclaw-plugin/src/index.ts');
   const plugin = mod.default;
@@ -410,5 +419,39 @@ describe('@dashclaw/openclaw-plugin — codex absent-usage recovery', () => {
     } finally {
       warnSpy.mockRestore();
     }
+  });
+
+  describe('auto-pairing wiring', () => {
+    it('fires maybeAutoPair on before_tool_call with autoPairing defaulted true', async () => {
+      installFetchMock();
+      const { api } = await registerPlugin();
+
+      await api.emit('before_tool_call', {
+        toolName: 'read',
+        params: {},
+        toolCallId: 'tc_ap',
+        runId: 'run_ap',
+      });
+
+      assert.equal(autoPairMock.maybeAutoPair.mock.calls.length, 1);
+      const [, cfg] = autoPairMock.maybeAutoPair.mock.calls[0];
+      assert.equal(cfg.autoPairing, true);
+      assert.equal(cfg.agentId, 'openclaw-test');
+    });
+
+    it('passes autoPairing false through from plugin config', async () => {
+      installFetchMock();
+      const { api } = await registerPlugin({ pluginConfig: { autoPairing: false } });
+
+      await api.emit('before_tool_call', {
+        toolName: 'read',
+        params: {},
+        toolCallId: 'tc_ap2',
+        runId: 'run_ap2',
+      });
+
+      const [, cfg] = autoPairMock.maybeAutoPair.mock.calls.at(-1);
+      assert.equal(cfg.autoPairing, false);
+    });
   });
 });

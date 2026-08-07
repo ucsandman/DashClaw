@@ -29,6 +29,7 @@ import {
   type ActionRecord,
   type GuardDecision,
 } from 'dashclaw';
+import { maybeAutoPair } from './auto-pairing.js';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -44,6 +45,7 @@ interface PluginConfig {
   // but no cost" failure mode. Empty string disables the fallback.
   defaultModel: string;
   failClosed: boolean;
+  autoPairing: boolean;
   riskScoreDefault: number;
   highRiskTools: ReadonlySet<string>;
 }
@@ -88,6 +90,7 @@ function resolveConfig(raw: Record<string, unknown> | undefined): PluginConfig {
   const env = typeof process !== 'undefined' && process?.env ? process.env : {};
 
   const failClosed = cfg.failClosed !== false; // default true
+  const autoPairing = cfg.autoPairing !== false; // default true
   const riskScoreDefault = numberFromConfig(cfg.riskScoreDefault, 50);
   const highRiskTools = stringSetFromConfig(cfg.highRiskTools);
 
@@ -114,6 +117,7 @@ function resolveConfig(raw: Record<string, unknown> | undefined): PluginConfig {
     agentId,
     defaultModel,
     failClosed,
+    autoPairing,
     riskScoreDefault,
     highRiskTools,
   };
@@ -575,6 +579,10 @@ async function handleBeforeToolCall(
 
   const client = getBeforeClient(config);
   if ('result' in client) return client.result;
+
+  // Fire-and-forget: answers a pending operator pairing request once per
+  // gateway process. Never blocks or fails the tool call.
+  void maybeAutoPair(client.value, config);
 
   await maybeStartSession(event, client.value, config);
 

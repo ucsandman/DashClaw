@@ -40,6 +40,11 @@
         "default": true,
         "description": "If true, block tool calls when DashClaw is unreachable. If false, allow them to proceed."
       },
+      "autoPairing": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically answer operator pairing requests from the DashClaw /identities page: generate a local keypair and submit the public key for admin approval. The private key is stored at ~/.dashclaw/identity/<agentId>.pem and never leaves this machine. Set false to require manual pairing (MCP dashclaw_pair or SDK createPairing)."
+      },
       "riskScoreDefault": {
         "type": "number",
         "default": 50,
@@ -61,6 +66,7 @@
     "agentId": { "label": "Agent ID" },
     "defaultModel": { "label": "Default model (for cost pricing)", "placeholder": "openai-codex/gpt-5.4", "advanced": true },
     "failClosed": { "label": "Fail-closed when DashClaw unreachable", "advanced": true },
+    "autoPairing": { "label": "Auto-answer pairing requests", "advanced": true },
     "riskScoreDefault": { "label": "Default risk score", "advanced": true },
     "highRiskTools": { "label": "High-risk tool names", "advanced": true }
   }

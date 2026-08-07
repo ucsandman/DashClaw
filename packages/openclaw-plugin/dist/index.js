@@ -21,6 +21,7 @@
  */
 import { definePluginEntry, } from 'openclaw/plugin-sdk/plugin-entry';
 import { DashClaw, } from 'dashclaw';
+import { maybeAutoPair } from './auto-pairing.js';
 /**
  * Resolve the DashClaw URL from (in order of precedence):
  *   1. `config.dashclawUrl`                    (canonical plugin-config key)
@@ -55,6 +56,7 @@ function resolveConfig(raw) {
     const cfg = raw ?? {};
     const env = typeof process !== 'undefined' && process?.env ? process.env : {};
     const failClosed = cfg.failClosed !== false; // default true
+    const autoPairing = cfg.autoPairing !== false; // default true
     const riskScoreDefault = numberFromConfig(cfg.riskScoreDefault, 50);
     const highRiskTools = stringSetFromConfig(cfg.highRiskTools);
     const dashclawUrl = firstString(cfg.dashclawUrl, cfg.baseUrl, env.DASHCLAW_BASE_URL, env.DASHCLAW_URL);
@@ -67,6 +69,7 @@ function resolveConfig(raw) {
         agentId,
         defaultModel,
         failClosed,
+        autoPairing,
         riskScoreDefault,
         highRiskTools,
     };
@@ -359,6 +362,9 @@ async function handleBeforeToolCall(event, config) {
     const client = getBeforeClient(config);
     if ('result' in client)
         return client.result;
+    // Fire-and-forget: answers a pending operator pairing request once per
+    // gateway process. Never blocks or fails the tool call.
+    void maybeAutoPair(client.value, config);
     await maybeStartSession(event, client.value, config);
     const decision = await guardClassifiedAction(client.value, classification, config);
     if ('result' in decision)
