@@ -118,6 +118,25 @@ _INLINE_ESCAPE_HATCH_RE = re.compile(
 # mass delete wearing a read-only command's name.
 _FIND_DELETE_RE = re.compile(r"\s-delete\b|\s-exec\s+\S*(rm|shred)\b", re.IGNORECASE)
 
+# Obfuscated command construction (evasion audit 2026-08-08): a decode-then-
+# execute pipe (base64/hex/openssl output piped straight into a shell or
+# interpreter) runs a command the classifier never sees as text. Paired with
+# the `eval` base-command check, this closes the base64+eval evasion that slid
+# a destructive delete past the guard. `eval` itself is matched by base name,
+# not here, because the parser identifies it reliably.
+_DECODE_EXEC_RE = re.compile(
+    r"(?:base64\s+(?:-d|-D|--decode)|xxd\s+-r|openssl\s+enc\b[^|]*?-d)\b"
+    r"[^|]*\|\s*(?:sh|bash|zsh|dash|ksh|eval|python\d?|perl|ruby|node)\b",
+    re.IGNORECASE,
+)
+
+# A chain segment that is ONLY a `VAR=value` assignment. Used to resolve
+# statically-known assignments into later segments so `F=-rf; rm $F x` grades
+# as `rm -rf x` — the flag-in-a-variable evasion (audit 2026-08-08). Only
+# literal values are ever substituted; a dynamic value ($, `, $( ) is left
+# unresolved and the segment is graded as-is (we never execute or guess).
+_STATIC_ASSIGNMENT_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
+
 # Raw block devices (Linux sd/hd/nvme/mmcblk/vd/xvd, macOS disk, Windows
 # PhysicalDrive) reached via output redirect or dd's of= — destroys a disk
 # without naming a single file (F2).
@@ -312,6 +331,41 @@ def is_bounded_rm(parsed: dict) -> bool:
 # Intent classification
 # ---------------------------------------------------------------------------
 
+def _strip_quotes(value: str) -> str:
+    """Strip one matching pair of surrounding single/double quotes."""
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
+
+
+def _resolve_static_chain_vars(segment_texts: list[str]) -> list[str]:
+    """Substitute earlier literal `VAR=value` assignments into later chain
+    segments, so `F=-rf; rm $F x` grades as `rm -rf x` and the hidden flags
+    are visible to the destructive-command checks (evasion audit 2026-08-08).
+
+    Only assignments whose value is a static literal are resolved: a value
+    containing `$`, a backtick, or `$(` is dynamic and left as a variable, so
+    nothing is ever executed or guessed. A segment with no known variables is
+    returned unchanged, so this is a no-op for ordinary chains."""
+    known: dict[str, str] = {}
+    resolved: list[str] = []
+    for text in segment_texts:
+        subbed = text
+        for name, value in known.items():
+            subbed = re.sub(
+                r"\$\{" + name + r"\}|\$" + name + r"(?![A-Za-z0-9_])",
+                lambda _m, v=value: v,
+                subbed,
+            )
+        resolved.append(subbed)
+        m = _STATIC_ASSIGNMENT_RE.match(subbed.strip())
+        if m:
+            raw_val = m.group(2).strip()
+            if "$" not in raw_val and "`" not in raw_val:
+                known[m.group(1)] = _strip_quotes(raw_val)
+    return resolved
+
+
 def _classify_git(parsed: dict) -> str:
     """Classify a git command by its subcommand and flags."""
     sub = parsed.get("subcommand") or ""
@@ -348,6 +402,15 @@ def _classify_intent(parsed: dict, raw_command: str) -> str:
 
     # Check for sudo wrapper early — used for escalation decisions.
     wrapper = parsed.get("wrapper")
+
+    # Obfuscated command construction: `eval` runs a runtime-built string and a
+    # decode-then-shell pipe runs decoded bytes — in both cases the real command
+    # is invisible to this classifier. Grade as destructive (worst case): the
+    # effect is unverifiable, so it inherits the same block path as an unbounded
+    # rm rather than the low `unknown` base that let base64+eval slip a delete
+    # past the guard (evasion audit 2026-08-08).
+    if base_name == "eval" or _DECODE_EXEC_RE.search(raw_command):
+        return "destructive"
 
     # Handle mkfs variants (mkfs.ext4, mkfs.xfs, etc.).
     if base_name.startswith("mkfs"):
@@ -443,6 +506,19 @@ def _run_destructive_command_validation(
     base = (parsed.get("base_command") or "").rsplit("/", 1)[-1]
     flags = parsed.get("flags", [])
     targets = parsed.get("targets", [])
+
+    # Obfuscated command execution — block outright. `eval` and a decode-to-
+    # shell pipe execute commands this classifier never sees as text, defeating
+    # every check below; blocking the construct is the only reliable guard
+    # (base64+eval / decode-pipe evasions, audit 2026-08-08). Legitimate uses
+    # (`eval "$(ssh-agent -s)"`) are surfaced for one-click approval, not
+    # silently allowed — the correct posture for a control plane.
+    if base == "eval" or _DECODE_EXEC_RE.search(raw_command):
+        return {
+            "check": "destructive_command",
+            "result": "block",
+            "reason": "obfuscated command execution (eval / decode-to-shell)",
+        }
 
     # Fork bomb detection.
     if _FORK_BOMB_RE.search(raw_command):
@@ -764,9 +840,13 @@ def classify_bash(
     # blunt unknown-fallback (70) on every routine chain.
     segment_texts = split_chain_texts(command)
     if len(segment_texts) > 1:
+        # Resolve statically-known `VAR=value` assignments into later segments
+        # first, so flags hidden in a variable (`F=-rf; rm $F x`) are visible to
+        # per-segment classification (evasion audit 2026-08-08).
+        resolved_texts = _resolve_static_chain_vars(segment_texts)
         results = [
             classify_bash(text, mode=mode, workspace=workspace)
-            for text in segment_texts
+            for text in resolved_texts
         ]
         worst = max(results, key=lambda r: r["risk_score"])
         # parsed mirrors the segment that determined the classification (so

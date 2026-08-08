@@ -200,6 +200,52 @@ class TestDestructiveCommandValidation(unittest.TestCase):
         checks = {v["check"]: v for v in r["validations"]}
         self.assertEqual(checks["destructive_command"]["result"], "allow")
 
+
+class TestObfuscationEvasions(unittest.TestCase):
+    """Evasion audit 2026-08-08: a destructive command hidden behind a shell
+    variable or constructed at runtime (base64+eval) slid past the guard. Each
+    obfuscated form must now classify identically to its plain twin."""
+
+    def test_flags_hidden_in_variable_grade_as_recursive_rm(self):
+        # `F=-rf; rm $F x` must grade exactly like `rm -rf x`, not as a bounded
+        # single-file delete. Static assignment resolution makes the flags
+        # visible to the destructive-command check.
+        hidden = classify_bash('F="-rf"; rm $F /tmp/throwaway')
+        plain = classify_bash("rm -rf /tmp/throwaway")
+        self.assertEqual(hidden["intent"], "destructive")
+        self.assertEqual(hidden["risk_score"], plain["risk_score"])
+
+    def test_variable_holding_a_path_stays_bounded(self):
+        # The fix must NOT over-block: a variable that holds a path (not flags)
+        # resolves to a bounded single-file rm and stays routine.
+        r = classify_bash("P=/tmp/x; rm $P")
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertEqual(checks["destructive_command"]["result"], "allow")
+
+    def test_eval_of_constructed_string_blocks(self):
+        r = classify_bash('eval "$C"')
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertEqual(r["intent"], "destructive")
+        self.assertEqual(checks["destructive_command"]["result"], "block")
+
+    def test_base64_eval_chain_blocks(self):
+        r = classify_bash('C=$(echo Zm9v | base64 -d); eval "$C"')
+        self.assertEqual(r["intent"], "destructive")
+        self.assertTrue(
+            any(v["result"] == "block" for v in r["validations"])
+        )
+
+    def test_decode_piped_to_shell_blocks(self):
+        r = classify_bash("echo Zm9v | base64 -d | sh")
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertEqual(r["intent"], "destructive")
+        self.assertEqual(checks["destructive_command"]["result"], "block")
+
+    def test_base64_encode_without_shell_is_not_flagged(self):
+        # Encoding, or decoding to stdout, is not execution — must stay readonly.
+        self.assertEqual(classify_bash("cat f | base64")["intent"], "readonly")
+        self.assertEqual(classify_bash("echo hi | base64 -d")["intent"], "readonly")
+
     def test_rm_glob_warns(self):
         r = classify_bash("rm *.log")
         checks = {v["check"]: v for v in r["validations"]}

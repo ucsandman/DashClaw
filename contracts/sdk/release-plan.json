@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.11.8",
+    "current_version": "5.11.9",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.11.8 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.11.9 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.11.8",
+    "current_version": "5.11.9",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.11.8 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.11.9 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.11.8 route-SQL guardrail compliance for the 5.11.7 cron fix: org listing moved into the orgs repository (listOrganizations gains the name column); no behavior change, platform only, no Node/Python SDK surface change.",
+  "reason": "5.11.9 guard hardening: client bash classifier closes two demonstrated evasions (flags hidden in shell variables via static chain-var resolution; eval / decode-to-shell pipes classified destructive and blocked). Platform + hooks only, no Node/Python SDK surface change.",
   "domains": [
     "platform"
   ]

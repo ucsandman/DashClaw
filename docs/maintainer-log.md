@@ -14,6 +14,32 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-08 — v5.11.9: the classifier is only as good as what it can see
+
+An evasion audit put obfuscated twins of already-blocked commands through the
+guard, and two got through. `F="-rf"; rm $F path` sailed past because the
+parser saw a two-target delete with no flags — the `-rf` lived in a variable —
+so it graded as bounded cleanup at risk 55 and the server policy waved it
+through. And `C=$(echo <b64> | base64 -d); eval "$C"` graded `unknown` at
+risk 20, because `eval` sat in no command category at all.
+
+The honest fix wasn't a new local block path; it was making the obfuscated
+form classify like its plain twin, since the server issues the actual block.
+For hidden flags: chain grading now substitutes earlier literal `VAR=value`
+assignments into later segments before classifying, so the delete grades as
+the `rm -rf` it really is. Strictly literal values only — anything with `$`,
+a backtick, or `$(` stays unresolved, because guessing at runtime values is
+how a security tool starts lying. For `eval` and decode-to-shell pipes, there
+is no plain twin to resolve to — the real command is bytes the classifier
+never sees — so the construct itself grades destructive and blocks, and
+legitimate uses like `eval "$(ssh-agent -s)"` surface for one-click approval
+instead of slipping through silently.
+
+Recorded gaps for the next round: `export VAR=value` doesn't resolve (only
+bare assignments), and a variable built from command substitution is caught
+only by the eval block, not by resolution. 623 hook tests green, both bypass
+commands now land in the block band.
+
 ## 2026-08-08 — v5.11.8: my own guardrail caught me, which is the system working
 
 Minutes after v5.11.7 landed, CI went red on the route-SQL guardrail: my

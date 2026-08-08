@@ -13,6 +13,20 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.11.9] — 2026-08-08
+
+**Two demonstrated guard evasions closed in the client bash classifier: flags hidden in shell variables, and decode-then-eval execution.** An evasion audit showed both obfuscated forms sliding past the guard while their plain twins were blocked. The fix makes each obfuscated command classify identically to (or stricter than) its plain twin, so the server policy sees the same risk it would for the un-obfuscated form.
+
+### Security
+
+- **Flag-in-a-variable (`F="-rf"; rm $F path`) now grades as `rm -rf path`.** The parser saw `$F` and the path as two plain targets with no recursive flag, so the delete graded as bounded cleanup (risk 55) and the server allowed it. Chain grading now resolves earlier literal `VAR=value` assignments into later segments before classifying each one. Only static literals are substituted — a value containing `$`, a backtick, or `$(` is dynamic and left unresolved; nothing is executed or guessed, and ordinary chains are untouched.
+- **`eval` and decode-to-shell pipes are classified destructive and hard-blocked.** `C=$(echo <b64> | base64 -d); eval "$C"` previously graded intent `unknown` at risk 20 because `eval` was in no command category. `eval` as a base command, and `base64 -d` / `xxd -r` / `openssl enc -d` output piped into `sh`/`bash`/`zsh`/`dash`/`ksh`/`eval`/`python`/`perl`/`ruby`/`node`, now grade destructive with a block validation: the real command is invisible to the classifier, so the effect is unverifiable. Legitimate uses (`eval "$(ssh-agent -s)"`) surface for one-click approval instead of being silently allowed — the correct posture for a control plane.
+
+### Notes
+
+- Known conservative gaps, recorded for the next audit: `export VAR=value` assignments are not resolved (only bare `VAR=value` segments), and a variable built from a command substitution cannot be statically resolved — it is caught by the eval/decode block, not by resolution.
+- No Node/Python SDK source change — the SDKs are not republished; npm + PyPI stay at 5.6.2.
+
 ## [5.11.8] — 2026-08-08
 
 **Route-SQL guardrail compliance for the 5.11.7 cron fix — no behavior change.** CI's WS1 M4 guardrail correctly rejected 5.11.7's org-listing ternary (it turned one inline `sql` template into two per cron route). The org listing now goes through `listOrganizations()` in the orgs repository — which also gains the `name` column — and both cron routes carry one fewer inline query than before. Same queries, same results.
