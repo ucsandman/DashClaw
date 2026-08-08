@@ -21,9 +21,12 @@ export async function listOrgWithActiveKeys(
 }
 
 /**
- * List every organization id (optionally excluding org_default). Used by the
- * fleet-wide cron sweeps (e.g. /api/cron/policy-suggestions) that iterate all
- * orgs. Relocated here from the retired learningLoop repository in the v5 cull.
+ * List every organization (optionally excluding org_default). Used by the
+ * fleet-wide cron sweeps (policy-suggestions, signals, memory-maintenance)
+ * that iterate all orgs. Relocated here from the retired learningLoop
+ * repository in the v5 cull. Callers on the alerting crons pass
+ * `includeDefault: !isHostedMode()` — org_default is a real tenant on
+ * self-hosted deploys and the shared legacy bucket on hosted.
  */
 export async function listOrganizations(
   sql: SqlTag,
@@ -31,9 +34,9 @@ export async function listOrganizations(
 ): Promise<Record<string, unknown>[]> {
   const includeDefault = options.includeDefault !== false;
   if (includeDefault) {
-    return sql`SELECT id FROM organizations ORDER BY id`;
+    return sql`SELECT id, name FROM organizations ORDER BY id`;
   }
-  return sql`SELECT id FROM organizations WHERE id != 'org_default' ORDER BY id`;
+  return sql`SELECT id, name FROM organizations WHERE id != 'org_default' ORDER BY id`;
 }
 
 /** Insert a new organization, returning the created row. */

@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.11.7",
+    "current_version": "5.11.8",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.11.7 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.11.8 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.11.7",
+    "current_version": "5.11.8",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.11.7 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.11.8 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.11.7 technical-debt sweep: the evidence classifier goes quote-aware for every command (quoted data is inert unless an exec sink is present), the signals/memory-maintenance crons include org_default on self-hosted deploys, and signal_snapshots joins the canonical schema so fresh deploys can dedupe and fire signals.detected. Platform only; no Node/Python SDK surface change.",
+  "reason": "5.11.8 route-SQL guardrail compliance for the 5.11.7 cron fix: org listing moved into the orgs repository (listOrganizations gains the name column); no behavior change, platform only, no Node/Python SDK surface change.",
   "domains": [
     "platform"
   ]

@@ -13,6 +13,14 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.11.8] — 2026-08-08
+
+**Route-SQL guardrail compliance for the 5.11.7 cron fix — no behavior change.** CI's WS1 M4 guardrail correctly rejected 5.11.7's org-listing ternary (it turned one inline `sql` template into two per cron route). The org listing now goes through `listOrganizations()` in the orgs repository — which also gains the `name` column — and both cron routes carry one fewer inline query than before. Same queries, same results.
+
+### Notes
+
+- No Node/Python SDK source change — the SDKs are not republished; npm + PyPI stay at 5.6.2.
+
 ## [5.11.7] — 2026-08-08
 
 **The technical-debt sweep: quoted data is inert, and `signals.detected` actually fires on self-hosted deploys.** Closes both known limitations left open by 5.11.5/5.11.6, and fixes two structural reasons the `signals.detected` webhook event had never been observed live.

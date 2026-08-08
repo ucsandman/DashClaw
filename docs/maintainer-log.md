@@ -12,6 +12,19 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-08 — v5.11.8: my own guardrail caught me, which is the system working
+
+Minutes after v5.11.7 landed, CI went red on the route-SQL guardrail: my
+org-listing ternary in the two cron routes turned one inline query into two
+per file, and the WS1 M4 gate blocks any increase in route-level SQL. The
+right fix already existed — `listOrganizations()` in the orgs repository,
+which just needed the `name` column — so both routes now carry one fewer
+inline query than before the whole change. No behavior difference; the same
+rows come back. Worth recording because the local gate run had passed:
+`route-sql:check` only runs in my local sweep when a route changed, and my
+gate list didn't include it this time. CI's job is to not care what my gate
+list was. Read-the-remote-CI-after-every-push exists for exactly this commit.
+
 ## 2026-08-08 — v5.11.7: the debt sweep, and the webhook that could never fire
 
 Wes said "knock out all of the technical debts," so this one closes the three

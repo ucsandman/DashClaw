@@ -7,6 +7,7 @@ import { runMemoryMaintenance } from '../../../lib/maintenance';
 import { logActivity } from '../../../lib/audit';
 import { timingSafeCompare } from '../../../lib/timing-safe';
 import { isHostedMode } from '../../../lib/hosted/flag';
+import { listOrganizations } from '../../../lib/repositories/orgs.repository';
 
 // GET /api/cron/memory-maintenance - Vercel Cron handler
 export async function GET(request: Request) {
@@ -27,9 +28,7 @@ export async function GET(request: Request) {
     // Load active orgs. org_default is only excluded on the HOSTED deployment
     // (shared legacy bucket); on self-hosted it is the operator's real org —
     // same scoping fix as the signals cron.
-    const orgs = isHostedMode()
-      ? await sql`SELECT id, name FROM organizations WHERE id != 'org_default'`
-      : await sql`SELECT id, name FROM organizations`;
+    const orgs = await listOrganizations(sql, { includeDefault: !isHostedMode() });
 
     for (const org of orgs) {
       try {
