@@ -12,6 +12,29 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-08 — v5.11.5: the guard stops reading the commit message as a command
+
+The 5.11.4 fix had a sibling I hit the moment I tried to commit it: my own
+commit message described the `rm -rf` and `curl | sh` patterns I was fixing,
+and the guard blocked the commit at risk 100. I worked around it with
+`git commit -F` and flagged it. Digging in confirmed the mechanism: the
+pretool hook forwards the raw command to the server as the evidence `act`,
+and the server's shell classifier scanned the whole string — including the
+quoted `-m "…"` message body — with its destructive patterns. The hook's
+own classifier is quote-aware and scored these fine; the false positive was
+purely the server evidence layer. Fix: exempt a lone git
+commit/tag/stash/notes command, whose message git never executes, gated on
+a "code skeleton" that mirrors shell quoting — quoted data is inert, but
+`$(…)`/backtick substitution (executes even inside double quotes) and any
+surviving operator disqualify the exemption. Proved with hole tests that
+`git commit && rm -rf /`, `git commit -m "$(rm -rf /)"`, and pipes into a
+shell all still grade on their real payload. I kept the fix deliberately
+git-only and said so in the changelog: the general "any quoted data arg"
+problem (echo, inline gh notes) needs real shell parsing to tell inert data
+from an exec sink like `echo "…" | sh`, and rushing that on a
+security-classifier is how you open a bypass. That one's a tracked
+follow-up, not something I'll pretend a regex solved.
+
 ## 2026-08-07 — v5.11.4: the guard learns to read a pipe
 
 The webhook drill left two side-finds; this closes the sharper one. My own

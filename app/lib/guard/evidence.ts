@@ -129,6 +129,74 @@ function isProtectedRootTarget(target: string): boolean {
   return false;
 }
 
+// ── inert git-message exemption (2026-08-08 false-positive class) ────────────
+// The hook forwards the raw command as the shell act, so a git COMMIT/TAG
+// message describing a destructive-command fix ("fix the rm -rf policy",
+// "curl … | sh is the remote-exec pattern") was scanned as if it were the
+// command and hard-blocked the commit at risk 100. git never executes its
+// commit/tag/stash/notes message as shell — it is inert data. The exemption
+// is deliberately narrow: it fires only when the command's EXECUTABLE skeleton
+// (quoted data blanked, command substitution preserved — see codeSkeleton) is
+// a lone git message verb with no shell operator and no substitution. So
+// `git commit … && rm -rf /` (operator survives), `git commit -m "$(rm -rf /)"`
+// (substitution survives), and `git commit … | sh` all fall through to normal
+// scanning. Matches shell quoting semantics: single-quoted `$(…)` does NOT
+// substitute, double-quoted `$(…)`/backticks do.
+const GIT_MESSAGE_VERB_RE = /^\s*git\s+(?:(?:-c\s+\S+|-C\s+\S+|--\S+(?:=\S+)?)\s+)*(?:commit|tag|stash|notes)\b/i;
+
+/**
+ * Executable skeleton of a shell command: the content of quoted string literals
+ * is blanked to spaces (it is data, not code) while command substitution
+ * (`$(…)` and backticks) inside double quotes is preserved verbatim, because a
+ * shell executes it regardless of the surrounding quotes. Single-quoted spans
+ * are blanked entirely (no substitution happens inside them). Used only to
+ * decide the inert-git-message exemption — never to replace the pattern checks
+ * themselves, which still run against the original command.
+ */
+function codeSkeleton(command: string): string {
+  let out = '';
+  let quote: '"' | "'" | null = null;
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i] as string;
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      out += ' ';
+      continue;
+    }
+    if (quote === '"') {
+      if (ch === '\\') { out += '  '; i++; continue; } // escaped char: drop both
+      if (ch === '`') { out += '`'; continue; }        // backtick substitution executes
+      if (ch === '$' && command[i + 1] === '(') {       // $(…) substitution executes
+        let depth = 0;
+        while (i < command.length) {
+          const c = command[i] as string;
+          if (c === '(') depth++;
+          else if (c === ')') { depth--; out += c; i++; if (depth === 0) break; continue; }
+          out += c;
+          i++;
+        }
+        i--;
+        continue;
+      }
+      if (ch === '"') quote = null;
+      out += ' ';
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; out += ' '; continue; }
+    out += ch;
+  }
+  return out;
+}
+
+function isInertGitMessageCommand(command: string): boolean {
+  const skel = codeSkeleton(command);
+  if (!GIT_MESSAGE_VERB_RE.test(skel)) return false;
+  // Any surviving shell operator or substitution in the executable skeleton
+  // means a second command could run — disqualify and let normal scanning grade
+  // it (the rm/curl segment or the substitution payload).
+  return !/[|&;]|\$\(|`/.test(skel);
+}
+
 // ── shell ──────────────────────────────────────────────────────────────────
 
 function classifyShellSegment(seg: string): EvidenceClassification {
@@ -214,6 +282,12 @@ function classifyShellSegment(seg: string): EvidenceClassification {
 }
 
 function classifyShell(command: string): EvidenceClassification {
+  // Inert git message command (commit/tag/stash/notes): the message is data
+  // git never executes, so a dangerous-looking message must not trip the
+  // destructive / remote-exec patterns below. Short-circuit before any of them.
+  if (isInertGitMessageCommand(command)) {
+    return { derived_action_type: 'apply', base_risk: 35, modifiers: [], reversible_hint: true, flags: ['git_message'] };
+  }
   // Pipe-to-shell is destroyed by chain-splitting, so detect it on the whole
   // command first: `curl … | sh` / `wget … | bash` executes remote code.
   // Exemption (2026-08-07 false-positive class): piping fetched bytes into an

