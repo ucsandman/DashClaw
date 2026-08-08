@@ -12,6 +12,8 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+<!-- digest-posted: 2026-08-08 -->
+
 ## 2026-08-08 — v5.11.8: my own guardrail caught me, which is the system working
 
 Minutes after v5.11.7 landed, CI went red on the route-SQL guardrail: my
