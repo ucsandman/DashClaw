@@ -212,9 +212,31 @@ function isInertGitMessageSegment(seg: string): boolean {
   return GIT_MESSAGE_VERB_RE.test(seg);
 }
 
+// ── quoted data is inert (2026-08-08, generalizes the git-message exemption) ─
+// The false-positive class the git exemption fixed narrowly exists for ANY
+// quoted string argument: `gh release --notes "…rm -rf…"`, `echo "curl … | sh"`,
+// PR bodies. Quoted data can only become code through an exec sink — a shell or
+// interpreter that evaluates a string/stdin (`sh -c`, `eval`, `ssh host "…"`,
+// `python -c`, a pipe into `sh`) or command substitution. So: when the
+// command's executable skeleton contains NO sink word and no substitution, the
+// command-word pattern families scan the SKELETON (quoted prose is invisible);
+// when ANY sink is present, everything scans the raw string exactly as before.
+// Deliberately conservative — a sink word anywhere disables the relaxation for
+// the whole command, because pipes and quotes move data across segments. The
+// word list errs broad (`exec`, `su`, `cmd`): a false sink only means the old
+// raw-scan behavior, never a missed catch.
+const EXEC_SINK_RE =
+  /(^|[\s|&;(/])(sh|bash|zsh|ksh|dash|fish|csh|tcsh|pwsh|powershell|cmd|eval|exec|source|ssh|su|xargs|python[0-9]?|node(?:js)?|ruby|perl|php|deno|bun|tsx|ts-node)\b/i;
+
+function hasExecSink(skeleton: string): boolean {
+  return EXEC_SINK_RE.test(skeleton) || /\$\(|`/.test(skeleton);
+}
+
 // ── shell ──────────────────────────────────────────────────────────────────
 
-function classifyShellSegment(seg: string): EvidenceClassification {
+const ENV_LAUNCHER_PREFIX_RE = /^\s*env((\s+-u\s+\S+)|(\s+-[i0]\b)|(\s+\w+=\S*))*\s+(?=\S)/;
+
+function classifyShellSegment(seg: string, rawScan: boolean): EvidenceClassification {
   // `env` as a launcher prefix (`env -u TOKEN cmd`, `env VAR=x cmd`) is
   // transparent — classify the command it runs. A BARE `env` (nothing after
   // the flags) is left intact for the secret-exposure branch below: that form
@@ -226,7 +248,12 @@ function classifyShellSegment(seg: string): EvidenceClassification {
     return { derived_action_type: 'apply', base_risk: 35, modifiers: [], reversible_hint: true, flags: ['git_message'] };
   }
 
-  const s = seg.toLowerCase().replace(/^\s*env((\s+-u\s+\S+)|(\s+-[i0]\b)|(\s+\w+=\S*))*\s+(?=\S)/, '');
+  const s = seg.toLowerCase().replace(ENV_LAUNCHER_PREFIX_RE, '');
+  // Command-word patterns scan the executable skeleton when the whole command
+  // is sink-free (quoted prose is data); argument-content checks (delete
+  // targets, sensitive paths, secret reads) always read the raw text — a quoted
+  // ARGUMENT to a real command still names what the command touches.
+  const scan = rawScan ? s : codeSkeleton(seg).toLowerCase().replace(ENV_LAUNCHER_PREFIX_RE, '');
   const flags: string[] = [];
   const modifiers: EvidenceModifier[] = [];
   let base = 30;
@@ -235,11 +262,11 @@ function classifyShellSegment(seg: string): EvidenceClassification {
 
   const isSudo = /^\s*sudo\b/.test(s);
 
-  const deviceWrite = DEVICE_WRITE_RE.test(s);
-  if (RM_RECURSIVE_RE.test(s) || /\bshred\b|\bmkfs(\.|\b)|\bdd\b|\btruncate\b/.test(s)
-      || FIND_DELETE_RE.test(s) || INTERPRETER_DESTRUCTIVE_RE.test(s) || deviceWrite) {
+  const deviceWrite = DEVICE_WRITE_RE.test(scan);
+  if (RM_RECURSIVE_RE.test(scan) || /\bshred\b|\bmkfs(\.|\b)|\bdd\b|\btruncate\b/.test(scan)
+      || FIND_DELETE_RE.test(scan) || INTERPRETER_DESTRUCTIVE_RE.test(scan) || deviceWrite) {
     base = 80; action = 'security'; reversible = false; flags.push('destructive');
-    if (INTERPRETER_DESTRUCTIVE_RE.test(s)) flags.push('interpreter_destructive');
+    if (INTERPRETER_DESTRUCTIVE_RE.test(scan)) flags.push('interpreter_destructive');
     // Path-aware grading (F5) for the rm / Remove-Item and find -delete
     // classes only — shred / mkfs / dd / interpreter payloads never
     // de-escalate. Every target a bare regenerable artifact name → routine
@@ -249,7 +276,7 @@ function classifyShellSegment(seg: string): EvidenceClassification {
     if (deviceWrite) {
       modifiers.push({ reason: 'raw block device write target', delta: 20 });
       flags.push('device_write', 'protected_target');
-    } else if (RM_RECURSIVE_RE.test(s)) {
+    } else if (RM_RECURSIVE_RE.test(scan)) {
       const targets = rmDeleteTargets(s);
       if (targets.length > 0 && targets.every(isRegenerableArtifactTarget)) {
         base = 45; action = 'cleanup'; flags.push('regenerable_artifact');
@@ -257,7 +284,7 @@ function classifyShellSegment(seg: string): EvidenceClassification {
         modifiers.push({ reason: 'protected root/home/system delete target', delta: 20 });
         flags.push('protected_target');
       }
-    } else if (FIND_DELETE_RE.test(s)) {
+    } else if (FIND_DELETE_RE.test(scan)) {
       const roots = findRootTargets(s);
       if (roots.length > 0 && roots.every(isRegenerableArtifactTarget)) {
         base = 45; action = 'cleanup'; flags.push('regenerable_artifact');
@@ -266,11 +293,11 @@ function classifyShellSegment(seg: string): EvidenceClassification {
         flags.push('protected_target');
       }
     }
-  } else if (/\bgit\s+push\b[^&|;]*(--force\b|--force-with-lease\b|(^|\s)-f\b)|\bgit\s+reset\s+--hard\b|\bgit\s+clean\s+-\S*f/.test(s)) {
+  } else if (/\bgit\s+push\b[^&|;]*(--force\b|--force-with-lease\b|(^|\s)-f\b)|\bgit\s+reset\s+--hard\b|\bgit\s+clean\s+-\S*f/.test(scan)) {
     base = 70; action = 'security'; reversible = false; flags.push('vcs_dangerous');
-  } else if (/\bvercel\b[^&|;]*--prod|\bkubectl\s+apply\b|\bterraform\s+(apply|destroy)\b/.test(s)) {
+  } else if (/\bvercel\b[^&|;]*--prod|\bkubectl\s+apply\b|\bterraform\s+(apply|destroy)\b/.test(scan)) {
     base = 75; action = 'deploy'; flags.push('deploy');
-  } else if (/\b(npm|pnpm|yarn)\s+(i\b|install\b|add\b)|\bpip3?\s+install\b|\bpipx\s+install\b|\b(gem|cargo|go|brew|apt|apt-get|dnf|yum)\s+install\b/.test(s)) {
+  } else if (/\b(npm|pnpm|yarn)\s+(i\b|install\b|add\b)|\bpip3?\s+install\b|\bpipx\s+install\b|\b(gem|cargo|go|brew|apt|apt-get|dnf|yum)\s+install\b/.test(scan)) {
     base = 30; action = 'build'; flags.push('package');
   } else if (/(^|\s)printenv(\s|$)|(^|\s)env(\s+-[0i]*)?\s*$|\bcat\s[^&|;]*(\.env\b|id_rsa|\.pem\b|secret)/.test(s)) {
     // Bare `env` / `printenv` DUMPS the environment — secret exposure. But
@@ -320,7 +347,14 @@ function classifyShell(command: string): EvidenceClassification {
   // below). Shells always execute stdin, a bare interpreter or `python -`
   // executes stdin, and an inline payload that re-executes stdin
   // (`exec(`/`eval(`) keeps the remote_exec grade — all of those stay 70.
-  const pipeToInterp = /\b(curl|wget)\b[^\n]*\|\s*(sudo\s+)?(sh|bash|zsh|python[0-9]?|node(?:js)?)\b\s*(\S*)/i.exec(command);
+  // Quote-awareness (2026-08-08): when the executable skeleton carries no exec
+  // sink, quoted spans are provably inert data — scan the skeleton here and in
+  // the segments below. Any sink present → raw scanning, the old behavior. A
+  // REAL pipe-to-shell always has its pipe and interpreter in code position,
+  // so a sink-free skeleton (pipe only inside quotes) cannot be one.
+  const skeleton = codeSkeleton(command);
+  const rawScan = hasExecSink(skeleton);
+  const pipeToInterp = /\b(curl|wget)\b[^\n]*\|\s*(sudo\s+)?(sh|bash|zsh|python[0-9]?|node(?:js)?)\b\s*(\S*)/i.exec(rawScan ? command : skeleton);
   if (pipeToInterp) {
     const interp = (pipeToInterp[3] || '').toLowerCase();
     const firstArg = pipeToInterp[4] || '';
@@ -334,8 +368,10 @@ function classifyShell(command: string): EvidenceClassification {
   }
   // Interpreter one-liners are detected pre-split too: the quoted payload
   // legitimately contains `;` (`python -c "import shutil; shutil.rmtree(…)"`),
-  // which the chain-splitter would sever from its interpreter (F2).
-  if (INTERPRETER_DESTRUCTIVE_FULL_RE.test(command)) {
+  // which the chain-splitter would sever from its interpreter (F2). Gated on
+  // rawScan: an interpreter must actually appear in code position — a QUOTED
+  // "python … shutil.rmtree" mention is prose, not an invocation.
+  if (rawScan && INTERPRETER_DESTRUCTIVE_FULL_RE.test(command)) {
     return {
       derived_action_type: 'security', base_risk: 80, modifiers: [],
       reversible_hint: false, flags: ['destructive', 'interpreter_destructive'],
@@ -344,7 +380,7 @@ function classifyShell(command: string): EvidenceClassification {
   // Chain-split on &&, ;, ||, | and classify the highest-risk segment.
   const segments = command.split(/&&|\|\||;|\|/).map((p) => p.trim()).filter(Boolean);
   const parts = segments.length ? segments : [command];
-  return parts.map(classifyShellSegment).reduce((a, b) => (evidenceTotal(b) >= evidenceTotal(a) ? b : a));
+  return parts.map((p) => classifyShellSegment(p, rawScan)).reduce((a, b) => (evidenceTotal(b) >= evidenceTotal(a) ? b : a));
 }
 
 // ── http ───────────────────────────────────────────────────────────────────

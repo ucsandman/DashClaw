@@ -154,6 +154,92 @@ describe('classifyAct — shell', () => {
     expect(evidenceTotal(c)).toBe(80);
   });
 
+  // ── quoted data is inert (quote-aware scanning, 2026-08-08 residuals) ──────
+  // v5.11.5/6 exempted git messages; the general class remained: ANY quoted
+  // string argument (gh --notes, echo, PR bodies) containing destructive-looking
+  // prose was scanned as if it were the command. Rule: when the command's
+  // executable skeleton (quotes blanked, substitution preserved) contains NO
+  // exec sink (shell/interpreter word, eval/ssh/su, $(…)/backtick), quoted data
+  // cannot execute — command-word patterns scan the skeleton. Any sink present
+  // → raw scanning exactly as before (conservative: no new false negatives).
+
+  it('does not flag quoted rm -rf inside gh release notes', () => {
+    const c = classifyAct({ kind: 'shell', command: `gh release create v5.12.0 --notes "fixes the ${RMRF} false positive"` });
+    expect(c.flags).not.toContain('destructive');
+    expect(evidenceTotal(c)).toBeLessThan(70);
+  });
+
+  it('does not flag quoted rm -rf echoed to a file', () => {
+    const c = classifyAct({ kind: 'shell', command: `echo "never run ${RMRF} without checking targets" > notes.txt` });
+    expect(c.flags).not.toContain('destructive');
+    expect(evidenceTotal(c)).toBeLessThan(70);
+  });
+
+  it('does not flag a curl|sh string inside a git message within a cd && chain (v5.11.6 residual)', () => {
+    const c = classifyAct({ kind: 'shell', command: `cd /repo && git commit -m "docs: ${CURLSH} is the remote-exec pattern"` });
+    expect(c.flags).not.toContain('remote_exec');
+    expect(evidenceTotal(c)).toBeLessThan(70);
+  });
+
+  it('does not flag quoted curl|sh in a gh pr body', () => {
+    const c = classifyAct({ kind: 'shell', command: `gh pr create --title "guard fix" --body "never pipe ${CURLSH} blindly"` });
+    expect(c.flags).not.toContain('remote_exec');
+    expect(evidenceTotal(c)).toBeLessThan(70);
+  });
+
+  it('does not flag a quoted interpreter-destructive mention', () => {
+    const c = classifyAct({ kind: 'shell', command: 'echo "python shutil.rmtree is the dangerous one" >> docs.md' });
+    expect(c.flags).not.toContain('interpreter_destructive');
+    expect(c.flags).not.toContain('destructive');
+    expect(evidenceTotal(c)).toBeLessThan(70);
+  });
+
+  // ── hole checks: quoted payloads that DO execute keep their grade ──────────
+
+  it('still grades sh -c with a quoted destructive payload', () => {
+    const c = classifyAct({ kind: 'shell', command: `sh -c "${RMRF}"` });
+    expect(c.flags).toContain('destructive');
+    expect(evidenceTotal(c)).toBeGreaterThanOrEqual(80);
+  });
+
+  it('still grades bash -c with a quoted pipe-to-shell payload as remote-exec-class', () => {
+    const c = classifyAct({ kind: 'shell', command: `bash -c "${CURLSH}"` });
+    expect(evidenceTotal(c)).toBeGreaterThanOrEqual(70);
+  });
+
+  it('still grades echoed destructive text piped into a shell', () => {
+    const c = classifyAct({ kind: 'shell', command: `echo "${RMRF}" | sh` });
+    expect(evidenceTotal(c)).toBeGreaterThanOrEqual(80);
+  });
+
+  it('still grades eval of a quoted destructive string', () => {
+    const c = classifyAct({ kind: 'shell', command: `eval "${RMRF}"` });
+    expect(evidenceTotal(c)).toBeGreaterThanOrEqual(80);
+  });
+
+  it('still grades ssh with a quoted remote destructive command', () => {
+    const c = classifyAct({ kind: 'shell', command: `ssh prod-host "${RMRF}"` });
+    expect(c.flags).toContain('destructive');
+    expect(evidenceTotal(c)).toBeGreaterThanOrEqual(80);
+  });
+
+  it('still grades command substitution inside quoted notes as destructive', () => {
+    const c = classifyAct({ kind: 'shell', command: `gh release create v1 --notes "$(${RMRF})"` });
+    expect(c.flags).toContain('destructive');
+    expect(evidenceTotal(c)).toBeGreaterThanOrEqual(80);
+  });
+
+  it('still grades powershell -Command with a quoted destructive payload', () => {
+    const c = classifyAct({ kind: 'shell', command: 'powershell -Command "Remove-Item -Recurse -Force C:\\Users\\sandm"' });
+    expect(c.flags).toContain('destructive');
+    expect(evidenceTotal(c)).toBeGreaterThanOrEqual(80);
+  });
+
+  it('still grades a quoted interpreter-destructive payload under bash -c', () => {
+    const c = classifyAct({ kind: 'shell', command: 'bash -c "python -c \'import shutil; shutil.rmtree(1)\'"' });
+    expect(evidenceTotal(c)).toBeGreaterThanOrEqual(80);
+  });
+
   it('flags a force push as vcs-dangerous', () => {
     const c = classifyAct({ kind: 'shell', command: 'git push --force origin main' });
     expect(c.flags).toContain('vcs_dangerous');

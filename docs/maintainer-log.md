@@ -12,6 +12,46 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-08 — v5.11.7: the debt sweep, and the webhook that could never fire
+
+Wes said "knock out all of the technical debts," so this one closes the three
+items I'd been carrying. The satisfying one first: the quoted-data false
+positive is now solved generally, not with another special case. The insight
+that made it safe to attempt is that quoted data can only become code through
+an exec sink — a shell or interpreter that evaluates a string or stdin, or
+command substitution. So the classifier now builds the command's executable
+skeleton (quotes blanked, substitution preserved), and if that skeleton
+contains no sink word at all, the destructive and remote-exec patterns scan
+the skeleton — quoted prose about `rm -rf` in release notes, echoes, PR
+bodies, and chained commit messages is invisible to them. If ANY sink is
+present, everything scans raw, byte-for-byte the old behavior. The relaxation
+is only taken when it is provably safe, which is what let me ship it without
+the dread the 5.11.5 changelog recorded: thirteen hole tests pin `sh -c`,
+`eval`, `ssh`, `powershell -Command`, pipes into shells, and substitution
+payloads at their old grades, and the calibration golden set stayed green.
+
+Then the drill debt — "observe `signals.detected` live from the cron" — which
+turned out not to be an observation task at all. It had never been observed
+because it could never fire. Two structural reasons: the signals cron (and
+memory-maintenance) excluded `org_default` from their org sweep, which is
+correct on hosted where org_default is the shared legacy bucket, but on a
+self-hosted deploy the operator IS org_default — auth.ts promotes the first
+user into it. And `signal_snapshots`, the cron's dedup table, was only ever
+created by the legacy multi-tenant migration script — it never made it into
+schema/schema.js or the drizzle chain, so a fresh deploy had no table, the
+repository threw, and the per-org catch swallowed the error forever. Fixed
+both (the exclusion is now gated on DASHCLAW_HOSTED; drizzle 0067 carries the
+table), then ran the drill for real on the built server: seeded a stale
+pending approval, fired the cron, and watched `signals.detected` arrive at an
+external receiver with the HMAC valid, `last_triggered_at` stamped, and the
+second run deduping to zero. First confirmed live delivery of that event in
+the product's history.
+
+The third debt ends with an honest handoff: the MCP server 3.1.1 publish is
+verified and packed — its own audit gate caught a high-severity transitive
+nanoid and I pinned it — but npm wants the owner's one-time password, which
+is constitutionally not mine to have. One command for Wes, in the ship notes.
+
 ## 2026-08-08 — v5.11.6: the fix I shipped an hour ago was half a fix
 
 Humbling one. v5.11.5 exempted a lone `git commit` from the message-scan

@@ -13,6 +13,29 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.11.7] — 2026-08-08
+
+**The technical-debt sweep: quoted data is inert, and `signals.detected` actually fires on self-hosted deploys.** Closes both known limitations left open by 5.11.5/5.11.6, and fixes two structural reasons the `signals.detected` webhook event had never been observed live.
+
+### Fixed
+
+- **The evidence classifier is now quote-aware for every command, not just git messages.** When a command's executable skeleton (quoted data blanked, `$(…)`/backtick substitution preserved) contains **no exec sink** — no shell word (`sh`/`bash`/`zsh`/`pwsh`/`powershell`/…), no interpreter (`python`/`node`/…), no `eval`/`exec`/`ssh`/`su`, no command substitution — quoted string arguments are provably inert data, and the destructive / pipe-to-shell / vcs-dangerous / deploy pattern families scan the skeleton instead of the raw string. So `gh release create --notes "…rm -rf…"`, `echo "curl … | sh" > notes.txt`, PR bodies, and a `curl | sh` mention inside a commit message in a `cd &&` chain (the 5.11.6 residual warn) all grade on their real, benign shape. Any sink present → raw scanning, byte-for-byte the old behavior: `sh -c "rm -rf /"`, `bash -c "curl … | sh"`, `echo "rm -rf /" | sh`, `eval`/`ssh`/`powershell -Command` payloads, and `$(…)` inside quoted notes all keep their destructive/remote-exec grades (13 hole tests pin them; the 63-vector calibration golden set stays green).
+- **The signals and memory-maintenance crons no longer skip `org_default` on self-hosted deploys.** Both crons excluded `org_default` unconditionally — correct on the hosted deployment (where it is the shared legacy bucket), but on a self-hosted instance the operator's org IS `org_default` (auth promotes the first user into it), so signal webhooks and email alerts could structurally never fire for self-hosted operators. The exclusion is now gated on `DASHCLAW_HOSTED=true`.
+- **`signal_snapshots` is now in the canonical schema** (`schema/schema.js` + `drizzle/0067_signal_snapshots.sql`). It was only ever created by the legacy `migrate-multi-tenant.mjs`, so a fresh deploy's `db:migrate` never created it — the signals cron threw per-org, the per-org catch swallowed it, and `signals.detected` silently never fired on fresh instances. DDL mirrors the legacy script exactly; `IF NOT EXISTS` makes it a no-op where the legacy script already ran.
+
+### Verified live
+
+- **`signals.detected` observed end-to-end from the cron for the first time**: seeded stale pending approval → `GET /api/cron/signals` → `approval_backlog` detected for `org_default` → webhook delivered to an external receiver with the HMAC signature verified byte-for-byte, `last_triggered_at` stamped (the 5.11.3 failure-state path), and a second cron run correctly deduped to zero deliveries.
+
+### Security
+
+- **`@dashclaw/mcp-server`: pinned transitive `nanoid` to ≥3.3.17** (GHSA-2v37-7h3g-55p8, high; dev-only via vitest→vite→postcss) with an override, unblocking the package's own `npm audit` publish gate. `server.json` synced to 3.1.1.
+
+### Notes
+
+- No Node/Python SDK source change — the SDKs are not republished; npm + PyPI stay at 5.6.2.
+- `@dashclaw/mcp-server` 3.1.1 (the corrected `dashclaw_guard` description from 5.11.4) is verified, packed, and blocked only on the owner's npm one-time password; npm stays at 3.1.0 until that publish runs.
+
 ## [5.11.6] — 2026-08-08
 
 **Completes the 5.11.5 git-message fix for the real-world command shape.** 5.11.5 exempted a *lone* `git commit`, but every commit the Claude Code Bash tool issues is prefixed `cd <repo> && git commit …` — and the `&&` disqualified the whole-command exemption, so the common shape still graded the message body destructive/80 and hard-blocked. (Caught by testing the actual chained command, not the bare one 5.11.5 was verified against.)

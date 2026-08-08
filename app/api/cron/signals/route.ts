@@ -11,6 +11,7 @@ import crypto from 'crypto';
 import { timingSafeCompare } from '../../../lib/timing-safe';
 import { publishOrgEvent, EVENTS } from '../../../lib/events';
 import { getExistingSignalHashes, upsertSignalSnapshots } from '../../../lib/repositories/signals.repository';
+import { isHostedMode } from '../../../lib/hosted/flag';
 
 /**
  * Hash a signal into a stable identifier for deduplication.
@@ -65,10 +66,14 @@ export async function GET(request: Request) {
     const sql = getSql();
     const summary = { orgs_processed: 0, new_signals: 0, emails_sent: 0, webhooks_fired: 0, native_notifications: 0 };
 
-    // Load active orgs
-    const orgs = await sql`
-      SELECT id, name FROM organizations WHERE id != 'org_default'
-    `;
+    // Load active orgs. org_default is only excluded on the HOSTED deployment,
+    // where it is the shared legacy bucket rather than a tenant. On a
+    // self-hosted deploy the operator's org IS org_default (auth.ts promotes
+    // the first user into it) — excluding it there meant signals.detected
+    // webhooks and email alerts could never fire for self-hosted operators.
+    const orgs = isHostedMode()
+      ? await sql`SELECT id, name FROM organizations WHERE id != 'org_default'`
+      : await sql`SELECT id, name FROM organizations`;
 
     for (const org of orgs) {
       // orgs rows come from a SqlTag query (Record<string, unknown>); these

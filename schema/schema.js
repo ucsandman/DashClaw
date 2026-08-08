@@ -1150,6 +1150,26 @@ export const notificationPreferences = pgTable('notification_preferences', {
   uniqueUserChannel: uniqueIndex('notification_preferences_org_user_channel_unique').on(table.orgId, table.userId, table.channel),
 }));
 
+// Dedup fingerprints the signals cron uses to decide which signals are NEW
+// (worth alerting) vs already seen. Historically created only by the legacy
+// migrate-multi-tenant.mjs (step 23) and missing from this canonical schema,
+// so FRESH deploys silently had no table and the cron's per-org catch ate the
+// error — signals.detected webhooks/emails never fired (found 2026-08-08).
+// Column shapes mirror the legacy DDL exactly (TEXT timestamps, SERIAL id) so
+// existing deploys and fresh ones agree.
+export const signalSnapshots = pgTable('signal_snapshots', {
+  id: serial('id').primaryKey(),
+  orgId: text('org_id').notNull().default('org_default'),
+  signalHash: text('signal_hash').notNull(),
+  signalType: text('signal_type').notNull(),
+  severity: text('severity').notNull(),
+  agentId: text('agent_id'),
+  firstSeenAt: text('first_seen_at').notNull(),
+  lastSeenAt: text('last_seen_at').notNull(),
+}, (table) => ({
+  uniqueOrgHash: uniqueIndex('signal_snapshots_org_hash_unique').on(table.orgId, table.signalHash),
+}));
+
 export const workflows = pgTable('workflows', {
   id: serial('id').primaryKey(),
   orgId: text('org_id').notNull(),
