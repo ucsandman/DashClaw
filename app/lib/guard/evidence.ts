@@ -197,6 +197,21 @@ function isInertGitMessageCommand(command: string): boolean {
   return !/[|&;]|\$\(|`/.test(skel);
 }
 
+/**
+ * Segment-level inert-git test. Chain-splitting already removed the shell
+ * operators, so a git message verb reaches here as its own segment — which is
+ * the real-world shape (`cd <repo> && git commit -m "…"`, the only way the
+ * Bash tool issues a commit). Still reject a segment carrying command
+ * substitution: `git commit -m "$(rm -rf /)"` splits to a single segment (no
+ * bare operator) whose `$(…)` genuinely executes, so it must fall through to
+ * the destructive scan. Uses the raw segment (not codeSkeleton) because the
+ * split already stripped operators; the substitution guard is what matters.
+ */
+function isInertGitMessageSegment(seg: string): boolean {
+  if (/\$\(|`/.test(seg)) return false;
+  return GIT_MESSAGE_VERB_RE.test(seg);
+}
+
 // ── shell ──────────────────────────────────────────────────────────────────
 
 function classifyShellSegment(seg: string): EvidenceClassification {
@@ -204,6 +219,13 @@ function classifyShellSegment(seg: string): EvidenceClassification {
   // transparent — classify the command it runs. A BARE `env` (nothing after
   // the flags) is left intact for the secret-exposure branch below: that form
   // dumps the environment.
+  // A git commit/tag/stash/notes segment carries an inert message git never
+  // executes — don't let its body trip the destructive scan below (this is the
+  // `cd <repo> && git commit -m "…"` shape after chain-split).
+  if (isInertGitMessageSegment(seg)) {
+    return { derived_action_type: 'apply', base_risk: 35, modifiers: [], reversible_hint: true, flags: ['git_message'] };
+  }
+
   const s = seg.toLowerCase().replace(/^\s*env((\s+-u\s+\S+)|(\s+-[i0]\b)|(\s+\w+=\S*))*\s+(?=\S)/, '');
   const flags: string[] = [];
   const modifiers: EvidenceModifier[] = [];

@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.11.5",
+    "current_version": "5.11.6",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.11.5 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Node SDK source change in 5.11.6 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.11.5",
+    "current_version": "5.11.6",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.11.5 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
+    "reason": "no Python SDK source change in 5.11.6 - version advances per the unified model but the SDK is NOT republished; the registry stays at 5.6.2 (published 2026-07-28).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.11.5 fixes the sibling of the 5.11.4 evidence-classifier false positive: a git commit/tag/stash/notes message describing a destructive-command fix (rm -rf, curl | sh) was scanned as if it were the command and hard-blocked at 100. The classifier now exempts a lone git message command via a shell-quoting-correct code skeleton (command substitution and surviving operators still disqualify). Platform only; no Node/Python SDK surface change.",
+  "reason": "5.11.6 completes the 5.11.5 git-message exemption for the real-world command shape: the exemption now applies per chain segment, so `cd <repo> && git commit -m \"...rm -rf...\"` (how the Bash tool always issues commits) is no longer graded destructive, while chained deletes and command-substitution payloads stay caught. Platform only; no Node/Python SDK surface change.",
   "domains": [
     "platform"
   ]

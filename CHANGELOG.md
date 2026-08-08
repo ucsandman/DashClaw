@@ -13,6 +13,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.11.6] — 2026-08-08
+
+**Completes the 5.11.5 git-message fix for the real-world command shape.** 5.11.5 exempted a *lone* `git commit`, but every commit the Claude Code Bash tool issues is prefixed `cd <repo> && git commit …` — and the `&&` disqualified the whole-command exemption, so the common shape still graded the message body destructive/80 and hard-blocked. (Caught by testing the actual chained command, not the bare one 5.11.5 was verified against.)
+
+### Fixed
+
+- **The inert-git-message exemption now applies per chain segment**, so `cd <repo> && git commit -m "…rm -rf…"` grades the git segment as `apply` (the message is inert data) while `cd <repo> && rm -rf …` still grades the rm segment destructive/80 and `cd <repo> && git commit -m "$(rm -rf …)"` still catches the command substitution. Verified against the real `cd && git commit` shape.
+
+### Known limitation
+
+- A `curl … | sh` string *mentioned inside a message* within a `cd && git` chain still trips the whole-command remote-exec check and **warns** (it no longer hard-blocks). Fully clearing that, and the general non-git quoted-data case (`echo`, inline `gh --notes`), needs quote-aware pipe parsing — deliberately deferred rather than rushed on a security classifier.
+
+### Notes
+
+- No Node/Python SDK source change — the SDKs are not republished; npm + PyPI stay at 5.6.2.
+
 ## [5.11.5] — 2026-08-08
 
 **A git commit whose message describes a destructive-command fix no longer blocks the commit.** The sibling of the 5.11.4 finding: the pretool hook forwards the raw command to the server as the evidence `act`, and the server's shell classifier scanned the whole string — including the quoted `git commit -m "…"` message body — with its `rm -rf` and `curl … | sh` patterns. So a commit message *describing* this very class of fix graded destructive/80 (or remote_exec/70), folded to a 100 block, and the commit had to be routed through `git commit -F` to land. The hook's own classifier was quote-aware and scored these correctly; this was purely the server evidence layer.

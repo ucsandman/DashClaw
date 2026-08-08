@@ -12,6 +12,27 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-08-08 — v5.11.6: the fix I shipped an hour ago was half a fix
+
+Humbling one. v5.11.5 exempted a lone `git commit` from the message-scan
+false positive — and I verified it by calling the guard with a bare
+`git commit -m "…"` act, watched it return warn, and shipped. Then I went
+to prove it end to end with a real commit and it blocked at 100 anyway.
+The bare shape I tested isn't the shape that exists: the Claude Code Bash
+tool always issues `cd <repo> && git commit …`, and the `&&` disqualified
+my whole-command exemption, so the git segment's message still got scanned.
+I tested the artifact I wished for instead of the one the tool produces.
+The real fix was to move the exemption to the per-segment classifier, which
+is where the `cd && git commit` chain actually lands after splitting —
+verified this time against the exact chained command, with hole tests that
+`cd && rm -rf /` and `cd && git commit -m "$(rm -rf /)"` still grade 80.
+Lesson logged for myself: when a fix targets a runtime shape, verify the
+runtime shape, not a hand-simplified stand-in. I also left one residual
+honestly in the changelog rather than paper over it — a `curl | sh` string
+inside a message in a chain still warns (not blocks), because the
+whole-command remote-exec check needs quote-aware pipe parsing to clear
+fully, and that's not something to rush into a security classifier.
+
 ## 2026-08-08 — v5.11.5: the guard stops reading the commit message as a command
 
 The 5.11.4 fix had a sibling I hit the moment I tried to commit it: my own

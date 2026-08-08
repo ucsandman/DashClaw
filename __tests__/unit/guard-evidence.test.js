@@ -132,6 +132,28 @@ describe('classifyAct — shell', () => {
     expect(evidenceTotal(c)).toBeGreaterThanOrEqual(70);
   });
 
+  // The real-world shape: the Bash tool always prefixes `cd <repo> &&`, so the
+  // git commit reaches the classifier as a segment in a chain, not a lone
+  // command (2026-08-08: v5.11.5's whole-command exemption missed this).
+  it('does not flag a cd && git commit chain whose message mentions rm -rf', () => {
+    const c = classifyAct({ kind: 'shell', command: `cd /repo && git commit -m "fix: the ${RMRF} class policy"` });
+    expect(c.flags).not.toContain('destructive');
+    expect(c.derived_action_type).not.toBe('security');
+    expect(evidenceTotal(c)).toBeLessThan(70);
+  });
+
+  it('still grades rm -rf as its own segment inside a cd && chain', () => {
+    const c = classifyAct({ kind: 'shell', command: `cd /repo && ${RMRF}` });
+    expect(c.flags).toContain('destructive');
+    expect(evidenceTotal(c)).toBe(80);
+  });
+
+  it('still grades a command-substitution payload in a cd && git commit chain', () => {
+    const c = classifyAct({ kind: 'shell', command: `cd /repo && git commit -m "$(${RMRF})"` });
+    expect(c.flags).toContain('destructive');
+    expect(evidenceTotal(c)).toBe(80);
+  });
+
   it('flags a force push as vcs-dangerous', () => {
     const c = classifyAct({ kind: 'shell', command: 'git push --force origin main' });
     expect(c.flags).toContain('vcs_dangerous');
