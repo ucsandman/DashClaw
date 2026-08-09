@@ -73,16 +73,16 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-08-06 (commit d15a9bc8). Confidence: 100%.
+Last indexed: 2026-08-07 (commit b93cda8a). Confidence: 100%.
 ### Architecture
-This repository is an end-to-end “governed agent” documentation and tooling platform: it ingests source code and contract/policy inputs (e.g., repository files, contracts/index.json, and policy/skill YAML), transforms them through indexing/analysis and governance-aware agent/tool orchestration, and outputs generated artifacts such as an MCP server tool surface, SDKs (JavaScript + Python), and runnable example agents/pipelines (plus a web-facing UI layer via the app/ modules).
+repo is a codebase documentation and governance platform that ingests a source repository (files, contracts, and policy configuration), transforms it through indexing/parsing, dependency and policy analysis, and LLM-synthesised documentation generation, and outputs a served knowledge base via an MCP server plus a web/UI-facing SDK and example governed agents.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
 | `app` | The **app** module is the **React/Next.js front-end layer of repowise’s… | - |
 | `__tests__/unit` | The __tests__/unit module is the unit-testing stage of repowise’s generation… | - |
 | `app/components` | The **app/components** module is the **UI composition layer** in repowise’s web… | - |
-| `app/lib` | The app/lib module is the core “service-layer” utility layer in repowise’s… | - |
+| `app/lib` | The **app/lib module is the policy/guard support layer of repowise’s indexing… | - |
 | `application` | The **Application (top-level)** module is the entry-stage orchestration layer… | - |
 | `app/api/_archive` | The **api/_archive** module is the **archival API layer** in repowise’s larger… | - |
 | `scripts` | The **scripts** module is the **application-layer orchestration toolkit** for… | - |
@@ -103,11 +103,11 @@ This repository is an end-to-end “governed agent” documentation and tooling 
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `docs/maintainer-log.md` | 100.0th percentile | 143 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 157 | Wes Sander |
 | `mcp-server/lib/routes-inventory.generated.json` | 100.0th percentile | 34 | Wes Sander |
 | `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 71 | Wes Sander |
 | `app/lib/doctor/generated/shape.json` | 99.9th percentile | 71 | Wes Sander |
-| `CHANGELOG.md` | 99.9th percentile | 109 | Wes Sander |
+| `CHANGELOG.md` | 99.9th percentile | 118 | Wes Sander |
 
 ### Repowise MCP Workflow
 
@@ -128,3 +128,55 @@ This repository is an end-to-end “governed agent” documentation and tooling 
 - Typecheck: `npm run typecheck`
 
 <!-- REPOWISE_AGENTS:END -->
+
+<!-- >>> dashclaw start — managed block, do not edit by hand -->
+
+## DashClaw Governance Protocol
+
+You are governed by DashClaw. Before any non-trivial action, follow this
+protocol so a human reviewer (and the audit log) can trust your work.
+
+### Session start
+
+1. Call `dashclaw_session_start` via the `dashclaw` MCP server with your
+   agent id (`codex`) and a one-sentence workspace description. This
+   groups all your actions for tracking in Approvals.
+2. Read the `dashclaw://policies` MCP resource and call the
+   `dashclaw_capabilities_list` tool to learn what rules govern you and
+   what capabilities are registered. Treat unknown action types as
+   high-risk by default.
+
+### Before each risky action
+
+Call `dashclaw_guard` with the action you intend to take. You will get
+back one of four decisions:
+
+- `allow` — proceed; call `dashclaw_record` afterward with the outcome.
+- `warn` — proceed with caution; include the warning context in your
+  `dashclaw_record` call.
+- `block` — stop. Report the block reason to the user and do not attempt
+  the action through another path.
+- `require_approval` — call `dashclaw_wait_for_approval` and wait. Don't
+  poll faster than the tool already does.
+
+Risky actions include: shell commands that write or delete, file edits
+outside the project root, network requests, package installs, deploys,
+and any external API call you have not used in this session before.
+
+The PreToolUse hook installed by `dashclaw install codex` will guard
+Bash, Edit, Write, and MultiEdit automatically. The guidance above is
+still required for tool calls that fall outside that matcher (MCP tool
+invocations, agent-internal capabilities) so DashClaw's audit trail
+covers them too.
+
+### After each action
+
+Call `dashclaw_record` with the action id (from `dashclaw_guard` or from
+a PostToolUse-emitted breadcrumb) and the outcome (`success`,
+`failure`, or `partial`). This is what makes the decision replayable.
+
+### This instance
+
+DashClaw: https://my-dashclaw.vercel.app
+
+<!-- <<< dashclaw end -->
