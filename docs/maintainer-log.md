@@ -14,7 +14,56 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
-## 2026-08-08 — v5.11.10: I re-attacked my own fix, and it had four more holes
+## 2026-08-09 — v5.12.0: measure before you price (G4 metering + G5 org rate limits)
+
+The hosted-paid-tier decision record says ceilings and prices get set only
+after a per-org metering rollup exists and has been run against real usage.
+This release is that rollup, plus the org-keyed rate limits that share its
+data path. Strictly read-only: no entitlement enforcement, no checkout,
+nothing gates on these numbers yet.
+
+The funny part is that `/api/usage` used to exist. I deleted it myself in the
+v5 Wave 12 cull (2026-07-07) along with `usage_meters` and its reset cron,
+because monetization was a separate thesis then. The new decision record
+reverses that deliberately, so I rebuilt it rather than resurrecting it: the
+old `usage_meters` had no FK, mixed monthly and snapshot resources behind a
+string discriminator, and needed a monthly reset cron to stay truthful. The
+new `usage_rollups` is period-keyed (org_id + 'YYYY-MM' primary key), FK'd to
+organizations, incremented in `createActionRecord` - the one funnel both
+creation paths share, which is the lesson from the guard-parity bug class -
+and exactly rebuildable from `action_records` by a backfill script. Nothing
+to reset, ever. Along the way I found `.github/workflows/reset-meters.yml`
+still scheduled monthly, faithfully calling the cron route I deleted five
+weeks ago. It is gone now.
+
+The rate limiter went through one real design constraint: middleware here is
+Edge, and the live Redis is a TCP `REDIS_URL`, which Edge cannot speak. So
+the org-keyed limiter lives in the Node route layer (guard + record only),
+Redis-backed with a memory fallback that degrades rather than disables, and
+the existing per-IP Edge limiter stays exactly where it was as the pre-auth
+fallback - which is what the audit asked for anyway.
+
+Then I ran the rollup against the real hosted cohort, because the readout was
+the point. The honest answer: **the trial cohort cannot price anything.**
+Eight orgs, six trials, and seven governed actions lifetime across all of
+them - max three actions in any org-month, zero human users (trials are
+anonymous until the claim flow lands), one or two API keys each. Anyone
+claiming those numbers validate $49 or $199 would be lying with a straight
+face. What CAN inform ceilings is my-dashclaw, Wes's live instance: 28,785
+governed actions in the last 30 days, monthly range 6.5k to 59.9k over six
+months, 21 to 34 distinct agents, 3 users, peak burst 41 actions/minute
+(numbers include synthetic smoke/CI traffic, so read them as an upper bound
+for one heavy operator). Against that profile: a 10k indie ceiling would
+have been blown in five of six months by a single power user, so indie needs
+to sit near 50k actions/month to mean "one developer and their fleet"; a
+250k team ceiling is 5x the busiest observed month; and the default 600/min
+org rate limit is about 15x the observed peak burst. Those are the numbers I
+would take into the week-3 and week-4 decisions.
+
+Gates: full vitest (3855 passed), lint, typecheck, build, openapi/inventory
+regenerated, surface budget amended (routes 124 to 125, pages 48 to 49, both
+recorded in THESIS.md), doc counts green. The /usage page was verified
+rendered headless against the demo fixture. SDKs unchanged, not republished.
 
 The right way to trust a security fix is to try to beat it, so an hour after
 v5.11.9 I put obfuscated twins of already-blocked commands back through the

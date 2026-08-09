@@ -1404,3 +1404,26 @@ export function demoDoctor() {
   return { status: 'healthy', mode: 'demo', summary, checks, lastUpdated: new Date().toISOString() };
 }
 
+
+/**
+ * GET /api/usage — read-only metering panel (G4). Deterministic counts; the
+ * fixed lastUpdated follows the fixture convention (no live data values).
+ */
+export function demoUsage() {
+  return {
+    org_id: 'org_demo',
+    period: '2026-08',
+    governed_actions: 1284,
+    blocked_actions: 37,
+    seats: { users: 3, active_api_keys: 5 },
+    plan: 'free',
+    hosted_mode: false,
+    trial: null,
+    history: [
+      { period: '2026-08', governed_actions: 1284, blocked_actions: 37 },
+      { period: '2026-07', governed_actions: 2210, blocked_actions: 64 },
+      { period: '2026-06', governed_actions: 1930, blocked_actions: 41 },
+    ],
+    lastUpdated: '2026-08-09T00:00:00.000Z',
+  };
+}

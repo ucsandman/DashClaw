@@ -6,6 +6,7 @@ import { NextResponse, after } from 'next/server';
 import { getSql } from '../../lib/db';
 import { validateActionRecord, boundedIdField, enforcementModeField } from '../../lib/validate.js';
 import { getOrgId, getOrgRole, getUserId } from '../../lib/org';
+import { checkOrgRateLimit } from '../../lib/org-rate-limit';
 import { logActivityStrict } from '../../lib/audit';
 import { apiErrorResponse } from '../../lib/apiErrors';
 import { verifyAgentSignature } from '../../lib/identity';
@@ -174,6 +175,23 @@ export async function POST(request: Request) {
   try {
     const sql = getSql();
     const orgId = getOrgId(request);
+
+    // G5: org-keyed rate limit, same contract as POST /api/guard — a limited
+    // org gets a structured 429 before any validation or write.
+    const rateLimit = await checkOrgRateLimit(orgId);
+    if (!rateLimit.allowed) {
+      const retryAfterSeconds = Math.max(1, Math.ceil(rateLimit.retryAfterMs / 1000));
+      return NextResponse.json(
+        {
+          error: `Organization rate limit exceeded (${rateLimit.limit} requests per window). Retry after ${retryAfterSeconds}s.`,
+          code: 'ORG_RATE_LIMITED',
+          retry_after_ms: rateLimit.retryAfterMs,
+          limit: rateLimit.limit,
+        },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
+      );
+    }
+
     let body;
     try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }); }
 

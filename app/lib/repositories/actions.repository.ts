@@ -2,6 +2,7 @@ import { OUTCOME_FIELDS } from '../validate.js';
 import { computeActContentHash } from '../act-content-hash';
 import { buildAgentDefense, type AgentDefense } from '../agent-defense';
 import { getGuardDecisionById } from './guardrails.repository';
+import { incrementUsageRollup } from './usage.repository';
 import { buildPromotionGoal } from '../guard/containment';
 import { SYNTHETIC_AGENT_LIKE_PATTERNS, SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS } from '../synthetic-agents';
 
@@ -1063,6 +1064,13 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
     )
     RETURNING *
   `;
+
+  // G4 metering: every persisted action bumps the org's monthly rollup here,
+  // in the single funnel both creation paths share (POST /api/actions and
+  // guard ?record=true), so the counters cannot drift between paths.
+  // incrementUsageRollup swallows its own failures — metering never breaks
+  // the governance write.
+  await incrementUsageRollup(sql, orgId, { blocked: actionStatus === 'blocked' });
 
   return rows[0] || null;
 }

@@ -13,6 +13,26 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.12.0] — 2026-08-09
+
+**The hosted paid tier's measurement layer: a per-org monthly metering rollup (G4) and org-keyed rate limits on the guard and record paths (G5).** The 2026-08-09 decision record set the rule that pricing comes only after measuring; this release builds the measuring. Read-only throughout: no entitlement enforcement, no checkout, no plan gating.
+
+### Added
+
+- **`usage_rollups` table (drizzle/0068)**: per-org, per-month counters of governed and blocked actions. Maintained inline by `createActionRecord`, the single funnel both creation paths share, so `POST /api/actions` and guard `?record=true` cannot drift apart. Exactly rebuildable from `action_records` via `scripts/backfill-usage-rollups.mjs` (idempotent recount; also seeds history from before the table existed). Period-keyed (`YYYY-MM` UTC), so rows roll over naturally at month boundaries and never need the reset cron the retired `usage_meters` design required.
+- **`GET /api/usage`**: caller-org-scoped and read-only. Current-period governed/blocked counts, seats (human users plus active API keys), trial cap state, and up to 12 months of history. Every query is org-scoped server-side; all SQL lives in `app/lib/repositories/usage.repository.ts`.
+- **`/usage` dashboard page**: read-only metering panel, reachable from the sidebar (Configure group). Current-period tiles, trial cap line, monthly history table. Demo-mode fixture included so the marketing sandbox renders it populated.
+- **Org-keyed rate limiting on `POST /api/guard` and `POST /api/actions`** (`app/lib/org-rate-limit.ts`): fixed-window limit keyed by org id, not IP. A tenant behind corporate NAT is never throttled by neighbors, and a fleet spread across many IPs is bounded as one org. Redis-backed via `REDIS_URL` so counts survive serverless cold starts, with a per-instance in-memory fallback that degrades rather than disables. Limited requests get a structured 429 (`code: ORG_RATE_LIMITED`, `Retry-After` header, `retry_after_ms`) before any evaluation or write. Default 600 requests/minute per org; tune with `DASHCLAW_ORG_RATE_LIMIT_MAX` / `DASHCLAW_ORG_RATE_LIMIT_WINDOW_MS`. The per-IP middleware limiter is unchanged and remains the pre-auth fallback.
+
+### Removed
+
+- **`.github/workflows/reset-meters.yml`**: it had been calling `/api/cron/reset-meters`, a route deleted in the v5 cull on 2026-07-07, on the 1st of every month since. The new rollup is period-keyed and needs no reset.
+
+### Notes
+
+- Metering is measurement only in this release. Ceiling and price decisions follow from running the rollup against the live hosted cohort, not the other way around.
+- No Node/Python SDK source change; the SDKs are not republished and npm + PyPI stay at 5.11.10.
+
 ## [5.11.10] — 2026-08-08
 
 **Second evasion-audit round on the client bash classifier: four more obfuscation holes closed.** A follow-up probe of the 5.11.9 fix put obfuscated twins of already-blocked commands through the guard and found the fix only covered `;`/`&&` chains and only blocked `eval` + decoder-to-shell pipes. Four evasions still slipped below the server's risk threshold; each now matches the coverage of its already-closed twin.

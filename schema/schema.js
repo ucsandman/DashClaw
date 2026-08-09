@@ -2099,3 +2099,21 @@ export const guardCalibrationEvents = pgTable('guard_calibration_events', {
 }, (t) => ({
   orgCreatedIdx: index('idx_gcal_events_org_created').on(t.orgId, t.createdAt),
 }));
+
+// Per-org monthly metering rollup (hosted paid tier, G4 — see
+// docs/decisions/2026-08-09-hosted-paid-tier.md). Read-only measurement:
+// nothing enforces off this table. Counters are incremented in
+// createActionRecord (the single funnel both creation paths share) and can be
+// rebuilt exactly from action_records via scripts/backfill-usage-rollups.mjs.
+// Period-keyed ('YYYY-MM' UTC), so rows never need a reset cron — unlike the
+// retired usage_meters fossil above.
+// @domain governance
+export const usageRollups = pgTable('usage_rollups', {
+  orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  period: text('period').notNull(), // 'YYYY-MM' (UTC)
+  governedActions: integer('governed_actions').notNull().default(0),
+  blockedActions: integer('blocked_actions').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.orgId, t.period] }),
+}));

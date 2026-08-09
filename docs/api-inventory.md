@@ -13,8 +13,8 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `124`
-- Stable routes: `39`
+- Total routes: `125`
+- Stable routes: `40`
 - Beta routes: `18`
 - Experimental routes: `67`
 
@@ -141,6 +141,7 @@ doc-type: architecture
 | `/api/team-tasks/{taskId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/team-tasks/[taskId]/route.ts` |
 | `/api/team-tasks/{taskId}/events` | `GET, POST` | `experimental` | `(default)` | `app/api/team-tasks/[taskId]/events/route.ts` |
 | `/api/telegram/webhook` | `POST` | `experimental` | `(default)` | `app/api/telegram/webhook/route.ts` |
+| `/api/usage` | `GET` | `stable` | `/api/usage` | `app/api/usage/route.ts` |
 | `/api/webhooks` | `DELETE, GET, POST` | `stable` | `/api/webhooks` | `app/api/webhooks/route.ts` |
 | `/api/webhooks/{webhookId}/deliveries` | `GET` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/deliveries/route.ts` |
 | `/api/webhooks/{webhookId}/test` | `POST` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/test/route.ts` |

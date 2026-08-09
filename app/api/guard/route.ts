@@ -4,6 +4,7 @@ export const revalidate = 0;
 import crypto from 'node:crypto';
 import { NextResponse, after } from 'next/server';
 import { getOrgId, getUserId } from '../../lib/org';
+import { checkOrgRateLimit } from '../../lib/org-rate-limit';
 import { validateGuardInput, boundedIdField, enforcementModeField } from '../../lib/validate';
 import { evaluateGuard, getOrgHaltState } from '../../lib/guard';
 import { getSql } from '../../lib/db';
@@ -298,6 +299,24 @@ export async function POST(request: Request) {
   const routeStart = Date.now();
   try {
     const orgId = getOrgId(request);
+
+    // G5: org-keyed rate limit (Redis-backed, memory fallback). Runs before
+    // any parsing or evaluation so a limited org costs nothing downstream.
+    // The per-IP limiter in middleware remains the pre-auth fallback.
+    const rateLimit = await checkOrgRateLimit(orgId);
+    if (!rateLimit.allowed) {
+      const retryAfterSeconds = Math.max(1, Math.ceil(rateLimit.retryAfterMs / 1000));
+      return NextResponse.json(
+        {
+          error: `Organization rate limit exceeded (${rateLimit.limit} requests per window). Retry after ${retryAfterSeconds}s.`,
+          code: 'ORG_RATE_LIMITED',
+          retry_after_ms: rateLimit.retryAfterMs,
+          limit: rateLimit.limit,
+        },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
+      );
+    }
+
     let body;
     try { body = await request.json(); } catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }); }
 

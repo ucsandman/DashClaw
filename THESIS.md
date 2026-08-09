@@ -388,6 +388,16 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   elsewhere. Reuses the existing `listActionIdsByFilter`/`deleteActionsByIds`
   repository primitives (same shape as the filtered-delete audit path); no
   new tables, no MCP/SDK surface.
+- **2026-08-09 — Active API routes 124 → 125 and app pages 48 → 49
+  (`GET /api/usage` + `/usage`, hosted-tier metering G4).** The decision
+  record `docs/decisions/2026-08-09-hosted-paid-tier.md` rules that hosted
+  ceilings and prices are set only after a per-org metering rollup exists and
+  has been run against real usage. This is that rollup's read surface: one
+  caller-org-scoped, read-only route over the new `usage_rollups` table
+  (governed actions + seats per month), and one read-only dashboard page so a
+  human can see the numbers without curl. Measurement only — no entitlement
+  enforcement reads these counters. Not a revival of the culled FinOps/spend
+  surface: no costs, no budgets, no x402, no billing routes.
 
 ## Version story
 

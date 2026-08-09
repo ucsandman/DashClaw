@@ -64,9 +64,11 @@ describe('actions repository contract', () => {
     await expect(actionsRepository.hasAgentAction(sql, 'org_1', 'agent_2')).resolves.toBe(false);
   });
 
-  it('createActionRecord returns inserted row', async () => {
+  it('createActionRecord returns inserted row and bumps the usage rollup', async () => {
     const inserted = { action_id: 'action_1', org_id: 'org_1' };
-    const sql = createSqlMock({ taggedResponses: [[inserted]] });
+    // Two tagged calls since v5.12.0: the action insert, then the G4
+    // usage_rollups upsert (metering side effect in the shared funnel).
+    const sql = createSqlMock({ taggedResponses: [[inserted], []] });
 
     const result = await actionsRepository.createActionRecord(sql, {
       orgId: 'org_1',
@@ -84,8 +86,9 @@ describe('actions repository contract', () => {
     });
 
     expect(result).toEqual(inserted);
-    expect(sql.taggedCalls).toHaveLength(1);
+    expect(sql.taggedCalls).toHaveLength(2);
     expect(sql.taggedCalls[0].text).toContain('INSERT INTO action_records');
+    expect(sql.taggedCalls[1].text).toContain('INSERT INTO usage_rollups');
   });
 
   it('getActionWithRelations returns null when action does not exist', async () => {

@@ -16,6 +16,7 @@ import {
   demoDecisionMetrics,
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoApiKeys,
+  demoUsage,
 } from './app/lib/demo/demoMiddleware';
 import { getViewerContextFromCookieHeader, resolveTrialSession, hasTrialSessionCookie, TRIAL_SESSION_COOKIE } from './app/lib/sessionViewer.mjs';
 import { isSelfHostModeEnabled } from './app/lib/selfHost';
@@ -1163,6 +1164,7 @@ const DEMO_API_ROUTES = [
   ['/api/webhooks', demoFixtureRoute(demoWebhooks)],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'webhooks', '*', 'deliveries']), handleDemoWebhookDeliveries],
   ['/api/schedules', demoFixtureRoute(demoSchedules)],
+  ['/api/usage', demoFixtureRoute(demoUsage)],
   ['/api/digest', demoFixtureUrlRoute(demoDigest)],
   ['/api/context/points', demoFixtureUrlRoute(demoContextPoints)],
   ['/api/context/threads', demoFixtureUrlRoute(demoContextThreads)],

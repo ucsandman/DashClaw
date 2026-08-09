@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "DashClaw Critical Stable API",
-    "version": "5.11.10",
+    "version": "5.12.0",
     "description": "Generated OpenAPI spec for critical stable DashClaw endpoints. Source: app/api/**/route.js"
   },
   "servers": [
@@ -2847,6 +2847,47 @@
         "summary": "POST /api/settings/test",
         "tags": [
           "settings"
+        ],
+        "x-api-maturity": "stable"
+      }
+    },
+    "/api/usage": {
+      "get": {
+        "operationId": "get_api_usage",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "description": "Validation or request error"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GET /api/usage",
+        "tags": [
+          "usage"
         ],
         "x-api-maturity": "stable"
       }
