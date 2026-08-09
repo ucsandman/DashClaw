@@ -6,6 +6,7 @@ import AgentFilterDropdown from './AgentFilterDropdown';
 import UserMenu from './UserMenu';
 import RealtimeIndicator from './RealtimeIndicator';
 import DemoBanner from './DemoBanner';
+import ClaimWorkspaceBanner from './ClaimWorkspaceBanner';
 import SystemStatusBar from './SystemStatusBar';
 
 const MATURITY_BADGE: Record<string, { label: string; color: string }> = {
@@ -35,6 +36,7 @@ export default function PageLayout({ title, subtitle, breadcrumbs, actions, matu
       <Sidebar />
       <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
         <DemoBanner />
+        <ClaimWorkspaceBanner />
         {/* Page header */}
         <header className="sticky top-0 z-10 bg-surface-primary/80 backdrop-blur-sm border-b border-border">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4">

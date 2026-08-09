@@ -399,6 +399,18 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   enforcement reads these counters. Not a revival of the culled FinOps/spend
   surface: no costs, no budgets, no x402, no billing routes.
 
+- **2026-08-09 — Active API routes 125 → 127 and app pages 49 → 51
+  (`/api/hosted/claim` + `/claim`, `/api/team/invites` + `/team`; hosted-tier
+  accounts G2).** The same decision record rules "accounts before billing:
+  you cannot bill an anonymous trial cookie." This is the account layer:
+  claiming binds an anonymous trial org to an authenticated owner without
+  losing its decisions history (the org stops expiring; anonymous cookie
+  access to it ends), and email-matched invites make seats a real, countable
+  thing (a teammate's first sign-in joins the org — no invite emails, no join
+  links, no new auth surface). Not a revival of the culled team/invite
+  routes: no tiers are read, nothing is gated, and the only new table is
+  `invites`.
+
 ## Version story
 
 This cull ships as **v5.0.0** — the major break the removal list demands, and

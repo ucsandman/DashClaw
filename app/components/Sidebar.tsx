@@ -44,6 +44,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: '/setup', icon: ClipboardCheck, label: 'Setup' },
       { href: '/usage', icon: Gauge, label: 'Usage' },
+      { href: '/team', icon: Users, label: 'Team' },
       { href: '/api-keys', icon: KeyRound, label: 'API Keys' },
       { href: '/identities', icon: Fingerprint, label: 'Identities' },
       { href: '/integrations', icon: Plug, label: 'Integrations' },

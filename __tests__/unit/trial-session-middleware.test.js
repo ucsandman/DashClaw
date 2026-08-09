@@ -96,6 +96,14 @@ describe('trial session — page routes', () => {
     expect(stamp).toContain('hosted_mode = TRUE');
   });
 
+  it('claimed org: the anonymous trial cookie stops resolving (v5.13) — same routing as a gone org', async () => {
+    sqlMock.mockResolvedValue([{ ...liveTrialOrgRow(), claimed_at: '2026-08-09T00:00:00Z' }]);
+    const cookie = `dashclaw-trial-session=${await trialJwt({ orgId: uniqueOrg() })}`;
+    const res = await middleware(req('/decisions', { cookie }));
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toContain('/connect?trial=expired');
+  });
+
   it('deleted/cleaned-up org: redirect to /connect?trial=expired and the cookie is cleared', async () => {
     sqlMock.mockResolvedValue([]); // org gone
     const cookie = `dashclaw-trial-session=${await trialJwt({ orgId: uniqueOrg() })}`;

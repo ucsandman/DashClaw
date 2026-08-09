@@ -9,6 +9,7 @@ import {
   queryLiveTrialFacts,
   snapshotTrialFunnelFacts,
   deleteHostedWorkspace,
+  findExpiredWorkspaces,
   computeFunnelAggregates,
   getTrialFunnel,
   SOURCE_ROLLUP_CAP,
@@ -151,6 +152,23 @@ describe('deleteHostedWorkspace (v4.6 fail-closed snapshot)', () => {
     await expect(deleteHostedWorkspace(sql, 'org_abc')).rejects.toThrow('injected failure');
     const texts = sql.calls.map((c) => c.text);
     expect(texts.some((t) => t.includes('DELETE FROM organizations'))).toBe(false);
+  });
+
+  it('refuses to delete a claimed org — claimed means owned (v5.13)', async () => {
+    const sql = makeSqlMock([[{ hosted_mode: true, claimed_at: '2026-08-09T00:00:00Z' }]]);
+    await expect(deleteHostedWorkspace(sql, 'org_claimed')).rejects.toThrow('claimed');
+    expect(sql.calls).toHaveLength(1); // nothing after the existence check ran
+  });
+});
+
+describe('findExpiredWorkspaces (v5.13 claim exclusion)', () => {
+  it('sweeps only unclaimed expired trials', async () => {
+    const sql = makeSqlMock([[{ id: 'org_expired' }]]);
+    const ids = await findExpiredWorkspaces(sql, { now: new Date('2026-08-09T00:00:00Z') });
+    expect(ids).toEqual(['org_expired']);
+    const { text } = sql.calls[0]!;
+    expect(text).toContain('claimed_at IS NULL');
+    expect(text).toContain('trial_ends_at IS NOT NULL');
   });
 });
 

@@ -5,6 +5,7 @@ import { getSql } from './db';
 import { getAuthConfig } from './authConfig.mjs';
 import { isHostedMode, hostedConfig } from './hosted/flag';
 import { applyHostedTrial, markTrialFull, countActiveTrials } from './repositories/hosted-workspace.repository';
+import { findPendingInviteByEmail, acceptInvite } from './repositories/invites.repository';
 
 // SECURITY: In production, require real OAuth credentials. Dev mode may use mocks.
 const isProd = process.env.NODE_ENV === 'production';
@@ -117,21 +118,41 @@ export const authOptions: any = {
           // time, both could pass the count check and be promoted to admin. On a
           // single-operator self-hosted deploy this is vanishingly rare, and two
           // admins is a less-broken failure mode than zero admins. Accept it.
+          const userId = `usr_${crypto.randomUUID()}`;
+
+          // v5.13 seats: a live email-matched invite outranks every other
+          // path. The address the admin recorded must match the VERIFIED
+          // OAuth email — that match is the entire join mechanism (no invite
+          // emails, no join links). Invites bind at first sign-in only;
+          // returning users never move orgs on login.
+          const invite = await findPendingInviteByEmail(sql, user.email || '');
+          if (invite) {
+            await sql`
+              INSERT INTO users (id, org_id, email, name, image, provider, provider_account_id, role, created_at, last_login_at)
+              VALUES (${userId}, ${invite.orgId}, ${user.email || ''}, ${user.name || null}, ${user.image || null}, ${account.provider}, ${account.providerAccountId}, ${invite.role}, ${now}, ${now})
+            `;
+            await acceptInvite(sql, { inviteId: invite.id, userId });
+            return true;
+          }
+
           const countResult = await sql`
             SELECT COUNT(*)::int AS count FROM users WHERE org_id = 'org_default'
           `;
-          const isFirstUser = Number(countResult[0]?.count || 0) === 0;
-          const userId = `usr_${crypto.randomUUID()}`;
+          // Founder bootstrap (BUG-03): the first user of a fresh SELF-HOSTED
+          // instance is admin of org_default so the operator can govern their
+          // own deploy. SECURITY (v5.13): never on hosted — org_default there
+          // is an uncapped non-trial org and the operator does not arrive via
+          // public Google sign-in, so the first stranger to sign in must not
+          // inherit it.
+          const isFirstUser = !isHostedMode() && Number(countResult[0]?.count || 0) === 0;
 
-          // Founder bootstrap (BUG-03): the first user of a fresh instance is
-          // admin of org_default so the operator can govern their own deploy.
-          // SECURITY: every OTHER new account gets its OWN isolated workspace
-          // instead of being dropped into the shared org_default. Previously all
-          // non-first OAuth users landed in org_default together, so a stray
-          // login effectively joined the instance and strangers shared a tenant.
-          // Membership in someone else's workspace now only ever comes from
-          // accepting an email-matched invite (see acceptInvite) — login alone
-          // can no longer add anyone to another team.
+          // SECURITY: every non-founder account gets its OWN isolated
+          // workspace instead of being dropped into the shared org_default.
+          // Previously all non-first OAuth users landed in org_default
+          // together, so a stray login effectively joined the instance and
+          // strangers shared a tenant. Membership in someone else's workspace
+          // only ever comes from the email-matched invite path above — login
+          // alone can never add anyone to another team.
           let targetOrgId = 'org_default';
           if (!isFirstUser) {
             const personalOrgId = `org_${crypto.randomUUID()}`;
@@ -158,7 +179,7 @@ export const authOptions: any = {
           }
 
           // New users are admin of their OWN workspace (org_default for the
-          // founder, their personal org otherwise).
+          // self-host founder, their personal org otherwise).
           const newUserRole = 'admin';
           await sql`
             INSERT INTO users (id, org_id, email, name, image, provider, provider_account_id, role, created_at, last_login_at)
@@ -178,7 +199,7 @@ export const authOptions: any = {
       }
     },
 
-    async jwt({ token, account }: { token: any; account: any }) {
+    async jwt({ token, account, trigger }: { token: any; account: any; trigger?: string }) {
       // On initial sign-in, attach org info from DB
       if (account) {
         try {
@@ -211,9 +232,12 @@ export const authOptions: any = {
         }
         token.orgRefreshedAt = Date.now();
       } else if (token.userId) {
-        // Periodically re-query user's org so session picks up changes (e.g. after workspace creation)
+        // Periodically re-query user's org so session picks up changes (e.g.
+        // after workspace creation). trigger === 'update' (useSession().update()
+        // after a workspace claim) bypasses the window so the new org lands in
+        // the session immediately.
         const age = Date.now() - (token.orgRefreshedAt || 0);
-        if (age > 5 * 60 * 1000) {
+        if (trigger === 'update' || age > 5 * 60 * 1000) {
           try {
             if (!process.env.DATABASE_URL) throw new Error('No DB');
             const sql = getSql();

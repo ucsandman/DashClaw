@@ -1409,6 +1409,24 @@ export function demoDoctor() {
  * GET /api/usage — read-only metering panel (G4). Deterministic counts; the
  * fixed lastUpdated follows the fixture convention (no live data values).
  */
+/**
+ * GET /api/team/invites — seats panel (v5.13). Deterministic members +
+ * invites; demo writes stay blocked (POST/DELETE fall through to the demo
+ * write-block), so the page renders read-only.
+ */
+export function demoTeam() {
+  return {
+    org: { id: 'org_demo', name: 'Demo workspace', slug: 'demo', plan: 'free' },
+    members: [
+      { id: 'usr_demo_1', email: 'ava@demo.dashclaw.io', name: 'Ava Operator', image: null, role: 'admin', created_at: '2026-06-01T00:00:00.000Z', last_login_at: '2026-08-08T00:00:00.000Z' },
+      { id: 'usr_demo_2', email: 'sam@demo.dashclaw.io', name: 'Sam Reviewer', image: null, role: 'member', created_at: '2026-07-12T00:00:00.000Z', last_login_at: '2026-08-05T00:00:00.000Z' },
+    ],
+    invites: [
+      { id: 'inv_demo_1', email: 'jordan@demo.dashclaw.io', role: 'member', createdAt: '2026-08-01T00:00:00.000Z', expiresAt: '2026-08-15T00:00:00.000Z', expired: false },
+    ],
+  };
+}
+
 export function demoUsage() {
   return {
     org_id: 'org_demo',

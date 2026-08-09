@@ -239,6 +239,8 @@ CREATE TABLE IF NOT EXISTS "organizations" (
   "trial_mint_source" text,
   "trial_mint_source_raw" jsonb,
   "trial_exported_at" timestamptz,
+  "claimed_at" timestamptz,
+  "claimed_by_user_id" text,
   CONSTRAINT "organizations_slug_unique" UNIQUE("slug")
 )
 --> statement-breakpoint

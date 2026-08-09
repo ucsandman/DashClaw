@@ -17,6 +17,7 @@ import {
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoApiKeys,
   demoUsage,
+  demoTeam,
 } from './app/lib/demo/demoMiddleware';
 import { getViewerContextFromCookieHeader, resolveTrialSession, hasTrialSessionCookie, TRIAL_SESSION_COOKIE } from './app/lib/sessionViewer.mjs';
 import { isSelfHostModeEnabled } from './app/lib/selfHost';
@@ -402,13 +403,16 @@ async function resolveTrialOrg(orgId) {
   // a definitive "not a trial org". Do not add one here.
   const sql = neon(process.env.DATABASE_URL);
   const rows = await sql`
-    SELECT hosted_mode, trial_ends_at, trial_action_cap, trial_actions_used
+    SELECT hosted_mode, claimed_at, trial_ends_at, trial_action_cap, trial_actions_used
     FROM organizations
     WHERE id = ${orgId}
     LIMIT 1
   `;
   const row = rows[0];
-  const result = row && row.hosted_mode
+  // v5.13: a claimed org is owned — anonymous trial cookies stop resolving
+  // (NextAuth sessions are the only way in). Definitive, so it caches; the
+  // 60s TTL bounds how long an outstanding cookie survives a claim.
+  const result = row && row.hosted_mode && !row.claimed_at
     ? {
         orgId,
         hostedMode: true,
@@ -1165,6 +1169,7 @@ const DEMO_API_ROUTES = [
   [(pathname, segments) => segmentsMatch(segments, ['api', 'webhooks', '*', 'deliveries']), handleDemoWebhookDeliveries],
   ['/api/schedules', demoFixtureRoute(demoSchedules)],
   ['/api/usage', demoFixtureRoute(demoUsage)],
+  ['/api/team/invites', demoFixtureRoute(demoTeam)],
   ['/api/digest', demoFixtureUrlRoute(demoDigest)],
   ['/api/context/points', demoFixtureUrlRoute(demoContextPoints)],
   ['/api/context/threads', demoFixtureUrlRoute(demoContextThreads)],

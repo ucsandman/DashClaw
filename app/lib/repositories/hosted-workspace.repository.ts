@@ -148,11 +148,16 @@ export async function deleteHostedWorkspace(
   orgId: string,
 ): Promise<{ deleted: boolean; reason?: string }> {
   const existing = await sql`
-    SELECT hosted_mode FROM organizations WHERE id = ${orgId} LIMIT 1
+    SELECT hosted_mode, claimed_at FROM organizations WHERE id = ${orgId} LIMIT 1
   `;
   if (existing.length === 0) return { deleted: false, reason: 'not_found' };
   if (!existing[0]?.hosted_mode) {
     throw new Error(`org ${orgId} is not a hosted trial workspace — refusing to delete`);
+  }
+  // v5.13: a claimed org is owned. Claiming clears trial_ends_at so the sweep
+  // never selects it, but this guard must hold even for a direct call.
+  if (existing[0]?.claimed_at) {
+    throw new Error(`org ${orgId} has been claimed by a user — refusing to delete`);
   }
   // Revoke first so the workspace is dead immediately even if a later step fails.
   await sql`UPDATE api_keys SET revoked_at = NOW() WHERE org_id = ${orgId} AND revoked_at IS NULL`;
@@ -212,6 +217,7 @@ export async function findExpiredWorkspaces(
   const rows = await sql`
     SELECT id FROM organizations
     WHERE hosted_mode = TRUE
+      AND claimed_at IS NULL
       AND trial_ends_at IS NOT NULL
       AND trial_ends_at < ${cutoff}
     LIMIT ${limit}

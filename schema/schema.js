@@ -38,6 +38,11 @@ export const organizations = pgTable('organizations', {
   // v7.2 graduation: first successful workspace export. NULL = never
   // exported; the earliest stamp wins (idempotent). Hosted trials only.
   trialExportedAt: timestamp('trial_exported_at', { withTimezone: true }),
+  // v5.13 claim-your-workspace: set once when an authenticated user claims an
+  // anonymous hosted trial. Non-NULL means "durable, owned org": the expiry
+  // sweep skips it and outstanding anonymous trial cookies stop resolving.
+  claimedAt: timestamp('claimed_at', { withTimezone: true }),
+  claimedByUserId: text('claimed_by_user_id'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -56,6 +61,26 @@ export const users = pgTable('users', {
 }, (table) => ({
   providerUnique: uniqueIndex('users_provider_account_unique').on(table.provider, table.providerAccountId),
   roleCheck: check('users_role_check', sql`${table.role} IN ('admin', 'member')`),
+}));
+
+// v5.13 email-matched invites (seats): an admin records a teammate's address;
+// the teammate joins the org at first sign-in (auth.ts signIn callback)
+// instead of minting a personal workspace. No invite emails, no join links —
+// the address match against the verified OAuth email is the whole mechanism.
+// Accepted rows are kept as audit history; the partial unique index in
+// drizzle/0069 enforces one live invite per (org, lower(email)).
+export const invites = pgTable('invites', {
+  id: text('id').primaryKey(), // inv_ prefix
+  orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  role: text('role').default('member').notNull(),
+  createdByUserId: text('created_by_user_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+  acceptedByUserId: text('accepted_by_user_id'),
+}, (table) => ({
+  roleCheck: check('invites_role_check', sql`${table.role} IN ('admin', 'member')`),
 }));
 
 // @domain governance

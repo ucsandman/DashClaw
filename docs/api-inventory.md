@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `125`
-- Stable routes: `40`
+- Total routes: `127`
+- Stable routes: `41`
 - Beta routes: `18`
-- Experimental routes: `67`
+- Experimental routes: `68`
 
 ## Routes
 
@@ -68,6 +68,7 @@ doc-type: architecture
 | `/api/halt` | `GET, POST` | `experimental` | `(default)` | `app/api/halt/route.ts` |
 | `/api/health` | `GET` | `stable` | `/api/health` | `app/api/health/route.ts` |
 | `/api/hosted/capacity` | `GET` | `experimental` | `(default)` | `app/api/hosted/capacity/route.ts` |
+| `/api/hosted/claim` | `GET, POST` | `experimental` | `(default)` | `app/api/hosted/claim/route.ts` |
 | `/api/hosted/cleanup` | `POST` | `experimental` | `(default)` | `app/api/hosted/cleanup/route.ts` |
 | `/api/hosted/funnel` | `GET` | `experimental` | `(default)` | `app/api/hosted/funnel/route.ts` |
 | `/api/hosted/workspaces` | `GET, POST` | `experimental` | `(default)` | `app/api/hosted/workspaces/route.ts` |
@@ -140,6 +141,7 @@ doc-type: architecture
 | `/api/team-tasks` | `GET, POST` | `experimental` | `(default)` | `app/api/team-tasks/route.ts` |
 | `/api/team-tasks/{taskId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/team-tasks/[taskId]/route.ts` |
 | `/api/team-tasks/{taskId}/events` | `GET, POST` | `experimental` | `(default)` | `app/api/team-tasks/[taskId]/events/route.ts` |
+| `/api/team/invites` | `DELETE, GET, POST` | `stable` | `/api/team` | `app/api/team/invites/route.ts` |
 | `/api/telegram/webhook` | `POST` | `experimental` | `(default)` | `app/api/telegram/webhook/route.ts` |
 | `/api/usage` | `GET` | `stable` | `/api/usage` | `app/api/usage/route.ts` |
 | `/api/webhooks` | `DELETE, GET, POST` | `stable` | `/api/webhooks` | `app/api/webhooks/route.ts` |

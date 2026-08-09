@@ -20,6 +20,14 @@ not distribution/packaging breaks).
 npm run drill:fresh-windows   # Windows Sandbox — factory-fresh Windows 11
 npm run drill:fresh-linux     # Docker container — factory-fresh Linux
 npm run drill:hosted          # hosted-trial equivalent (built separately)
+npm run drill:claim           # claim-your-workspace path (v5.13): mint →
+                              # preview → claim → ownership/rebind/discard →
+                              # trial-cookie revocation. Needs a hosted-mode
+                              # instance + HOSTED_DRILL_TOKEN + NEXTAUTH_SECRET
+                              # + DATABASE_URL of the target. Off-Neon DBs run
+                              # the two trial-cookie steps as LIMITED (the
+                              # middleware resolves trial sessions via the
+                              # Neon driver only).
 ```
 
 Each accepts flags (see each script's header comment for the full list):

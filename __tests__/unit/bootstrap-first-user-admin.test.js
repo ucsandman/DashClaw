@@ -20,6 +20,14 @@ vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
 vi.mock('@/lib/authConfig.mjs', () => ({
   getAuthConfig: () => ({ hasGitHub: true, hasGoogle: false, hasOIDC: false }),
 }));
+// v5.13: the signIn callback consults email-matched invites before any org
+// mint. Mocked to "no invite" here so the scripted sql sequences (and call
+// counts) still describe exactly the bootstrap paths under test — the invite
+// path has its own suite (auth-invite-join.test.js).
+vi.mock('@/lib/repositories/invites.repository.js', () => ({
+  findPendingInviteByEmail: vi.fn(async () => null),
+  acceptInvite: vi.fn(async () => ({ accepted: false })),
+}));
 
 // NOTE: must be after the mocks so getSql resolves to our spy
 const { authOptions } = await import('@/lib/auth.js');

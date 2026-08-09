@@ -13,6 +13,28 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.13.0] — 2026-08-09
+
+**The hosted paid tier's account layer (G2 product half): claim-your-workspace and email-matched seat invites.** The 2026-08-09 decision record ruled "accounts before billing — you cannot bill an anonymous trial cookie." This release builds the account: an anonymous hosted trial binds to an authenticated owner without losing its history, and seats become a real, countable thing. Still no checkout, no plan gating, no entitlement enforcement.
+
+### Added
+
+- **Claim-your-workspace** (`drizzle/0069`: `organizations.claimed_at` + `claimed_by_user_id`): `POST /api/hosted/claim` atomically claims the browser's anonymous trial org for the signed-in user — stamps the owner, clears `trial_ends_at` (the org stops expiring and the cleanup sweep can never collect it), renames the org after the owner, rebinds the user as admin, discards the empty auto-minted personal org behind hard emptiness guards, and clears the trial cookie. A concurrent second claim loses the conditional UPDATE and gets a truthful 409; a claim that crashes between the org stamp and the user rebind is finished idempotently on retry. `GET /api/hosted/claim` is the claimability preview.
+- **`/claim` page + unclaimed-trial banner**: the confirmation surface (sign in with Google → one button), plus a quiet banner on every dashboard page of an unclaimed trial linking to it. After a claim the session refreshes immediately (`useSession().update()` now bypasses the jwt callback's 5-minute org-refresh window via the `update` trigger).
+- **Email-matched invites** (`invites` table, `drizzle/0069`): an org admin records a teammate's address; the teammate's FIRST sign-in with that verified OAuth email lands them in the inviting org with the invited role instead of minting a personal workspace — no invite emails, no join links. One live invite per (org, address) via a partial unique index; accepted rows remain as audit history; returning users are never moved by an invite.
+- **`/api/team/invites` (GET/POST/DELETE) + `/team` page**: seats made visible — members list (wiring the previously dead `getTeamOrgAndMembers`), pending invites, invite form, revoke. Human org admins only; agent keys, the operator sentinel, and anonymous trial cookies are refused. Demo-mode fixture included.
+- **`scripts/drills/claim-flow.mjs`**: the claim path drilled end to end over live HTTP — mint → preview → claim → DB-verified ownership/rebind/discard → trial-cookie revocation — substituting only the two artifacts a script cannot produce (the OAuth-created `users` row and the NextAuth session JWT, encoded with the same library + secret the middleware verifies). Self-cleaning teardown.
+
+### Security
+
+- **Hosted founder bootstrap disabled.** On a hosted instance the first-ever Google sign-in was promoted to admin of `org_default` — an uncapped, non-trial org — purely for arriving first. The founder bootstrap now runs only off-hosted (the hosted operator does not arrive via public sign-in); every hosted sign-up gets a capped personal trial org.
+- **Claimed orgs revoke their anonymous credentials.** `resolveTrialOrg` treats a claimed org as no-longer-trial, so outstanding trial cookies (including copied ones) stop resolving within the middleware's 60s org cache. `deleteHostedWorkspace` refuses claimed orgs outright, and the expiry sweep excludes them (`claimed_at IS NULL`) as defense in depth.
+
+### Notes
+
+- The claimed org keeps its trial action cap on the free plan — clearing it is entitlement work (week 5), and until then a claimed org must not become the only uncapped tenant.
+- No Node/Python SDK source change. The tag-triggered release workflow republishes the unchanged SDK content at 5.13.0 so registries stay aligned.
+
 ## [5.12.0] — 2026-08-09
 
 **The hosted paid tier's measurement layer: a per-org monthly metering rollup (G4) and org-keyed rate limits on the guard and record paths (G5).** The 2026-08-09 decision record set the rule that pricing comes only after measuring; this release builds the measuring. Read-only throughout: no entitlement enforcement, no checkout, no plan gating.

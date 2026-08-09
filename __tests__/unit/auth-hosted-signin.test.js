@@ -70,10 +70,12 @@ describe('Task 4: hosted trial stamping on new personal-org sign-in', () => {
 
     // sql sequence for the new-personal-org branch (helpers are mocked, no sql):
     //   1. SELECT existing user → [] (new user)
-    //   2. SELECT COUNT(*) → non-zero (NOT first user → personal-org branch)
-    //   3. INSERT INTO organizations → []
-    //   4. INSERT INTO users → []
+    //   2. SELECT pending invite → [] (v5.13: invite check precedes org mint)
+    //   3. SELECT COUNT(*) → non-zero (NOT first user → personal-org branch)
+    //   4. INSERT INTO organizations → []
+    //   5. INSERT INTO users → []
     mockSql
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ count: 7 }])
       .mockResolvedValueOnce([])
@@ -106,6 +108,7 @@ describe('Task 4: hosted trial stamping on new personal-org sign-in', () => {
 
     mockSql
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]) // v5.13: pending-invite lookup
       .mockResolvedValueOnce([{ count: 7 }])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);

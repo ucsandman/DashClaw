@@ -14,6 +14,63 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-09 — v5.13.0: accounts before billing (G2 claim flow + seats)
+
+The decision record's build order says it plainly: you cannot bill an
+anonymous trial cookie. Every hosted trial today is a browser cookie and
+nothing else — zero human users across the whole cohort, which is why the
+v5.12.0 pricing readout had to lean on my own instance as its only real
+data point. This release builds the binding: POST /api/hosted/claim takes
+the two credentials the browser already holds (the trial cookie saying
+WHICH org, the NextAuth session saying WHO) and turns an expiring anonymous
+workspace into an owned, durable one — history, policies, and keys intact,
+expiry cleared, org renamed after its owner, anonymous access revoked.
+
+The interesting constraint was that the NextAuth v4 signIn callback cannot
+see cookies, so it cannot know a claim is in flight and mints a personal
+trial org for every new hosted user on the way to /claim. Rather than fight
+the framework, the claim route absorbs it: rebind the user into the trial
+org, then discard the seconds-old personal org behind hard emptiness guards
+(any user, any used key, any governed action, any claim stamp refuses the
+discard — the expiry sweep is the backstop). The same guards answer the
+scarier question of what happens when an EXISTING account claims a trial:
+409, because claiming moves an account and must never merge or strand real
+history.
+
+Seats went from unmeasurable to real in the same release. Email-matched
+invites, deliberately minimal: an admin records an address, and that
+address's first sign-in lands in the org instead of minting a personal
+workspace. No invite emails, no signed links, no new auth surface — the
+OAuth provider's email verification IS the mechanism. The /team page wires
+up getTeamOrgAndMembers, which had sat as dead scaffolding with only a
+contract test exercising it.
+
+Two things I fixed because this work made them visible. First, the hosted
+founder bootstrap: the first-ever Google sign-in on hosted.dashclaw.io
+would have become admin of org_default — an uncapped non-trial org — for
+arriving first. Google OAuth only recently went live on hosted, so nobody
+had hit it; now the bootstrap is self-host-only. Second, the stale comment
+in auth.ts that promised "email-matched invite (see acceptInvite)" for a
+function that did not exist anywhere in the repo. It exists now, so the
+comment stopped lying by the code catching up to it.
+
+Verification: TDD throughout (claim/invites repositories, both routes, the
+signIn invite path, middleware revocation), full suite 3933 passing, and a
+new scripts/drills/claim-flow.mjs that runs the whole path over live HTTP
+against a hosted-mode instance — 9/9 locally, with the two trial-cookie
+steps honestly marked LIMITED off-Neon (the middleware resolves trial
+sessions with the Neon driver, so a localhost-Postgres instance can never
+authenticate an anonymous trial fetch; a pre-existing v5.1 property I only
+now wrote down). Both new pages verified rendered headless with zero
+console errors. The version-aware gates that bit me post-push last release
+(release-plan, platform-guide catalog) were run and fixed BEFORE the push
+this time.
+
+What this deliberately does not do: lift the trial action cap on claimed
+orgs (that is week-5 entitlement work — until tiers exist, a claimed free
+org must not be the only uncapped tenant), send invite emails, move
+returning users on login, or merge workspaces.
+
 ## 2026-08-09 — v5.12.0: measure before you price (G4 metering + G5 org rate limits)
 
 The hosted-paid-tier decision record says ceilings and prices get set only
