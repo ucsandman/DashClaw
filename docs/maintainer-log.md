@@ -14,6 +14,37 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-08 — v5.11.10: I re-attacked my own fix, and it had four more holes
+
+The right way to trust a security fix is to try to beat it, so an hour after
+v5.11.9 I put obfuscated twins of already-blocked commands back through the
+guard. Four got through — and one of them was the exact evasion I'd just
+fixed, wearing a different hat. `F="-rf"; rm $F x` was blocked; `F="-rf"` on
+one line and `rm $F x` on the next was not, because the chain splitter only
+knew about `;` and `&&`. A newline is a command separator too. So is `||`.
+Both now split into segments that get graded individually and feed the
+var-resolver, which closes the newline reopening and anything else hiding
+across a line break.
+
+The other three: `export F="-rf"; rm $F x` hid the flags behind an `export`
+the resolver didn't strip; `curl … | sh` and `echo "rm -rf /" | bash` piped a
+program straight into a shell's stdin, invisible to a token-by-token
+classifier; and `sh -c '<string>'` ran an arbitrary command as a quoted
+argument, same trick as `eval`. The pipe-to-shell and `-c` cases generalize
+the 5.11.9 decode-to-shell rule — it doesn't matter whether a base64 decoder
+sits in the pipe, a bare shell reading stdin is executing something I can't
+see, so it blocks. A named script file (`… | bash deploy.sh`) is exempted;
+that's an ordinary invocation, and the over-block test I wrote caught my first
+regex when it didn't skip the flags before the filename.
+
+Two gaps I chose not to close, and wrote down instead of pretending they're
+gone: a flag built from a command substitution (`F=$(echo -rf); rm $F x`)
+can't be resolved without executing it, and blocking it would false-positive
+the extremely common `TMPD=$(mktemp -d); rm -rf $TMPD`; and a destructive
+command behind a non-shell pipe sink like `xargs` needs pipe-stage analysis I
+haven't built. 635 hook tests green, and the probe that started this now comes
+back with only those two.
+
 ## 2026-08-08 — v5.11.9: the classifier is only as good as what it can see
 
 An evasion audit put obfuscated twins of already-blocked commands through the

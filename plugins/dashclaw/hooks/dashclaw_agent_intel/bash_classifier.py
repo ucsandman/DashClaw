@@ -130,6 +130,43 @@ _DECODE_EXEC_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Pipe into a BARE shell (round-2 audit, 2026-08-08): `curl … | sh`,
+# `echo "<cmd>" | bash`, `printf … | zsh`. The shell reads its program from
+# stdin, so the real command is invisible to the classifier regardless of the
+# upstream producer — this generalizes _DECODE_EXEC_RE beyond the three
+# decoders. The negative lookahead exempts a named script file (`… | bash
+# deploy.sh`), which is an ordinary invocation, not stdin execution.
+_PIPE_TO_SHELL_RE = re.compile(
+    r"\|\s*(?:sh|bash|zsh|dash|ksh)\b(?!(?:\s+-[A-Za-z]+)*\s+[^\s|;&]*\.[A-Za-z])",
+    re.IGNORECASE,
+)
+
+# A shell running an inline command string: `sh -c '<cmd>'`, `bash -lc '<cmd>'`.
+# `-c` (in any combined short-flag form, or `--command`) means the program is a
+# string argument the per-token classifier never inspects — same invisible-
+# execution class as eval (round-2 audit, 2026-08-08).
+_SHELL_DASH_C_RE = re.compile(
+    r"\b(?:sh|bash|zsh|dash|ksh)\s+(?:-[A-Za-z]*c[A-Za-z]*|--command)\b",
+    re.IGNORECASE,
+)
+
+# Leading assignment keyword (`export F=-rf`, `declare X=…`) — stripped before
+# the static-assignment match so the value still resolves (round-2 audit).
+_ASSIGNMENT_PREFIX_RE = re.compile(r"^(?:export|declare|local|readonly)\s+")
+
+
+def _is_obfuscated_exec(base_name: str, raw_command: str) -> bool:
+    """True when the command runs a program the per-token classifier can't
+    see: `eval`, a decode-to-shell pipe, a bare pipe into a shell, or a shell
+    `-c '<string>'`. In every case the real command is invisible, so the effect
+    is unverifiable and must inherit the worst-case (block) path."""
+    return (
+        base_name == "eval"
+        or bool(_DECODE_EXEC_RE.search(raw_command))
+        or bool(_PIPE_TO_SHELL_RE.search(raw_command))
+        or bool(_SHELL_DASH_C_RE.search(raw_command))
+    )
+
 # A chain segment that is ONLY a `VAR=value` assignment. Used to resolve
 # statically-known assignments into later segments so `F=-rf; rm $F x` grades
 # as `rm -rf x` — the flag-in-a-variable evasion (audit 2026-08-08). Only
@@ -358,7 +395,10 @@ def _resolve_static_chain_vars(segment_texts: list[str]) -> list[str]:
                 subbed,
             )
         resolved.append(subbed)
-        m = _STATIC_ASSIGNMENT_RE.match(subbed.strip())
+        # A leading `export`/`declare`/`local`/`readonly` still sets the value,
+        # so strip it before matching the assignment (round-2 evasion audit).
+        assignment = _ASSIGNMENT_PREFIX_RE.sub("", subbed.strip())
+        m = _STATIC_ASSIGNMENT_RE.match(assignment)
         if m:
             raw_val = m.group(2).strip()
             if "$" not in raw_val and "`" not in raw_val:
@@ -403,13 +443,13 @@ def _classify_intent(parsed: dict, raw_command: str) -> str:
     # Check for sudo wrapper early — used for escalation decisions.
     wrapper = parsed.get("wrapper")
 
-    # Obfuscated command construction: `eval` runs a runtime-built string and a
-    # decode-then-shell pipe runs decoded bytes — in both cases the real command
-    # is invisible to this classifier. Grade as destructive (worst case): the
-    # effect is unverifiable, so it inherits the same block path as an unbounded
-    # rm rather than the low `unknown` base that let base64+eval slip a delete
-    # past the guard (evasion audit 2026-08-08).
-    if base_name == "eval" or _DECODE_EXEC_RE.search(raw_command):
+    # Obfuscated command construction: `eval`, a decode-then-shell pipe, a bare
+    # pipe into a shell, or `sh -c '<string>'` all run a command invisible to
+    # this classifier. Grade as destructive (worst case): the effect is
+    # unverifiable, so it inherits the same block path as an unbounded rm rather
+    # than the low `unknown`/`network` base that let these slip past the guard
+    # (evasion audits 2026-08-08, rounds 1 and 2).
+    if _is_obfuscated_exec(base_name, raw_command):
         return "destructive"
 
     # Handle mkfs variants (mkfs.ext4, mkfs.xfs, etc.).
@@ -507,17 +547,18 @@ def _run_destructive_command_validation(
     flags = parsed.get("flags", [])
     targets = parsed.get("targets", [])
 
-    # Obfuscated command execution — block outright. `eval` and a decode-to-
-    # shell pipe execute commands this classifier never sees as text, defeating
-    # every check below; blocking the construct is the only reliable guard
-    # (base64+eval / decode-pipe evasions, audit 2026-08-08). Legitimate uses
-    # (`eval "$(ssh-agent -s)"`) are surfaced for one-click approval, not
-    # silently allowed — the correct posture for a control plane.
-    if base == "eval" or _DECODE_EXEC_RE.search(raw_command):
+    # Obfuscated command execution — block outright. `eval`, a decode-to-shell
+    # pipe, a bare pipe into a shell (`curl … | sh`), and `sh -c '<string>'` all
+    # execute commands this classifier never sees as text, defeating every check
+    # below; blocking the construct is the only reliable guard (evasion audits
+    # 2026-08-08, rounds 1 and 2). Legitimate uses (`eval "$(ssh-agent -s)"`,
+    # a vetted install script) are surfaced for one-click approval, not silently
+    # allowed — the correct posture for a control plane.
+    if _is_obfuscated_exec(base, raw_command):
         return {
             "check": "destructive_command",
             "result": "block",
-            "reason": "obfuscated command execution (eval / decode-to-shell)",
+            "reason": "obfuscated command execution (eval / pipe-to-shell / sh -c)",
         }
 
     # Fork bomb detection.

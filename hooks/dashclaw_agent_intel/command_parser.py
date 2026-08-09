@@ -248,10 +248,13 @@ def _parse_segment(tokens: list[str]) -> dict:
 
 
 def split_chain_texts(command_str: str) -> list[str]:
-    """Split a command on unquoted chain operators (&&, ;) into the raw text
-    of each segment. Public so the classifier can grade every segment of a
-    chain, not just the first (a `cd /p && rm -rf /` must classify as rm)."""
-    chain_segments = _split_on_unquoted(command_str, ["&&", ";"])
+    """Split a command on unquoted sequential operators (&&, ||, ;, newline)
+    into the raw text of each segment. Public so the classifier can grade every
+    segment of a chain, not just the first (a `cd /p && rm -rf /` must classify
+    as rm). `||` and a newline separate sequential commands just as `;`/`&&` do
+    — a later segment still runs, so its risk must count and the static
+    var-resolver must see earlier segments (evasion audit round 2, 2026-08-08)."""
+    chain_segments = _split_on_unquoted(command_str, ["&&", "||", ";", "\n"])
     chain_texts = [seg for seg, _delim in chain_segments]
     return [t.strip() for t in chain_texts if t.strip()]
 

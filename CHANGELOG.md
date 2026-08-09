@@ -13,6 +13,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.11.10] — 2026-08-08
+
+**Second evasion-audit round on the client bash classifier: four more obfuscation holes closed.** A follow-up probe of the 5.11.9 fix put obfuscated twins of already-blocked commands through the guard and found the fix only covered `;`/`&&` chains and only blocked `eval` + decoder-to-shell pipes. Four evasions still slipped below the server's risk threshold; each now matches the coverage of its already-closed twin.
+
+### Security
+
+- **Newline and `||` are now chain separators.** `F="-rf"` on one line and `rm $F path` on the next bypassed the static var-resolver entirely, because `split_chain_texts` only split on `;` and `&&` — so the exact flag-in-a-variable evasion 5.11.9 fixed reopened with a newline. Sequential segments split by a newline or `||` are now graded individually (the worst wins) and feed the resolver, so `F=-rf⏎rm $F x` grades as `rm -rf x` (risk 100). `||` matters because the right side runs when the left fails.
+- **`export`/`declare`/`local`/`readonly`-prefixed assignments resolve.** `export F="-rf"; rm $F x` hid the flags behind an export the resolver didn't recognize; the prefix is now stripped before the assignment match.
+- **A bare pipe into a shell is blocked.** `curl … | sh`, `echo "rm -rf /" | bash`, `printf … | zsh` — the shell reads its program from stdin, so the real command is invisible regardless of the upstream producer. This generalizes the 5.11.9 decode-to-shell rule beyond the base64/xxd/openssl decoders. A named script file (`… | bash deploy.sh`) is exempted as an ordinary invocation.
+- **A shell running an inline command string is blocked.** `sh -c '<cmd>'`, `bash -lc '<cmd>'` run an arbitrary string the per-token classifier never inspects — the same invisible-execution class as `eval`. Legitimate uses surface for one-click approval rather than being silently allowed.
+
+### Notes
+
+- Recorded conservative gaps for the next round: a flag built from a command substitution (`F=$(echo -rf); rm $F x`) still can't be resolved statically — blocking it would false-positive the common `TMPD=$(mktemp -d); rm -rf $TMPD` pattern — and a destructive command behind a non-shell pipe sink (`echo x | xargs rm -rf`) needs pipe-stage analysis. Both are documented, not fixed.
+- No Node/Python SDK source change — the SDKs are not republished; npm + PyPI stay at 5.6.2.
+
 ## [5.11.9] — 2026-08-08
 
 **Two demonstrated guard evasions closed in the client bash classifier: flags hidden in shell variables, and decode-then-eval execution.** An evasion audit showed both obfuscated forms sliding past the guard while their plain twins were blocked. The fix makes each obfuscated command classify identically to (or stricter than) its plain twin, so the server policy sees the same risk it would for the un-obfuscated form.
