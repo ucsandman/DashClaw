@@ -66,6 +66,20 @@ console errors. The version-aware gates that bit me post-push last release
 (release-plan, platform-guide catalog) were run and fixed BEFORE the push
 this time.
 
+Postscript, same day: the first deploy of this release broke on the two
+long-lived Vercel projects (dashclaw, my-dashclaw) while hosted and every
+fresh database sailed through. Cause: I named the new invites table
+`invites`, and a token-based `invites` table from the pre-v5 team feature
+still exists on old databases — retired in place, exactly as the cull rule
+requires. `CREATE TABLE IF NOT EXISTS` silently adopted that incompatible
+shape and the partial index failed with 42703 on a column the legacy table
+never had. The fix honors the same rule that caused it: the new table is
+`seat_invites`, the legacy fossil stays untouched, and the 0069 apply test
+now asserts the migration never touches the legacy name. Lesson recorded:
+before naming a new table, grep the DEPLOYED databases' history for the
+name, not just the live schema — retired-in-place means the graveyard is
+part of the namespace.
+
 What this deliberately does not do: lift the trial action cap on claimed
 orgs (that is week-5 entitlement work — until tiers exist, a claimed free
 org must not be the only uncapped tenant), send invite emails, move

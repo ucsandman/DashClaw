@@ -46,7 +46,7 @@ describe('createInvite', () => {
     // both queries see the normalized address
     expect(sql.calls[0]!.values).toContain('casey@example.com');
     expect(sql.calls[1]!.values).toContain('casey@example.com');
-    expect(sql.calls[1]!.text).toContain('INSERT INTO invites');
+    expect(sql.calls[1]!.text).toContain('INSERT INTO seat_invites');
     expect(sql.calls[1]!.text).toContain('expires_at');
   });
 
@@ -60,7 +60,7 @@ describe('createInvite', () => {
   });
 
   it('maps the partial-unique collision to already_invited', async () => {
-    const dup = Object.assign(new Error('duplicate key value violates unique constraint "invites_org_email_pending_idx"'), { code: '23505' });
+    const dup = Object.assign(new Error('duplicate key value violates unique constraint "seat_invites_org_email_pending_idx"'), { code: '23505' });
     const sql = makeSqlMock([[], dup]);
     const result = await createInvite(sql, {
       orgId: 'org_a', email: 'casey@example.com', role: 'member', createdByUserId: 'usr_admin',
@@ -92,7 +92,7 @@ describe('listPendingInvites / revokeInvite', () => {
     const result = await revokeInvite(sql, { orgId: 'org_a', inviteId: 'inv_1' });
     expect(result).toEqual({ revoked: true });
     const { text, values } = sql.calls[0]!;
-    expect(text).toContain('DELETE FROM invites');
+    expect(text).toContain('DELETE FROM seat_invites');
     expect(text).toContain('accepted_at IS NULL');
     expect(values).toEqual(expect.arrayContaining(['org_a', 'inv_1']));
   });

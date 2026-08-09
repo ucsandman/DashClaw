@@ -409,7 +409,8 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   thing (a teammate's first sign-in joins the org — no invite emails, no join
   links, no new auth surface). Not a revival of the culled team/invite
   routes: no tiers are read, nothing is gated, and the only new table is
-  `invites`.
+  `seat_invites` (the legacy token-based `invites` table stays retired in
+  place on long-lived databases).
 
 ## Version story
 

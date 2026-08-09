@@ -9,11 +9,17 @@ ALTER TABLE organizations ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ;
 --> statement-breakpoint
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS claimed_by_user_id TEXT;
 --> statement-breakpoint
+-- Email-matched invites live in seat_invites, NOT the legacy pre-v5 `invites`
+-- table (token-based, TEXT timestamps, NOT NULL token/invited_by) that still
+-- exists on long-lived databases - CREATE TABLE IF NOT EXISTS would silently
+-- adopt that incompatible shape and the partial index below would fail
+-- (42703, the v5.13.0 my-dashclaw deploy failure). The legacy table stays
+-- retired-in-place per the cull's no-destructive-migration rule.
 -- Email-matched invites: an admin records a teammate's address; the teammate
 -- joins the org at first sign-in (auth.ts signIn callback) instead of minting
 -- a personal workspace. No invite emails are sent and no join links exist —
 -- the address match against the verified OAuth email is the whole mechanism.
-CREATE TABLE IF NOT EXISTS invites (
+CREATE TABLE IF NOT EXISTS seat_invites (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
@@ -23,10 +29,10 @@ CREATE TABLE IF NOT EXISTS invites (
   expires_at TIMESTAMPTZ NOT NULL,
   accepted_at TIMESTAMPTZ,
   accepted_by_user_id TEXT,
-  CONSTRAINT invites_role_check CHECK (role IN ('admin', 'member'))
+  CONSTRAINT seat_invites_role_check CHECK (role IN ('admin', 'member'))
 );
 --> statement-breakpoint
 -- One live invite per (org, address); accepted rows stay as audit history.
-CREATE UNIQUE INDEX IF NOT EXISTS invites_org_email_pending_idx ON invites (org_id, lower(email)) WHERE accepted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS seat_invites_org_email_pending_idx ON seat_invites (org_id, lower(email)) WHERE accepted_at IS NULL;
 --> statement-breakpoint
-CREATE INDEX IF NOT EXISTS invites_email_pending_idx ON invites (lower(email)) WHERE accepted_at IS NULL;
+CREATE INDEX IF NOT EXISTS seat_invites_email_pending_idx ON seat_invites (lower(email)) WHERE accepted_at IS NULL;

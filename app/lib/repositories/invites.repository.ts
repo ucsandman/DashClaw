@@ -6,7 +6,8 @@ import type { SqlTag } from '../types/db';
  * an org admin records a teammate's address, and the teammate joins at
  * first sign-in when their verified OAuth email matches a live invite
  * (auth.ts signIn callback). Addresses normalize to lowercase; the 0069
- * partial unique index enforces one live invite per (org, address);
+ * partial unique index (on seat_invites - the legacy token-based `invites`
+ * table is a retired-in-place fossil on long-lived databases) enforces one live invite per (org, address);
  * accepted rows stay behind as audit history.
  */
 
@@ -41,7 +42,7 @@ export async function createInvite(
   const expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 86_400_000).toISOString();
   try {
     const rows = await sql`
-      INSERT INTO invites (id, org_id, email, role, created_by_user_id, expires_at)
+      INSERT INTO seat_invites (id, org_id, email, role, created_by_user_id, expires_at)
       VALUES (${id}, ${orgId}, ${normalized}, ${role}, ${createdByUserId}, ${expiresAt})
       RETURNING id
     `;
@@ -69,7 +70,7 @@ export type PendingInvite = {
 export async function listPendingInvites(sql: SqlTag, orgId: string): Promise<PendingInvite[]> {
   const rows = await sql`
     SELECT id, email, role, created_at, expires_at
-    FROM invites
+    FROM seat_invites
     WHERE org_id = ${orgId} AND accepted_at IS NULL
     ORDER BY created_at DESC
   `;
@@ -89,7 +90,7 @@ export async function revokeInvite(
   { orgId, inviteId }: { orgId: string; inviteId: string },
 ): Promise<{ revoked: boolean }> {
   const rows = await sql`
-    DELETE FROM invites
+    DELETE FROM seat_invites
     WHERE id = ${inviteId} AND org_id = ${orgId} AND accepted_at IS NULL
     RETURNING id
   `;
@@ -106,7 +107,7 @@ export async function findPendingInviteByEmail(
   const nowIso = new Date().toISOString();
   const rows = await sql`
     SELECT id, org_id, role
-    FROM invites
+    FROM seat_invites
     WHERE LOWER(email) = ${normalized}
       AND accepted_at IS NULL
       AND expires_at > ${nowIso}
@@ -127,7 +128,7 @@ export async function acceptInvite(
   { inviteId, userId }: { inviteId: string; userId: string },
 ): Promise<AcceptInviteResult> {
   const rows = await sql`
-    UPDATE invites
+    UPDATE seat_invites
     SET accepted_at = NOW(), accepted_by_user_id = ${userId}
     WHERE id = ${inviteId} AND accepted_at IS NULL
     RETURNING org_id, role

@@ -68,8 +68,10 @@ export const users = pgTable('users', {
 // instead of minting a personal workspace. No invite emails, no join links —
 // the address match against the verified OAuth email is the whole mechanism.
 // Accepted rows are kept as audit history; the partial unique index in
-// drizzle/0069 enforces one live invite per (org, lower(email)).
-export const invites = pgTable('invites', {
+// drizzle/0069 enforces one live invite per (org, lower(email)). Named
+// seat_invites because the legacy pre-v5 `invites` table (token-based) still
+// exists on long-lived databases, retired in place.
+export const seatInvites = pgTable('seat_invites', {
   id: text('id').primaryKey(), // inv_ prefix
   orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   email: text('email').notNull(),
@@ -80,7 +82,7 @@ export const invites = pgTable('invites', {
   acceptedAt: timestamp('accepted_at', { withTimezone: true }),
   acceptedByUserId: text('accepted_by_user_id'),
 }, (table) => ({
-  roleCheck: check('invites_role_check', sql`${table.role} IN ('admin', 'member')`),
+  roleCheck: check('seat_invites_role_check', sql`${table.role} IN ('admin', 'member')`),
 }));
 
 // @domain governance
