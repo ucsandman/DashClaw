@@ -31,7 +31,7 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 ### Notes
 
 - Metering is measurement only in this release. Ceiling and price decisions follow from running the rollup against the live hosted cohort, not the other way around.
-- No Node/Python SDK source change; the SDKs are not republished and npm + PyPI stay at 5.11.10.
+- No Node/Python SDK source change. The tag-triggered release workflow (G7, v5.11.10) republishes the unchanged SDK content at 5.12.0 so registries stay aligned with the platform version.
 
 ## [5.11.10] — 2026-08-08
 

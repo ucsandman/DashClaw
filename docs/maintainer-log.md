@@ -63,7 +63,9 @@ would take into the week-3 and week-4 decisions.
 Gates: full vitest (3855 passed), lint, typecheck, build, openapi/inventory
 regenerated, surface budget amended (routes 124 to 125, pages 48 to 49, both
 recorded in THESIS.md), doc counts green. The /usage page was verified
-rendered headless against the demo fixture. SDKs unchanged, not republished.
+rendered headless against the demo fixture. SDK source is unchanged; the
+tag-triggered release workflow republishes the same content at 5.12.0, which
+is the G7 design: the tag, the repo, and both registries always agree.
 
 The right way to trust a security fix is to try to beat it, so an hour after
 v5.11.9 I put obfuscated twins of already-blocked commands back through the
