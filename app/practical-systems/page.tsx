@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {
   Building2, UsersRound, Zap, ArrowRight, ExternalLink,
-  Activity, CheckCircle2, ChevronRight, Rocket, Code, Laptop, Shield
+  Rocket, Shield
 } from 'lucide-react';
 import DashClawLogo from '../components/DashClawLogo';
 import PublicNavbar from '../components/PublicNavbar';
@@ -10,8 +10,8 @@ import type { Metadata } from 'next';
 import { marketingPageMetadata } from '../lib/marketingSeo';
 
 export const metadata: Metadata = marketingPageMetadata({
-  title: 'Practical Systems: The Team Behind DashClaw',
-  description: 'Practical Systems builds AI-powered sales and operations infrastructure for growing companies. DashClaw is what we built to run our own agent fleet. Now you can use it too.',
+  title: 'Practical Systems: The Company Behind DashClaw',
+  description: 'Practical Systems is an AI-operated company. An autonomous agent fleet researches, builds, and sells. One human approves what matters. DashClaw is the control plane that makes it safe.',
   path: '/practical-systems',
 });
 
@@ -28,11 +28,12 @@ export default function PracticalSystemsPage() {
             Practical Systems
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
-            Meet the Team Behind DashClaw
+            The Company Behind DashClaw
           </h1>
           <p className="mt-6 text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed">
-            Practical Systems builds AI-powered sales and operations infrastructure for growing companies.
-            DashClaw is what we built to run our own agent fleet. Now you can use it too.
+            Practical Systems is an AI-operated company. An autonomous agent fleet researches
+            opportunities, builds products, and runs outreach. One human approves what matters.
+            DashClaw is the control plane that makes it safe.
           </p>
           <div className="mt-10">
             <a
@@ -55,13 +56,20 @@ export default function PracticalSystemsPage() {
               <h2 className="text-3xl font-bold tracking-tight mb-6">Who We Are</h2>
               <div className="space-y-4 text-text-secondary leading-relaxed">
                 <p>
-                  Practical Systems is an AI integration consultancy and platform company focused on SMB and mid-market businesses (50 to 500 employees).
+                  Practical Systems is an autonomous AI company. An AI chief executive runs a fleet
+                  of specialist agents that prospect, research, qualify, build, and sell. Wes Sander,
+                  the founder, is the only human in the company.
                 </p>
                 <p>
-                  Founded by Wes, who led AI adoption at a mid-market company: building 40+ custom AI tools, driving adoption across 50+ users, and leading AI strategy conversations with executive leadership.
+                  Wes founded the firm after leading AI adoption at a mid-market company: 40+ custom
+                  AI tools, 50+ users. In 2026 he handed day-to-day operations to the agents. His job
+                  now is to watch a company that runs itself and step in only when a decision needs
+                  a human.
                 </p>
                 <p>
-                  The firm&apos;s approach: strategic advisory combined with hands-on implementation. We do not just recommend. We build and run what we sell.
+                  Every meaningful agent decision lands in DashClaw first: policy-checked,
+                  risk-scored, recorded, and held for human approval when it crosses a line.
+                  Outreach stays drafts-only until a human approves the send.
                 </p>
                 <div className="pt-4 flex items-center gap-3">
                   <div className="h-px w-8 bg-brand"></div>
@@ -74,15 +82,15 @@ export default function PracticalSystemsPage() {
                 <div className="w-10 h-10 rounded-lg bg-brand-subtle flex items-center justify-center mb-4">
                   <DashClawLogo size={20} />
                 </div>
-                <h3 className="text-text-primary font-semibold mb-2">Strategic Advisory</h3>
-                <p className="text-sm text-text-tertiary">Expert guidance on AI adoption and integration.</p>
+                <h3 className="text-text-primary font-semibold mb-2">Governed Fleet</h3>
+                <p className="text-sm text-text-tertiary">An AI CEO and specialist agents, every action policy-checked by DashClaw.</p>
               </div>
               <div className="p-6 rounded-xl bg-surface-secondary border border-border">
                 <div className="w-10 h-10 rounded-lg bg-brand-subtle flex items-center justify-center mb-4">
-                  <Activity size={20} className="text-brand" />
+                  <UsersRound size={20} className="text-brand" />
                 </div>
-                <h3 className="text-text-primary font-semibold mb-2">Implementation</h3>
-                <p className="text-sm text-text-tertiary">Hands-on building and deployment of AI tools.</p>
+                <h3 className="text-text-primary font-semibold mb-2">One Human</h3>
+                <p className="text-sm text-text-tertiary">Wes approves the decisions that matter: sends, spend, and ships.</p>
               </div>
             </div>
           </div>
@@ -93,9 +101,10 @@ export default function PracticalSystemsPage() {
       <section className="py-20 px-6 border-t border-border">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold tracking-tight">What We Build</h2>
+            <h2 className="text-3xl font-bold tracking-tight">What We Run</h2>
             <p className="mt-4 text-text-secondary max-w-2xl mx-auto">
-              We focus on building infrastructure that turns AI from a toy into a reliable employee.
+              An autonomous company needs three things: agents that do the work, a loop that
+              decides the work, and a control plane that keeps it safe.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -103,27 +112,33 @@ export default function PracticalSystemsPage() {
               <div className="w-12 h-12 rounded-xl bg-brand-subtle flex items-center justify-center mb-6">
                 <Rocket size={24} className="text-brand" />
               </div>
-              <h3 className="text-xl font-bold mb-4">AI Agent Fleets</h3>
+              <h3 className="text-xl font-bold mb-4">Autonomous Product Cycle</h3>
               <p className="text-text-secondary text-sm leading-relaxed">
-                Autonomous agents that handle prospecting, research, scoring, and outreach so your team focuses on relationships and closing.
+                A governed 11-step loop, live in production: research trends, ideate, pick, build,
+                market, QA, queue outreach, close with a P&amp;L snapshot. Each step is recorded as
+                a governed action.
               </p>
             </div>
             <div className="p-8 rounded-2xl bg-surface-secondary border border-border hover:border-border-active transition-all">
               <div className="w-12 h-12 rounded-xl bg-brand-subtle flex items-center justify-center mb-6">
                 <Zap size={24} className="text-brand" />
               </div>
-              <h3 className="text-xl font-bold mb-4">Approvals</h3>
+              <h3 className="text-xl font-bold mb-4">AI Sales Pipeline</h3>
               <p className="text-text-secondary text-sm leading-relaxed">
-                A unified inbox where humans and AI agents work together with full visibility and zero black boxes.
+                A domain name goes in. A proposal-ready account packet comes out: contacts,
+                research, qualification score, and solution scope, with outreach drafts queued
+                for human approval.
               </p>
             </div>
             <div className="p-8 rounded-2xl bg-surface-secondary border border-border hover:border-border-active transition-all">
               <div className="w-12 h-12 rounded-xl bg-brand-subtle flex items-center justify-center mb-6">
-                <Code size={24} className="text-brand" />
+                <Shield size={24} className="text-brand" />
               </div>
-              <h3 className="text-xl font-bold mb-4">AI Integration Consulting</h3>
+              <h3 className="text-xl font-bold mb-4">Governance Infrastructure</h3>
               <p className="text-text-secondary text-sm leading-relaxed">
-                Hands-on help identifying where AI creates leverage in your business, then actually building it.
+                DashClaw: the approval layer that intercepts every agent action, scores risk,
+                enforces policy, and records the audit trail. Open source, and the product you
+                are looking at now.
               </p>
             </div>
           </div>
@@ -138,19 +153,25 @@ export default function PracticalSystemsPage() {
               <DashClawLogo size={120} />
             </div>
             <div className="relative z-10">
-              <h2 className="text-3xl font-bold tracking-tight mb-6">DashClaw Is Our Infrastructure</h2>
+              <h2 className="text-3xl font-bold tracking-tight mb-6">DashClaw Is Our Control Plane</h2>
               <div className="space-y-6 text-text-secondary text-lg leading-relaxed">
                 <p>
-                  Practical Systems built DashClaw to govern our own agent fleet. Every decision our agents make is logged,
-                  scored for risk, and reviewable.
+                  Practical Systems built DashClaw to govern its own fleet. Every agent decision is
+                  intercepted, risk-scored, recorded, and gated behind human approval when it matters.
+                  That is the level of control an autonomous company requires before it can act
+                  unattended.
                 </p>
                 <p>
-                  We needed that level of control before we could trust agents with real sales pipeline. We open-sourced and
-                  productized DashClaw so other teams building agent fleets can have the same foundation.
+                  The proof runs in both directions: the company is governed by DashClaw, and
+                  DashClaw itself is maintained by an AI under a delegation charter with five
+                  human-held invariants. We do not just recommend this way of working. We live in it.
                 </p>
               </div>
-              <div className="mt-10 flex items-center gap-6">
-                <Link href="/" className="text-brand font-semibold inline-flex items-center gap-2 hover:underline">
+              <div className="mt-10 flex flex-wrap items-center gap-6">
+                <Link href="/proof" className="text-brand font-semibold inline-flex items-center gap-2 hover:underline">
+                  See the live proof <ArrowRight size={18} />
+                </Link>
+                <Link href="/" className="text-text-secondary font-semibold inline-flex items-center gap-2 hover:text-text-primary hover:underline">
                   Back to DashClaw <ArrowRight size={18} />
                 </Link>
               </div>
@@ -163,11 +184,11 @@ export default function PracticalSystemsPage() {
       <section className="py-24 px-6 border-t border-border">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-6">
-            Building Something With AI Agents?
+            Running Agents in Production?
           </h2>
           <p className="text-xl text-text-secondary mb-10 leading-relaxed">
-            Whether you need help designing your agent architecture, governing an existing fleet,
-            or integrating AI into a specific workflow, we can help.
+            The same control plane that governs Practical Systems is open source and
+            self-hostable. Give your fleet the approval layer ours runs on.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
             <a
