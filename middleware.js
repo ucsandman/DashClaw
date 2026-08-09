@@ -1310,7 +1310,9 @@ function buildPageOrgHeaders(request, session) {
 
 // Landing page and the setup flow are always public.
 function isPublicPagePath(pathname) {
-  return pathname === '/' || pathname === '/setup' || pathname.startsWith('/setup/');
+  // /connect is matched only for the ?leave=trial cookie-clear handler in
+  // handlePageRequest; as a page it stays fully public.
+  return pathname === '/' || pathname === '/connect' || pathname === '/setup' || pathname.startsWith('/setup/');
 }
 
 // v5.1: a trial cookie was presented but is unusable (expired JWT, bad
@@ -1362,6 +1364,23 @@ async function authenticateTrialPage(request) {
 }
 
 async function handlePageRequest(request, pathname, clearStaleDemoCookie) {
+  // v5.13: explicit trial sign-out from the /connect workspace card. Clears
+  // only the trial cookie and lands back on plain /connect. Same-origin
+  // navigations only (the card's confirm flow) so a cross-site link can't
+  // silently log a visitor out of an unclaimed trial — for those, the cookie
+  // is the only credential. Lives here because the middleware already owns
+  // the rest of the trial-cookie lifecycle (expiry clear, claim clear).
+  if (
+    pathname === '/connect' &&
+    request.nextUrl.searchParams.get('leave') === 'trial' &&
+    request.headers.get('sec-fetch-site') === 'same-origin' &&
+    hasTrialSessionCookie(request.headers.get('cookie') || '')
+  ) {
+    const response = NextResponse.redirect(new URL('/connect', request.url));
+    response.cookies.delete(TRIAL_SESSION_COOKIE);
+    return response;
+  }
+
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
 
   // /login — redirect to the hero surface if already logged in
@@ -1793,5 +1812,6 @@ export const config = {
     '/api/feedback/:path*',
     '/api/prompts/:path*',
     '/login',
+    '/connect',
   ],
 };

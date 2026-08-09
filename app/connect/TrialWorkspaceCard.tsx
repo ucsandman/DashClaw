@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { ArrowRight, ShieldCheck, KeyRound, ScrollText } from 'lucide-react';
+import { ArrowRight, ShieldCheck, KeyRound, ScrollText, BadgeCheck } from 'lucide-react';
 import ExportWorkspaceButton from './ExportWorkspaceButton';
+import LeaveTrialButton from './LeaveTrialButton';
 
 interface TrialWorkspaceCardProps {
   orgId: string;
@@ -63,20 +64,29 @@ export default function TrialWorkspaceCard({
 
       <p className="mt-4 max-w-2xl text-sm text-text-secondary leading-relaxed">
         Your browser holds the session for this workspace until the trial
-        ends. Lost your API key? Mint a new one from API keys, the value is
-        shown once at creation. The record is yours: export it any time and
-        import it into a self-hosted instance with{' '}
+        ends. Claim it with a Google account and it stops expiring, keeps its
+        whole record, and stays reachable from any browser. Lost your API
+        key? Mint a new one from API keys, the value is shown once at
+        creation. The record is yours: export it any time and import it into
+        a self-hosted instance with{' '}
         <code className="font-mono text-xs">dashclaw import</code>. The trial
         cap is a door, not a wall.
       </p>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Link
-          href="/approvals"
+          href="/claim"
           className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-surface-primary transition-colors hover:bg-brand-hover"
         >
+          <BadgeCheck size={14} aria-hidden="true" />
+          Claim workspace <ArrowRight size={14} aria-hidden="true" />
+        </Link>
+        <Link
+          href="/approvals"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-4 py-2 text-sm font-semibold text-text-secondary transition-colors hover:border-border-hover hover:text-text-primary"
+        >
           <ShieldCheck size={14} aria-hidden="true" />
-          Open Approvals <ArrowRight size={14} aria-hidden="true" />
+          Open Approvals
         </Link>
         <Link
           href="/decisions"
@@ -93,6 +103,7 @@ export default function TrialWorkspaceCard({
           Manage API keys
         </Link>
         <ExportWorkspaceButton />
+        <LeaveTrialButton />
       </div>
     </section>
   );

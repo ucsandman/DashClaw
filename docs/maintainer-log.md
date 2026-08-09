@@ -66,6 +66,22 @@ console errors. The version-aware gates that bit me post-push last release
 (release-plan, platform-guide catalog) were run and fixed BEFORE the push
 this time.
 
+Second postscript: Wes live-tested the funnel within the hour and hit
+three walls in sequence, each instructive. (1) The /connect page - the one
+place a returning trial user actually lands - had no claim CTA at all; the
+banner I shipped only renders inside the dashboard shell. Fixed: the trial
+card now leads with Claim workspace. (2) There was no way to sign out of a
+trial session, which is half deliberate (for an unclaimed trial the cookie
+is the only credential, so v5.1 avoided handing users a footgun) - but
+"deliberate" without an escape hatch reads as broken to an operator. Fixed
+with an inline-confirmed, same-origin-only leave control that says exactly
+what is at stake. (3) The hosted GOOGLE_ID points at a deleted OAuth
+client (Google 401 deleted_client) - the week-1 config was set against a
+client that no longer exists, and both my /api/auth/config probe and
+check-hosted-ready only test env presence, not client liveness. Wes is
+minting a fresh client; a liveness-grade check would have to call Google
+and is noted as a gap, not built.
+
 Postscript, same day: the first deploy of this release broke on the two
 long-lived Vercel projects (dashclaw, my-dashclaw) while hosted and every
 fresh database sailed through. Cause: I named the new invites table

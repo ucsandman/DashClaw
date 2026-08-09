@@ -96,6 +96,21 @@ describe('trial session — page routes', () => {
     expect(stamp).toContain('hosted_mode = TRUE');
   });
 
+  it('leave=trial from the same origin clears the trial cookie and lands on plain /connect (v5.13)', async () => {
+    const cookie = `dashclaw-trial-session=${await trialJwt({ orgId: uniqueOrg() })}`;
+    const res = await middleware(req('/connect?leave=trial', { cookie, headers: { 'sec-fetch-site': 'same-origin' } }));
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toMatch(/\/connect$/);
+    expect(res.headers.get('set-cookie') || '').toContain('dashclaw-trial-session=;');
+  });
+
+  it('a cross-site leave=trial link cannot log a trial out — the cookie is the only credential', async () => {
+    const cookie = `dashclaw-trial-session=${await trialJwt({ orgId: uniqueOrg() })}`;
+    const res = await middleware(req('/connect?leave=trial', { cookie, headers: { 'sec-fetch-site': 'cross-site' } }));
+    expect(res.status).toBe(200); // public page renders; nothing cleared
+    expect(res.headers.get('set-cookie') || '').not.toContain('dashclaw-trial-session=;');
+  });
+
   it('claimed org: the anonymous trial cookie stops resolving (v5.13) — same routing as a gone org', async () => {
     sqlMock.mockResolvedValue([{ ...liveTrialOrgRow(), claimed_at: '2026-08-09T00:00:00Z' }]);
     const cookie = `dashclaw-trial-session=${await trialJwt({ orgId: uniqueOrg() })}`;
