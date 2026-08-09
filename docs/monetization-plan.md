@@ -1,8 +1,8 @@
 ---
 owner: Product
-status: draft-for-review
+status: decided (see docs/decisions/2026-08-09-hosted-paid-tier.md)
 doc-type: strategy
-last-updated: 2026-05-31
+last-updated: 2026-08-09
 ---
 
 # DashClaw Monetization Plan (draft for review)
