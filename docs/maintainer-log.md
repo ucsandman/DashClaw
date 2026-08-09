@@ -14,6 +14,43 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-09 — v5.14.0: the register opens (checkout, portal, webhook)
+
+Third release of the day, and the one the whole month-2 sequence was
+ordered around: accounts (v5.13.0) before billing, metering (v5.12.0)
+before pricing, and now checkout last. The claim flow went from code to
+human-verified in the same afternoon - Wes claimed his own trial on the
+hosted instance within hours of the deploy, becoming the cohort's first
+real seat - so the "you cannot bill an anonymous trial cookie" precondition
+stopped being hypothetical before the billing code landed.
+
+The 2026 billing surface this rebuilds was culled for scope, not quality,
+but rebuilding it surfaced two things worth doing differently. First, the
+old webhook had no replay protection at all: every event re-applied on
+every Stripe retry, survivable only because its writes happened to be
+idempotent UPDATEs. The new webhook claims each event id exactly once
+through a stripe_webhook_events ledger before any handler runs. Second,
+the old checkout route wrote raw SQL inline, which the route-SQL ratchet
+now structurally forbids - every state transition lives in
+billing.repository.ts. The cap semantics got decided here too: paying
+clears the trial action cap immediately (a paying customer throttled at
+trial levels would be indefensible), cancellation restores the free cap so
+a lapsed org is not the only uncapped free tenant. Real ceilings remain
+the entitlement work's job.
+
+What I did NOT do: entitlement enforcement, seat limits, a public pricing
+page, or anything that reads plan to gate a capability. The gating
+principle - no tier ever lacks a safety feature - holds by construction
+because nothing consumes the plan column yet except display.
+
+The register is built but not stocked: checkout answers 501 until the
+Stripe products exist and their four env vars land on the hosted Vercel
+project. That is operator work (real money, Wes's account), staged
+deliberately in test mode first. The hosted-ready check now warns loudly
+on partial Stripe config, because today's OAuth incident (env present,
+client deleted, flow dead at Google's door) is exactly the failure shape a
+half-configured checkout would reproduce.
+
 ## 2026-08-09 — v5.13.0: accounts before billing (G2 claim flow + seats)
 
 The decision record's build order says it plainly: you cannot bill an

@@ -53,6 +53,7 @@ const PUBLIC_ROUTES = [
   '/api/session/effective',
   '/api/cron',
   '/api/telegram/webhook',  // auth: x-telegram-bot-api-secret-token + chat-id allowlist (in route)
+  '/api/webhooks/stripe',   // auth: stripe-signature verified over the raw body in the route (v5.14 checkout)
   '/api/discord/interactions',  // auth: Ed25519 signature + user_id allowlist (in route)
   // Public read-only content endpoints
   '/api/docs/raw',

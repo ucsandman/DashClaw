@@ -13,6 +13,28 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.14.0] — 2026-08-09
+
+**The hosted paid tier takes money: Stripe Checkout, customer portal, and a signature-verified, replay-proof webhook.** The decision record ordered checkout last, after accounts and metering became true — both shipped earlier the same day (v5.13.0, v5.12.0), so this is that final step. Entitlement enforcement (ceilings, seat limits) is still deliberately absent: nothing reads `plan` to gate a governance capability.
+
+### Added
+
+- **`POST /api/billing/checkout`**: starts a subscription Checkout Session for the caller's org. Human org admins only, and on hosted the org must be CLAIMED first ("you cannot bill an anonymous trial cookie" — 409 `claim_required` otherwise). Creates and stores the Stripe customer on first use (first-writer-wins). 501 `BILLING_NOT_CONFIGURED` when Stripe env is absent, so self-host instances answer honestly.
+- **`GET /api/billing/portal`**: Stripe customer portal session for the org's stored customer.
+- **`POST /api/webhooks/stripe`** (public, self-verifying — the Telegram-webhook pattern): signature verified over the raw body; every event id claimed exactly once through the new `stripe_webhook_events` ledger (`drizzle/0070`) before its handler runs, so Stripe retries and operator replays acknowledge without re-applying — the idempotency the culled 2026 webhook never had. Handles `checkout.session.completed`, `customer.subscription.updated` (price→plan mapping, unknown prices keep the stored plan), `customer.subscription.deleted`, `invoice.payment_failed`.
+- **Plans `indie` ($49/mo, `STRIPE_PRICE_INDIE`) and `team` ($199/mo, `STRIPE_PRICE_TEAM`)** per the decision record; the stale `STRIPE_PRICE_PRO`/`STRIPE_PRICE_BUSINESS` names in `.env.example` are replaced. Paying clears the trial action cap (a customer is never throttled at trial levels); cancellation restores the free-tier cap on hosted orgs.
+- **Billing tab on `/settings` + Plan tile on `/usage`**: current plan, upgrade cards, manage-billing portal link, checkout success/canceled banners, and the standing honesty line — self-hosted DashClaw stays free forever under MIT.
+- **`billing.repository.ts`**: every Stripe-driven state transition behind the route-SQL ratchet (the culled routes wrote raw SQL inline; these cannot).
+- **`npm run hosted:check-ready`** now warns on PARTIAL Stripe configuration, naming each missing var — the checkout equivalent of the deleted-OAuth-client incident is env-present-flow-dead, and this check refuses to let that state look healthy.
+
+### Fixed
+
+- **`GET /api/hosted/claim` without a trial cookie is a calm 200 preview** (`claimable: false, reason: no_trial_session`) instead of a 400 — the claim banner probes it on every signed-in dashboard page, and normal state must not put red noise in every user's console. POST keeps the 400.
+
+### Notes
+
+- No Node/Python SDK source change. The tag-triggered release workflow republishes the unchanged SDK content at 5.14.0.
+
 ## [5.13.0] — 2026-08-09
 
 **The hosted paid tier's account layer (G2 product half): claim-your-workspace and email-matched seat invites.** The 2026-08-09 decision record ruled "accounts before billing — you cannot bill an anonymous trial cookie." This release builds the account: an anonymous hosted trial binds to an authenticated owner without losing its history, and seats become a real, countable thing. Still no checkout, no plan gating, no entitlement enforcement.

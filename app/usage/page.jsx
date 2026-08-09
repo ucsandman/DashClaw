@@ -70,7 +70,7 @@ export default function UsagePage() {
         </div>
       ) : usage ? (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <StatTile
               label="Governed actions"
               value={formatCount(usage.governed_actions)}
@@ -80,6 +80,15 @@ export default function UsagePage() {
               label="Blocked"
               value={formatCount(usage.blocked_actions)}
               sub="of the governed actions"
+            />
+            <StatTile
+              label="Plan"
+              value={<span className="capitalize">{usage.plan || 'free'}</span>}
+              sub={
+                <a href="/settings?tab=billing" className="text-brand transition-colors hover:text-brand-hover">
+                  Manage in Billing
+                </a>
+              }
             />
             <StatTile label="Seats" value={formatCount(usage.seats?.users)} sub="human users" />
             <StatTile

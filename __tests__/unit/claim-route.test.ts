@@ -70,11 +70,15 @@ describe('shared gates', () => {
     expect((await POST(req('POST'))).status).toBe(404);
   });
 
-  it('400 when no trial cookie resolves', async () => {
+  it('POST without a trial cookie is a 400; GET is a calm 200 preview (the banner probes it on every page)', async () => {
     mockResolveTrialSession.mockResolvedValue(null);
-    const res = await POST(req('POST'));
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe('no_trial_session');
+    const post = await POST(req('POST'));
+    expect(post.status).toBe(400);
+    expect((await post.json()).error).toBe('no_trial_session');
+
+    const get = await GET(req('GET'));
+    expect(get.status).toBe(200);
+    expect(await get.json()).toMatchObject({ claimable: false, reason: 'no_trial_session' });
   });
 });
 

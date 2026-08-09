@@ -50,7 +50,10 @@ export async function GET(request: Request) {
   }
   const trialOrgId = await trialOrgFromCookie(request);
   if (!trialOrgId) {
-    return NextResponse.json({ error: 'no_trial_session' }, { status: 400 });
+    // A preview, not an error: every signed-in dashboard page probes this
+    // (ClaimWorkspaceBanner), and most browsers hold no trial cookie. A 400
+    // here would put red noise in every user's console for normal state.
+    return NextResponse.json({ claimable: false, reason: 'no_trial_session', signed_in: humanUserId(request) !== null });
   }
 
   const sql = getSql();

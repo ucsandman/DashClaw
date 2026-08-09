@@ -63,6 +63,17 @@ export const users = pgTable('users', {
   roleCheck: check('users_role_check', sql`${table.role} IN ('admin', 'member')`),
 }));
 
+// v5.14 Stripe webhook idempotency ledger: each event id is claimed exactly
+// once before its handler runs, so Stripe retries and operator replays are
+// no-ops. org_id is nullable and deliberately not an FK (events can arrive
+// for a deleted org and the claim must still be recorded).
+export const stripeWebhookEvents = pgTable('stripe_webhook_events', {
+  eventId: text('event_id').primaryKey(),
+  eventType: text('event_type').notNull(),
+  orgId: text('org_id'),
+  processedAt: timestamp('processed_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 // v5.13 email-matched invites (seats): an admin records a teammate's address;
 // the teammate joins the org at first sign-in (auth.ts signIn callback)
 // instead of minting a personal workspace. No invite emails, no join links —

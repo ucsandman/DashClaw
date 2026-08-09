@@ -412,6 +412,18 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   `seat_invites` (the legacy token-based `invites` table stays retired in
   place on long-lived databases).
 
+- **2026-08-09 — Active API routes 127 → 130 (`/api/billing/checkout`,
+  `/api/billing/portal`, `/api/webhooks/stripe`; hosted-tier checkout).**
+  The decision record's build order put checkout last, after accounts and
+  metering became true; both shipped earlier the same day, so this is that
+  final step. Unlike the culled 2026 billing surface this one is
+  repository-only SQL, carries a webhook idempotency ledger
+  (`stripe_webhook_events`), and bills only claimed workspaces. Not a
+  revival of plan-quota monetization: nothing reads `plan` to gate a
+  governance capability — the gating principle ("no tier ever lacks a
+  safety feature") holds by construction until the entitlement work defines
+  capacity ceilings.
+
 ## Version story
 
 This cull ships as **v5.0.0** — the major break the removal list demands, and

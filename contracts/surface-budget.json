@@ -1,13 +1,44 @@
 {
   "_note": "Anti-regrowth surface budget. See THESIS.md, section 'The anti-regrowth brake'. Each ceiling is the exact live count of a governed surface at v5.0.0. The gate (scripts/check-surface-budget.mjs, npm run surface:check) fails the build when any live count exceeds its ceiling. Raising a ceiling requires amending THESIS.md (anti-regrowth section) AND this file in the same commit with a written reason. Sprawl is a deliberate, recorded act, not a drift.",
   "ceilings": {
-    "apiRoutes": { "ceiling": 127, "source": "app/api/**/route.{js,ts,tsx} (must export ≥1 HTTP method, matching discoverApiRoutes())", "reason": "2026-08-09: 125 → 127. +2 for /api/hosted/claim (bind an anonymous trial to an authenticated owner, G2 product half) and /api/team/invites (email-matched seat invites) — docs/decisions/2026-08-09-hosted-paid-tier.md rules 'accounts before billing'; both are that account layer. See THESIS.md amendment log. (Prior same date: 124 → 125 GET /api/usage.)" },
-    "appPages": { "ceiling": 51, "source": "app/**/page.{js,jsx,ts,tsx}", "reason": "2026-08-09: 49 → 51. +2 for /claim (the claim confirmation surface) and /team (seats: members + invites, wiring the previously dead getTeamOrgAndMembers) — same decision record as the routes. (Prior same date: 48 → 49 /usage.)" },
-    "mcpTools": { "ceiling": 17, "source": "mcp-server/src/tools.ts (dashclaw_* tool names)", "reason": "2026-07-26: +2 (dashclaw_plan_submit, dashclaw_plan_status) — thin wrappers over the two plan routes." },
-    "mcpResources": { "ceiling": 3, "source": "mcp-server/src/resources.ts (uri entries)" },
-    "sdkNodeMethods": { "ceiling": 39, "source": "sdk/dashclaw.js via scripts/count-sdk-methods.mjs", "reason": "2026-07-27: +2 (resolveContainment, listContained) — Containment Verdicts (governed-autonomy RFC 2026-07-06, feature 3): operator promote/discard on a contained action, and listing by containment_status." },
-    "sdkPythonMethods": { "ceiling": 59, "source": "sdk-python/dashclaw/client.py via scripts/count-sdk-methods.mjs", "reason": "2026-07-27: +2 (resolve_containment, list_contained) — snake_case parity for the containment-verdicts convenience wrappers." },
-    "cliCommands": { "ceiling": 14, "source": "cli/bin/dashclaw.js COMMAND_HANDLERS (flag aliases excluded)", "reason": "2026-07-27: +1 (contained) — Containment Verdicts (governed-autonomy RFC 2026-07-06, feature 3): `dashclaw contained list|diff|apply`, the terminal client for the promote/discard-to-merge lifecycle." },
-    "guardPolicyTypes": { "ceiling": 15, "source": "app/lib/guard/policy.ts KNOWN_POLICY_TYPES (POLICY_EVALUATORS keys)", "reason": "2026-07-26: +1 delegation_constraint — governed-autonomy feature 2 (RFC 2026-07-06): composed-subagent authority attenuation. A policy type, not a subsystem — no tables, no routes, no MCP changes." }
+    "apiRoutes": {
+      "ceiling": 130,
+      "source": "app/api/**/route.{js,ts,tsx} (must export ≥1 HTTP method, matching discoverApiRoutes())",
+      "reason": "2026-08-09: 127 -> 130. +3 for POST /api/billing/checkout, GET /api/billing/portal, POST /api/webhooks/stripe - the checkout step docs/decisions/2026-08-09-hosted-paid-tier.md ordered last, after accounts (G2) and metering (G4) became true. Signature-verified webhook with a stripe_webhook_events idempotency ledger; repository-only SQL. See THESIS.md amendment log. (Prior same date: 125 -> 127 claim + invites.)"
+    },
+    "appPages": {
+      "ceiling": 51,
+      "source": "app/**/page.{js,jsx,ts,tsx}",
+      "reason": "2026-08-09: 49 → 51. +2 for /claim (the claim confirmation surface) and /team (seats: members + invites, wiring the previously dead getTeamOrgAndMembers) — same decision record as the routes. (Prior same date: 48 → 49 /usage.)"
+    },
+    "mcpTools": {
+      "ceiling": 17,
+      "source": "mcp-server/src/tools.ts (dashclaw_* tool names)",
+      "reason": "2026-07-26: +2 (dashclaw_plan_submit, dashclaw_plan_status) — thin wrappers over the two plan routes."
+    },
+    "mcpResources": {
+      "ceiling": 3,
+      "source": "mcp-server/src/resources.ts (uri entries)"
+    },
+    "sdkNodeMethods": {
+      "ceiling": 39,
+      "source": "sdk/dashclaw.js via scripts/count-sdk-methods.mjs",
+      "reason": "2026-07-27: +2 (resolveContainment, listContained) — Containment Verdicts (governed-autonomy RFC 2026-07-06, feature 3): operator promote/discard on a contained action, and listing by containment_status."
+    },
+    "sdkPythonMethods": {
+      "ceiling": 59,
+      "source": "sdk-python/dashclaw/client.py via scripts/count-sdk-methods.mjs",
+      "reason": "2026-07-27: +2 (resolve_containment, list_contained) — snake_case parity for the containment-verdicts convenience wrappers."
+    },
+    "cliCommands": {
+      "ceiling": 14,
+      "source": "cli/bin/dashclaw.js COMMAND_HANDLERS (flag aliases excluded)",
+      "reason": "2026-07-27: +1 (contained) — Containment Verdicts (governed-autonomy RFC 2026-07-06, feature 3): `dashclaw contained list|diff|apply`, the terminal client for the promote/discard-to-merge lifecycle."
+    },
+    "guardPolicyTypes": {
+      "ceiling": 15,
+      "source": "app/lib/guard/policy.ts KNOWN_POLICY_TYPES (POLICY_EVALUATORS keys)",
+      "reason": "2026-07-26: +1 delegation_constraint — governed-autonomy feature 2 (RFC 2026-07-06): composed-subagent authority attenuation. A policy type, not a subsystem — no tables, no routes, no MCP changes."
+    }
   }
 }

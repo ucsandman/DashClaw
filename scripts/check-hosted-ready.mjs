@@ -126,6 +126,19 @@ export function assessHostedReadiness(env = process.env) {
     ));
   }
 
+  // Billing (v5.14): a warn, not a fail — a hosted instance without billing is
+  // a legitimate free deployment; the routes answer 501 honestly. But a
+  // PARTIAL configuration is the checkout equivalent of the deleted-OAuth-
+  // client incident (env present, flow dead), so name every missing piece.
+  const stripeVars = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_INDIE', 'STRIPE_PRICE_TEAM'];
+  const stripeSet = stripeVars.filter((k) => env[k]);
+  if (stripeSet.length > 0 && stripeSet.length < stripeVars.length) {
+    warnings.push(finding(
+      `Stripe billing partially configured (${stripeSet.length}/${stripeVars.length}) — checkout/webhook will misbehave`,
+      `Set the missing var(s): ${stripeVars.filter((k) => !env[k]).join(', ')}. All four are needed for checkout, the webhook, and price→plan mapping.`,
+    ));
+  }
+
   return {
     status: failures.length > 0 ? 'fail' : warnings.length > 0 ? 'warn' : 'pass',
     failures,

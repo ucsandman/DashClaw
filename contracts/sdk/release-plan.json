@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.13.0",
+    "current_version": "5.14.0",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.13.0 - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.13.0 so npm stays aligned with the platform version.",
+    "reason": "no Node SDK source change in 5.14.0 - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.14.0 so the registry stays aligned with the platform version.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.13.0",
+    "current_version": "5.14.0",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.13.0 - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.13.0 so PyPI stays aligned with the platform version.",
+    "reason": "no Python SDK source change in 5.14.0 - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.14.0 so the registry stays aligned with the platform version.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.13.0 hosted paid tier account layer (G2 product half): claim-your-workspace (anonymous trial org binds to an authenticated owner, keeping its history) + email-matched seat invites, with the /claim and /team pages. Platform only, no Node/Python SDK surface change.",
+  "reason": "5.14.0 hosted paid tier checkout: POST /api/billing/checkout + GET /api/billing/portal (claimed-workspace admins only) and a signature-verified, ledger-idempotent POST /api/webhooks/stripe, with the /settings Billing tab. Platform only, no Node/Python SDK surface change.",
   "domains": [
     "platform"
   ]

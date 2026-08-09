@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `127`
-- Stable routes: `41`
+- Total routes: `130`
+- Stable routes: `42`
 - Beta routes: `18`
-- Experimental routes: `68`
+- Experimental routes: `70`
 
 ## Routes
 
@@ -44,6 +44,8 @@ doc-type: architecture
 | `/api/assumptions/{assumptionId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/assumptions/[assumptionId]/route.ts` |
 | `/api/auth/config` | `GET` | `beta` | `/api/auth` | `app/api/auth/config/route.ts` |
 | `/api/auth/local` | `DELETE, POST` | `beta` | `/api/auth` | `app/api/auth/local/route.ts` |
+| `/api/billing/checkout` | `POST` | `experimental` | `(default)` | `app/api/billing/checkout/route.ts` |
+| `/api/billing/portal` | `GET` | `experimental` | `(default)` | `app/api/billing/portal/route.ts` |
 | `/api/calibration/controller` | `GET, POST` | `experimental` | `(default)` | `app/api/calibration/controller/route.ts` |
 | `/api/calibration/proposals` | `GET, POST` | `experimental` | `(default)` | `app/api/calibration/proposals/route.ts` |
 | `/api/capabilities` | `GET` | `experimental` | `(default)` | `app/api/capabilities/route.ts` |
@@ -145,6 +147,7 @@ doc-type: architecture
 | `/api/telegram/webhook` | `POST` | `experimental` | `(default)` | `app/api/telegram/webhook/route.ts` |
 | `/api/usage` | `GET` | `stable` | `/api/usage` | `app/api/usage/route.ts` |
 | `/api/webhooks` | `DELETE, GET, POST` | `stable` | `/api/webhooks` | `app/api/webhooks/route.ts` |
+| `/api/webhooks/stripe` | `POST` | `stable` | `/api/webhooks` | `app/api/webhooks/stripe/route.ts` |
 | `/api/webhooks/{webhookId}/deliveries` | `GET` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/deliveries/route.ts` |
 | `/api/webhooks/{webhookId}/test` | `POST` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/test/route.ts` |
 | `/api/workspace/export` | `GET` | `experimental` | `(default)` | `app/api/workspace/export/route.ts` |

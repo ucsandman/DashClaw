@@ -17,6 +17,7 @@ import { ProofPanel } from './components/ProofPanel';
 import { ApiKeyReveal } from './components/ApiKeyReveal';
 import ModelPricingPanel from './components/ModelPricingPanel';
 import GovernancePanel from './components/GovernancePanel';
+import BillingPanel from './components/BillingPanel';
 import AgentIdentityPanel from './components/AgentIdentityPanel';
 import CopyableValueRow from './components/CopyableValueRow';
 import PageLayout from '../components/PageLayout';
@@ -94,6 +95,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     { key: 'governance', label: 'Governance', href: '/settings?tab=governance' },
     { key: 'pricing', label: 'Model Pricing', href: '/settings?tab=pricing' },
     { key: 'identity', label: 'Agent Identity', href: '/settings?tab=identity' },
+    { key: 'billing', label: 'Billing', href: '/settings?tab=billing' },
   ];
 
   const quickLinks = [
@@ -329,6 +331,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       {tab === 'identity' && (
         <AgentIdentityPanel highlightPairingId={resolvedSearchParams?.pairing || null} />
+      )}
+
+      {/* Billing tab (v5.14 hosted paid tier) */}
+      {tab === 'billing' && (
+        <BillingPanel />
       )}
     </PageLayout>
   );
