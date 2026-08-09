@@ -15,7 +15,7 @@
     }
   },
   "bin": {
-    "dashclaw": "./bin/dashclaw-shim.js"
+    "dashclaw": "bin/dashclaw-shim.js"
   },
   "files": [
     "dashclaw.js",

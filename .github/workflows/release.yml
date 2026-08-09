@@ -1,0 +1,80 @@
+# Publishes the SDKs when a version tag is pushed (v5.12.0 style).
+# Auth is trusted publishing (OIDC) on both registries: no NPM_TOKEN or
+# PYPI_API_TOKEN secrets exist to leak. Registry-side setup (one time):
+#   PyPI:  project dashclaw -> Manage -> Publishing -> add GitHub publisher
+#          (ucsandman/DashClaw, workflow release.yml)
+#   npm:   package dashclaw -> Settings -> Trusted Publisher
+#          (ucsandman/DashClaw, workflow release.yml)
+# The guard job makes version drift structurally impossible: nothing
+# publishes unless the tag, sdk/package.json, and sdk-python/pyproject.toml
+# all agree.
+
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  versions-match:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag matches both SDK versions
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          NPM_V=$(node -p "require('./sdk/package.json').version")
+          PY_V=$(grep -m1 '^version' sdk-python/pyproject.toml | sed 's/.*"\(.*\)".*/\1/')
+          echo "tag=$TAG npm=$NPM_V pypi=$PY_V"
+          if [ "$TAG" != "$NPM_V" ] || [ "$TAG" != "$PY_V" ]; then
+            echo "::error::Version drift: tag v$TAG, sdk/package.json $NPM_V, sdk-python $PY_V. Nothing was published."
+            exit 1
+          fi
+
+  publish-npm:
+    needs: versions-match
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Ensure npm supports trusted publishing
+        run: npm install -g npm@latest
+      - name: Publish dashclaw to npm (skips if version already published)
+        working-directory: sdk
+        run: |
+          PUBLISHED=$(npm view dashclaw version 2>/dev/null || echo "none")
+          LOCAL=$(node -p "require('./package.json').version")
+          if [ "$PUBLISHED" = "$LOCAL" ]; then
+            echo "npm already at $LOCAL; skipping"
+            exit 0
+          fi
+          npm publish --provenance --access public
+
+  publish-pypi:
+    needs: versions-match
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build sdist and wheel
+        working-directory: sdk-python
+        run: |
+          python -m pip install --upgrade build
+          rm -rf dist
+          python -m build
+      - name: Publish dashclaw to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: sdk-python/dist
+          skip-existing: true
