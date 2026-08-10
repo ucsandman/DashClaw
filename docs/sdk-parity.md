@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: SDK Lead
-last-verified: 2026-07-27
+last-verified: 2026-08-10
 doc-type: architecture
 ---
 
@@ -55,7 +55,10 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
 - **Security**: `scanPromptInjection`.
 - **Policies**: `createDelegationConstraint` / `create_delegation_constraint` — convenience
   wrapper for the `delegation_constraint` policy type (scoped subagent authority
-  attenuation).
+  attenuation). The `role_constraint` policy type (v5.17.0, per-role authority
+  bundles) deliberately has **no** convenience wrapper in either SDK — author it
+  through the generic policy CRUD (`POST /api/policies`) or the `/policies` UI;
+  this is a recorded no-surface decision, not a parity gap.
 
 ## Surface-specific methods
 

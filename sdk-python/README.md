@@ -460,7 +460,7 @@ claw.create_delegation_constraint(
 | `test_policies()` | Run guardrails tests against all active policies |
 | `get_proof_report(format="json")` | Generate compliance proof report. Format: "json" or "md" |
 | `import_policies(pack=None, yaml=None)` | Import a policy pack or raw YAML. Packs: enterprise-strict, smb-safe, startup-growth, development |
-| `create_delegation_constraint(rules, name=None, agent_ids=None)` | Create a `delegation_constraint` policy: caps a composed subagent's (`parent:child` identity) risk ceiling, action types, path scope, and spawn depth. Attenuation only tightens. |
+| `create_delegation_constraint(rules, name=None, agent_ids=None)` | Create a `delegation_constraint` policy: caps a composed subagent's (`parent:child` identity) risk ceiling, action types, path scope, and spawn depth. Attenuation only tightens. The sibling `role_constraint` type (v5.17.0, per-role authority bundles for top-level agents) has no dedicated wrapper by design — create it via `POST /api/policies` with `policy_type: "role_constraint"` or in the `/policies` UI. |
 
 ## Security Scanning
 

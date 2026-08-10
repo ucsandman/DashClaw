@@ -49,6 +49,11 @@ const TEMPLATES: Array<{ type: string; label: string; rules: string }> = [
     label: 'Permission escalation',
     rules: '{\n  "action": "require_approval",\n  "patterns": ["sudo", "rm -rf", "git reset --hard"]\n}',
   },
+  {
+    type: 'role_constraint',
+    label: 'Role constraint',
+    rules: '{\n  "allowed_action_types": ["file_read", "code_review", "comment"],\n  "max_risk_score": 50,\n  "blocked_path_globs": ["infra/**", "**/.env*"],\n  "escalate_action": "require_approval"\n}',
+  },
 ];
 
 interface SimSummary {

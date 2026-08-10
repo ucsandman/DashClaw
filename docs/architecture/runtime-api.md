@@ -117,6 +117,18 @@ Worked example: a `Constrain subagents` policy sets `{ parent: '*', child_types:
 
 The evaluator fires only on composed identities — an `agent_id` containing the reserved `:` delimiter. Provenance-mode callers (a base `agent_id` plus `intel.subagent`) are documented **out of v1 scope**; only the composed-id calling convention is constrained today. Attenuation only tightens: this policy type can escalate a decision to `require_approval` or `block`, but it has no grant path of its own. Like every other raiser (risk calibration, other policies), a `require_approval` it produces can still be covered by an operator-sanctioned grant — `allow_grant`, a plan grant, or an operator approval; `block` remains absolute.
 
+**Role constraints (`role_constraint` policy type, v5.17.0).** The same tighten-only bundle for **top-level** agents: a named authority profile ("workbench") per agent role. The policy row is the role — its `name` is the role name, its `agent_ids` targeting is the membership — and the rules are the bundle. There is no composed-id gate: the evaluator fires for any agent the policy targets, and composed `parent:child` callers inherit their parent's role automatically (targeted policies already match the base id).
+
+| Rule field | Type | Effect |
+|---|---|---|
+| `allowed_action_types` | string[] | Action types the role may use; anything outside the list escalates. |
+| `blocked_action_types` | string[] | Action types the role may never use. |
+| `max_risk_score` | number 0–100 | Ceiling on `effectiveRiskScore` (the post-predictive value). |
+| `blocked_path_globs` | string[] | Path scope, matched with the same `matchesProtectedPath` semantics as `protected_path`. |
+| `escalate_action` | `require_approval` \| `block` (default `require_approval`) | What happens on a violation — never a grant. |
+
+Worked example: a `Reviewer` policy targets `agent_ids: ["review-bot"]` with `{ allowed_action_types: ["file_read", "code_review", "comment"], max_risk_score: 50, escalate_action: "require_approval" }`. When `review-bot` calls guard with `action_type: "deploy"`, the decision escalates to `require_approval` with reason `action type "deploy" is outside the "Reviewer" role's allowlist` — the out-of-role attempt lands in the Approvals inbox showing what the agent reached for, instead of silently dropping. Membership is row scoping, not evaluator matching: an untargeted agent is never evaluated against the role at all. Like `delegation_constraint`, it only tightens; an operator-sanctioned grant can still cover a `require_approval` it produces, and `block` remains absolute.
+
 Attenuation is enforced against the identity the caller *asserts* in `agent_id`, not a cryptographically verified one. Combine `require_verified_parent: true` with the Phase-2 JWKS identity system for a cryptographic claim rather than a self-reported one.
 
 #### Containment Verdicts (`allow_contained`)

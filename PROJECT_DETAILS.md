@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-08-09
+last-verified: 2026-08-10
 doc-type: architecture
 ---
 
@@ -79,7 +79,7 @@ These routes define the minimum DashClaw category. They are stable or runtime-cr
 | `/api/approvals/:actionId` | Human approval decision | Also reachable via legacy rewrite `/api/actions/:id/approve`. |
 | `/api/assumptions` | Reasoning integrity records | Assumption tracking linked to actions. |
 | `/api/signals` | Runtime/anomaly signals | Signal listing and detection outputs. |
-| `/api/policies` | Policy CRUD | Guard policy management, including the `non_fabrication` policy type. |
+| `/api/policies` | Policy CRUD | Guard policy management across all 16 policy types, from `non_fabrication` to `role_constraint` (per-role authority bundles, v5.17.0). |
 | `/api/policies/generate` | Iterative natural-language policy generator | Dry-run returns `{ drafts, assumptions, clarifications }` and never dead-ends; accepts answered clarifications to refine. Authored from Policies → Custom → AI generator. |
 | `/api/policies/modes` | Policy Modes catalog | `GET` lists the built-in operating modes (Claude Code, OpenClaw, SOC 2, …); each compiles to a pack of ordinary guard policies. See `docs/policy-modes.md`. |
 | `/api/policies/modes/preview` | Preview a mode | `POST { mode_id }` → generated policy list + decision summary + best-effort friction simulation. No writes; unknown mode → 400. |
