@@ -39,6 +39,8 @@ import {
 import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 
+import { autoTrustHooks } from './trust.js';
+
 // -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
@@ -436,6 +438,8 @@ export async function installCodex({
   approvalPolicy = 'on-request',
   agentId = 'codex',
   includeNotify = false,
+  trustHooks = true,
+  codexBin = null,
   env = process.env,
   logger = console,
 }) {
@@ -475,9 +479,26 @@ export async function installCodex({
   logger.info(`Merging governance protocol → ${agentsMdPath}`);
   const agentsResult = mergeAgentsMd({ agentsMdPath, baseUrl });
 
+  // codex >= 0.142 SILENTLY skips hooks it has not been told to trust, so an
+  // install without this step looks governed but enforces nothing. Runs after
+  // the config merge because changing a hook command changes its trust hash.
+  let trustResult = { ok: false, reason: 'skipped' };
+  if (trustHooks) {
+    logger.info(`Trusting hooks via codex app-server hooks/list …`);
+    trustResult = await autoTrustHooks({
+      configPath,
+      codexHome: codexHome(env),
+      cwd: projectDir,
+      explicitBin: codexBin,
+      env,
+      logger,
+    });
+  }
+
   return {
     hooks: hookResult,
     config: { path: configPath, ...configResult },
     agentsMd: { path: agentsMdPath, ...agentsResult },
+    trust: trustResult,
   };
 }

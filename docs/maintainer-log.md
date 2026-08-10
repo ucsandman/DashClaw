@@ -14,6 +14,41 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-10 — install codex now trusts its own hooks (the OpenClaw approval-spam fix)
+
+Wes's second OpenClaw agent (Forge, on a laptop) was pinging him on Telegram
+for **every** shell command — the codex-native Allow Once / Allow Always /
+Deny flow, because that lane was never switched to guard enforcement. The
+switch itself was proven on the first agent back on 2026-08-07, but it needed
+a by-hand step nobody should repeat: codex ≥ 0.142 silently skips hooks it
+hasn't been told to trust, and writing the `[hooks.state]` trust entries
+meant hand-driving the app-server `hooks/list` RPC and copying hashes into
+config.toml.
+
+`dashclaw install codex` now does that itself: after merging the config it
+spawns the best available codex binary (`--codex-bin`, OpenClaw's vendored
+copies, then PATH — newest ≥ 0.142 wins), reads each hook's `key` +
+`currentHash` from `hooks/list`, upserts the trust tables, and re-lists to
+verify every hook reports `trusted`. Verified live against the vendored
+codex 0.144.3 on a copy of the working agent's codex-home: 4/4 trusted. If
+no capable binary exists the install still succeeds but says, loudly, that
+nothing enforces yet — the old success message claimed codex "will prompt on
+first use", which is exactly what 0.142+ doesn't do.
+
+Fallout from writing tests for this: five existing `install codex` tests had
+been red on main since the 2026-08-07 root-keys refactor (they asserted the
+old `buildConfigTomlBlock` API and the `timeoutSec` spelling whose silent
+failure that same refactor fixed). The cli suite runs under `node --test`,
+not vitest, so no gate caught it. Fixed all five; cli suite 187/187.
+
+New: `docs/openclaw-codex-governance.md` — the zero-infra-knowledge runbook
+for moving an `agentRuntime: codex` gateway agent from per-command approval
+spam to risk-tiered guard (workspace `.env` creds, `--approval-policy never`,
+gateway restart, verify in `/decisions` + `/approvals`).
+`docs/architecture/enforcement-boundary.md` now records the embedded-codex
+lane as mechanical when hooks are trusted, cooperative only on the 0.13x
+line.
+
 ## 2026-08-09 — v5.15.0: Pulse, the window for the operator who isn't watching
 
 Fourth release of the day, and the first one aimed at the thesis's quiet

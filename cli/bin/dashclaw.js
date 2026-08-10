@@ -8,7 +8,7 @@ import { DashClaw } from 'dashclaw';
 import {
   bold, dim, inverse, colorByRisk, clearScreen,
   moveCursor, hideCursor, showCursor,
-  green, red,
+  green, red, yellow,
 } from '../lib/render.js';
 import { runDoctor as runDoctorCommand } from '../lib/doctor.js';
 import { resolveConfig, clearConfigFile, configPath, ask, askSecret } from '../lib/config.js';
@@ -99,6 +99,9 @@ ${bold('Usage:')}
     --approval-policy <p>                Codex approval_policy (default: on-request)
     --agent-id <id>                      Ledger identity for governed tool calls (default: codex)
     --include-notify                     Also wire Codex's notify config to dashclaw codex notify
+    --codex-bin <path>                   codex binary used to trust the hooks (default: auto-detect)
+    --no-trust-hooks                     Skip the hook-trust step (codex >= 0.142 silently
+                                         skips untrusted hooks — governance won't enforce)
                                          (targets $CODEX_HOME/config.toml when CODEX_HOME is set)
   dashclaw codex notify '<json>'         Record a Codex turn-complete event
     --agent-id <id>                      Ledger identity for the turn (beats DASHCLAW_AGENT_ID)
@@ -388,6 +391,8 @@ async function cmdInstallCodex() {
   const approvalPolicy = getFlag('--approval-policy') || 'on-request';
   const installAgentId = getFlag('--agent-id') || 'codex';
   const includeNotify = args.includes('--include-notify');
+  const trustHooks = !args.includes('--no-trust-hooks');
+  const codexBin = getFlag('--codex-bin') || null;
 
   try {
     const result = await installCodex({
@@ -397,6 +402,8 @@ async function cmdInstallCodex() {
       approvalPolicy,
       agentId: installAgentId,
       includeNotify,
+      trustHooks,
+      codexBin,
       logger: console,
     });
 
@@ -406,8 +413,21 @@ async function cmdInstallCodex() {
     console.log(`  ${dim('Config:')} ${result.config.path}${result.config.backup ? dim(' (backup: ' + result.config.backup + ')') : ''}`);
     console.log(`  ${dim('AGENTS:')} ${result.agentsMd.path}${result.agentsMd.backup ? dim(' (backup: ' + result.agentsMd.backup + ')') : ''}`);
     console.log();
-    console.log(`  Next: open a new Codex session in ${projectDir} and run a governed tool call.`);
-    console.log(`  Codex requires you to trust new hooks; it will prompt on first use.`);
+    const trust = result.trust || { ok: false, reason: 'skipped' };
+    if (trust.ok && trust.reason === 'trusted') {
+      console.log(`  ${green('Hooks trusted.')} ${trust.trusted} hook(s) via codex ${trust.version}${trust.verified ? ' (verified)' : ''}.`);
+      console.log(`  Next: open a new Codex session in ${projectDir} and run a governed tool call.`);
+    } else if (trust.reason === 'skipped') {
+      console.log(`  ${yellow('Hook trust skipped')} (--no-trust-hooks).`);
+      console.log(`  codex >= 0.142 SILENTLY skips untrusted hooks — governance will not`);
+      console.log(`  enforce until you re-run without --no-trust-hooks.`);
+    } else {
+      console.log(`  ${yellow('WARNING: hooks are installed but NOT trusted.')}`);
+      console.log(`  codex >= 0.142 silently skips untrusted hooks — nothing will enforce yet.`);
+      console.log(`  Reason: ${trust.detail || trust.reason}`);
+      console.log(`  Fix: re-run with --codex-bin <path-to-codex(.exe) 0.142+> so the`);
+      console.log(`  installer can trust the hooks through codex itself.`);
+    }
   } catch (err) {
     console.error(`Error: ${err.message}`);
     process.exit(1);

@@ -15,6 +15,7 @@ import {
   mergeConfigToml,
   mergeAgentsMd,
   buildConfigTomlBlock,
+  buildRootKeysBlock,
   buildAgentsMdBlock,
   replaceManagedBlock,
   codexHome,
@@ -135,30 +136,28 @@ describe('buildConfigTomlBlock', () => {
   });
 
   it('sets the long pretool timeout for human approval', () => {
-    assert.match(built, /timeoutSec = 3600/);
+    // serde renames codex's timeout_sec to `timeout` in config.toml; any other
+    // spelling (timeoutSec included) is silently ignored → 600s default.
+    assert.match(built, /^timeout = 3600$/m);
+    assert.doesNotMatch(built, /timeoutSec/);
   });
 
-  it('sets approval_policy = on-request by default', () => {
-    assert.match(built, /approval_policy = "on-request"/);
+  it('sets approval_policy = on-request by default (root-keys block)', () => {
+    assert.match(buildRootKeysBlock({}), /approval_policy = "on-request"/);
   });
 
-  it('respects a custom approval policy', () => {
-    const custom = buildConfigTomlBlock({
-      mcpServerPath: '/tmp/dashclaw-mcp.js',
-      hooksDir: '/tmp/hooks',
-      approvalPolicy: 'untrusted',
-    });
+  it('respects a custom approval policy (root-keys block)', () => {
+    const custom = buildRootKeysBlock({ approvalPolicy: 'untrusted' });
     assert.match(custom, /approval_policy = "untrusted"/);
   });
 
   it('omits the notify line by default', () => {
     assert.doesNotMatch(built, /^notify =/m);
+    assert.doesNotMatch(buildRootKeysBlock({}), /^notify =/m);
   });
 
-  it('emits a notify line when includeNotify=true', () => {
-    const withNotify = buildConfigTomlBlock({
-      mcpServerPath: '/tmp/mcp.js',
-      hooksDir: '/tmp/hooks',
+  it('emits a notify line when includeNotify=true (root-keys block)', () => {
+    const withNotify = buildRootKeysBlock({
       includeNotify: true,
       dashclawCliPath: '/usr/local/bin/dashclaw.js',
     });
@@ -167,12 +166,7 @@ describe('buildConfigTomlBlock', () => {
 
   it('throws when includeNotify is true but cli path is missing', () => {
     assert.throws(
-      () =>
-        buildConfigTomlBlock({
-          mcpServerPath: '/tmp/mcp.js',
-          hooksDir: '/tmp/hooks',
-          includeNotify: true,
-        }),
+      () => buildRootKeysBlock({ includeNotify: true }),
       /dashclawCliPath/,
     );
   });
@@ -356,6 +350,7 @@ describe('installCodex (end-to-end)', () => {
       projectDir,
       env,
       baseUrl: 'https://test.dashclaw',
+      trustHooks: false,
       logger: silentLogger,
     });
 
@@ -403,6 +398,7 @@ describe('installCodex (end-to-end)', () => {
       projectDir,
       env,
       includeNotify: true,
+      trustHooks: false,
       logger: silentLogger,
     });
 
@@ -426,6 +422,7 @@ describe('installCodex (end-to-end)', () => {
       repoRoot: REPO_ROOT,
       projectDir,
       env,
+      trustHooks: false,
       logger: silentLogger,
     });
     const config1 = fs.readFileSync(path.join(codexHomeDir, 'config.toml'), 'utf8');
@@ -435,6 +432,7 @@ describe('installCodex (end-to-end)', () => {
       repoRoot: REPO_ROOT,
       projectDir,
       env,
+      trustHooks: false,
       logger: silentLogger,
     });
     const config2 = fs.readFileSync(path.join(codexHomeDir, 'config.toml'), 'utf8');

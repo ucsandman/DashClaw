@@ -150,13 +150,17 @@ Detect-only classes are never auto-fixed: leaked machine env vars (removal instr
 
 ### `dashclaw install codex`
 
-Provision DashClaw governance into the Codex CLI: writes an AGENTS.md governance block into the target project and (optionally) wires Codex's notify config.
+Provision DashClaw governance into the Codex CLI: copies the governance hooks, merges them into `config.toml`, writes an AGENTS.md governance block into the target project, and (optionally) wires Codex's notify config.
 
 ```bash
 dashclaw install codex --project <path>          # default: current directory
 dashclaw install codex --approval-policy on-request
 dashclaw install codex --include-notify          # also wire notify → dashclaw codex notify
+dashclaw install codex --codex-bin <path>        # codex binary for the trust step (default: auto-detect)
+dashclaw install codex --no-trust-hooks          # skip the hook-trust step
 ```
+
+The install ends with a **hook-trust step**: codex-cli 0.142+ silently skips hooks it has not been told to trust — no prompt, no log line, the hook just never fires — so an untrusted install looks governed but enforces nothing. The installer spawns `codex app-server`, reads each hook's trust hash via `hooks/list`, writes the matching `[hooks.state]` entries into `config.toml`, and re-lists to verify every hook reports `trusted`. Binary auto-detection checks `--codex-bin`, OpenClaw's vendored codex copies, then `PATH`, and uses the newest hook-capable (≥ 0.142) binary it finds. If none exists the install still succeeds but prints a loud warning with the fix.
 
 ### `dashclaw codex notify '<json>'`
 

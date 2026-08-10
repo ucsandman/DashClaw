@@ -53,6 +53,7 @@ You connected an agent. Now you are the operator.
 |---|---|
 | [Operating DashClaw](./operations.md) | The operator's day: policies, approvals across five surfaces, the decisions ledger, posture, the emergency halt, and doctor. |
 | [Policy modes](./policy-modes.md) | Named policy packs (Claude Code starter, SOC 2 alignment, Enterprise Strict…) that compile to guard policies. |
+| [OpenClaw embedded-codex governance](./openclaw-codex-governance.md) | Replace per-command approval pings with risk-tiered guard enforcement for `agentRuntime: codex` gateway agents. |
 | [Telegram approvals](./telegram-setup.md) | Inline Approve/Reject buttons in an admin chat. |
 | [Troubleshooting](./troubleshooting.md) | The errors you will actually see (`503 SCHEMA_NOT_INITIALIZED`, `410 APPROVAL_EXPIRED`, the two-action-id footgun) and their fixes. |
 
