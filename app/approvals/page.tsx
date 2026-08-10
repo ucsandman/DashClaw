@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   ShieldAlert, Check, X, Clock, User, Zap,
-  RefreshCw, Info, Ban, Hourglass,
+  RefreshCw, Info, Ban, Hourglass, AppWindow,
 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
@@ -313,6 +313,15 @@ export default function ApprovalsPage() {
       maturity="stable"
       actions={
         <>
+          <button
+            onClick={() => window.open('/widget', 'dashclaw-pulse', 'popup,width=360,height=560')}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:border-border-hover hover:text-white"
+            title="Open Pulse — a small always-on-top status window for this workspace"
+            aria-label="Open the Pulse status window"
+          >
+            <AppWindow size={14} />
+            Pulse
+          </button>
           <button
             onClick={() => fetchPending()}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:border-border-hover hover:text-white"

@@ -13,6 +13,25 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.15.0] — 2026-08-09
+
+**DashClaw Pulse: an always-on-top ambient posture window (`/widget`) for the operator who is deliberately NOT watching.** One glyph answers "is any of this mine?" from across the room — a dim dash when nothing is owed, the pending-approval count when something is. Design chosen by a 9-agent tournament (5 divergent concepts, 3-lens judge panel); full spec and precedence rules in `docs/decisions/2026-08-09-widget-pulse.md`. Not a revival of the culled status-widget PWA: no PWA manifest, no prefs, no stat tiles, no action log, read-only slice 1.
+
+### Added
+
+- **`/widget` page**: frameless dark field sized for a 300–400px always-on-top browser window. The window perimeter is the alert channel (luminance + shape, never hue alone); approval always outranks signals (a red signal demotes to a 2px left rail with an `!N` head, never silently dropped); activity moves only a 3px baseline strip; zero chroma at rest. Reveal layer on hover/focus lists the pending rows (type, agent, risk, age — no goals, no output, no secrets). The whole field is one button → `/approvals`.
+- **`GET /api/widget/pulse`**: the snapshot behind the surface — whitelisted fields only, composed from existing repositories (no new ingestion, no direct SQL). Each sub-query is independently failure-wrapped: a failed query lands in `queriesDegraded` and renders as the DEGRADED posture, never as a zero (honesty rule H5).
+- **Honesty rules as invariants, not polish**: calm requires positive heartbeat evidence; no present-tense claim survives 90s of silence (graded FRESH → DRIFTING → STALE off the SSE heartbeat); reconnect refetches before repainting so a stale calm never flashes; a dwell budget scaled by risk (5m/20m/60m) escalates an overdue approval to the breathing error ring — the product's only loop, with a mandatory static double-ring tell under `prefers-reduced-motion`. Pinned by the `widget-pulse` unit suites (posture × freshness × boundary fixture matrix).
+- **Desktop-presence reader** (`app/lib/widget/presence.ts`): best-effort read of the machine-local OpenClaw presence store (`OPENCLAW_DESKTOP_PRESENCE_DIR`); absence of a verdict renders `unknown`, never `live`, and presence never drives the ring.
+- **Pulse button on `/approvals`**: opens the widget as a small popup window — the surface's one discovery path (deliberately no nav entry).
+- **SSE heartbeat is now a named event**: `app/api/stream/route.ts` previously emitted the keepalive as an SSE comment, invisible to `EventSource`; it is now a named `heartbeat` event and `useRealtime` exposes `lastEventAt`/connection state — without this, "no message in 90s = stale" would false-fire on every quiet fleet.
+- **Demo fixtures** for `/widget` and `/api/widget/pulse`, so the marketing demo renders the owed posture honestly (presence stays `unknown` — the demo host has no presence store).
+
+### Notes
+
+- Surface-budget ceilings amended in the same ship: active API routes 130 → 131, app pages 51 → 52 (`THESIS.md` amendment log + `contracts/surface-budget.json`).
+- No Node/Python SDK source change. The tag-triggered release workflow republishes the unchanged SDK content at 5.15.0 so registries stay aligned.
+
 ## [5.14.0] — 2026-08-09
 
 **The hosted paid tier takes money: Stripe Checkout, customer portal, and a signature-verified, replay-proof webhook.** The decision record ordered checkout last, after accounts and metering became true — both shipped earlier the same day (v5.13.0, v5.12.0), so this is that final step. Entitlement enforcement (ceilings, seat limits) is still deliberately absent: nothing reads `plan` to gate a governance capability.

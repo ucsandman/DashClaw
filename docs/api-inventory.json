@@ -45,10 +45,10 @@
     ]
   },
   "summary": {
-    "total_routes": 130,
+    "total_routes": 131,
     "stable_routes": 42,
     "beta_routes": 18,
-    "experimental_routes": 70
+    "experimental_routes": 71
   },
   "routes": [
     {
@@ -1254,6 +1254,15 @@
       "maturity": "stable",
       "matched_prefix": "/api/webhooks",
       "file": "app/api/webhooks/[webhookId]/test/route.ts"
+    },
+    {
+      "path": "/api/widget/pulse",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/widget/pulse/route.ts"
     },
     {
       "path": "/api/workspace/export",

@@ -424,6 +424,19 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   safety feature") holds by construction until the entitlement work defines
   capacity ceilings.
 
+- **2026-08-09 — Active API routes 130 → 131 and app pages 51 → 52
+  (`GET /api/widget/pulse` + `/widget`, DashClaw Pulse).** An always-on-top
+  ambient posture surface for the operator who is deliberately NOT watching —
+  the thesis's "ignore your agents safely" made visible: one glyph that is a
+  dim dash when nothing is owed and the pending-approval count when something
+  is, with approval always outranking signals and honesty rules that forbid a
+  dead pipe from rendering as calm. Design chosen by a judged tournament and
+  recorded in `docs/decisions/2026-08-09-widget-pulse.md`. Not a revival of
+  the culled status-widget PWA (which stays in the kill list): no PWA
+  manifest, no service worker, no prefs/settings, no stat tiles, no action
+  log, no approve/deny (read-only slice 1); one read-only route composed from
+  existing repositories, no new ingestion, no new tables.
+
 ## Version story
 
 This cull ships as **v5.0.0** — the major break the removal list demands, and

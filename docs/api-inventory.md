@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `130`
+- Total routes: `131`
 - Stable routes: `42`
 - Beta routes: `18`
-- Experimental routes: `70`
+- Experimental routes: `71`
 
 ## Routes
 
@@ -150,6 +150,7 @@ doc-type: architecture
 | `/api/webhooks/stripe` | `POST` | `stable` | `/api/webhooks` | `app/api/webhooks/stripe/route.ts` |
 | `/api/webhooks/{webhookId}/deliveries` | `GET` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/deliveries/route.ts` |
 | `/api/webhooks/{webhookId}/test` | `POST` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/test/route.ts` |
+| `/api/widget/pulse` | `GET` | `experimental` | `(default)` | `app/api/widget/pulse/route.ts` |
 | `/api/workspace/export` | `GET` | `experimental` | `(default)` | `app/api/workspace/export/route.ts` |
 | `/api/workspace/import` | `POST` | `experimental` | `(default)` | `app/api/workspace/import/route.ts` |
 

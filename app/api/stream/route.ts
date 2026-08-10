@@ -141,8 +141,11 @@ data: ${JSON.stringify(data)}
       }
     };
 
-    // Keepalive heartbeat — prevents proxies/load balancers from killing idle connections.
-    // SSE comments (lines starting with ':') are ignored by clients per the spec.
+    // Keepalive heartbeat — prevents proxies/load balancers from killing idle
+    // connections. A NAMED event (not an SSE comment): EventSource clients can
+    // observe it, which is what lets the Pulse widget grade feed freshness —
+    // a quiet fleet and a dead pipe must not look identical
+    // (docs/decisions/2026-08-09-widget-pulse.md §8).
     const HEARTBEAT_INTERVAL_MS = 15_000; // 15 seconds
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -158,7 +161,7 @@ data: ${JSON.stringify(data)}
     heartbeatTimer = setInterval(async () => {
       if (isClosed) { if (heartbeatTimer) clearInterval(heartbeatTimer); return; }
       try {
-        await writer.write(encoder.encode(': heartbeat\n\n'));
+        await writer.write(encoder.encode(`event: heartbeat\ndata: {"ts":${Date.now()}}\n\n`));
       } catch {
         cleanup();
       }

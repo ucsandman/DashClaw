@@ -1,0 +1,101 @@
+/* DashClaw Pulse (/widget) — surface-scoped styles.
+   Spec: docs/decisions/2026-08-09-widget-pulse.md §9 (motion) and §6 (tokens).
+   Five sanctioned motions total; everything else on this surface is static.
+   All colors flow through tokens — no hex here. */
+
+/* The elevated breathe — THE ONLY LOOP IN THE PRODUCT (motion #3). */
+@keyframes pulse-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* One-shot arm swell when a ring changes state (motion #2). */
+@keyframes pulse-swell {
+  0% { opacity: 0.55; }
+  50% { opacity: 1; }
+  100% { opacity: 0.85; }
+}
+
+/* Baseline segment travel — one per governed event (motion #1). */
+@keyframes pulse-baseline-travel {
+  from { transform: translateX(-64px); }
+  to { transform: translateX(100vw); }
+}
+
+/* Glyph crossfade on count change (motion #4). */
+@keyframes pulse-glyph-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+
+.pulse-ring--armed {
+  animation: pulse-swell 700ms ease-out 240ms 1 both;
+}
+
+.pulse-ring--breathe {
+  animation: pulse-breathe 2.4s ease-in-out infinite;
+}
+
+.pulse-glyph-swap {
+  animation: pulse-glyph-in 160ms ease-out;
+}
+
+.pulse-baseline-segment {
+  animation: pulse-baseline-travel 900ms linear 1 both;
+}
+
+/* Reveal layer: hover / focus only. Motion #5 reuses fadeSlideIn (globals). */
+.pulse-reveal {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+.pulse-field:hover .pulse-reveal,
+.pulse-field:focus-within .pulse-reveal {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Below 240px of height the caption drops; ring, rail, notch, glyph, and
+   baseline are never dropped at any size (spec §2.7). */
+@container (max-height: 240px) {
+  .pulse-caption {
+    display: none;
+  }
+}
+
+/* STALE field hatch: 4px diagonal, translucent white — degradation is dim,
+   never chromatic. */
+.pulse-hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.04) 0,
+    rgba(255, 255, 255, 0.04) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
+/* Reduced motion: the global block in globals.css already neutralizes every
+   animation. The breathe is a SIGNAL, so it gets a mandatory static tell —
+   a second inner 1px error ring. Double ring = elevated. Without this, the
+   master caution silently disarms for reduced-motion users (spec §9). */
+.pulse-inner-ring {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse-ring--breathe {
+    animation: none;
+    opacity: 1;
+  }
+  .pulse-inner-ring--armed {
+    display: block;
+  }
+  /* Baseline segments appear in place and fade instead of traveling. */
+  .pulse-baseline-segment {
+    animation: none;
+    left: 50%;
+    opacity: 0;
+    transition: opacity 400ms ease-out;
+  }
+}

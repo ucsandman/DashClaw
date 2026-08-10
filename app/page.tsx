@@ -11,6 +11,7 @@ import {
   Stethoscope,
   Inbox,
   SlidersHorizontal,
+  AppWindow,
 } from 'lucide-react';
 import PublicNavbar from './components/PublicNavbar';
 import PublicFooter from './components/PublicFooter';
@@ -120,6 +121,12 @@ const SUPPORT_SURFACES = [
     title: 'Enforcement liveness',
     desc: 'A probe drives a synthetic held action through the real hook seam and verdicts by whether it executed, never by reading the ledger. A healthy ledger can hide a dead hook; a silent probe never renders green.',
     href: '/setup#enforcement-liveness',
+  },
+  {
+    icon: AppWindow,
+    title: 'Pulse',
+    desc: 'A small always-on-top window that answers one question from across the room: is anything owed? A dim dash when nothing is, the pending count when something waits, and honesty rules that keep a dead pipe from ever rendering as calm. Read-only; opens with one click from the approvals inbox.',
+    href: '/widget',
   },
   {
     icon: Stethoscope,

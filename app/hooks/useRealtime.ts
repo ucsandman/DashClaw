@@ -151,6 +151,12 @@ function attachListeners(es: EventSource) {
       console.error('SSE Parse Error:', err);
     }
   });
+
+  // Server keepalive (named event, every 15s). Subscribers that grade feed
+  // freshness (the Pulse widget) listen for it; everyone else ignores it.
+  es.addEventListener('heartbeat', () => {
+    broadcast('heartbeat', null);
+  });
 }
 
 function ensureEventSource(): EventSource | null {
@@ -162,12 +168,16 @@ function ensureEventSource(): EventSource | null {
   sharedEs = es;
 
   es.onopen = () => {
-    // Connected
+    // Synthetic connection events so subscribers can track transport health
+    // without owning the EventSource. Unknown event names are inert for
+    // existing subscribers (they switch on names they know).
+    broadcast('sse.open', null);
   };
 
   es.onerror = () => {
     try { es.close(); } catch {} // defensive: close() should never throw
     sharedEs = null;
+    broadcast('sse.error', null);
 
     // Lightweight reconnect if there are still active subscribers.
     if (subscribers.size > 0 && !sharedReconnectTimer) {

@@ -929,6 +929,42 @@ function handleDemoSignals({ request, fixtures, url }) {
   });
 }
 
+// Pulse widget snapshot (/widget). Pending rows get a synthetic held-6m
+// timestamp so the demo shows the brand "owed" ring rather than an ancient
+// fixture reading as days overdue. Presence is honestly `unknown` — the demo
+// host has no desktop-presence store, and unknown never fakes live.
+function handleDemoWidgetPulse({ request, fixtures }) {
+  const now = Date.now();
+  const pendingRows = (fixtures.actions || [])
+    .filter((a) => a.status === 'pending_approval')
+    .slice(0, 5)
+    .map((a) => ({
+      actionId: a.action_id || null,
+      actionType: a.action_type || null,
+      agentName: a.agent_name || a.agent_id || null,
+      riskScore: Number(a.risk_score) || 0,
+      timestampStart: new Date(now - 6 * 60 * 1000).toISOString(),
+      declaredGoal: null,
+    }));
+  const signals = fixtures.signals || [];
+  const top = signals.find((s) => s.severity === 'red') || signals[0] || null;
+  return demoJson(request, {
+    asOf: new Date(now).toISOString(),
+    windowMinutes: 60,
+    pending: { count: pendingRows.length, rows: pendingRows },
+    signals: {
+      red: signals.filter((s) => s.severity === 'red').length,
+      amber: signals.filter((s) => s.severity === 'amber').length,
+      top: top ? { severity: top.severity, kind: top.type || 'signal', label: top.label || '' } : null,
+    },
+    agents: { activeCount: 3, lastActiveAt: new Date(now - 2 * 60 * 1000).toISOString() },
+    lastActionAt: new Date(now - 2 * 60 * 1000).toISOString(),
+    recentActionCount: 12,
+    queriesDegraded: [],
+    presence: { verdict: 'unknown', frameAgeSeconds: null },
+  });
+}
+
 function handleDemoActionTrace({ request, fixtures, segments }) {
   const actionId = segments[2];
   const trace = demoActionTrace(fixtures, actionId);
@@ -1130,6 +1166,7 @@ const DEMO_API_ROUTES = [
   ['/api/calibration/proposals', demoPayloadRoute(demoCalibrationProposals)],
   ['/api/calibration/controller', demoFixtureRoute(demoCalibrationController)],
   ['/api/doctor', demoPayloadRoute(demoDoctor)],
+  ['/api/widget/pulse', handleDemoWidgetPulse],
   // Preflight plans (v5.4.0): the /approvals plans card fetches
   // ?status=<s>&limit=N then a detail per plan — without these entries the
   // demo showed no plans at all. Verdict POSTs answer an honest demo 403
@@ -1783,6 +1820,7 @@ export const config = {
     '/demo',
     '/approvals',
     '/approvals/:path*',
+    '/widget',
     '/approve',
     '/approve/:path*',
     '/decisions',

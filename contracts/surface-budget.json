@@ -2,14 +2,14 @@
   "_note": "Anti-regrowth surface budget. See THESIS.md, section 'The anti-regrowth brake'. Each ceiling is the exact live count of a governed surface at v5.0.0. The gate (scripts/check-surface-budget.mjs, npm run surface:check) fails the build when any live count exceeds its ceiling. Raising a ceiling requires amending THESIS.md (anti-regrowth section) AND this file in the same commit with a written reason. Sprawl is a deliberate, recorded act, not a drift.",
   "ceilings": {
     "apiRoutes": {
-      "ceiling": 130,
+      "ceiling": 131,
       "source": "app/api/**/route.{js,ts,tsx} (must export ≥1 HTTP method, matching discoverApiRoutes())",
-      "reason": "2026-08-09: 127 -> 130. +3 for POST /api/billing/checkout, GET /api/billing/portal, POST /api/webhooks/stripe - the checkout step docs/decisions/2026-08-09-hosted-paid-tier.md ordered last, after accounts (G2) and metering (G4) became true. Signature-verified webhook with a stripe_webhook_events idempotency ledger; repository-only SQL. See THESIS.md amendment log. (Prior same date: 125 -> 127 claim + invites.)"
+      "reason": "2026-08-09: 130 -> 131. +1 for GET /api/widget/pulse - the whitelisted, partial-failure-honest snapshot behind the /widget Pulse surface (docs/decisions/2026-08-09-widget-pulse.md). Read-only, repository-only SQL, no new ingestion. (Prior same date: 127 -> 130 billing; 125 -> 127 claim + invites.)"
     },
     "appPages": {
-      "ceiling": 51,
+      "ceiling": 52,
       "source": "app/**/page.{js,jsx,ts,tsx}",
-      "reason": "2026-08-09: 49 → 51. +2 for /claim (the claim confirmation surface) and /team (seats: members + invites, wiring the previously dead getTeamOrgAndMembers) — same decision record as the routes. (Prior same date: 48 → 49 /usage.)"
+      "reason": "2026-08-09: 51 → 52. +1 for /widget (DashClaw Pulse) — the always-on-top ambient posture surface, designed by tournament (docs/decisions/2026-08-09-widget-pulse.md). NOT a revival of the culled status-widget PWA: no PWA, no prefs, no tiles, no log; read-only slice 1. (Prior same date: 49 → 51 /claim + /team; 48 → 49 /usage.)"
     },
     "mcpTools": {
       "ceiling": 17,
