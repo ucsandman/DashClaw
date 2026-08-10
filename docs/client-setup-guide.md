@@ -18,18 +18,32 @@ After the client (Node or Python SDK) successfully calls your instance, you can 
 
 ### Python: live proof POST helper
 
-Run this after a successful `DashClaw(...).ping()` to POST a sanitized success payload to `/api/setup/live-proof`:
+This runs a real Python SDK round-trip (create and complete a test action), then POSTs the proof payload to `/api/setup/live-proof`. If the SDK call fails, the script raises before any proof is posted — success is never claimed without a recorded action behind it:
 
 ```python
 import json
 import urllib.request
 
+from dashclaw import DashClaw
+
+claw = DashClaw(
+    base_url="https://your-dashclaw-instance.example.com",
+    api_key="<api-key>",
+    agent_id="setup-validator",
+)
+
+action = claw.create_action(
+    action_type="api_call",
+    declared_goal="Validate Python SDK connectivity",
+)
+claw.update_outcome(action["action_id"], status="completed")
+
 payload = {
     "validator": "python-sdk-helper",
     "tool": "python",
-    "mode": "read_only",
+    "mode": "full",
     "summary": {"passed": 1, "failed": 0, "skipped": 0, "score": 100},
-    "checks": [{"name": "Python SDK ping", "status": "pass"}],
+    "checks": [{"name": "Python SDK round-trip", "status": "pass"}],
 }
 
 req = urllib.request.Request(
@@ -52,7 +66,7 @@ The `/connect` page renders this same snippet with your instance URL pre-filled 
 
 ```bash
 npm install dashclaw
-node -e "const { DashClaw } = require('dashclaw'); new DashClaw({ baseUrl: '<base-url>', apiKey: '<api-key>' }).ping().then((r) => console.log(r));"
+node -e "const { DashClaw } = require('dashclaw'); const claw = new DashClaw({ baseUrl: '<base-url>', apiKey: '<api-key>', agentId: 'setup-validator' }); claw.createAction({ action_type: 'api_call', declared_goal: 'Validate SDK connectivity' }).then(async (a) => { await claw.updateOutcome(a.action_id, { status: 'completed' }); console.log('SDK round-trip ok:', a.action_id); });"
 ```
 
 Capture the live proof via the `/setup` "Run test" button, or the Python live-proof snippet above.

@@ -18,19 +18,36 @@ export function getSdkCommands(host) {
   return {
     baseUrl,
     node: `npm install dashclaw
-node -e "const { DashClaw } = require('dashclaw'); new DashClaw({ baseUrl: '${baseUrl}', apiKey: '<api-key>' }).ping().then((r) => console.log(r));"`,
+node -e "const { DashClaw } = require('dashclaw'); const claw = new DashClaw({ baseUrl: '${baseUrl}', apiKey: '<api-key>', agentId: 'setup-validator' }); claw.createAction({ action_type: 'api_call', declared_goal: 'Validate SDK connectivity' }).then(async (a) => { await claw.updateOutcome(a.action_id, { status: 'completed' }); console.log('SDK round-trip ok:', a.action_id); });"`,
     python: `pip install dashclaw
-python -c "from dashclaw import DashClaw; dc = DashClaw(base_url='${baseUrl}', api_key='<api-key>'); print(dc.ping())"`,
+python -c "from dashclaw import DashClaw; claw = DashClaw(base_url='${baseUrl}', api_key='<api-key>', agent_id='setup-validator'); a = claw.create_action(action_type='api_call', declared_goal='Validate SDK connectivity'); claw.update_outcome(a['action_id'], status='completed'); print('SDK round-trip ok:', a['action_id'])"`,
     pythonCapture: `python - <<'PY'
 import json
 import urllib.request
 
+from dashclaw import DashClaw
+
+claw = DashClaw(
+    base_url="${baseUrl}",
+    api_key="<api-key>",
+    agent_id="setup-validator",
+)
+
+# Real SDK round-trip: create and complete a test action. Any failure
+# raises before proof is posted, so success is never claimed without
+# an actual recorded action behind it.
+action = claw.create_action(
+    action_type="api_call",
+    declared_goal="Validate Python SDK connectivity",
+)
+claw.update_outcome(action["action_id"], status="completed")
+
 payload = {
     "validator": "python-sdk-helper",
     "tool": "python",
-    "mode": "read_only",
+    "mode": "full",
     "summary": {"passed": 1, "failed": 0, "skipped": 0, "score": 100},
-    "checks": [{"name": "Python SDK ping", "status": "pass"}],
+    "checks": [{"name": "Python SDK round-trip", "status": "pass"}],
 }
 
 req = urllib.request.Request(

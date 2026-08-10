@@ -445,12 +445,20 @@ function DecisionPanel({ decision, onResolve, onReset }: DecisionPanelProps) {
 
         {showFooter ? (
           <div className="pt-2 flex items-center justify-between gap-3 text-sm">
-            <Link
-              href={dest.href}
-              className="inline-flex items-center gap-1.5 text-brand hover:text-brand-hover transition-colors font-medium"
-            >
-              {dest.label} <ArrowRight size={14} aria-hidden="true" />
-            </Link>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <Link
+                href={dest.href}
+                className="inline-flex items-center gap-1.5 text-brand hover:text-brand-hover transition-colors font-medium"
+              >
+                {dest.label} <ArrowRight size={14} aria-hidden="true" />
+              </Link>
+              <Link
+                href="/connect"
+                className="inline-flex items-center gap-1.5 text-text-secondary hover:text-text-primary transition-colors font-medium"
+              >
+                Connect your own agent <ArrowRight size={14} aria-hidden="true" />
+              </Link>
+            </div>
             <button
               type="button"
               onClick={onReset}
@@ -498,12 +506,20 @@ function ResolvedPanel({ decision, resolution, onReset }: ResolvedPanelProps) {
             : 'The agent receives a denial event, throws ApprovalDeniedError, and never touches the real system. The denial reason lands in the audit trail next to the original guard decision.'}
         </p>
         <div className="pt-1 flex items-center justify-between gap-3 text-sm">
-          <Link
-            href={RESOLVED_DESTINATION.href}
-            className="inline-flex items-center gap-1.5 text-brand hover:text-brand-hover transition-colors font-medium"
-          >
-            {RESOLVED_DESTINATION.label} <ArrowRight size={14} aria-hidden="true" />
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <Link
+              href="/connect"
+              className="inline-flex items-center gap-1.5 text-brand hover:text-brand-hover transition-colors font-medium"
+            >
+              Connect your own agent <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+            <Link
+              href={RESOLVED_DESTINATION.href}
+              className="inline-flex items-center gap-1.5 text-text-secondary hover:text-text-primary transition-colors font-medium"
+            >
+              {RESOLVED_DESTINATION.label} <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          </div>
           <button
             type="button"
             onClick={onReset}

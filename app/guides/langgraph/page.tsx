@@ -50,7 +50,9 @@ policies:
     rule:
       allow: true`;
 
-  const governanceNodeCode = `from dashclaw import DashClaw
+  const governanceNodeCode = `import os
+
+from dashclaw import DashClaw
 from langgraph.graph import StateGraph, END
 from typing import TypedDict
 
@@ -82,6 +84,18 @@ def governance_node(state: AgentState) -> AgentState:
         risk_score=30,
     )
     return {**state, "governance_decision": decision, "action_id": action["action_id"]}
+
+def research_node(state: AgentState) -> AgentState:
+    """Do the governed work, then report the outcome."""
+    if state["governance_decision"] == "blocked":
+        return {**state, "research_result": "skipped: blocked by policy"}
+    result = f"Research findings for {state['topic']}"  # replace with real work
+    claw.update_outcome(
+        state["action_id"],
+        status="completed",
+        output_summary=result,
+    )
+    return {**state, "research_result": result}
 
 # Wire the graph
 graph = StateGraph(AgentState)

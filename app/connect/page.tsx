@@ -282,7 +282,10 @@ export DASHCLAW_API_KEY=oc_live_...`}</CodeBlock>
                   <h3 className="text-base font-semibold text-text-primary">SDK</h3>
                 </div>
                 <p className="text-sm text-text-secondary leading-relaxed mb-4">
-                  Node.js or Python. Wrap risky actions in <code className="font-mono text-text-primary">claw.guard()</code> and you are done.
+                  Node.js or Python. The loop is three calls:{' '}
+                  <code className="font-mono text-text-primary">guard()</code> asks permission,{' '}
+                  <code className="font-mono text-text-primary">createAction()</code> records intent,{' '}
+                  <code className="font-mono text-text-primary">updateOutcome()</code> reports the result.
                 </p>
                 <div className="mt-auto">
                   <CodeBlock>{`# Node

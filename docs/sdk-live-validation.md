@@ -39,6 +39,8 @@ Python signing requires the `cryptography` package (`pip install cryptography`).
 | `DASHCLAW_URL` | No | `http://localhost:3000` | Base URL of the DashClaw instance |
 | `DASHCLAW_AGENT_ID` | No | `sdk-live-test-agent` (Node) / `sdk-live-test-agent-py` (Python) | Agent ID for test records |
 
+> Naming note: this internal harness reads `DASHCLAW_URL` (the same variable the MCP server uses), and the scripts genuinely read that name — this is intentional, not drift. The public onboarding surfaces (`/connect`, `/self-host`, SDK hooks) teach `DASHCLAW_BASE_URL`. If you arrived here from those docs, set `DASHCLAW_URL` for these scripts.
+
 ## Running locally
 
 ### Node SDK

@@ -19,7 +19,10 @@ describe('readiness projections', () => {
 
     expect(commands.baseUrl).toBe('https://your-dashclaw-instance.example.com');
     expect(commands.node).toContain('npm install dashclaw');
-    expect(commands.node).toContain('.ping()');
+    expect(commands.node).toContain('createAction');
+    expect(commands.node).toContain('updateOutcome');
+    expect(commands.node).toContain('agentId');
+    expect(commands.node).not.toContain('.ping(');
     expect(commands.node).not.toContain('.claude/skills');
     expect(commands.node).not.toContain('dashclaw.io');
   });

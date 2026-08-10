@@ -171,10 +171,11 @@ export default function GuideClient({
         <section className="rounded-xl border border-border-hover bg-surface-primary p-6">
           <p className="text-xs uppercase tracking-[0.32em] text-tertiary">Governance as Code</p>
           <p className="mt-3 text-sm text-secondary">
-            Drop a{' '}
-            <span className="font-mono text-secondary">guardrails.yml</span> in your project root
-            to enforce policies without code changes. DashClaw evaluates these rules at the guard
-            step before any action executes.
+            <span className="font-mono text-secondary">guardrails.yml</span> is a policy-as-code
+            template. Import it into your instance — POST the YAML to{' '}
+            <span className="font-mono text-secondary">/api/policies/import</span> or call the
+            Python SDK&apos;s <span className="font-mono text-secondary">import_policies</span> —
+            and DashClaw evaluates these rules at the guard step before any action executes.
           </p>
           <div className="mt-5">
             <CodeCard title="guardrails.yml" body={guardrailsYaml} />
