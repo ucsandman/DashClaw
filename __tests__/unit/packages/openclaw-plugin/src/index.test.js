@@ -179,6 +179,7 @@ describe('@dashclaw/openclaw-plugin', () => {
       declared_goal: 'Bash: git status --short',
       reversible: true,
       systems_touched: [],
+      act: { kind: 'shell', command: 'git status --short' },
       agent_id: 'openclaw-test',
       // dashclaw >=4.6x declares its approval polling window on the guard call
       approval_wait_seconds: 300,
@@ -193,12 +194,30 @@ describe('@dashclaw/openclaw-plugin', () => {
       risk_score: 10,
       reversible: true,
       systems_touched: [],
+      act: { kind: 'shell', command: 'git status --short' },
       metadata: { openclaw_tool_name: 'bash' },
       agent_id: 'openclaw-test',
       approval_wait_seconds: 300,
     });
     assert.equal(actionPatch(calls, 'act_1').body.status, 'completed');
     assert.match(actionPatch(calls, 'act_1').body.timestamp_end, /^\d{4}-/);
+  });
+
+  it('carries file-path evidence through both calls without copying file content', async () => {
+    const calls = installFetchMock();
+    const { api } = await registerPlugin();
+
+    await api.emit('before_tool_call', {
+      toolName: 'write',
+      params: { file_path: '.github/workflows/release.yml', content: 'token=do-not-copy' },
+      toolCallId: 'call_file_evidence',
+      runId: 'run_file_evidence',
+    });
+
+    const expectedAct = { kind: 'file', file: { path: '.github/workflows/release.yml' } };
+    assert.deepEqual(findCall(calls, '/api/guard', 'POST').body.act, expectedAct);
+    assert.deepEqual(findCall(calls, '/api/actions', 'POST').body.act, expectedAct);
+    assert.doesNotMatch(JSON.stringify(findCall(calls, '/api/guard', 'POST').body.act), /do-not-copy/);
   });
 
   it('blocks policy-denied tool calls without opening an action record', async () => {

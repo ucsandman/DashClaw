@@ -304,7 +304,12 @@ interface ActionClassification {
   reversible: boolean;
   systemsTouched: string[];
   declaredGoal: string;
+  act?: GuardAct;
 }
+
+type GuardAct =
+  | { kind: 'shell'; command: string }
+  | { kind: 'file'; file: { path: string } };
 
 const READONLY_COMMANDS = new Set([
   'cat', 'head', 'tail', 'less', 'more', 'wc', 'file', 'stat', 'du', 'df',
@@ -425,7 +430,9 @@ function classifyToolCall(
   const classified = TOOL_CLASSIFIERS
     .map((classify) => classify(toolName, params, defaultRisk))
     .find((result): result is ActionClassification => result !== null);
-  return classified ?? classifyDefaultTool(toolName, params, defaultRisk);
+  const base = classified ?? classifyDefaultTool(toolName, params, defaultRisk);
+  const act = buildGuardAct(toolName, params);
+  return act ? { ...base, act } : base;
 }
 
 type ToolClassifier = (
@@ -443,6 +450,35 @@ const REVIEW_TOOLS = new Set([
   'memory_get',
   'image',
 ]);
+
+/**
+ * Translate OpenClaw tool params into the narrow evidence-first guard wire
+ * contract. Do not truncate evidence: a lost suffix could hide the risk. If a
+ * value exceeds the server contract, omit it and retain the normal classified
+ * request. File content is intentionally excluded, since a path is sufficient
+ * for protected/sensitive-path policies and content may itself be sensitive.
+ */
+function buildGuardAct(
+  toolName: string,
+  params: Record<string, unknown> | undefined,
+): GuardAct | undefined {
+  if (toolName === 'bash' || toolName === 'exec') {
+    const command = params?.command;
+    if (typeof command === 'string' && command.length > 0 && command.length <= 8192) {
+      return { kind: 'shell', command };
+    }
+    return undefined;
+  }
+
+  if (WRITE_TOOLS.has(toolName)) {
+    const path = params?.file_path ?? params?.path;
+    if (typeof path === 'string' && path.length > 0 && path.length <= 1024) {
+      return { kind: 'file', file: { path } };
+    }
+  }
+
+  return undefined;
+}
 
 const TOOL_CLASSIFIERS: ToolClassifier[] = [
   classifyShellTool,
@@ -665,6 +701,7 @@ async function guardClassifiedAction(
         declared_goal: classification.declaredGoal,
         reversible: classification.reversible,
         systems_touched: classification.systemsTouched,
+        ...(classification.act ? { act: classification.act } : {}),
       }),
     };
   } catch (err) {
@@ -732,6 +769,7 @@ async function createGovernanceAction(
       risk_score: riskScore,
       reversible,
       systems_touched: systemsTouched,
+      ...(ctx.classification.act ? { act: ctx.classification.act } : {}),
       metadata: { openclaw_tool_name: ctx.toolName },
     });
     return {
