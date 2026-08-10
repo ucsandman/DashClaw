@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Versioning
 
-As of **4.0.0**, DashClaw uses **one version across the platform and both SDKs**. The Next.js app (`package.json`), the npm SDK (`sdk/package.json`), and the PyPI SDK (`sdk-python/pyproject.toml`) always share the same version — enforced by `npm run version:sync:check` in CI and the pre-commit hook. Bump all three together with `npm run version:set <x.y.z>`; every release ships the platform deploy and advances the shared version. Both SDK packages are (re)published at that number **only when the SDK source actually changed** — a platform-only release bumps the number but leaves npm/PyPI at the last SDK release (non-contiguous versions are expected).
+As of **4.0.0**, DashClaw uses **one version across the platform and both SDKs**. The Next.js app (`package.json`), the npm SDK (`sdk/package.json`), and the PyPI SDK (`sdk-python/pyproject.toml`) always share the same version — enforced by `npm run version:sync:check` in CI and the pre-commit hook. Bump with `npm run release:prep -- <x.y.z>`, which runs the whole recipe: the three manifests plus `contracts/sdk/release-plan.json` (`version:set`), package-lock sync, a build, the platform-guide liveExamples regen against a local instance, and the four version/contract/drift gates. (`npm run version:set -- <x.y.z>` alone still works but leaves the guide regen to you.) Every release ships the platform deploy and advances the shared version. Both SDK packages are (re)published at that number **only when the SDK source actually changed** — a platform-only release bumps the number but leaves npm/PyPI at the last SDK release (non-contiguous versions are expected).
 
 Through 3.x the platform and the SDKs versioned independently, which is why older entries below carry separate platform `[2.x]` numbers and `### SDK [3.0.0]`-style numbers, listed newest-first by release date. The `dashclaw` plugin bundle and CLI keep their own manifest versions and are prefixed with the package name.
 
 ## [Unreleased]
+
+### Added
+
+- **`npm run release:prep -- <x.y.z>`** (`scripts/release-prep.mjs`): the whole version-bump recipe in one command — `version:set`, package-lock sync, build, platform-guide liveExamples regen against a local instance (started and torn down for you), and the four version/contract/drift gates. Both v5.15.0 and v5.16.0 shipped green locally and then failed CI twice each on the two artifacts a bare `version:set` does not touch; this closes that class. `version:set` itself now also advances `contracts/sdk/release-plan.json` (`scripts/lib/bump-release-plan.mjs`), so the contract convergence gate can no longer be missed by hand.
 
 ## [5.16.0] — 2026-08-09
 

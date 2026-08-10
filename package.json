@@ -42,6 +42,7 @@
     "version:check": "node scripts/check-version-hardcodes.mjs",
     "version:sync:check": "node scripts/check-version-sync.mjs",
     "version:set": "node scripts/set-version.mjs",
+    "release:prep": "node scripts/release-prep.mjs",
     "sdk:count": "node scripts/count-sdk-methods.mjs",
     "hooks:install": "node scripts/install-hooks.mjs",
     "hooks:diagnose": "node scripts/diagnose-hooks.mjs",

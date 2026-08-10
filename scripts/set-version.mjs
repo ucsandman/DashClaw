@@ -14,6 +14,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { bumpReleasePlan } from './lib/bump-release-plan.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const version = process.argv[2];
@@ -40,6 +41,15 @@ setJsonVersion('package.json');
 setJsonVersion('sdk/package.json');
 setPyprojectVersion('sdk-python/pyproject.toml');
 
+// Contract convergence gate: release-plan current_versions must match the
+// manifests, so they advance in the same stroke (see lib/bump-release-plan.mjs).
+const planPath = resolve(ROOT, 'contracts/sdk/release-plan.json');
+writeFileSync(planPath, bumpReleasePlan(readFileSync(planPath, 'utf8'), version));
+
 console.log(`Set DashClaw version to ${version} in:`);
 console.log('  package.json, sdk/package.json, sdk-python/pyproject.toml');
-console.log('Next: `npm install` to sync package-lock.json, then commit.');
+console.log('  contracts/sdk/release-plan.json (current_versions + reason version refs)');
+console.log('If SDK source changed this release, rewrite the release-plan reasons by hand.');
+console.log('Next: `npm install` to sync package-lock.json, regen the platform guide');
+console.log('(stale after any version bump), then commit — or run the whole recipe:');
+console.log(`  npm run release:prep -- ${version}`);
