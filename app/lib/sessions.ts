@@ -421,6 +421,45 @@ export async function getSessionActions(
   };
 }
 
+// A 'running' session silent for this long is dead, not stalled — nothing in
+// the normal lifecycle ever ends a session the agent abandoned, so without a
+// reaper they fire "session stalled" signals forever (850h stalls observed).
+// Matches the 48h upper bound on the stalled-session signal window in
+// app/lib/signals.ts: 2h..48h is a live incident, past 48h the sweep closes it.
+export const ABANDONED_SESSION_HOURS = 48;
+
+/**
+ * Close 'running' sessions with no activity for ABANDONED_SESSION_HOURS+.
+ * Cross-org by design (called from the outcome-sweep cron, not a request
+ * path). Reuses the existing 'closed' terminal status; the session_event
+ * detail records that the sweep, not an operator, ended it.
+ */
+export async function sweepAbandonedSessions(sql: SqlClient): Promise<SessionRow[]> {
+  await ensureTables(sql);
+
+  const closed = await sql`
+    UPDATE agent_sessions SET
+      status = 'closed',
+      status_since = NOW(),
+      updated_at = NOW()
+    WHERE status = 'running'
+      AND last_activity < NOW() - make_interval(hours => ${ABANDONED_SESSION_HOURS})
+    RETURNING id, org_id, agent_id, last_activity
+  `;
+
+  for (const sess of closed) {
+    await sql`
+      INSERT INTO session_events (session_id, org_id, seq, kind, detail)
+      SELECT ${sess.id}, ${sess.org_id}, COALESCE(MAX(seq), 0) + 1, 'closed',
+             ${`Auto-closed by the outcome sweep after ${ABANDONED_SESSION_HOURS}h without activity`}
+      FROM session_events
+      WHERE session_id = ${sess.id}
+    `;
+  }
+
+  return closed;
+}
+
 // Cap the analyzed window so a runaway session can't balloon the response;
 // coverage.actions_analyzed vs actions_total makes any truncation visible.
 const RETRO_ACTION_LIMIT = 1000;

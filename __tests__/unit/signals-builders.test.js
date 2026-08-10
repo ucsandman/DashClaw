@@ -86,6 +86,15 @@ describe('severity thresholds', () => {
     expect(amber.severity).toBe('amber');
   });
 
+  it('stale_assumption: surfaces the grouped occurrence count in the detail', () => {
+    const [grouped, single] = buildStaleAssumptionSignals([
+      { assumption_id: 's1', assumption: 'x', created_at: daysAgo(35), occurrence_count: '6' },
+      { assumption_id: 's2', assumption: 'y', created_at: daysAgo(35) },
+    ]);
+    expect(grouped.detail).toContain('recorded 6 times');
+    expect(single.detail).not.toContain('recorded');
+  });
+
   it('stale_running_action: red strictly above 24 hours', () => {
     const [red, amber] = buildStaleRunningSignals([
       { action_id: 'a1', timestamp_start: hoursAgo(25) },

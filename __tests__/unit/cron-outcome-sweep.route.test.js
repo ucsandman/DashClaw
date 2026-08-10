@@ -13,6 +13,7 @@ const {
   mockGetSettings,
   mockFireWebhooks,
   mockPublishOrgEvent,
+  mockSweepSessions,
 } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockTimingSafeCompare: vi.fn(),
@@ -21,6 +22,7 @@ const {
   mockGetSettings: vi.fn(),
   mockFireWebhooks: vi.fn(),
   mockPublishOrgEvent: vi.fn(),
+  mockSweepSessions: vi.fn(),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
@@ -36,6 +38,9 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
 }));
 vi.mock('@/lib/repositories/settings.repository.js', () => ({
   getSettings: mockGetSettings,
+}));
+vi.mock('@/lib/sessions.js', () => ({
+  sweepAbandonedSessions: mockSweepSessions,
 }));
 
 import { GET } from '@/api/cron/outcome-sweep/route.js';
@@ -57,6 +62,7 @@ describe('/api/cron/outcome-sweep', () => {
     mockGetSettings.mockResolvedValue([]);
     mockFireWebhooks.mockResolvedValue([]);
     mockPublishOrgEvent.mockResolvedValue(undefined);
+    mockSweepSessions.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -86,7 +92,31 @@ describe('/api/cron/outcome-sweep', () => {
     const res = await GET(req({ authorization: 'Bearer super-secret-cron-token' }));
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data).toEqual({ ok: true, orgs_scanned: 0, rows_swept: 0, webhooks_fired: 0 });
+    expect(data).toEqual({ ok: true, orgs_scanned: 0, rows_swept: 0, webhooks_fired: 0, sessions_closed: 0 });
+  });
+
+  it('reaps abandoned sessions and reports the count', async () => {
+    mockTimingSafeCompare.mockReturnValue(true);
+    mockSweepSessions.mockResolvedValue([
+      { id: 'sess_1', org_id: 'org_a', agent_id: 'agent-1' },
+      { id: 'sess_2', org_id: 'org_b', agent_id: 'agent-2' },
+    ]);
+    const res = await GET(req({ authorization: 'Bearer super-secret-cron-token' }));
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.sessions_closed).toBe(2);
+  });
+
+  it('a session-reap failure does not block the outcome sweep', async () => {
+    mockTimingSafeCompare.mockReturnValue(true);
+    mockSweepSessions.mockRejectedValue(new Error('reap boom'));
+    mockListOrgs.mockResolvedValue(['org_a']);
+    mockSweep.mockResolvedValue([]);
+    const res = await GET(req({ authorization: 'Bearer super-secret-cron-token' }));
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.sessions_closed).toBe(0);
+    expect(data.orgs_scanned).toBe(1);
   });
 
   it('sweeps each org with the resolved per-org timeout', async () => {

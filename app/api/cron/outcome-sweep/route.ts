@@ -12,6 +12,7 @@ import {
   sweepLostOutcomesForOrg,
 } from '../../../lib/repositories/actions.repository';
 import { getSettings } from '../../../lib/repositories/settings.repository';
+import { sweepAbandonedSessions } from '../../../lib/sessions';
 
 const DEFAULT_TIMEOUT_MINUTES = 15;
 const FLOOR_TIMEOUT_MINUTES = 1;
@@ -63,7 +64,18 @@ export async function GET(request: Request) {
     }
 
     const sql = getSql();
-    const summary = { orgs_scanned: 0, rows_swept: 0, webhooks_fired: 0 };
+    const summary = { orgs_scanned: 0, rows_swept: 0, webhooks_fired: 0, sessions_closed: 0 };
+
+    // Reap abandoned sessions first (cross-org): a 'running' session dead for
+    // 48h+ otherwise stays 'running' forever and pollutes /sessions and the
+    // stalled-session signal. Best-effort — a reap failure must not block the
+    // outcome sweep below.
+    try {
+      const closedSessions = await sweepAbandonedSessions(sql);
+      summary.sessions_closed = closedSessions.length;
+    } catch (err) {
+      console.warn('[outcome-sweep] session reap failed:', (err as Error).message);
+    }
 
     const orgIds = await listOrgsWithStaleOutcomes(sql, FLOOR_TIMEOUT_MINUTES);
 

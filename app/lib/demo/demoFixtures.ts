@@ -203,6 +203,33 @@ function buildFixtures(): Record<string, unknown> {
       detected_at: isoFromNow(2 * MS_HOUR),
       created_at: isoFromNow(2 * MS_HOUR),
     },
+    // A multi-occurrence type so the demo shows the panel's grouped view
+    // (one collapsed line per type), not just singleton rows.
+    ...[
+      'the staging database mirrors production schema',
+      'deploy window excludes business hours',
+      'rate limits are enforced upstream',
+      'the rollback script restores the previous release',
+    ].map((assumption, i) => ({
+      severity: 'red',
+      type: 'stale_assumption',
+      label: `Unverified decision basis (${31 + i}d): ${assumption}`,
+      detail: `This assumption has not been verified for ${31 + i} days and may no longer support sound decisions.`,
+      agent_id: 'deploy-bot',
+      assumption_id: `demo-asm-${i}`,
+      detected_at: isoFromNow((31 + i) * 24 * MS_HOUR),
+      created_at: isoFromNow((31 + i) * 24 * MS_HOUR),
+    })),
+    ...[3, 5].map((h, i) => ({
+      severity: h >= 4 ? 'red' : 'amber',
+      type: 'session_stalled',
+      label: `Session stalled (${h}h): ${i === 0 ? 'security-scanner' : 'deploy-bot'}`,
+      detail: `Session demo-sess-${i} has been running with no tool activity for ${h} hours`,
+      agent_id: i === 0 ? 'security-scanner' : 'deploy-bot',
+      session_id: `demo-sess-${i}`,
+      detected_at: isoFromNow(h * MS_HOUR),
+      created_at: isoFromNow(h * MS_HOUR),
+    })),
   ];
 
   const routingHealth = { status: 'healthy' };

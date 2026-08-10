@@ -94,6 +94,70 @@ describe('GovernanceSignalsPanel', () => {
     expect(link.getAttribute('href')).toBe('/decisions/act_123');
   });
 
+  it('groups signals by type; a big group starts collapsed as one line', async () => {
+    const flood = Array.from({ length: 6 }, (_, i) => ({
+      type: 'stale_assumption', severity: 'red',
+      label: `Unverified decision basis (35d): assumption ${i}`,
+      assumption_id: `asm_${i}`, detected_at: `2026-08-0${(i % 5) + 1}T10:00:00Z`,
+    }));
+    global.fetch = stubSignalsFetch([...SIGNALS, ...flood]);
+    render(<GovernanceSignalsPanel initialSeverity={null} />);
+    await waitFor(() => expect(screen.getAllByTestId('signal-group')).toHaveLength(4));
+    // The 6-signal group is collapsed: its rows are not in the DOM, only the 3
+    // singleton groups' rows are.
+    expect(screen.getAllByTestId('signal-row')).toHaveLength(3);
+    // Expanding it reveals the rows.
+    fireEvent.click(screen.getByLabelText('Toggle Unverified assumptions signals'));
+    await waitFor(() => expect(screen.getAllByTestId('signal-row')).toHaveLength(9));
+  });
+
+  it('group Dismiss all POSTs every occurrence key in the group', async () => {
+    const flood = Array.from({ length: 4 }, (_, i) => ({
+      type: 'session_stalled', severity: 'red',
+      label: `Session stalled (10h): agent-${i}`,
+      session_id: `sess_${i}`, detected_at: `2026-08-09T0${i}:00:00Z`,
+    }));
+    global.fetch = stubSignalsFetch([...SIGNALS, ...flood]);
+    render(<GovernanceSignalsPanel initialSeverity={null} />);
+    await waitFor(() => expect(screen.getAllByTestId('signal-group')).toHaveLength(4));
+    fireEvent.click(screen.getByLabelText('Dismiss all Stalled sessions signals'));
+    await waitFor(() => expect(screen.getAllByTestId('signal-group')).toHaveLength(3));
+    const post = global.fetch.mock.calls.find(([, opts]) => opts?.method === 'POST');
+    const body = JSON.parse(post[1].body);
+    expect(body.dismiss_keys).toHaveLength(4);
+    expect(body.dismiss_keys).toContain(signalDismissKey(flood[0]));
+  });
+
+  it('global Dismiss all clears every visible signal in one click', async () => {
+    render(<GovernanceSignalsPanel initialSeverity={null} />);
+    await waitFor(() => expect(screen.getAllByTestId('signal-row')).toHaveLength(3));
+    fireEvent.click(screen.getByText('Dismiss all 3'));
+    await waitFor(() => expect(screen.queryAllByTestId('signal-row')).toHaveLength(0));
+    const post = global.fetch.mock.calls.find(([, opts]) => opts?.method === 'POST');
+    const body = JSON.parse(post[1].body);
+    expect(body.dismiss_keys).toHaveLength(3);
+  });
+
+  it('links assumption and session signals to their surfaces', async () => {
+    const extra = [
+      {
+        type: 'stale_assumption', severity: 'red',
+        label: 'Unverified decision basis (35d): x',
+        assumption_id: 'asm_1', detected_at: '2026-08-01T10:00:00Z',
+      },
+      {
+        type: 'session_stalled', severity: 'red',
+        label: 'Session stalled (10h): agent-z',
+        session_id: 'sess_9', detected_at: '2026-08-09T01:00:00Z',
+      },
+    ];
+    global.fetch = stubSignalsFetch(extra);
+    render(<GovernanceSignalsPanel initialSeverity={null} />);
+    await waitFor(() => expect(screen.getAllByTestId('signal-row')).toHaveLength(2));
+    expect(screen.getByText('Validate or invalidate on Assumptions →').getAttribute('href')).toBe('/assumptions');
+    expect(screen.getByText('View the session →').getAttribute('href')).toBe('/sessions/sess_9');
+  });
+
   it('tier chips re-filter without refetching', async () => {
     render(<GovernanceSignalsPanel initialSeverity={null} />);
     await waitFor(() => expect(screen.getAllByTestId('signal-row')).toHaveLength(3));

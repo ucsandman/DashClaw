@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createSqlMock } from '../helpers.js';
-import { updateSession, listSessions, getSession, getSessionActions, TERMINAL_STATUSES } from '../../app/lib/sessions.js';
+import { updateSession, listSessions, getSession, getSessionActions, sweepAbandonedSessions, TERMINAL_STATUSES, ABANDONED_SESSION_HOURS } from '../../app/lib/sessions.js';
 
 // ensureTables() is gated on a globalThis flag and fires CREATE TABLE/INDEX
 // round-trips on first call. Pin it true so each test exercises only the
@@ -155,5 +155,40 @@ describe('TERMINAL_STATUSES export', () => {
     for (const s of ['finished', 'failed', 'closed', 'completed', 'cancelled']) {
       expect(TERMINAL_STATUSES).toContain(s);
     }
+  });
+});
+
+describe('sweepAbandonedSessions', () => {
+  it('closes running sessions past the abandonment window and logs one event each', async () => {
+    const sql = createSqlMock({ taggedResponses: [
+      [
+        { id: 'sess_1', org_id: 'org_a', agent_id: 'agent-1' },
+        { id: 'sess_2', org_id: 'org_b', agent_id: 'agent-2' },
+      ], // UPDATE ... RETURNING
+      [], [], // one session_events INSERT per closed session
+    ] });
+
+    const closed = await sweepAbandonedSessions(sql);
+    expect(closed).toHaveLength(2);
+
+    const update = sql.taggedCalls[0];
+    expect(update.text).toMatch(/UPDATE agent_sessions/);
+    expect(update.text).toMatch(/status = 'closed'/);
+    expect(update.text).toMatch(/status = 'running'/);
+    expect(update.values).toContain(ABANDONED_SESSION_HOURS);
+
+    const events = sql.taggedCalls.slice(1);
+    expect(events).toHaveLength(2);
+    for (const ev of events) {
+      expect(ev.text).toMatch(/INSERT INTO session_events/);
+      expect(ev.values.join(' ')).toContain('Auto-closed by the outcome sweep');
+    }
+  });
+
+  it('inserts no events when nothing is stale', async () => {
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const closed = await sweepAbandonedSessions(sql);
+    expect(closed).toHaveLength(0);
+    expect(sql.taggedCalls).toHaveLength(1);
   });
 });

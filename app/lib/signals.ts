@@ -129,11 +129,17 @@ export function buildStaleAssumptionSignals(staleAssumptions: Row[]): Signal[] {
   const signals: Signal[] = [];
   for (const asm of staleAssumptions) {
     const daysOld = Math.round((Date.now() - new Date(asm.created_at).getTime()) / (1000 * 60 * 60 * 24));
+    // Rows arrive pre-grouped by assumption text (occurrence_count = how many
+    // times agents re-recorded the same assumption) — one signal per distinct
+    // assumption, not one per recording.
+    const occurrences = parseInt(asm.occurrence_count, 10) || 1;
     signals.push({
       type: 'stale_assumption',
       severity: daysOld > 30 ? 'red' : 'amber',
       label: `Unverified decision basis (${daysOld}d): ${asm.assumption?.substring(0, 50) || 'Unknown'}`,
-      detail: `This assumption has not been verified for ${daysOld} days and may no longer support sound decisions.`,
+      detail: occurrences > 1
+        ? `This assumption has not been verified for ${daysOld} days and was recorded ${occurrences} times. It may no longer support sound decisions.`
+        : `This assumption has not been verified for ${daysOld} days and may no longer support sound decisions.`,
       help: 'Unverified assumptions weaken the decision basis. Validate or invalidate to maintain decision integrity.',
       agent_id: asm.agent_id,
       assumption_id: asm.assumption_id,
@@ -469,16 +475,22 @@ export async function computeSignals(
       HAVING COUNT(*) >= 2
       ORDER BY invalidation_count DESC
     `,
+    // Grouped by assumption text: the same assumption re-recorded across many
+    // sessions used to emit one signal PER ROW — 6 identical "Migration
+    // add-indexes is idempotent" criticals. One signal per distinct assumption,
+    // oldest occurrence's id/timestamp as the stable dismiss identity.
     sql`
-      SELECT a.assumption_id, a.assumption, a.created_at, a.action_id,
-             ar.agent_id, ar.agent_name
+      SELECT MIN(a.assumption_id) AS assumption_id, a.assumption,
+             MIN(a.created_at) AS created_at, COUNT(*) AS occurrence_count,
+             MIN(ar.agent_id) AS agent_id, MIN(ar.agent_name) AS agent_name
       FROM assumptions a
       LEFT JOIN action_records ar ON a.action_id = ar.action_id
       WHERE a.validated = 0
         AND a.org_id = ${orgId}
         AND a.invalidated = 0
         AND a.created_at < NOW() - INTERVAL '14 days'
-      ORDER BY a.created_at ASC
+      GROUP BY a.assumption
+      ORDER BY MIN(a.created_at) ASC
       LIMIT 10
     `,
     sql`
@@ -521,14 +533,20 @@ export async function computeSignals(
     // Integration mismatch inputs — table may not exist yet; skip silently (null).
     sql`SELECT DISTINCT provider, agent_id FROM agent_connections WHERE org_id = ${orgId} AND status = 'active'`.catch(() => null),
     sql`SELECT provider, status, checked_at FROM integration_health WHERE org_id = ${orgId}`.catch(() => null),
-    // Stalled sessions — best-effort, silent on failure.
+    // Stalled sessions — best-effort, silent on failure. The 48h UPPER bound
+    // mirrors the agent_presence query above and is equally load-bearing:
+    // nothing used to reap a session left in 'running', so week-old dead
+    // sessions fired "stalled (850h)" criticals forever and buried real
+    // incidents. Past 48h the outcome-sweep cron closes the session instead.
     sql`
       SELECT id, agent_id, status, last_activity, status_since
       FROM agent_sessions
       WHERE org_id = ${orgId}
         AND status = 'running'
         AND last_activity < NOW() - INTERVAL '2 hours'
+        AND last_activity > NOW() - INTERVAL '48 hours'
         ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
+      LIMIT 10
     `.catch(() => null),
     // Guard-decision intel categories — best-effort, warn on failure.
     sql`
