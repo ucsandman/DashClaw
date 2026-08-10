@@ -1,13 +1,18 @@
-# Publishes the SDKs when a version tag is pushed (v5.12.0 style).
+# Publishes the SDKs and the CLI when a version tag is pushed (v5.12.0 style).
 # Auth is trusted publishing (OIDC) on both registries: no NPM_TOKEN or
 # PYPI_API_TOKEN secrets exist to leak. Registry-side setup (one time):
 #   PyPI:  project dashclaw -> Manage -> Publishing -> add GitHub publisher
 #          (ucsandman/DashClaw, workflow release.yml)
 #   npm:   package dashclaw -> Settings -> Trusted Publisher
 #          (ucsandman/DashClaw, workflow release.yml)
+#   npm:   package @dashclaw/cli -> Settings -> Trusted Publisher
+#          (ucsandman/DashClaw, workflow release.yml)
 # The guard job makes version drift structurally impossible: nothing
 # publishes unless the tag, sdk/package.json, and sdk-python/pyproject.toml
-# all agree.
+# all agree. The CLI versions independently (0.x); its job publishes only
+# when cli/package.json is ahead of the registry.
+# workflow_dispatch = the "publish now" button: every job skips anything
+# already on the registry, so a manual run only publishes what is missing.
 
 name: release
 
@@ -15,6 +20,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,7 +31,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Manual dispatch — skip tag drift check
+        if: github.ref_type != 'tag'
+        run: echo "workflow_dispatch run — per-package skip-if-published guards apply"
       - name: Tag matches both SDK versions
+        if: github.ref_type == 'tag'
         run: |
           TAG="${GITHUB_REF_NAME#v}"
           NPM_V=$(node -p "require('./sdk/package.json').version")
@@ -54,6 +64,28 @@ jobs:
           LOCAL=$(node -p "require('./package.json').version")
           if [ "$PUBLISHED" = "$LOCAL" ]; then
             echo "npm already at $LOCAL; skipping"
+            exit 0
+          fi
+          npm publish --provenance --access public
+
+  publish-cli:
+    needs: versions-match
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Ensure npm supports trusted publishing
+        run: npm install -g npm@latest
+      - name: Publish @dashclaw/cli to npm (skips if version already published)
+        working-directory: cli
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          PUBLISHED=$(npm view @dashclaw/cli@"$LOCAL" version 2>/dev/null || echo "none")
+          if [ "$PUBLISHED" = "$LOCAL" ]; then
+            echo "npm already has @dashclaw/cli@$LOCAL; skipping"
             exit 0
           fi
           npm publish --provenance --access public

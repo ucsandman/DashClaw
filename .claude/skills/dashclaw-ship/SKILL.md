@@ -34,11 +34,15 @@ is to *resolve that blocker and drive the code to main*, then confirm the deploy
 The accuracy sweep below is the *means*, not the end; stale docs are just one
 blocker. The end state is: **our code is on main and the deploy is live.**
 
-The one thing the skill genuinely cannot finish itself is the credential-gated
-SDK publish (`npm run release:sdks` needs the owner's `npm login` + a PyPI token).
+Registry publishing is automated: pushing the version tag fires `release.yml`,
+which publishes the SDKs **and `@dashclaw/cli`** via OIDC trusted publishing
+(each job skips versions already on the registry). `npm run release:sdks` is
+the local fallback (needs the owner's `npm login` + a PyPI token) and the
+Actions "Run workflow" button on release.yml is the manual re-trigger.
+**If `cli/**` source changed this ship, bump `cli/package.json` in the same
+commit** — npm serves stale content forever under an unbumped version.
 Everything else — gates, version bump, doc accuracy, **merging a feature branch
-into main, and pushing** so Vercel deploys — the skill does end to end. Reduce
-that one handoff to a single copy-paste line; defer nothing else.
+into main, and pushing** so Vercel deploys — the skill does end to end.
 
 **If the work is on a feature branch (not `main`), landing it is part of the
 job** — rebase the branch onto the latest main, resolve any conflict (generated

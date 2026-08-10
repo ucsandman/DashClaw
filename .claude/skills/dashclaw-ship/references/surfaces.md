@@ -124,9 +124,9 @@ All *displayed* version strings (Sidebar build stamp, `/docs`, `/downloads`) der
 
 **Increment:** major = breaking SDK change; minor = additive method/route/subsystem; patch = platform-only / hardening / docs-accuracy sweep. The version *number* bumps on every ship (the unified manifests + `release-plan.json` must agree — both `version:sync:check` and `contracts:check` enforce it). The **publish** is what's conditional: republish the SDKs only when the SDK *source* changed this release (diff `git diff --name-only <base>..HEAD -- sdk sdk-python` before the bump). A platform-only ship advances the number but leaves npm + PyPI at the last SDK release.
 
-**Publishing is owner-only.** `npm run release:sdks` builds + uploads both packages to npm + PyPI (needs `npm login` + a PyPI token) and is idempotent (skips versions already on the registry). This skill **reminds** — and only when the SDK source changed — it never runs it.
+**Publishing is automated on tag push.** `release.yml` publishes the SDKs and `@dashclaw/cli` via OIDC trusted publishing when the version tag lands (each job skips versions already on the registry; the CLI job publishes only when `cli/package.json` is ahead of npm). `npm run release:sdks` is the owner-run local fallback (needs `npm login` + a PyPI token) and covers the same three packages; the Actions "Run workflow" button re-triggers publishing without a new tag.
 
-**Out of the sync check:** the plugin bundle (`plugins/dashclaw/.claude-plugin/plugin.json`) and the CLI version independently — bump those only if the plugin/CLI itself changed. For a **major** bump, leave the repo-root self-dep (`"dashclaw": "^4.x"`) on the OLD major until `release:sdks` has published, or `npm ci` in CI fails on an unresolvable lockfile.
+**Out of the sync check:** the plugin bundle (`plugins/dashclaw/.claude-plugin/plugin.json`) and the CLI version independently — bump those only if the plugin/CLI itself changed. **A `cli/**` source change without a `cli/package.json` bump ships stale bits under the same npm version — always bump the CLI version in the same commit.** For a **major** bump, leave the repo-root self-dep (`"dashclaw": "^4.x"`) on the OLD major until the SDK publish has run, or `npm ci` in CI fails on an unresolvable lockfile.
 
 ## Boundary reminders (so docs stay truthful)
 

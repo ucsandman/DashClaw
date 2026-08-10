@@ -109,6 +109,31 @@ async function release() {
     return;
   }
 
+  // --- 3. CLI (npm, versions independently of the SDKs) ---
+  try {
+    log(`\n🔧 Step 3: Publishing @dashclaw/cli to npm...`, YELLOW);
+    process.chdir(path.join(rootDir, 'cli'));
+
+    const cliVersion = readJsonVersion(path.join(rootDir, 'cli', 'package.json'));
+    if (npmVersionExists('@dashclaw/cli', cliVersion)) {
+      log(`⏭  npm @dashclaw/cli@${cliVersion} already published — skipping (nothing to release).`, YELLOW);
+    } else {
+      try {
+        execSync('npm whoami', { stdio: 'ignore' });
+      } catch {
+        log(`❌ Error: You are not logged into npm. Run "npm login" first.`, RED);
+        process.exit(1);
+      }
+
+      execSync('npm publish --access public', { stdio: 'inherit' });
+      log(`✅ CLI published successfully!`, GREEN);
+    }
+  } catch (err) {
+    log(`❌ Failed to publish CLI: ${err.message}`, RED);
+    process.exitCode = 1;
+    return;
+  }
+
   process.chdir(rootDir);
   log(`\n✨ Unified Release Complete!`, GREEN);
 }
