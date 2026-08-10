@@ -182,9 +182,27 @@ function buildFixtures(): Record<string, unknown> {
     change_percent: 18,
   };
 
+  // Mirror the real computeSignals shape (label/detail/detected_at) — the
+  // /decisions Governance Signals panel renders these fields directly.
   const signals = [
-    { severity: 'red', type: 'autonomy_spike', agent_id: 'deploy-bot', created_at: isoFromNow(MS_HOUR) },
-    { severity: 'amber', type: 'stale_action', agent_id: 'security-scanner', created_at: isoFromNow(2 * MS_HOUR) },
+    {
+      severity: 'red',
+      type: 'autonomy_spike',
+      label: 'Governance alert: deploy-bot (142 ungoverned decisions/hr)',
+      detail: 'This agent made 142 decisions in the last hour without proportional oversight, exceeding the governance threshold.',
+      agent_id: 'deploy-bot',
+      detected_at: isoFromNow(MS_HOUR),
+      created_at: isoFromNow(MS_HOUR),
+    },
+    {
+      severity: 'amber',
+      type: 'stale_action',
+      label: 'Action running past its expected window: security-scanner',
+      detail: 'A long-running action has not reported an outcome within its expected window.',
+      agent_id: 'security-scanner',
+      detected_at: isoFromNow(2 * MS_HOUR),
+      created_at: isoFromNow(2 * MS_HOUR),
+    },
   ];
 
   const routingHealth = { status: 'healthy' };

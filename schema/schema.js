@@ -1208,6 +1208,20 @@ export const signalSnapshots = pgTable('signal_snapshots', {
   uniqueOrgHash: uniqueIndex('signal_snapshots_org_hash_unique').on(table.orgId, table.signalHash),
 }));
 
+// Server-side signal dismissals (moved out of browser localStorage so every
+// surface — banner, signals panel, widget pulse, guard, cron — subtracts the
+// SAME dismissed set). dismiss_key is the per-occurrence signalDismissKey;
+// a new occurrence of the same condition produces a new key and re-fires.
+export const signalDismissals = pgTable('signal_dismissals', {
+  id: serial('id').primaryKey(),
+  orgId: text('org_id').notNull(),
+  dismissKey: text('dismiss_key').notNull(),
+  dismissedBy: text('dismissed_by'),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  uniqueOrgKey: uniqueIndex('signal_dismissals_org_key_unique').on(table.orgId, table.dismissKey),
+}));
+
 export const workflows = pgTable('workflows', {
   id: serial('id').primaryKey(),
   orgId: text('org_id').notNull(),

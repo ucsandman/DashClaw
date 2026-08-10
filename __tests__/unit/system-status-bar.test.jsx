@@ -11,7 +11,8 @@ vi.mock('@/hooks/useRealtime', () => ({ useRealtime: () => {} }));
 import SystemStatusBar from '@/components/SystemStatusBar';
 
 function mockSignals(signals) {
-  global.fetch = vi.fn(async (url) => {
+  global.fetch = vi.fn(async (url, opts = {}) => {
+    if ((opts.method || 'GET') === 'POST') return { ok: true, json: async () => ({ dismissed: 0 }) };
     if (String(url).startsWith('/api/signals')) return { ok: true, json: async () => ({ signals }) };
     return { ok: true, json: async () => ({}) };
   });
@@ -34,15 +35,14 @@ describe('SystemStatusBar ticker', () => {
     ]);
     const { container } = render(<SystemStatusBar />);
 
-    // The dedicated /security dashboard was removed in the v5 cull; both severity
-    // tiers now deep-link to the decisions ledger, so the links are distinguished
-    // by their label rather than a per-severity href.
-    await waitFor(() => expect(container.querySelector('a[href="/decisions"]')).toBeTruthy());
-    const links = Array.from(container.querySelectorAll('a[href="/decisions"]'));
-    const red = links.find((a) => a.textContent.includes('Critical'));
-    expect(red).toBeTruthy();
-    const amber = links.find((a) => a.textContent.includes('Elevated'));
-    expect(amber).toBeTruthy();
+    // Each tier deep-links to the decisions ledger seeded with its severity,
+    // so clicking "N Critical" lands on exactly those N signals in the
+    // GovernanceSignalsPanel (see SEVERITY_ROUTE).
+    await waitFor(() => expect(container.querySelector('a[href="/decisions?severity=red"]')).toBeTruthy());
+    const red = container.querySelector('a[href="/decisions?severity=red"]');
+    expect(red.textContent).toContain('Critical');
+    const amber = container.querySelector('a[href="/decisions?severity=amber"]');
+    expect(amber.textContent).toContain('Elevated');
   });
 
   it('shows the All clear state with no severity links when there are no signals', async () => {
@@ -53,5 +53,27 @@ describe('SystemStatusBar ticker', () => {
     const links = Array.from(container.querySelectorAll('a[href="/decisions"]'));
     expect(links.some((a) => a.textContent.includes('Critical'))).toBe(false);
     expect(links.some((a) => a.textContent.includes('Elevated'))).toBe(false);
+  });
+
+  it('migrates a legacy localStorage dismissed set to the server once', async () => {
+    localStorage.setItem('dashclaw_dismissed_signals', JSON.stringify(['k1', 'k2']));
+    mockSignals([]);
+    render(<SystemStatusBar />);
+
+    await waitFor(() => {
+      const post = global.fetch.mock.calls.find(([, opts]) => opts?.method === 'POST');
+      expect(post).toBeTruthy();
+      expect(post[0]).toBe('/api/signals');
+      expect(JSON.parse(post[1].body).dismiss_keys).toEqual(['k1', 'k2']);
+    });
+    // The local copy is gone — the server set is now the only source of truth.
+    await waitFor(() => expect(localStorage.getItem('dashclaw_dismissed_signals')).toBeNull());
+  });
+
+  it('does not POST a migration when there is no legacy local set', async () => {
+    mockSignals([]);
+    render(<SystemStatusBar />);
+    await waitFor(() => expect(screen.getByText('All clear')).toBeTruthy());
+    expect(global.fetch.mock.calls.some(([, opts]) => opts?.method === 'POST')).toBe(false);
   });
 });

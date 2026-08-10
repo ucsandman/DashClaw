@@ -2855,6 +2855,13 @@
       "liveVerified": true
     },
     {
+      "item": "POST /api/signals",
+      "kind": "api",
+      "status": "experimental",
+      "section": "Risk Signals (#api-signals)",
+      "liveVerified": false
+    },
+    {
       "item": "POST /api/scoring/calibrate",
       "kind": "api",
       "status": "experimental",

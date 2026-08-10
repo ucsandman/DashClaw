@@ -26,8 +26,9 @@ describe('filterSignalsBySeverity', () => {
 
   it('exposes the canonical severity→route map', () => {
     // The dedicated /security dashboard was removed in the v5 cull; governance
-    // signals now live on the decisions ledger, so both tiers deep-link there.
-    expect(SEVERITY_ROUTE.red).toBe('/decisions');
-    expect(SEVERITY_ROUTE.amber).toBe('/decisions');
+    // signals live on the decisions ledger, and the ?severity= param seeds the
+    // GovernanceSignalsPanel there so the clicked count lands on those rows.
+    expect(SEVERITY_ROUTE.red).toBe('/decisions?severity=red');
+    expect(SEVERITY_ROUTE.amber).toBe('/decisions?severity=amber');
   });
 });

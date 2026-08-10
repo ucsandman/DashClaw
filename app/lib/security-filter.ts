@@ -2,16 +2,17 @@
  * Canonical severity → route map. The SystemStatusBar ticker and any signal
  * deep-link use these so the mapping lives in exactly one place.
  *
- *   red   → /decisions    (critical signals)
- *   amber → /decisions    (elevated signals)
+ *   red   → /decisions?severity=red     (critical signals)
+ *   amber → /decisions?severity=amber   (elevated signals)
  *
  * The dedicated /security dashboard was removed in the v5 cull; governance
- * signals now live on the decisions ledger, so both tiers deep-link there
- * (matching the SystemStatusBar total-count link).
+ * signals now live on the decisions ledger. The ?severity= param seeds the
+ * GovernanceSignalsPanel there, so clicking "N Critical" lands on exactly
+ * those N signals instead of the unfiltered ledger.
  */
 export const SEVERITY_ROUTE = {
-  red: '/decisions',
-  amber: '/decisions',
+  red: '/decisions?severity=red',
+  amber: '/decisions?severity=amber',
 } as const;
 
 export type SignalSeverity = keyof typeof SEVERITY_ROUTE;

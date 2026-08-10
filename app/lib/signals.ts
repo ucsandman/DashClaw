@@ -632,10 +632,24 @@ export async function computeSignals(
     }
   } catch (e) { warnNull('approval_flood')(e); }
 
+  // ── Server-side dismissals — subtract the org's dismissed occurrence keys
+  // here, at the single choke point, so EVERY consumer (status bar, signals
+  // panel, widget pulse, guard warnings, signals cron) sees the same set.
+  // Fail-open: a dismissal read failure must never hide or break signals.
+  let visibleSignals = signals;
+  try {
+    const { listDismissKeys } = await import('./repositories/signal-dismissals.repository');
+    const { signalDismissKey } = await import('./signal-hash');
+    const dismissed = new Set(await listDismissKeys(sql as never, orgId));
+    if (dismissed.size > 0) {
+      visibleSignals = signals.filter((s) => !dismissed.has(signalDismissKey(s)));
+    }
+  } catch (e) { warnNull('signal_dismissals')(e); }
+
   // Post-filter by agent_id if requested
   const filteredSignals = filterAgentId
-    ? signals.filter((s) => s.agent_id === filterAgentId)
-    : signals;
+    ? visibleSignals.filter((s) => s.agent_id === filterAgentId)
+    : visibleSignals;
 
   // Sort: red first, then amber
   filteredSignals.sort((a, b) => {

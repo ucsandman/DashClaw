@@ -123,4 +123,21 @@ describe('/decisions URL param deep links', () => {
       expect(window.location.search).not.toContain('decision=');
     });
   });
+
+  it('?severity=red seeds the signals panel and survives the URL sync', async () => {
+    // SystemStatusBar "N Critical" quick link — severity is a signals-panel
+    // param, not an actions filter: it must render the panel filtered to red
+    // and must NOT leak into the /api/actions fetch or get dropped from the URL.
+    // The URL-sync effect reads the REAL location (not the mocked
+    // useSearchParams), so seed both.
+    window.history.replaceState(null, '', '/decisions?severity=red');
+    await renderWith('severity=red');
+    expect(await screen.findByTestId('governance-signals-panel')).toBeTruthy();
+    await waitFor(() => {
+      const urls = actionFetchUrls(global.fetch);
+      expect(urls.length).toBeGreaterThan(0);
+      expect(urls[0]).not.toContain('severity');
+    });
+    expect(window.location.search).toContain('severity=red');
+  });
 });

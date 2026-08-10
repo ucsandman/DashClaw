@@ -3745,7 +3745,7 @@
           "kind": "api",
           "status": "experimental",
           "interface": "GET /api/signals",
-          "purpose": "Computes and returns current risk signals for the org (optionally filtered to one agent) via app/lib/signals computeSignals.",
+          "purpose": "Computes and returns current risk signals for the org (optionally filtered to one agent) via app/lib/signals computeSignals. Occurrences dismissed via POST /api/signals are subtracted server-side before the response.",
           "auth": "x-api-key",
           "inputs": {
             "query.agent_id": "string, optional"
@@ -3753,6 +3753,22 @@
           "response": "{ signals: Signal[], counts: { red, amber, total }, lastUpdated }",
           "errors": "500 { error: 'An error occurred while computing risk signals', signals: [], counts: { red:0, amber:0, total:0 } } — error body still includes empty signals/counts so callers don't need special-case handling",
           "gotchas": "Per project memory (reference_dashclaw_signals_rewrite_and_reputation_scale), signals severity here is red/amber (not numeric); the module caches its own sql client at module scope (getSql helper) separate from the shared db.ts default export pattern used elsewhere.",
+          "file": "app/api/signals/route.ts"
+        },
+        {
+          "id": "post-api-signals",
+          "name": "POST /api/signals",
+          "kind": "api",
+          "status": "experimental",
+          "interface": "POST /api/signals",
+          "purpose": "Dismisses signal occurrences server-side (signal_dismissals table) so every surface — status bar, decisions signals panel, widget pulse, guard warnings, signals cron — subtracts the same set. Keys are per-occurrence signalDismissKey values; a new occurrence of the same condition re-fires.",
+          "auth": "x-api-key",
+          "inputs": {
+            "body.dismiss_keys": "string[], required, 1-1000 keys, each <= 600 chars"
+          },
+          "response": "{ dismissed: number, received: number } — dismissed counts only newly-inserted keys; re-dismissing is an idempotent no-op",
+          "errors": "400 on a missing/empty/oversized dismiss_keys array or non-string keys; 500 { error } on a write failure",
+          "gotchas": "Dismissal is a human triage action surfaced in the /decisions Governance Signals panel — it is deliberately not an SDK method. Browsers holding the legacy localStorage dismissed set (dashclaw_dismissed_signals) bulk-migrate it here once via the SystemStatusBar, then delete the local copy.",
           "file": "app/api/signals/route.ts"
         }
       ]

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import PageLayout from '../components/PageLayout';
 import ObserveModeBanner from '../components/ObserveModeBanner';
+import GovernanceSignalsPanel from '../components/GovernanceSignalsPanel';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -124,6 +125,12 @@ function DecisionsLedgerInner() {
   // Seed once — later filter changes write back to the URL (replaceState),
   // they don't re-read it, so there's no router churn loop.
   const [initialFilters] = useState(() => readInitialFilters(searchParams));
+  // ?severity=red|amber (SystemStatusBar quick links) seeds the signals panel,
+  // not the actions fetch — signals and ledger rows are different objects.
+  const [initialSeverity] = useState<'red' | 'amber' | null>(() => {
+    const s = (searchParams?.get('severity') || '').trim();
+    return s === 'red' || s === 'amber' ? s : null;
+  });
 
   const [actions, setActions] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({});
@@ -522,6 +529,10 @@ function DecisionsLedgerInner() {
 
       {/* F0: a ledger of verdicts nobody enforces must say so before the rows. */}
       <ObserveModeBanner />
+
+      {/* Signals breakdown — landing surface for the top-bar "N Critical" /
+          "N Elevated" quick links (?severity=). */}
+      <GovernanceSignalsPanel initialSeverity={initialSeverity} />
 
       {/* Stats rail — instrument strip, not a grid of identical cards */}
       <div className="mb-6 overflow-hidden rounded-xl border border-border bg-surface-tertiary">

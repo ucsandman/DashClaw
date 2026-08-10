@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useRealtime } from '../hooks/useRealtime';
 import { SEVERITY_ROUTE } from '../lib/security-filter';
-import { signalDismissKey as getSignalHash } from '../lib/signal-hash';
 
 // POSTURE LOGIC: Standardized across the platform.
 // Per .impeccable.md "calm under pressure": the bar does not pulse. A live
@@ -40,21 +39,42 @@ export default function SystemStatusBar() {
     return () => clearInterval(interval);
   }, [fetchSignals]);
 
+  // One-time migration: dismissals used to live ONLY in this browser's
+  // localStorage, which made the bar disagree with every server-computed
+  // surface (widget pulse, other browsers). Push any legacy local set to the
+  // server (idempotent), then drop the local copy. On failure the local key
+  // stays and the next page load retries.
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('dashclaw_dismissed_signals');
+      const keys = stored ? JSON.parse(stored) : [];
+      if (!Array.isArray(keys) || keys.length === 0) return;
+      fetch('/api/signals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dismiss_keys: keys.slice(0, 1000) }),
+      }).then((res) => {
+        if (res.ok) {
+          localStorage.removeItem('dashclaw_dismissed_signals');
+          fetchSignals();
+        }
+      }).catch((err) => {
+        console.warn('Failed to migrate dismissed signals to server:', err);
+      });
+    } catch { /* corrupt local state — leave it alone */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useRealtime(useCallback((event: any) => {
     if (event === 'signal.detected') {
       fetchSignals();
     }
   }, [fetchSignals]));
 
-  // APPLY DISMISSAL FILTER (Consistency with Approvals + live feed)
-  const activeSignals = useMemo(() => {
-    if (!signals) return [];
-    try {
-      const stored = typeof window !== 'undefined' ? localStorage.getItem('dashclaw_dismissed_signals') : null;
-      const dismissedSet = stored ? new Set(JSON.parse(stored)) : new Set();
-      return signals.filter(s => !dismissedSet.has(getSignalHash(s)));
-    } catch { return signals; }
-  }, [signals]);
+  // Dismissals are subtracted server-side in computeSignals since the
+  // signal_dismissals table landed — what arrives here is already the
+  // active set every other surface sees.
+  const activeSignals = signals || [];
 
   if (!signals) return null;
 
