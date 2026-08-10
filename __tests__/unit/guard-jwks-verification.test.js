@@ -68,7 +68,7 @@ vi.mock('node:dns/promises', () => ({
   lookup: vi.fn(async () => [{ address: '93.184.216.34', family: 4 }]),
 }));
 
-import { verifyJwt, extractBearerToken, _resetStateForTesting } from '@/lib/jwks-verifier.js';
+import { verifyJwt, extractBearerToken, looksLikeJwt, _resetStateForTesting } from '@/lib/jwks-verifier.js';
 import { ACT_BINDING_CLAIM } from '@/lib/act-binding.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -351,5 +351,21 @@ describe('/api/guard — Phase 2 verification_status on no-token path', () => {
       mockSql,
       expect.any(Object)
     );
+  });
+});
+
+describe('looksLikeJwt — is this bearer an identity claim at all?', () => {
+  it('accepts a JWT-shaped token, including alg:none (empty signature)', () => {
+    expect(looksLikeJwt('eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJhZ3RfMSJ9.c2ln')).toBe(true);
+    expect(looksLikeJwt('eyJhbGciOiJub25lIn0.eyJzdWIiOiJhZ3RfMSJ9.')).toBe(true);
+  });
+
+  it('rejects opaque credentials — the OAuth AS token and API keys', () => {
+    expect(looksLikeJwt('oat_ZmFrZW9hdXRodG9rZW4')).toBe(false);
+    expect(looksLikeJwt('dc_live_abc123')).toBe(false);
+    expect(looksLikeJwt('not.a.real.jwt.with.too.many.dots')).toBe(false);
+    expect(looksLikeJwt('.eyJzdWIiOiJhIn0.c2ln')).toBe(false);
+    expect(looksLikeJwt(null)).toBe(false);
+    expect(looksLikeJwt('')).toBe(false);
   });
 });

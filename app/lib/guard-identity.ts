@@ -1,4 +1,4 @@
-import { verifyJwt, extractBearerToken } from './jwks-verifier';
+import { verifyJwt, extractBearerToken, looksLikeJwt } from './jwks-verifier';
 import { checkAndRecord as checkAndRecordJti } from './repositories/jti-replay.repository';
 import { resolveActStatus } from './act-binding';
 import { getJtiReplayMode } from './replay-protection';
@@ -26,7 +26,12 @@ export async function resolveAgentIdentity(request: Request, data: GuardData, sq
   const authHeader = request.headers.get('authorization');
   const bearerToken = extractBearerToken(authHeader);
 
-  if (!bearerToken) {
+  // Only a JWT-shaped bearer is an identity claim. An opaque credential (the
+  // built-in OAuth AS's `oat_` access tokens, forwarded by /api/mcp for the
+  // Claude consumer-app connector) can only ever come back 'failed', which is
+  // the label reserved for a REJECTED identity claim — it must not be spent on
+  // routine OAuth traffic. See looksLikeJwt in jwks-verifier.
+  if (!bearerToken || !looksLikeJwt(bearerToken)) {
     data.verification_status = 'unverified';
     data.replay_status = 'not_applicable';
     data.jti = null;

@@ -21,7 +21,7 @@
  * without re-verifying the token.
  */
 
-import { verifyJwt, extractBearerToken } from './jwks-verifier';
+import { verifyJwt, extractBearerToken, looksLikeJwt } from './jwks-verifier';
 import type { AgentIdentity } from './types/identity';
 
 export async function resolveAgentIdentity(
@@ -31,7 +31,12 @@ export async function resolveAgentIdentity(
   const authHeader = request?.headers?.get ? request.headers.get('authorization') : null;
   const token = extractBearerToken(authHeader);
 
-  if (!token) {
+  // A Bearer that is not JWT-shaped is a CREDENTIAL, not an identity claim —
+  // the built-in OAuth AS issues opaque `oat_` access tokens and /api/mcp
+  // forwards them here. Verifying one can only ever return 'failed', which
+  // would stamp every OAuth-authenticated decision with the label reserved for
+  // a rejected identity claim. No claim presented → self-asserted, unverified.
+  if (!token || !looksLikeJwt(token)) {
     return {
       agent_id: agentId ?? null,
       agent_name: agentName ?? null,

@@ -14,6 +14,57 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-10 — v5.17.1: the maintainer reads its own ledger and finds itself mislabeled
+
+Wes asked an open question — "this is your project, anything you want to do?"
+The roadmap's bar for new work is evidence from an actual governed run, so
+the honest first move was to go look at one. I read the live decision ledger
+through the Claude connector, and the two newest rows — a Pulse-widget demo
+from this morning — both carried `verification_status: 'failed'`.
+
+That label has one meaning: an agent presented a cryptographic identity
+claim and it was **rejected**. Nothing of the sort had happened. The chain,
+confirmed statically rather than guessed: the built-in OAuth authorization
+server issues **opaque** access tokens (`newOpaqueToken('oat')`);
+`/api/mcp` recognizes an OAuth Bearer well enough to assign it the
+`claude-desktop` agent id, then forwards that same credential downstream;
+and guard's identity resolver hands **any** Bearer to `verifyJwt`, which
+cannot parse an opaque string, so it lands in the catch that returns
+`failed`. Every decision ever made through the Claude consumer-app
+connector was recorded as a failed identity check.
+
+The fix is one predicate: **only a JWT-shaped Bearer is an identity claim.**
+The `Authorization` header carries two different things here — an identity
+JWT and a plain credential — and only the first can meaningfully fail
+verification. A credential now takes the same path as no token at all
+(`unverified`, self-asserted); a JWT-shaped token that does not verify is
+still `failed`. No privilege moved: both states are `verified: false`,
+neither applies token claims, and `require_verified_parent` already
+escalated on both. The guard hot path also loses a per-request
+`console.warn` and a doomed JWT parse.
+
+**What I did not do, deliberately:** backfill. Rows written before this fix
+still say `failed`. An append-only ledger that edits its own history to look
+better is worth less than one with an embarrassing stretch in it, so the
+cutover is documented in `docs/agent-identity.md` instead. I also left the
+UI alone — `verification_status` renders on no human surface today (the
+decision page's "Verified Agent" badge reads a different mechanism, the
+action record's signature). That is a real gap, and it is the reason a
+mislabel could sit in production unseen: **the only reader was an API.**
+It is written down here rather than fixed by reflex, because adding a
+second, similar-looking provenance badge is a design decision, not a bugfix.
+
+Two smaller things fell out. The tests for both identity resolvers were
+hand-rolling their own `jwks-verifier` mock, which meant the question under
+test — "is this bearer an identity claim at all?" — was stubbed out by the
+harness; they now mock only `verifyJwt` and exercise the real predicate. And
+their bearer fixture was the string `tok`, which is not JWT-shaped, so the
+old suite would have passed either way. A test fixture that could never
+distinguish the bug from the fix is how this survived.
+
+**Numbers:** 3 source files, 3 test files, 4,110 tests green (7 new), lint +
+typecheck + build clean. No new routes, tables, or surfaces.
+
 ## 2026-08-10 — v5.17.0: role constraints ("workbenches"), the governance half of an agent-platform idea
 
 Wes brought over a concept from an agent platform he'd seen: "workbenches" —

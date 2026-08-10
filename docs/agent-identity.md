@@ -103,11 +103,20 @@ issuer's job — DashClaw only *verifies* it (covered in the rest of this docume
 | Value            | Meaning                                                   |
 |------------------|-----------------------------------------------------------|
 | `verified`       | Signature valid; `sub` used as `agent_id`. Requires `DASHCLAW_ALLOWED_ISSUER` — unreachable without it (v3.7 fail-closed) |
-| `unverified`     | No JWT, no configured issuer (fail-closed since v4.49.0), or issuer temporarily unavailable (fail-soft) |
+| `unverified`     | No JWT, a Bearer that is not JWT-shaped (see below), no configured issuer (fail-closed since v4.49.0), or issuer temporarily unavailable (fail-soft) |
 | `expired`        | Signature valid, but `exp` is in the past                 |
-| `failed`         | Bad signature, malformed token, or `aud` mismatch         |
+| `failed`         | Bad signature, JWT-shaped but malformed, or `aud` mismatch |
 | `unknown_issuer` | `iss` does not match `DASHCLAW_ALLOWED_ISSUER`            |
 | `exp_too_far`    | `exp` exceeds `DASHCLAW_JTI_MAX_TTL_SECONDS` (default 24h)|
+
+**Only a JWT-shaped Bearer is an identity claim** (three base64url segments).
+The `Authorization` header also carries plain credentials — the built-in OAuth
+authorization server issues opaque `oat_` access tokens, which `/api/mcp`
+forwards for the Claude consumer-app connector. A credential asserts no
+identity, so it resolves to `unverified` (self-asserted), never `failed`.
+`failed` stays reserved for a claim that was actually presented and rejected.
+Fixed in v5.17.1; decisions recorded through the OAuth lane before that carry
+`failed` and are not rewritten — the ledger is append-only.
 
 ## Phase 2b: replay protection
 

@@ -13,6 +13,20 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.17.1] — 2026-08-10
+
+**The OAuth lane stops being recorded as a failed identity check.** Found in DashClaw's own live ledger: every decision made through the Claude consumer-app connector carried `verification_status: 'failed'` — the label that means an agent presented a cryptographic identity claim and it was rejected.
+
+### Fixed
+
+- **Only a JWT-shaped Bearer counts as an identity claim** (`looksLikeJwt` in `app/lib/jwks-verifier.ts`, applied in `app/lib/identity-resolution.ts` and `app/lib/guard-identity.ts`). The `Authorization` header carries two different things: an identity JWT (`DashClawClient.authToken`) and a plain credential — the built-in OAuth AS issues **opaque `oat_` access tokens**, which `/api/mcp` forwards for the Claude consumer-app connector. Running an opaque credential through `verifyJwt` can only ever return `failed`, so the OAuth lane was permanently stamped with the label reserved for a rejected claim, and the one genuinely security-interesting identity state was diluted to noise. A credential now takes the same path as no token at all → `unverified` (self-asserted); a JWT-shaped token that does not verify is still `failed`. No privilege change: both states are `verified: false`, neither applies token claims, and `require_verified_parent` already escalated on both. Also drops a per-request `console.warn` and a wasted JWT parse from the guard hot path.
+- Ledger history is **not** rewritten — decisions recorded before this fix keep `failed`. The ledger is append-only; `docs/agent-identity.md` documents the cutover instead.
+- **`release:prep` no longer fails opaquely on a busy port** (`scripts/release-prep.mjs`). Its pre-flight only noticed a squatter that *answers* `/api/health` with a version; any other app on 3001 404s, so the check passed, `next start` could not bind, and the real cause surfaced two minutes later as "instance never reported version". It now probes the port over raw TCP and, when 3001 is taken, serves the release check on the next free port (3002-3021) instead of asking you to kill someone else's dev server. `--port=<n>` pins it explicitly and fails loudly if that one is busy.
+
+### Changed
+
+- `__tests__/unit/identity-resolution.test.js` and `guard-identity.test.js` now mock only `verifyJwt` (via `importOriginal`) instead of hand-rolling the module, so "is this bearer an identity claim at all?" is exercised against the real implementation rather than a stub, and their bearer fixtures are JWT-shaped instead of the placeholder `tok`.
+
 ## [5.17.0] — 2026-08-10
 
 **Role constraints ("workbenches"): a named authority bundle per agent role, enforced on every guard call.** Guard policy types 15 → 16 (THESIS amendment recorded in the same commit). The concept comes from per-work-type tool bundles in agent platforms; DashClaw ships the governance half only — the credentials half stays dead per the v5.0.0 kill list.

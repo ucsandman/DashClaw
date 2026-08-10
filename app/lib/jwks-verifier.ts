@@ -309,6 +309,32 @@ export async function verifyJwt(token: string): Promise<JwtVerificationResult> {
 }
 
 /**
+ * True when a bearer string is shaped like a JWT (three base64url segments).
+ *
+ * The Authorization header carries two different things in DashClaw: an agent
+ * IDENTITY claim (a JWT the caller wants verified — `DashClawClient.authToken`)
+ * and a plain CREDENTIAL (the built-in OAuth AS issues opaque `oat_` access
+ * tokens, which `/api/mcp` forwards downstream for the Claude consumer-app
+ * connector). Only the first is an identity claim, so only the first can
+ * meaningfully fail verification: running an opaque credential through
+ * `verifyJwt` can only ever return `failed` — the label reserved for a
+ * REJECTED identity claim — which permanently mislabels every
+ * OAuth-authenticated decision in the ledger.
+ *
+ * A JWT-shaped token that does not verify is still `failed`; an `alg: none`
+ * token (empty signature segment) is a claim attempt and stays JWT-shaped.
+ */
+export function looksLikeJwt(token: string | null): boolean {
+  if (!token) return false;
+  const parts = token.split('.');
+  if (parts.length !== 3) return false;
+  const [header = '', payload = '', signature = ''] = parts;
+  const base64url = /^[A-Za-z0-9_-]*$/;
+  return header.length > 0 && payload.length > 0
+    && base64url.test(header) && base64url.test(payload) && base64url.test(signature);
+}
+
+/**
  * Extract the raw token string from an Authorization header value.
  * Returns null if the header is missing or not a Bearer token.
  */

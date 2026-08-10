@@ -27,6 +27,7 @@
  * and gated where they already are (pre-commit + CI).
  */
 import { spawn, spawnSync } from 'node:child_process';
+import { connect } from 'node:net';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,13 +35,31 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const version = args.find((a) => !a.startsWith('--'));
 const skipPython = args.includes('--skip-python');
-const PORT = 3001;
-const BASE = `http://127.0.0.1:${PORT}`;
-const HEALTH = `${BASE}/api/health`;
+const portFlag = args.find((a) => a.startsWith('--port='))?.slice('--port='.length);
+const DEFAULT_PORT = 3001;
+let PORT = portFlag ? Number(portFlag) : DEFAULT_PORT;
+let BASE = `http://127.0.0.1:${PORT}`;
+let HEALTH = `${BASE}/api/health`;
 
 if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version || '')) {
-  console.error('Usage: npm run release:prep -- <x.y.z> [--skip-python]');
+  console.error('Usage: npm run release:prep -- <x.y.z> [--skip-python] [--port=<n>]');
   process.exit(1);
+}
+if (portFlag && !Number.isInteger(PORT)) {
+  console.error(`[release-prep] --port must be an integer (got "${portFlag}")`);
+  process.exit(1);
+}
+
+/** True when anything is listening on 127.0.0.1:port — not just a DashClaw instance. */
+function portInUse(port) {
+  return new Promise((done) => {
+    const socket = connect({ host: '127.0.0.1', port });
+    const finish = (inUse) => { socket.destroy(); done(inUse); };
+    socket.setTimeout(1000);
+    socket.once('connect', () => finish(true));
+    socket.once('timeout', () => finish(false));
+    socket.once('error', () => finish(false));
+  });
 }
 
 const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -84,13 +103,28 @@ function killTree(pid) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Fail loudly if something else already owns the port — never kill an
-// unknown process.
-if (await healthVersion()) {
-  console.error(
-    `[release-prep] something is already serving ${HEALTH} — free port ${PORT} first.`
-  );
-  process.exit(1);
+// Never kill an unknown process: if the port is taken, move to a free one.
+// The old check only noticed a squatter that ANSWERS /api/health with a
+// version — a foreign app 404s, so this passed, `next start` then failed to
+// bind, and the real cause surfaced two minutes later as the misleading
+// "instance never reported version". A raw TCP probe is the honest test.
+if (await portInUse(PORT)) {
+  if (portFlag) {
+    console.error(`[release-prep] port ${PORT} is already in use — free it or pass a different --port=<n>.`);
+    process.exit(1);
+  }
+  let free = null;
+  for (let p = DEFAULT_PORT + 1; p <= DEFAULT_PORT + 20 && free === null; p += 1) {
+    if (!(await portInUse(p))) free = p;
+  }
+  if (free === null) {
+    console.error(`[release-prep] ports ${DEFAULT_PORT}-${DEFAULT_PORT + 20} are all in use — pass --port=<n>.`);
+    process.exit(1);
+  }
+  console.log(`[release-prep] port ${PORT} is in use (another app) — serving the release check on ${free} instead.`);
+  PORT = free;
+  BASE = `http://127.0.0.1:${PORT}`;
+  HEALTH = `${BASE}/api/health`;
 }
 
 run(`version:set ${version}`, 'node', ['scripts/set-version.mjs', version]);
