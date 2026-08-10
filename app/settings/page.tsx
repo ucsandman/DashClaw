@@ -228,14 +228,18 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-tertiary">Mode</span>
-                  <span className={`text-xs font-medium ${view.verification?.overall === 'green' ? 'text-success' : 'text-warning'}`}>
+                  {/* verification.overall is 'verified' | 'ready_unverified' |
+                      'needs_attention' | 'blocked' — never 'green'. */}
+                  <span className={`text-xs font-medium ${view.verification?.overall === 'verified' ? 'text-success' : 'text-warning'}`}>
                     {process.env.DASHCLAW_MODE === 'demo' ? 'Demo' : 'Self-hosted'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-tertiary">Database</span>
-                  <span className={`text-xs font-medium ${view.sections?.find((s: any) => s.id === 'database')?.status === 'green' ? 'text-success' : 'text-error'}`}>
-                    {view.sections?.find((s: any) => s.id === 'database')?.status === 'green' ? 'Connected' : 'Not connected'}
+                  {/* Section statuses are 'pass'/'fail'/'warn' — the section's
+                      ok boolean is the canonical connected signal. */}
+                  <span className={`text-xs font-medium ${view.db?.ok ? 'text-success' : 'text-error'}`}>
+                    {view.db?.ok ? 'Connected' : 'Not connected'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">

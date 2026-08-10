@@ -138,7 +138,7 @@ doc-type: architecture
 | `/api/setup/ping` | `POST` | `beta` | `/api/setup` | `app/api/setup/ping/route.ts` |
 | `/api/setup/proof` | `GET` | `beta` | `/api/setup` | `app/api/setup/proof/route.ts` |
 | `/api/setup/status` | `GET` | `beta` | `/api/setup` | `app/api/setup/status/route.ts` |
-| `/api/signals` | `GET` | `experimental` | `(default)` | `app/api/signals/route.ts` |
+| `/api/signals` | `GET, POST` | `experimental` | `(default)` | `app/api/signals/route.ts` |
 | `/api/stream` | `GET` | `experimental` | `(default)` | `app/api/stream/route.ts` |
 | `/api/team-tasks` | `GET, POST` | `experimental` | `(default)` | `app/api/team-tasks/route.ts` |
 | `/api/team-tasks/{taskId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/team-tasks/[taskId]/route.ts` |
