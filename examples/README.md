@@ -20,6 +20,7 @@ dashclaw approve act_<id shown in Terminal 1>
 
 | Example | SDK | Language | Governance Scenario |
 |---|---|---|---|
+| `proof-pack` | DashClaw | Node.js + Python | Smallest real proof: decision, action, approval, outcome, dashboard link |
 | `openai-governed-agent` | OpenAI | Node.js | Customer refund email governance |
 | `anthropic-governed-agent` | Anthropic | Node.js | Deployment agent held for human approval |
 | `claude-code-review-agent` | Anthropic | Node.js | Security fix approval gate |
@@ -40,6 +41,13 @@ dashclaw approve act_<id shown in Terminal 1>
 ### openai-governed-agent
 
 The original starter example. An OpenAI agent deploys a service to production. Shows guard, action, assumption, and outcome recording.
+
+### proof-pack
+
+The recommended first integration. It has no model-provider dependency and no
+business side effect, but exercises the full governance loop and prints the
+durable decision-record link. Use it to prove that an instance and API key work
+before wiring DashClaw into a real agent.
 
 ### claude-code-review-agent
 
