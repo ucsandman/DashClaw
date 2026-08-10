@@ -929,9 +929,10 @@ function handleDemoSignals({ request, fixtures, url }) {
   });
 }
 
-// Pulse widget snapshot (/widget). Pending rows get a synthetic held-6m
+// Pulse widget snapshot (/widget). Pending rows get a synthetic held-3m
 // timestamp so the demo shows the brand "owed" ring rather than an ancient
-// fixture reading as days overdue. Presence is honestly `unknown` — the demo
+// fixture reading as days overdue (risk >= 70 has a 5-minute dwell budget,
+// so the hold must stay under it). Presence is honestly `unknown` — the demo
 // host has no desktop-presence store, and unknown never fakes live.
 function handleDemoWidgetPulse({ request, fixtures }) {
   const now = Date.now();
@@ -943,7 +944,7 @@ function handleDemoWidgetPulse({ request, fixtures }) {
       actionType: a.action_type || null,
       agentName: a.agent_name || a.agent_id || null,
       riskScore: Number(a.risk_score) || 0,
-      timestampStart: new Date(now - 6 * 60 * 1000).toISOString(),
+      timestampStart: new Date(now - 3 * 60 * 1000).toISOString(),
       declaredGoal: null,
     }));
   const signals = fixtures.signals || [];
