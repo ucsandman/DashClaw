@@ -44,8 +44,17 @@ export default function SetupTabs() {
       {/* Callout Banner */}
       <div className="bg-brand-subtle/40 border border-border-active rounded-lg px-4 py-3">
         <p className="text-sm text-secondary">
-          No OAuth required to get started. Use Quick Start to deploy solo in under 10 minutes.
-          Switch to Team Setup when you&apos;re ready to invite teammates.
+          No OAuth required to get started. Use Quick Start to deploy solo in under 10 minutes
+          (full walkthrough:{' '}
+          <a
+            href="https://github.com/ucsandman/DashClaw/blob/main/docs/deploy-without-oauth.md"
+            className="text-brand hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            deploy without OAuth
+          </a>
+          ). Switch to Team Setup when you&apos;re ready to invite teammates.
           Coming from the hosted trial? Click <strong>Export workspace</strong> on your trial&apos;s{' '}
           <code className="font-mono text-xs">/connect</code> card, then run{' '}
           <code className="font-mono text-xs">dashclaw import &lt;file&gt;</code> once your instance is up:

@@ -550,6 +550,18 @@ dashclaw doctor`}</CodeBlock>
                   includes <code className="font-mono text-text-primary">mcp__.*</code>.
                 </li>
               </ul>
+              <p className="mt-3 text-xs text-text-tertiary">
+                Every error the API actually returns, with the fix:{' '}
+                <a
+                  href="https://github.com/ucsandman/DashClaw/blob/main/docs/troubleshooting.md"
+                  className="text-brand hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  full troubleshooting guide
+                </a>
+                .
+              </p>
             </div>
           </section>
 
