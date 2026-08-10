@@ -14,6 +14,45 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-09 — v5.15.0: Pulse, the window for the operator who isn't watching
+
+Fourth release of the day, and the first one aimed at the thesis's quiet
+half. Everything the platform ships assumes the operator walked away; until
+today the only way to find out something was owed was to go look. Pulse is
+the answer: a 360×560 always-on-top browser window whose whole vocabulary is
+three marks - a ring, a glyph, a caption. Nothing owed renders as a dim dash
+and zero chroma. Pending approvals render as a count in brand orange. That
+is nearly the entire product.
+
+The design was picked by a 9-agent tournament (five divergent concepts,
+three judge lenses) and the most valuable output was the disagreement: the
+thesis judge ranked the winning concept 4th because its inherited precedence
+let a red signal replace the pending-approval count - burying the approval
+moment, which IS the product. The shipped precedence inverts that: approval
+always outranks signals, and the displaced signal demotes to a 2px rail
+that never goes silent. The losing concepts still shaped the ship - the
+honesty machinery (calm requires positive heartbeat evidence, a failed
+sub-query renders as DEGRADED instead of a zero, no present-tense claim
+survives 90s of silence) was grafted wholesale from a concept that lost.
+
+Two things went wrong worth recording. The SSE keepalive turned out to be
+an SSE *comment* - invisible to EventSource - so the freshness ladder the
+spec required was unbuildable against the real transport until the stream
+emitted a named heartbeat event. That is now fixed for every consumer, not
+just Pulse. And rendered proof caught a race no unit test could: Next
+streams the layout <title> after hydration and intermittently clobbered the
+posture title (the tab's whole job in a collapsed window); the fix reasserts
+it on the widget's 5-second tick. Verification was the full drill - 4,005
+tests, then the page driven headless at three window sizes plus
+prefers-reduced-motion, which is where the mandatory static double-ring tell
+(the master caution for users whose OS asks for less motion) was confirmed
+real rather than assumed.
+
+Read-only slice 1, by design: no approve/deny in the window yet, the reveal
+row for it is already reserved. Surface budget amended 131 routes / 52
+pages in the same commit. The culled status-widget PWA stays dead; this is
+a different, smaller instrument.
+
 ## 2026-08-09 — v5.14.0: the register opens (checkout, portal, webhook)
 
 Third release of the day, and the one the whole month-2 sequence was
