@@ -130,6 +130,27 @@ export function buildContract(
         else view.interrupts.push(s(txt));
         break;
       }
+      case 'role_constraint': {
+        const parts: string[] = [];
+        if (Array.isArray(rules.allowed_action_types) && rules.allowed_action_types.length > 0) {
+          parts.push(`acts outside ${listTypes(rules.allowed_action_types)}`);
+        }
+        if (Array.isArray(rules.blocked_action_types) && rules.blocked_action_types.length > 0) {
+          parts.push(`tries ${listTypes(rules.blocked_action_types)}`);
+        }
+        if (typeof rules.max_risk_score === 'number') parts.push(`exceeds risk ${rules.max_risk_score}`);
+        if (Array.isArray(rules.blocked_path_globs) && rules.blocked_path_globs.length > 0) {
+          parts.push(`touches ${listTypes(rules.blocked_path_globs)}`);
+        }
+        if (parts.length === 0) {
+          view.custom.push({ policy_id: row.id, name: row.name, policy_type: row.policy_type });
+          break;
+        }
+        const txt = `a "${row.name}" role agent ${parts.join(', or ')}`;
+        if (rules.escalate_action === 'block') view.blocks.push(s(txt));
+        else view.interrupts.push(s(txt));
+        break;
+      }
       case 'allow_grant': {
         const at = String(rules.action_type ?? '');
         const tp = rules.target_prefix == null ? null : String(rules.target_prefix);

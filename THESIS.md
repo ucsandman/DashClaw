@@ -437,6 +437,18 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   log, no approve/deny (read-only slice 1); one read-only route composed from
   existing repositories, no new ingestion, no new tables.
 
+- **2026-08-10 — Guard policy types 15 → 16 (`role_constraint`, role
+  "workbenches").** A named authority bundle for top-level agents: the policy
+  row is the role, its `agent_ids` scoping is the membership, and the rules
+  (allowed/blocked action types, risk ceiling, path scope) are the workbench —
+  everything outside the bundle escalates to approval or block instead of
+  running, so an out-of-role attempt lands in the Approvals inbox with what
+  the agent reached for. Structurally `delegation_constraint` without the
+  composed-id gate: tighten-only, layered on the existing evaluator map and
+  `/policies` rails. No new tables, routes, pages, MCP tools, or SDK methods.
+  Explicitly NOT a revival of the culled capabilities registry or managed
+  secrets — the credentials half of the original "workbench" concept stays
+  dead. Spec: docs/superpowers/specs/2026-08-10-role-constraints-design.md.
 - **2026-08-09 — App pages 52 → 53 (`/pricing`).** Reinstated per
   `docs/decisions/2026-08-09-hosted-paid-tier.md`, which reverses the
   2026-05-14 "retract the monetization surface entirely" decision

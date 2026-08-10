@@ -232,3 +232,43 @@ describe('validatePolicy — risk_threshold contain_above', () => {
     expect(r.valid).toBe(false);
   });
 });
+
+describe('validatePolicy — role_constraint', () => {
+  it('accepts a full valid rules object', () => {
+    const r = validatePolicy(base('role_constraint', {
+      allowed_action_types: ['file_read', 'code_review'],
+      blocked_action_types: ['deploy'],
+      max_risk_score: 50,
+      blocked_path_globs: ['infra/**', '**/.env*'],
+      escalate_action: 'require_approval',
+    }));
+    expect(r.valid).toBe(true);
+  });
+
+  it('accepts an empty rules object (every field optional)', () => {
+    const r = validatePolicy(base('role_constraint', {}));
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects escalate_action: allow (roles only tighten)', () => {
+    const r = validatePolicy(base('role_constraint', { escalate_action: 'allow' }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects max_risk_score outside 0-100', () => {
+    expect(validatePolicy(base('role_constraint', { max_risk_score: 101 })).valid).toBe(false);
+    expect(validatePolicy(base('role_constraint', { max_risk_score: -1 })).valid).toBe(false);
+  });
+
+  it('rejects allowed_action_types containing a non-string', () => {
+    const r = validatePolicy(base('role_constraint', { allowed_action_types: ['read', 7] }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects blocked_path_globs above 50 entries', () => {
+    const r = validatePolicy(base('role_constraint', {
+      blocked_path_globs: Array.from({ length: 51 }, (_, i) => `path-${i}/**`),
+    }));
+    expect(r.valid).toBe(false);
+  });
+});

@@ -428,6 +428,44 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
     }
     return null;
   },
+  // Role constraints ("workbenches", 2026-08-10 spec): a named authority
+  // bundle for TOP-LEVEL agents — delegation_constraint's shape without the
+  // composed-id gate or depth check. Membership is the policy row's agent_ids
+  // scoping (loadApplicablePolicies), not evaluator matching, so composed
+  // children inherit their parent's role for free. Tighten-only: escalates to
+  // require_approval/block, never grants — an outside-the-role attempt lands
+  // in the Approvals inbox instead of silently dropping.
+  role_constraint: ({ policy, rules, context, effectiveRiskScore }) => {
+    const escalate = rules.escalate_action === 'block' ? 'block' : 'require_approval';
+    const role = policy.name || 'role';
+
+    const actionType = typeof context.action_type === 'string' ? context.action_type : '';
+    if (Array.isArray(rules.blocked_action_types) && actionType && rules.blocked_action_types.includes(actionType)) {
+      return { action: escalate, reason: `action type "${actionType}" is blocked for the "${role}" role` };
+    }
+    if (Array.isArray(rules.allowed_action_types) && rules.allowed_action_types.length > 0 && actionType
+      && !rules.allowed_action_types.includes(actionType)) {
+      return { action: escalate, reason: `action type "${actionType}" is outside the "${role}" role's allowlist` };
+    }
+    if (typeof rules.max_risk_score === 'number') {
+      const risk = effectiveRiskScore != null
+        ? effectiveRiskScore
+        : Math.max(0, Math.min(Number(context.risk_score) || 0, 100));
+      if (risk > rules.max_risk_score) {
+        return { action: escalate, reason: `risk ${risk} exceeds the "${role}" role's ceiling ${rules.max_risk_score}` };
+      }
+    }
+    if (Array.isArray(rules.blocked_path_globs) && rules.blocked_path_globs.length > 0) {
+      const candidates: string[] = [];
+      if (typeof context.target === 'string' && context.target) candidates.push(context.target);
+      if (Array.isArray(context.write_paths)) candidates.push(...(context.write_paths as string[]));
+      const hit = candidates.find((p) => matchesProtectedPath(p, rules.blocked_path_globs));
+      if (hit) {
+        return { action: escalate, reason: `path ${hit} is outside the "${role}" role's scope` };
+      }
+    }
+    return null;
+  },
 };
 
 // Dispatch via a Map so a user-controlled policy_type cannot reach an inherited

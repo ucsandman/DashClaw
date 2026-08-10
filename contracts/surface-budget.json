@@ -36,9 +36,9 @@
       "reason": "2026-07-27: +1 (contained) — Containment Verdicts (governed-autonomy RFC 2026-07-06, feature 3): `dashclaw contained list|diff|apply`, the terminal client for the promote/discard-to-merge lifecycle."
     },
     "guardPolicyTypes": {
-      "ceiling": 15,
+      "ceiling": 16,
       "source": "app/lib/guard/policy.ts KNOWN_POLICY_TYPES (POLICY_EVALUATORS keys)",
-      "reason": "2026-07-26: +1 delegation_constraint — governed-autonomy feature 2 (RFC 2026-07-06): composed-subagent authority attenuation. A policy type, not a subsystem — no tables, no routes, no MCP changes."
+      "reason": "2026-08-10: +1 role_constraint — workbench-shaped authority bundles for top-level agents (spec docs/superpowers/specs/2026-08-10-role-constraints-design.md): named role = policy row, members = agent_ids scoping, tighten-only escalation. Extends delegation_constraint's shape without the composed-id gate; no tables, no routes, no pages, no MCP/SDK changes. (Prior: 2026-07-26 +1 delegation_constraint.)"
     }
   }
 }

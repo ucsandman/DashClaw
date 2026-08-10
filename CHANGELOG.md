@@ -13,8 +13,15 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.17.0] — 2026-08-10
+
+**Role constraints ("workbenches"): a named authority bundle per agent role, enforced on every guard call.** Guard policy types 15 → 16 (THESIS amendment recorded in the same commit). The concept comes from per-work-type tool bundles in agent platforms; DashClaw ships the governance half only — the credentials half stays dead per the v5.0.0 kill list.
+
 ### Added
 
+- **`role_constraint` guard policy type** (`app/lib/guard/policy.ts`): the policy row is the role (its name = the role name), the existing `agent_ids` scoping is the membership, and the rules are the workbench — `allowed_action_types`, `blocked_action_types`, `max_risk_score` (checked against the post-predictive effective score), `blocked_path_globs` (protected-path semantics over `target` + `write_paths`), `escalate_action` (`require_approval` default, `block` optional). Tighten-only: it escalates, never grants — an out-of-role attempt lands in the Approvals inbox showing what the agent reached for. Structurally `delegation_constraint` without the composed-id gate, so it governs top-level agents; composed `parent:child` callers inherit their parent's role via the existing targeted-policy scoping. No new tables, routes, pages, MCP tools, or SDK methods.
+- **`/policies` authoring + rendering**: "Role Constraint" in the New-rule type picker with its own form section (action-type lists, risk ceiling, path globs, violation choice), ledger summary line, policy-modes contract sentence, and a demo-mode "Reviewer" fixture. Validation in `validatePolicy` mirrors the delegation-constraint bounds (≤50 entries per list, 0–100 ceiling, tighten-only escalation).
+- Spec: `docs/superpowers/specs/2026-08-10-role-constraints-design.md`; unit coverage in `__tests__/unit/guard-role-constraint.test.js` plus the policy-type coverage/validation suites.
 - **`npm run release:prep -- <x.y.z>`** (`scripts/release-prep.mjs`): the whole version-bump recipe in one command — `version:set`, package-lock sync, build, platform-guide liveExamples regen against a local instance (started and torn down for you), and the four version/contract/drift gates. Both v5.15.0 and v5.16.0 shipped green locally and then failed CI twice each on the two artifacts a bare `version:set` does not touch; this closes that class. `version:set` itself now also advances `contracts/sdk/release-plan.json` (`scripts/lib/bump-release-plan.mjs`), so the contract convergence gate can no longer be missed by hand.
 
 ## [5.16.0] — 2026-08-09

@@ -74,6 +74,7 @@ export const POLICY_TYPE_OPTIONS = [
   { value: 'agent_allowlist', label: 'Agent Allowlist', desc: 'Warn (or escalate) when an agent uses an action type outside its observed safe envelope' },
   { value: 'require_evidence', label: 'Evidence Required', desc: 'Escalate guard calls that declare intent without attaching the actual act (command, request, statement, or file write)' },
   { value: 'delegation_constraint', label: 'Subagent Constraint', desc: 'Cap what a spawned subagent may do — risk ceiling, action types, paths, depth' },
+  { value: 'role_constraint', label: 'Role Constraint', desc: 'A named authority bundle for the targeted agents — allowed/blocked action types, risk ceiling, path scope' },
 ];
 
 function cleanString(value) {
@@ -323,6 +324,31 @@ const POLICY_TYPE_HANDLERS = {
       const risk = hasValue(form.maxRiskScore) ? Number(form.maxRiskScore) || 0 : null;
       const riskPart = risk != null ? ` to risk ≤ ${risk}` : '';
       return `Constrain ${parent}:${childLabel}${riskPart}${scoped}.`;
+    },
+  },
+  // Role constraints ("workbenches") — the same tighten-only fields for
+  // top-level agents; membership is the policy's agent targeting, so empty
+  // optional fields are OMITTED for the same reason as delegation_constraint.
+  role_constraint: {
+    compile: (form) => {
+      const rules = {
+        escalate_action: form.escalateAction === 'block' ? 'block' : 'require_approval',
+      };
+      if (hasValue(form.maxRiskScore)) rules.max_risk_score = Number(form.maxRiskScore) || 0;
+      const allowed = cleanStringList(form.allowedActionTypes);
+      if (allowed.length > 0) rules.allowed_action_types = allowed;
+      const blocked = cleanStringList(form.blockedActionTypes);
+      if (blocked.length > 0) rules.blocked_action_types = blocked;
+      const globs = cleanStringList(form.blockedPathGlobs);
+      if (globs.length > 0) rules.blocked_path_globs = globs;
+      return rules;
+    },
+    summary: (form, scoped) => {
+      const allowed = cleanStringList(form.allowedActionTypes);
+      const risk = hasValue(form.maxRiskScore) ? Number(form.maxRiskScore) || 0 : null;
+      const allowedPart = allowed.length > 0 ? ` to ${allowed.join('|')}` : '';
+      const riskPart = risk != null ? ` at risk ≤ ${risk}` : '';
+      return `Limit the "${cleanString(form.name) || 'role'}" role${allowedPart}${riskPart}${scoped}.`;
     },
   },
 };

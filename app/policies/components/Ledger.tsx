@@ -230,6 +230,16 @@ function describeRule(row: any, rules: Record<string, any>): React.ReactNode {
         : null;
       return <>Constrain <Code>{`${parent}:${childTypes.join('|')}`}</Code>{riskPart}{blockedPart}</>;
     }
+    case 'role_constraint': {
+      const allowed = Array.isArray(rules.allowed_action_types) && rules.allowed_action_types.length > 0
+        ? <> to {joinCodes(rules.allowed_action_types)}</>
+        : null;
+      const riskPart = typeof rules.max_risk_score === 'number' ? <> &mdash; risk &le; {rules.max_risk_score}</> : null;
+      const blockedPart = Array.isArray(rules.blocked_action_types) && rules.blocked_action_types.length > 0
+        ? <>, no {joinCodes(rules.blocked_action_types)}</>
+        : null;
+      return <>Limit the <Code>{row.name}</Code> role{allowed}{riskPart}{blockedPart}</>;
+    }
     default:
       return <>{buildPolicySummary(decompilePolicyForm(row))}</>;
   }

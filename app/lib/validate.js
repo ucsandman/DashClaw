@@ -401,7 +401,7 @@ function validateClientCapabilities(context, addError) {
   }
 }
 
-const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'require_evidence', 'delegation_constraint'];
+const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'require_evidence', 'delegation_constraint', 'role_constraint'];
 const GUARD_ACTIONS = ['allow', 'warn', 'block', 'require_approval'];
 
 const POLICY_SCHEMA = {
@@ -665,6 +665,33 @@ const POLICY_TYPE_VALIDATORS = {
     }
     if (rules.require_verified_parent !== undefined && typeof rules.require_verified_parent !== 'boolean') {
       addError('delegation_constraint rules.require_verified_parent must be a boolean');
+    }
+  },
+  role_constraint: (rules, addError) => {
+    // Workbench-shaped authority bundle for top-level agents. All fields
+    // optional; only present checks enforce. Membership lives in the policy
+    // row's agent_ids scoping, not in rules.
+    for (const key of ['allowed_action_types', 'blocked_action_types']) {
+      if (rules[key] !== undefined && rules[key] !== null
+        && (!Array.isArray(rules[key]) || !rules[key].every((t) => typeof t === 'string' && t.length > 0 && t.length <= 128))) {
+        addError(`role_constraint rules.${key} must be null or an array of non-empty strings`);
+      }
+      if (Array.isArray(rules[key]) && rules[key].length > 50) {
+        addError(`role_constraint rules.${key} must have at most 50 entries`);
+      }
+    }
+    if (rules.max_risk_score !== undefined && (typeof rules.max_risk_score !== 'number' || rules.max_risk_score < 0 || rules.max_risk_score > 100)) {
+      addError('role_constraint rules.max_risk_score must be a number 0-100');
+    }
+    if (rules.blocked_path_globs !== undefined
+      && (!Array.isArray(rules.blocked_path_globs) || !rules.blocked_path_globs.every((p) => typeof p === 'string' && p.length > 0 && p.length <= 256))) {
+      addError('role_constraint rules.blocked_path_globs must be an array of non-empty glob strings (<=256 chars)');
+    }
+    if (Array.isArray(rules.blocked_path_globs) && rules.blocked_path_globs.length > 50) {
+      addError('role_constraint rules.blocked_path_globs must have at most 50 entries');
+    }
+    if (rules.escalate_action !== undefined && !['require_approval', 'block'].includes(rules.escalate_action)) {
+      addError('role_constraint rules.escalate_action must be require_approval or block (roles only tighten)');
     }
   },
 };

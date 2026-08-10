@@ -327,6 +327,87 @@ function DelegationConstraintFields({ form, onChange }: DelegationConstraintFiel
   );
 }
 
+function RoleConstraintFields({ form, onChange }: DelegationConstraintFieldsProps) {
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-tertiary">
+        A named authority bundle (&quot;workbench&quot;) for top-level agents: the policy name is the
+        role, the agents you target below are its members, and anything outside the bundle escalates
+        instead of running. Subagents spawned by a member inherit the role automatically.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs text-secondary mb-1">Allowed action types (one per line, optional)</label>
+          <textarea
+            aria-label="Role allowed action types"
+            value={(form.allowedActionTypes || []).join('\n')}
+            onChange={(event) => onChange('allowedActionTypes', event.target.value.split('\n'))}
+            placeholder={'read\nsearch\ncode_review'}
+            rows={3}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-secondary mb-1">Blocked action types (one per line, optional)</label>
+          <textarea
+            aria-label="Role blocked action types"
+            value={(form.blockedActionTypes || []).join('\n')}
+            onChange={(event) => onChange('blockedActionTypes', event.target.value.split('\n'))}
+            placeholder={'deploy\ndb_migration'}
+            rows={3}
+            className={inputClass}
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs text-secondary mb-1">Blocked path globs (one per line, optional)</label>
+        <textarea
+          aria-label="Role blocked path globs"
+          value={(form.blockedPathGlobs || []).join('\n')}
+          onChange={(event) => onChange('blockedPathGlobs', event.target.value.split('\n'))}
+          placeholder={'infra/**\n**/.env*'}
+          rows={3}
+          className={inputClass}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs text-secondary mb-1">Max risk score (0-100)</label>
+          <input
+            aria-label="Role max risk score"
+            type="number"
+            min="0"
+            max="100"
+            value={form.maxRiskScore}
+            onChange={(event) => {
+              const value = event.target.value === ''
+                ? ''
+                : Math.max(0, Math.min(100, parseInt(event.target.value, 10) || 0));
+              onChange('maxRiskScore', value);
+            }}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-secondary mb-1">On violation</label>
+          <select
+            aria-label="Role escalate action"
+            value={form.escalateAction}
+            onChange={(event) => onChange('escalateAction', event.target.value)}
+            className={selectClass}
+          >
+            <option value="require_approval">Require Approval</option>
+            <option value="block">Block</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface PolicyRuleBuilderSectionProps {
   form: any;
   actionOptions: string[];
@@ -810,6 +891,10 @@ export default function PolicyRuleBuilderSection({
 
       {form.type === 'delegation_constraint' && (
         <DelegationConstraintFields form={form} onChange={onChange} />
+      )}
+
+      {form.type === 'role_constraint' && (
+        <RoleConstraintFields form={form} onChange={onChange} />
       )}
 
     </>

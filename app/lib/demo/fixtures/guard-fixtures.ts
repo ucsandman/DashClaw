@@ -126,6 +126,24 @@ const policies: GuardPolicy[] = [
     description: 'Subagents spawned by refactor-agent-2 inherit a 45-point risk ceiling, cannot deploy or write to databases, and may not fan out deeper than two levels. Attenuation only tightens — a child never gains authority its parent lacks.',
     created_at: isoFromNow(3 * MS_DAY),
   },
+  {
+    // Role constraints ("workbenches", 2026-08-10): a named authority bundle
+    // for top-level agents. Appended LAST for the same identity-shift reason
+    // as the entry above. Config keys mirror validate.js role_constraint.
+    id: stableId('pol_demo', 8),
+    org_id: DEMO_ORG,
+    name: 'Reviewer',
+    type: 'role_constraint',
+    config: JSON.stringify({
+      allowed_action_types: ['file_read', 'code_review', 'comment'],
+      max_risk_score: 50,
+      blocked_path_globs: ['infra/**', '**/.env*'],
+      escalate_action: 'require_approval',
+    }),
+    active: true,
+    description: 'Agents holding the Reviewer role may read files, review code, and comment — nothing else. Anything outside the bundle, above risk 50, or touching infra paths escalates to approval instead of running.',
+    created_at: isoFromNow(1 * MS_DAY),
+  },
 ];
 
 const policyIds = policies.map((p) => p.id);

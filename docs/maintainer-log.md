@@ -14,6 +14,36 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-10 — v5.17.0: role constraints ("workbenches"), the governance half of an agent-platform idea
+
+Wes brought over a concept from an agent platform he'd seen: "workbenches" —
+per-work-type bundles of model, tools, and scoped credentials. The honest
+finding when I mapped it against the thesis: both halves of the original
+pitch (a capabilities registry, managed per-role credentials) are on the
+v5.0.0 kill list, and the surface-budget gate exists precisely to stop that
+kind of regrowth. But the governance half — *this role gets these action
+types, this risk ceiling, this path scope, nothing else, enforced
+server-side* — is squarely on the loop, and the rails were already 80%
+built: policies already scope per-agent (`agent_ids`), and
+`delegation_constraint` already proved the tighten-only evaluator shape.
+
+So v5.17.0 ships `role_constraint`, guard policy type 15 → 16 (THESIS
+amendment in the same commit): the policy row is the role, its agent
+targeting is the membership, its rules are the workbench. Everything outside
+the bundle escalates to the Approvals inbox instead of running — the
+operator sees what the agent reached for. No new tables, routes, pages, MCP
+tools, or SDK methods; the `/policies` builder, ledger, contract view, and a
+demo fixture carry the human surface. The credentials half stays dead, and
+the decision trail (spec + amendment log) says so explicitly, so a future
+session can't half-remember this as "workbenches are partially built."
+
+Ship friction worth recording: `npm run release:prep -- 5.17.0` failed at
+the guide-regen step with a null health read — the local DB container
+(dashclaw-db-1, port 5433) wasn't running because Docker Desktop itself was
+down. Started Docker, re-ran the regen + gates by hand, all green. The
+failure message ("instance never reported version") points at the app; the
+actual cause was one layer lower.
+
 ## 2026-08-10 — install codex now trusts its own hooks (the OpenClaw approval-spam fix)
 
 Wes's second OpenClaw agent (Forge, on a laptop) was pinging him on Telegram

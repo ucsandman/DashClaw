@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.16.0",
+    "current_version": "5.17.0",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.16.0 - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.16.0 so the registry stays aligned with the platform version.",
+    "reason": "no Node SDK source change in 5.17.0 - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.0 so the registry stays aligned with the platform version.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.16.0",
+    "current_version": "5.17.0",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.16.0 - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.16.0 so the registry stays aligned with the platform version.",
+    "reason": "no Python SDK source change in 5.17.0 - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.0 so the registry stays aligned with the platform version.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.16.0 hosted entitlement enforcement (seat caps + monthly action ceilings at existing capacity seams), the public /pricing page, and checkout/portal self-heal on stale Stripe customer ids. Platform only, no Node/Python SDK surface change.",
+  "reason": "5.17.0 role_constraint guard policy type (role 'workbenches': named per-role authority bundles — allowed/blocked action types, risk ceiling, path scope — enforced tighten-only on every guard call; THESIS policy-type ceiling 15→16). Platform only, no Node/Python SDK surface change.",
   "domains": [
     "platform"
   ]
