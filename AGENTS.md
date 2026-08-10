@@ -73,16 +73,16 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-08-07 (commit b93cda8a). Confidence: 100%.
+Last indexed: 2026-08-10 (commit 3c6f4706). Confidence: 100%.
 ### Architecture
-repo is a codebase documentation and governance platform that ingests a source repository (files, contracts, and policy configuration), transforms it through indexing/parsing, dependency and policy analysis, and LLM-synthesised documentation generation, and outputs a served knowledge base via an MCP server plus a web/UI-facing SDK and example governed agents.
+repo is a governed AI agent documentation and tooling monorepo that consumes source repositories (code + metadata + contracts), builds an internal knowledge index (parsing, policy/contract alignment, and dependency-aware analysis), and produces LLM-ready wiki/wiki-like artifacts served through an MCP server and an accompanying web-facing UI layer.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
 | `app` | The **app** module is the **React/Next.js front-end layer of repowise’s… | - |
 | `__tests__/unit` | The __tests__/unit module is the unit-testing stage of repowise’s generation… | - |
 | `app/components` | The **app/components** module is the **UI composition layer** in repowise’s web… | - |
-| `app/lib` | The **app/lib module is the policy/guard support layer of repowise’s indexing… | - |
+| `app/lib` | The **app/lib** module is a shared backend library layer in repowise’s larger… | - |
 | `application` | The **Application (top-level)** module is the entry-stage orchestration layer… | - |
 | `app/api/_archive` | The **api/_archive** module is the **archival API layer** in repowise’s larger… | - |
 | `scripts` | The **scripts** module is the **application-layer orchestration toolkit** for… | - |
@@ -96,18 +96,18 @@ repo is a codebase documentation and governance platform that ingests a source r
 - `scripts/_load-env.mjs`
 - `scripts/living-merge/manifest.ts`
 - `scripts/lib/run-pre-commit-checks.mjs`
-- `scripts/lib/contracts/load-contracts.mjs`
 - `livingcode/__main__.py`
+- `scripts/lib/contracts/load-contracts.mjs`
 - `scripts/lib/calibration-mining.mjs`
 - `scripts/lib/contracts/check-api-surface.mjs`
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `docs/maintainer-log.md` | 100.0th percentile | 157 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 162 | Wes Sander |
 | `mcp-server/lib/routes-inventory.generated.json` | 100.0th percentile | 34 | Wes Sander |
 | `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 71 | Wes Sander |
 | `app/lib/doctor/generated/shape.json` | 99.9th percentile | 71 | Wes Sander |
-| `CHANGELOG.md` | 99.9th percentile | 118 | Wes Sander |
+| `CHANGELOG.md` | 99.9th percentile | 131 | Wes Sander |
 
 ### Repowise MCP Workflow
 
