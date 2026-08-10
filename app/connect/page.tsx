@@ -519,6 +519,23 @@ dashclaw doctor`}</CodeBlock>
                   on the host.
                 </li>
                 <li>
+                  · <code className="font-mono text-text-primary">403 readonly API key</code>{' '}
+                  means the key is valid but scoped read-only; mint a member or admin key for agents
+                  that record actions. A 403 that carries a guard decision is not an auth failure:
+                  policy blocked the action, and the block is in your ledger.
+                </li>
+                <li>
+                  · Connection works but the dashboard stays empty? The key belongs to a different
+                  workspace than the one you are viewing. Check which instance and workspace minted
+                  the key, and sign in to that workspace.
+                </li>
+                <li>
+                  · Action appears but never completes? The agent did not report an outcome. Call{' '}
+                  <code className="font-mono text-text-primary">updateOutcome</code>{' '}
+                  with <code className="font-mono text-text-primary">completed</code> or{' '}
+                  <code className="font-mono text-text-primary">failed</code> after the work.
+                </li>
+                <li>
                   · Never point an agent at the demo deployment (e.g.{' '}
                   <code className="font-mono text-text-primary">dashclaw.io</code>): it rejects writes. Use your own instance.
                 </li>

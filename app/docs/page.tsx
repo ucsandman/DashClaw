@@ -121,6 +121,7 @@ function SectionNav({ items }: SectionNavProps) {
 /* ─── nav items for sidebar ─── */
 
 const navItems = [
+  { href: '/connect', label: 'Connect in 5 minutes' },
   { href: '/guides/platform', label: 'Complete Platform Guide' },
   { href: '#quick-start', label: 'Quick Start' },
   { href: '#mcp-server', label: 'MCP Server' },
@@ -220,6 +221,18 @@ export default async function DocsPage() {
 
         <div className="min-w-0 flex-1">
 
+          {/* ── Five-minute path callout ── */}
+          <div className="mb-4 rounded-xl border border-border bg-surface-secondary p-5">
+            <p className="font-mono text-[11px] uppercase tracking-wider text-text-tertiary">First time here?</p>
+            <p className="mt-1 text-sm text-text-secondary leading-relaxed">
+              The fastest path is not this reference. Follow the guided setup: agent connected, first guarded
+              action recorded, visible on your dashboard.
+            </p>
+            <Link href="/connect" className="mt-2 inline-block text-sm font-medium text-brand hover:text-brand-hover">
+              Get an agent on the dashboard in 5 minutes →
+            </Link>
+          </div>
+
           {/* ── Complete platform guide callout ── */}
           <div className="mb-10 rounded-xl border border-brand/25 bg-surface-secondary p-5">
             <p className="font-mono text-[11px] uppercase tracking-wider text-brand">New</p>
@@ -284,10 +297,47 @@ claw = DashClaw(
               <div>
                 <div className="flex items-center gap-3 mb-3">
                   <span className="w-7 h-7 rounded-full bg-brand/20 text-brand text-xs font-bold flex items-center justify-center">3</span>
+                  <h3 className="text-base font-semibold">Record your first action</h3>
+                </div>
+                <div className="pl-10">
+                  <p className="mb-3 text-sm text-text-secondary leading-relaxed">
+                    The smallest event that proves the connection end to end: one action, one outcome.
+                  </p>
+                  <DocsCodeTabs
+                    nodeSnippet={`const { action_id } = await claw.createAction({
+  action_type: 'api_call',
+  declared_goal: 'First governed action',
+  risk_score: 20
+});
+
+await claw.updateOutcome(action_id, { status: 'completed' });`}
+                    pythonSnippet={`created = claw.create_action(
+    action_type="api_call",
+    declared_goal="First governed action",
+    risk_score=20
+)
+
+claw.update_outcome(created["action_id"], status="completed")`}
+                  />
+                  <p className="mt-3 text-sm text-text-secondary leading-relaxed">
+                    Verify: open your dashboard. Your agent and one completed action appear in{' '}
+                    <code className="font-mono text-text-primary">/decisions</code> in real time.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 4 */}
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="w-7 h-7 rounded-full bg-brand/20 text-brand text-xs font-bold flex items-center justify-center">4</span>
                   <h3 className="text-base font-semibold">Governance Loop</h3>
                 </div>
                 <div className="pl-10">
-                  <DocsCodeTabs 
+                  <p className="mb-3 text-sm text-text-secondary leading-relaxed">
+                    For real work, wrap the action in the full loop: guard before acting, wait for approval when
+                    the server holds it, record evidence, report the outcome.
+                  </p>
+                  <DocsCodeTabs
                     nodeSnippet={`// 1. Ask permission — your abort IS the enforcement on the SDK path
 const decision = await claw.guard({
   action_type: 'deploy',
@@ -593,13 +643,15 @@ hermes dashclaw doctor`}</CodeBlock>
               <p className="text-xs text-text-tertiary mb-3">
                 <code className="font-mono text-text-secondary">dashclaw-governance</code> teaches governed agents how to use DashClaw correctly: risk thresholds, decision handling (allow / warn / block / require_approval), action recording, approval-wait protocol, and session lifecycle. Pairs with <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code>. Auto-installed by the Claude Code, Codex, and Hermes plugins; also downloadable as a standalone zip.
               </p>
-              <CodeBlock title="Download">{`# Zip download from this instance:
-curl -O ${'`'}https://${'<'}your-deployment${'>'}/downloads/dashclaw-governance.zip${'`'}
+              <CodeBlock title="Download">{`# Portable: download the zip from your instance and unzip it into
+# whatever skills directory your runtime reads.
+curl -O https://${'<'}your-deployment${'>'}/downloads/dashclaw-governance.zip
 
-# Or copy the source dir directly:
+# Claude Code example target (adjust for your runtime):
 cp -r public/downloads/dashclaw-governance ~/.claude/skills/
 
-# Already auto-installed if you ran one of the plugin installers above.`}</CodeBlock>
+# Codex, Hermes, and OpenClaw: already auto-installed if you ran
+# one of the plugin installers above.`}</CodeBlock>
             </div>
 
           </section>
