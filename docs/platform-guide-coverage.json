@@ -3289,10 +3289,10 @@
       "liveVerified": false
     },
     {
-      "item": "GET /api/widget/summary",
+      "item": "GET /api/widget/pulse",
       "kind": "api",
       "status": "experimental",
-      "section": "Widget (#api-widget)",
+      "section": "Widget (Pulse) (#api-widget)",
       "liveVerified": false
     },
     {
