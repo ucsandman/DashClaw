@@ -40,6 +40,21 @@ export async function incrementUsageRollup(
   }
 }
 
+/**
+ * Lean read for the entitlement ceiling check (app/lib/entitlements.ts):
+ * just the current period's governed-action count, no seat counts. Used on
+ * the POST /api/actions and POST /api/guard?record=true hot path, so it's
+ * one query, not the full getUsageSummary join.
+ */
+export async function getGovernedActionsThisPeriod(sql: SqlTag, orgId: string): Promise<number> {
+  const period = getCurrentPeriod();
+  const rows = await sql`
+    SELECT governed_actions
+    FROM usage_rollups WHERE org_id = ${orgId} AND period = ${period}
+  `;
+  return toCount(rows[0]?.governed_actions);
+}
+
 export interface UsageSummary {
   period: string;
   governed_actions: number;

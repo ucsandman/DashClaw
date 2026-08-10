@@ -35,6 +35,7 @@ export const MARKETING_ROUTES = [
   '/blog/codex-parity',
   '/blog/hermes-plugin',
   '/docs',
+  '/pricing',
   '/self-host',
   '/privacy',
   '/connect',

@@ -22,6 +22,8 @@ import {
 import { getViewerContextFromCookieHeader, resolveTrialSession, hasTrialSessionCookie, TRIAL_SESSION_COOKIE } from './app/lib/sessionViewer.mjs';
 import { isSelfHostModeEnabled } from './app/lib/selfHost';
 import { addSecurityHeaders } from './app/lib/security-headers';
+import { actionCeilingExceeded, entitlementsForPlan } from './app/lib/entitlements';
+import { getGovernedActionsThisPeriod } from './app/lib/repositories/usage.repository';
 
 /**
  * Authentication middleware for DashClaw
@@ -595,7 +597,7 @@ async function resolveApiKey(keyHash, request) {
     const sql = neon(process.env.DATABASE_URL);
     const rows = await sql`
       SELECT ak.id, ak.org_id, ak.role, ak.revoked_at,
-             o.hosted_mode, o.trial_ends_at, o.trial_action_cap, o.trial_actions_used
+             o.hosted_mode, o.trial_ends_at, o.trial_action_cap, o.trial_actions_used, o.plan
       FROM api_keys ak
       LEFT JOIN organizations o ON o.id = ak.org_id
       WHERE ak.key_hash = ${keyHash}
@@ -621,6 +623,7 @@ async function resolveApiKey(keyHash, request) {
       trialEndsAt: row.trial_ends_at,
       trialActionCap: row.trial_action_cap,
       trialActionsUsed: row.trial_actions_used,
+      plan: row.plan,
     };
     apiKeyCache.set(keyHash, { timestamp: now, result });
 
@@ -723,6 +726,48 @@ function enforceHostedTrial(auth) {
     };
   }
   return null;
+}
+
+// Monthly governed-action ceiling (hosted paid tier — G4, v5.12 metering +
+// docs/decisions/2026-08-09-hosted-paid-tier.md). Mirrors enforceHostedTrial's
+// shape/status, but scoped narrowly: only the two routes that actually create
+// a governed action (the createActionRecord funnel) trip it, not every
+// request. Free hosted orgs never trip this — they're governed by the
+// lifetime trial_action_cap (enforceHostedTrial) instead;
+// entitlements.actionCeilingExceeded already returns false for a plan with
+// no monthly ceiling, so this needs no separate free-plan branch.
+function isGovernedActionCreationRequest(pathname, method, url) {
+  if (method !== 'POST') return false;
+  if (pathname === '/api/actions') return true;
+  if (pathname === '/api/guard') return url.searchParams.get('record') === 'true';
+  return false;
+}
+
+async function enforceActionCeiling(auth, request, pathname) {
+  if (!auth || !auth.hostedMode) return null;
+  const url = request.nextUrl || new URL(request.url);
+  if (!isGovernedActionCreationRequest(pathname, request.method, url)) return null;
+
+  let governedActions;
+  try {
+    governedActions = await getGovernedActionsThisPeriod(neon(process.env.DATABASE_URL), auth.orgId);
+  } catch (err) {
+    // Metering is best-effort (see usage.repository.ts header) — a read
+    // failure here must not block a real governed action. Fail open.
+    console.error('[MIDDLEWARE] Failed to read usage rollup for ceiling check:', err.message);
+    return null;
+  }
+
+  if (!actionCeilingExceeded(auth.plan, governedActions)) return null;
+  return {
+    status: 403,
+    body: {
+      error: 'monthly action ceiling reached',
+      code: 'ACTION_CEILING_REACHED',
+      monthly_action_ceiling: entitlementsForPlan(auth.plan).monthlyActionCeiling,
+      governed_actions: governedActions,
+    },
+  };
 }
 
 // SECURITY: CORS - restrict to deployment origin
@@ -1710,6 +1755,11 @@ async function handleDatabaseKey(request, pathname, requestHeaders, apiKey) {
   const trialBlock = enforceHostedTrial(resolved);
   if (trialBlock) {
     return securedJson(request, trialBlock.body, { status: trialBlock.status });
+  }
+
+  const ceilingBlock = await enforceActionCeiling(resolved, request, pathname);
+  if (ceilingBlock) {
+    return securedJson(request, ceilingBlock.body, { status: ceilingBlock.status });
   }
 
   // SECURITY: Enforce readonly semantics for API keys.

@@ -7,6 +7,7 @@ import {
   incrementUsageRollup,
   getUsageSummary,
   getUsageHistory,
+  getGovernedActionsThisPeriod,
 } from '@/lib/repositories/usage.repository.js';
 
 function joinedQuery(call) {
@@ -131,6 +132,31 @@ describe('usage.repository', () => {
       expect(summary.governed_actions).toBe(7);
       expect(summary.seats.users).toBe(2);
       expect(summary.seats.active_api_keys).toBe(3);
+    });
+  });
+
+  describe('getGovernedActionsThisPeriod', () => {
+    it('returns the current period governed_actions count, org-scoped', async () => {
+      mockSql.mockImplementation(async (strings) => {
+        const q = strings.join(' ');
+        if (q.includes('FROM usage_rollups')) return [{ governed_actions: 51 }];
+        return [];
+      });
+      const count = await getGovernedActionsThisPeriod(mockSql, 'org_a');
+      expect(count).toBe(51);
+      const call = mockSql.mock.calls[0];
+      expect(call.slice(1)).toContain('org_a');
+      expect(call.slice(1)).toContain(getCurrentPeriod());
+    });
+
+    it('returns 0 when no rollup row exists yet for the period', async () => {
+      mockSql.mockImplementation(async () => []);
+      expect(await getGovernedActionsThisPeriod(mockSql, 'org_a')).toBe(0);
+    });
+
+    it('coerces a stringified pg numeric count', async () => {
+      mockSql.mockImplementation(async () => [{ governed_actions: '250000' }]);
+      expect(await getGovernedActionsThisPeriod(mockSql, 'org_a')).toBe(250_000);
     });
   });
 

@@ -11,6 +11,7 @@ import type { SqlTag } from '../../app/lib/types/db';
 import {
   getOrgBillingState,
   saveStripeCustomerId,
+  clearStripeCustomerId,
   claimWebhookEvent,
   applyCheckoutCompleted,
   applySubscriptionUpdated,
@@ -149,5 +150,23 @@ describe('saveStripeCustomerId', () => {
     expect(await saveStripeCustomerId(sql, { orgId: 'org_a', customerId: 'cus_1' })).toBe(true);
     const { text } = sql.calls[0]!;
     expect(text).toContain('stripe_customer_id IS NULL');
+  });
+});
+
+describe('clearStripeCustomerId', () => {
+  it('clears the stale customer id on an exact match', async () => {
+    const sql = makeSqlMock([[{ id: 'org_a' }]]);
+    expect(await clearStripeCustomerId(sql, { orgId: 'org_a', staleCustomerId: 'cus_stale' })).toBe(true);
+    const { text, values } = sql.calls[0]!;
+    expect(text).toContain('SET stripe_customer_id = NULL');
+    expect(text).toContain('stripe_customer_id =');
+    expect(values).toEqual(expect.arrayContaining(['org_a', 'cus_stale']));
+  });
+
+  it('leaves a concurrently-minted fresh customer id untouched', async () => {
+    // The row no longer matches staleCustomerId (a concurrent checkout
+    // already replaced it), so the WHERE clause returns nothing.
+    const sql = makeSqlMock([[]]);
+    expect(await clearStripeCustomerId(sql, { orgId: 'org_a', staleCustomerId: 'cus_stale' })).toBe(false);
   });
 });

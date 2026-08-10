@@ -10,6 +10,7 @@ import {
 } from '../../../lib/repositories/invites.repository';
 import { getTeamOrgAndMembers } from '../../../lib/repositories/orgsTeam.repository';
 import { getSql } from '../../../lib/db';
+import { seatCapReached, entitlementsForPlan } from '../../../lib/entitlements';
 
 /**
  * Seat management (v5.13): email-matched invites. Human org admins only —
@@ -54,8 +55,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const result = await createInvite(getSql(), {
-    orgId: getOrgId(request),
+  const sql = getSql();
+  const orgId = getOrgId(request);
+
+  // Seat cap (hosted paid tier, G4): only hosted orgs are gated — self-host
+  // is free and complete forever, and a downgrade never removes an existing
+  // member, it only blocks the NEXT invite once at/over cap.
+  const [{ org, members }, pendingInvites] = await Promise.all([
+    getTeamOrgAndMembers(sql, orgId),
+    listPendingInvites(sql, orgId),
+  ]);
+  const plan = (org?.plan as string | null | undefined) ?? null;
+  if (org?.hosted_mode && seatCapReached(plan, members.length, pendingInvites.length)) {
+    return NextResponse.json(
+      {
+        error: 'SEAT_CAP_REACHED',
+        code: 'SEAT_CAP_REACHED',
+        seat_cap: entitlementsForPlan(plan).seatCap,
+        upgrade_hint: 'Upgrade your plan to invite more teammates.',
+      },
+      { status: 409 },
+    );
+  }
+
+  const result = await createInvite(sql, {
+    orgId,
     email: typeof body.email === 'string' ? body.email : '',
     role: typeof body.role === 'string' ? body.role : 'member',
     createdByUserId: request.headers.get('x-user-id') || '',

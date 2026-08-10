@@ -13,7 +13,7 @@ export async function getTeamOrgAndMembers(
   orgId: string
 ): Promise<{ org: Record<string, unknown> | null; members: Record<string, unknown>[] }> {
   const [orgRows, members] = await Promise.all([
-    sql`SELECT id, name, slug, plan FROM organizations WHERE id = ${orgId}`,
+    sql`SELECT id, name, slug, plan, hosted_mode FROM organizations WHERE id = ${orgId}`,
     sql`
       SELECT id, email, name, image, role, created_at, last_login_at
       FROM users

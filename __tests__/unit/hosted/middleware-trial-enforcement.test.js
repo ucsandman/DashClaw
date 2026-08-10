@@ -26,6 +26,22 @@ function req(pathname, apiKey) {
   };
 }
 
+// POST variant for the monthly-action-ceiling tests below: the ceiling only
+// gates governed-action *creation* (POST /api/actions, POST
+// /api/guard?record=true), never reads.
+function postReq(pathname, apiKey) {
+  const url = `http://localhost:3000${pathname}`;
+  const parsed = new URL(url);
+  return {
+    url,
+    method: 'POST',
+    nextUrl: parsed,
+    headers: new Headers({ 'x-api-key': apiKey }),
+    cookies: { get: () => undefined },
+    ip: '127.0.0.1',
+  };
+}
+
 describe('middleware hosted-trial enforcement', () => {
   beforeEach(() => {
     sqlMock.mockReset();
@@ -126,5 +142,109 @@ describe('middleware hosted-trial enforcement', () => {
     }]);
     const res = await middleware(req('/api/actions', apiKey));
     expect(res.status).not.toBe(403);
+  });
+
+  // Monthly governed-action ceiling (hosted paid tier, G4). Mirrors the
+  // trial cap tests above, but scoped to governed-action creation
+  // (POST /api/actions, POST /api/guard?record=true) per
+  // app/lib/entitlements.ts + middleware.js's enforceActionCeiling. Nested
+  // under the same describe so it inherits the outer beforeEach (DB URL +
+  // sentinel key). Each mock queues 3 sql() resolutions in call order: the
+  // auth SELECT, the fire-and-forget last_used_at UPDATE, then the
+  // usage_rollups ceiling read.
+  describe('monthly action ceiling (hosted paid plans)', () => {
+    it('blocks POST /api/actions at the indie ceiling (50,000)', async () => {
+      const apiKey = uniqueKey();
+      sqlMock.mockResolvedValueOnce([{
+        org_id: 'org_indie', role: 'admin', revoked_at: null,
+        hosted_mode: true, trial_ends_at: '2099-01-01T00:00:00Z',
+        trial_action_cap: null, trial_actions_used: 0, plan: 'indie',
+      }]);
+      sqlMock.mockResolvedValueOnce([]); // last_used_at UPDATE
+      sqlMock.mockResolvedValueOnce([{ governed_actions: 50_000 }]); // usage_rollups
+      const res = await middleware(postReq('/api/actions', apiKey));
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.code).toBe('ACTION_CEILING_REACHED');
+      expect(body.monthly_action_ceiling).toBe(50_000);
+    });
+
+    it('does not block at 49,999 governed actions for indie', async () => {
+      const apiKey = uniqueKey();
+      sqlMock.mockResolvedValueOnce([{
+        org_id: 'org_indie', role: 'admin', revoked_at: null,
+        hosted_mode: true, trial_ends_at: '2099-01-01T00:00:00Z',
+        trial_action_cap: null, trial_actions_used: 0, plan: 'indie',
+      }]);
+      sqlMock.mockResolvedValueOnce([]);
+      sqlMock.mockResolvedValueOnce([{ governed_actions: 49_999 }]);
+      const res = await middleware(postReq('/api/actions', apiKey));
+      expect(res.status).not.toBe(403);
+    });
+
+    it('blocks POST /api/guard?record=true the same way as POST /api/actions', async () => {
+      const apiKey = uniqueKey();
+      sqlMock.mockResolvedValueOnce([{
+        org_id: 'org_team', role: 'admin', revoked_at: null,
+        hosted_mode: true, trial_ends_at: '2099-01-01T00:00:00Z',
+        trial_action_cap: null, trial_actions_used: 0, plan: 'team',
+      }]);
+      sqlMock.mockResolvedValueOnce([]);
+      sqlMock.mockResolvedValueOnce([{ governed_actions: 250_000 }]);
+      const res = await middleware(postReq('/api/guard?record=true', apiKey));
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.code).toBe('ACTION_CEILING_REACHED');
+    });
+
+    it('never blocks a plain POST /api/guard without record=true', async () => {
+      const apiKey = uniqueKey();
+      sqlMock.mockResolvedValueOnce([{
+        org_id: 'org_team', role: 'admin', revoked_at: null,
+        hosted_mode: true, trial_ends_at: '2099-01-01T00:00:00Z',
+        trial_action_cap: null, trial_actions_used: 0, plan: 'team',
+      }]);
+      // No usage_rollups mock queued: isGovernedActionCreationRequest is
+      // false for a bare POST /api/guard, so enforceActionCeiling never
+      // reads it.
+      const res = await middleware(postReq('/api/guard', apiKey));
+      expect(res.status).not.toBe(403);
+    });
+
+    it('never blocks reads even when the org is over its ceiling', async () => {
+      const apiKey = uniqueKey();
+      sqlMock.mockResolvedValueOnce([{
+        org_id: 'org_indie', role: 'admin', revoked_at: null,
+        hosted_mode: true, trial_ends_at: '2099-01-01T00:00:00Z',
+        trial_action_cap: null, trial_actions_used: 0, plan: 'indie',
+      }]);
+      // GET is not governed-action creation, so the ceiling read never fires.
+      const res = await middleware(req('/api/actions', apiKey));
+      expect(res.status).not.toBe(403);
+    });
+
+    it('free hosted plan has no monthly ceiling — governed by the lifetime trial cap instead', async () => {
+      const apiKey = uniqueKey();
+      sqlMock.mockResolvedValueOnce([{
+        org_id: 'org_free', role: 'admin', revoked_at: null,
+        hosted_mode: true, trial_ends_at: '2099-01-01T00:00:00Z',
+        trial_action_cap: 10_000, trial_actions_used: 5, plan: 'free',
+      }]);
+      // actionCeilingExceeded short-circuits on a null ceiling, so no
+      // usage_rollups read happens; nothing else needs to be queued.
+      const res = await middleware(postReq('/api/actions', apiKey));
+      expect(res.status).not.toBe(403);
+    });
+
+    it('self-hosted (hosted_mode false) never blocks, even for the trial-cap-shaped fields', async () => {
+      const apiKey = uniqueKey();
+      sqlMock.mockResolvedValueOnce([{
+        org_id: 'org_self', role: 'admin', revoked_at: null,
+        hosted_mode: false, trial_ends_at: null,
+        trial_action_cap: null, trial_actions_used: 0, plan: 'indie',
+      }]);
+      const res = await middleware(postReq('/api/actions', apiKey));
+      expect(res.status).not.toBe(403);
+    });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getOrgStripeCustomerId } from '../../app/lib/repositories/orgsTeam.repository';
+import { getOrgStripeCustomerId, getTeamOrgAndMembers } from '../../app/lib/repositories/orgsTeam.repository';
 
 function fakeSql(returns = []) {
   const calls = [];
@@ -29,5 +29,15 @@ describe('getOrgStripeCustomerId', () => {
   it('returns null when the org row is missing', async () => {
     const sql = fakeSql([]);
     expect(await getOrgStripeCustomerId(sql, 'org_missing')).toBeNull();
+  });
+});
+
+describe('getTeamOrgAndMembers', () => {
+  it('selects hosted_mode alongside plan (seat-cap entitlement check gates on it)', async () => {
+    const sql = fakeSql([]);
+    await getTeamOrgAndMembers(sql, 'org_test');
+    const orgCall = sql.calls.find((c) => c.text.includes('FROM organizations'));
+    expect(orgCall.text).toMatch(/SELECT id, name, slug, plan, hosted_mode FROM organizations/);
+    expect(orgCall.vals).toEqual(['org_test']);
   });
 });

@@ -437,6 +437,19 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   log, no approve/deny (read-only slice 1); one read-only route composed from
   existing repositories, no new ingestion, no new tables.
 
+- **2026-08-09 — App pages 52 → 53 (`/pricing`).** Reinstated per
+  `docs/decisions/2026-08-09-hosted-paid-tier.md`, which reverses the
+  2026-05-14 "retract the monetization surface entirely" decision
+  (`ef8bb678`) on the record, loudly and dated, the same standard this
+  thesis holds users' agents to. The rule the retraction set stays intact:
+  self-hosted DashClaw is free, complete, and MIT forever, and the page
+  says so plainly. What changed is that hosted.dashclaw.io, the control
+  plane we operate, now charges for running that plane on someone else's
+  behalf — capacity and operations (seats, action ceilings, retention,
+  support), never a governance capability. Not a revival of the culled
+  MON-01 counter or Pro-tier framing: no live counter, no trigger metric,
+  fixed prices instead.
+
 ## Version story
 
 This cull ships as **v5.0.0** — the major break the removal list demands, and

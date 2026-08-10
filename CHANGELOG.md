@@ -13,6 +13,27 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.16.0] — 2026-08-09
+
+**Entitlement enforcement at the capacity seams, the public `/pricing` page, and a self-healing checkout.** This completes the build order the packaging decision mandated (accounts → metering → entitlements → checkout): entitlements was the one step still missing after v5.12.0–v5.14.0. The gating rule is enforced exactly as written — capacity and operations, never safety. No tier, free or paid, lacks a governance capability, and self-hosted DashClaw enforces nothing at all.
+
+### Added
+
+- **`app/lib/entitlements.ts`**: the pure plan table — hosted Indie: 2 seats + 50k governed actions/month, hosted Team: 10 seats + 250k/month, free hosted: 2 seats with the existing lifetime trial cap. Ceilings are explicitly PROVISIONAL per `docs/decisions/2026-08-09-hosted-paid-tier.md` (final numbers wait on real hosted usage). Enforcement applies only when `hosted_mode` is true.
+- **Seat cap at the invite seam**: `POST /api/team/invites` on a hosted org now counts members + pending invites against the plan's seat cap and returns `409 SEAT_CAP_REACHED` (with the cap and an upgrade hint) before creating the invite. Existing members are never removed by a downgrade — the cap only blocks new invites.
+- **Monthly governed-action ceiling**: hosted orgs on paid plans are checked against the current UTC period in `usage_rollups` at the same middleware seam that already enforces the hosted trial cap (`POST /api/actions` and `POST /api/guard?record=true` on the API-key path), returning the trial cap's exact response shape with `code: ACTION_CEILING_REACHED`. Fails open if the metering read errors — metering is documented best-effort and a billing counter must never block governance on its own failure.
+- **`/pricing`** (public, on www): three honest columns — self-hosted free forever (complete plane, MIT), Hosted Indie $49/mo, Hosted Team $199/mo — plus what paying actually buys (we run it for you), the no-safety-gating guarantee stated outright, the free 30-day trial CTA, and the export-and-self-host-anytime path. Nav + footer links and sitemap entry restored — the exact surfaces the 2.18.0 retraction removed, reinstated on the record via the hosted-paid-tier decision.
+- **Checkout self-heals a stale Stripe customer** (the proven test→live landmine): `resource_missing` on a stored `stripe_customer_id` now clears the stale link (guarded against concurrent fresh ids), mints a fresh customer, and retries once. The portal route returns a structured `409 NO_STRIPE_CUSTOMER` instead of a 500 in the same case.
+
+### Fixed
+
+- **Deleted the dead `requireTier()` shim** from `app/lib/org.ts` along with its false doc comment claiming seven routes call it — git archaeology shows the only caller that ever existed was a test-only fixture removed in 2.18.0. The claim had propagated unverified through the changelog and cleanup reports since.
+
+### Notes
+
+- Surface-budget ceiling amended in the same ship: app pages 52 → 53 (`THESIS.md` amendment log + `contracts/surface-budget.json`). Active API routes unchanged at 131 — enforcement lives at existing seams, not new routes.
+- No Node/Python SDK source change; the shared version advances to 5.16.0.
+
 ## [5.15.0] — 2026-08-09
 
 **DashClaw Pulse: an always-on-top ambient posture window (`/widget`) for the operator who is deliberately NOT watching.** One glyph answers "is any of this mine?" from across the room — a dim dash when nothing is owed, the pending-approval count when something is. Design chosen by a 9-agent tournament (5 divergent concepts, 3-lens judge panel); full spec and precedence rules in `docs/decisions/2026-08-09-widget-pulse.md`. Not a revival of the culled status-widget PWA: no PWA manifest, no prefs, no stat tiles, no action log, read-only slice 1.

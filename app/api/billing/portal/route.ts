@@ -4,8 +4,21 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { getOrgId } from '../../../lib/org';
 import { getStripe, appUrl } from '../../../lib/billing-stripe';
-import { getOrgBillingState } from '../../../lib/repositories/billing.repository';
+import { getOrgBillingState, clearStripeCustomerId } from '../../../lib/repositories/billing.repository';
 import { getSql } from '../../../lib/db';
+
+/**
+ * A stale/deleted Stripe customer id (proven in prod 2026-08-09: live-mode
+ * cutover left orgs pointing at test-mode ids) throws a resource_missing
+ * error naming the customer param. Anything else is a real Stripe failure.
+ */
+function isStaleCustomerError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { code?: unknown; param?: unknown; message?: unknown };
+  if (e.code !== 'resource_missing') return false;
+  if (e.param === 'customer') return true;
+  return typeof e.message === 'string' && e.message.toLowerCase().includes('customer');
+}
 
 /** Stripe customer portal for the caller's org (v5.14). Human admins only. */
 export async function GET(request: Request) {
@@ -20,7 +33,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Billing not configured', code: 'BILLING_NOT_CONFIGURED' }, { status: 501 });
   }
 
-  const state = await getOrgBillingState(getSql(), getOrgId(request));
+  const sql = getSql();
+  const orgId = getOrgId(request);
+  const state = await getOrgBillingState(sql, orgId);
   if (!state?.stripeCustomerId) {
     return NextResponse.json(
       { error: 'No billing account for this workspace yet', code: 'NO_CUSTOMER' },
@@ -28,9 +43,22 @@ export async function GET(request: Request) {
     );
   }
 
-  const session = await stripe.billingPortal.sessions.create({
-    customer: state.stripeCustomerId,
-    return_url: `${appUrl()}/settings?tab=billing`,
-  });
-  return NextResponse.json({ url: session.url });
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: state.stripeCustomerId,
+      return_url: `${appUrl()}/settings?tab=billing`,
+    });
+    return NextResponse.json({ url: session.url });
+  } catch (err) {
+    if (!isStaleCustomerError(err)) throw err;
+    // Unlike checkout, minting a fresh customer here is useless — it has no
+    // subscription, so the portal would just be empty. Clear the stale link
+    // and tell the client to start checkout again.
+    console.warn(`[BillingPortal] stale Stripe customer for org ${orgId} (was ${state.stripeCustomerId.slice(0, 8)}...)`);
+    await clearStripeCustomerId(sql, { orgId, staleCustomerId: state.stripeCustomerId });
+    return NextResponse.json(
+      { error: 'No Stripe customer on file for this workspace — start checkout again', code: 'NO_STRIPE_CUSTOMER' },
+      { status: 409 },
+    );
+  }
 }

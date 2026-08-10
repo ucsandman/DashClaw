@@ -30,11 +30,12 @@ vi.mock('stripe', () => ({
 }));
 
 const {
-  mockGetState, mockSaveCustomer, mockClaimEvent,
+  mockGetState, mockSaveCustomer, mockClearCustomer, mockClaimEvent,
   mockApplyCompleted, mockApplyUpdated, mockApplyDeleted, mockApplyFailed,
 } = vi.hoisted(() => ({
   mockGetState: vi.fn(),
   mockSaveCustomer: vi.fn(async () => true),
+  mockClearCustomer: vi.fn(async () => true),
   mockClaimEvent: vi.fn(async () => true),
   mockApplyCompleted: vi.fn(async () => ({ applied: true })),
   mockApplyUpdated: vi.fn(async () => ({ applied: true, orgId: 'org_a' })),
@@ -44,6 +45,7 @@ const {
 vi.mock('@/lib/repositories/billing.repository', () => ({
   getOrgBillingState: mockGetState,
   saveStripeCustomerId: mockSaveCustomer,
+  clearStripeCustomerId: mockClearCustomer,
   claimWebhookEvent: mockClaimEvent,
   applyCheckoutCompleted: mockApplyCompleted,
   applySubscriptionUpdated: mockApplyUpdated,
@@ -63,6 +65,12 @@ function authedReq(method: string, { userId = 'usr_1', role = 'admin', body }: {
     headers: { 'x-org-id': 'org_a', 'x-org-role': role, 'x-user-id': userId, 'content-type': 'application/json' },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
+}
+
+/** Shape of the error Stripe throws for a customer id it no longer knows
+ * about (test/live cutover, or deleted in the Stripe dashboard). */
+function resourceMissingError(message = 'No such customer: cus_stale') {
+  return Object.assign(new Error(message), { code: 'resource_missing', param: 'customer', type: 'StripeInvalidRequestError' });
 }
 
 function webhookReq(payload: unknown, sig = 'sig_valid') {
@@ -134,6 +142,37 @@ describe('POST /api/billing/checkout', () => {
     expect((await checkoutPOST(authedReq('POST', { userId: 'key_1', body: { plan: 'indie' } }))).status).toBe(403);
     expect((await checkoutPOST(authedReq('POST', { role: 'member', body: { plan: 'indie' } }))).status).toBe(403);
   });
+
+  it('a stale stripe_customer_id (resource_missing) heals once, then retries and succeeds', async () => {
+    mockCheckoutCreate
+      .mockRejectedValueOnce(resourceMissingError())
+      .mockResolvedValueOnce({ url: 'https://checkout.stripe.com/s/healed' });
+    const res = await checkoutPOST(authedReq('POST', { body: { plan: 'indie' } }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).url).toBe('https://checkout.stripe.com/s/healed');
+    expect(mockClearCustomer).toHaveBeenCalledWith(expect.anything(), { orgId: 'org_a', staleCustomerId: 'cus_1' });
+    expect(mockCustomersCreate).toHaveBeenCalledWith(expect.objectContaining({ metadata: { org_id: 'org_a' } }));
+    expect(mockSaveCustomer).toHaveBeenCalledWith(expect.anything(), { orgId: 'org_a', customerId: 'cus_new' });
+    expect(mockCheckoutCreate).toHaveBeenCalledTimes(2);
+    expect(mockCheckoutCreate.mock.calls[1]![0]).toMatchObject({ customer: 'cus_new' });
+  });
+
+  it('a second consecutive resource_missing after healing propagates', async () => {
+    mockCheckoutCreate
+      .mockRejectedValueOnce(resourceMissingError())
+      .mockRejectedValueOnce(resourceMissingError('No such customer: cus_new'));
+    await expect(checkoutPOST(authedReq('POST', { body: { plan: 'indie' } }))).rejects.toThrow(/No such customer/);
+    expect(mockCheckoutCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it('non-resource_missing Stripe errors are not treated as stale-customer and propagate untouched', async () => {
+    mockCheckoutCreate.mockRejectedValueOnce(
+      Object.assign(new Error('card declined'), { code: 'card_declined', type: 'StripeCardError' }),
+    );
+    await expect(checkoutPOST(authedReq('POST', { body: { plan: 'indie' } }))).rejects.toThrow(/card declined/);
+    expect(mockClearCustomer).not.toHaveBeenCalled();
+    expect(mockCheckoutCreate).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('GET /api/billing/portal', () => {
@@ -155,6 +194,22 @@ describe('GET /api/billing/portal', () => {
     expect((await portalGET(authedReq('GET', { role: 'member' }))).status).toBe(403);
     vi.stubEnv('STRIPE_SECRET_KEY', '');
     expect((await portalGET(authedReq('GET'))).status).toBe(501);
+  });
+
+  it('a stale stripe_customer_id (resource_missing) clears the link and returns 409 NO_STRIPE_CUSTOMER', async () => {
+    mockPortalCreate.mockRejectedValueOnce(resourceMissingError());
+    const res = await portalGET(authedReq('GET'));
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe('NO_STRIPE_CUSTOMER');
+    expect(mockClearCustomer).toHaveBeenCalledWith(expect.anything(), { orgId: 'org_a', staleCustomerId: 'cus_1' });
+  });
+
+  it('non-resource_missing Stripe errors propagate untouched from the portal too', async () => {
+    mockPortalCreate.mockRejectedValueOnce(
+      Object.assign(new Error('rate limited'), { code: 'rate_limit', type: 'StripeRateLimitError' }),
+    );
+    await expect(portalGET(authedReq('GET'))).rejects.toThrow(/rate limited/);
+    expect(mockClearCustomer).not.toHaveBeenCalled();
   });
 });
 

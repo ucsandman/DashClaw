@@ -21,8 +21,8 @@ vi.mock('@/lib/repositories/invites.repository', () => ({
   revokeInvite: mockRevoke,
 }));
 const { mockGetTeam } = vi.hoisted(() => ({
-  mockGetTeam: vi.fn(async () => ({
-    org: { id: 'org_a', name: 'A', slug: 'a', plan: 'free' },
+  mockGetTeam: vi.fn(async (): Promise<{ org: Record<string, unknown>; members: Record<string, unknown>[] }> => ({
+    org: { id: 'org_a', name: 'A', slug: 'a', plan: 'free', hosted_mode: false },
     members: [{ id: 'usr_admin', email: 'a@b.co', role: 'admin' }],
   })),
 }));
@@ -115,6 +115,81 @@ describe('POST', () => {
       body: 'not json',
     }));
     expect(res.status).toBe(400);
+  });
+
+  describe('seat cap (hosted paid tier)', () => {
+    it('blocks the invite once a hosted indie org is at its 2-seat cap', async () => {
+      mockGetTeam.mockResolvedValue({
+        org: { id: 'org_a', name: 'A', slug: 'a', plan: 'indie', hosted_mode: true },
+        members: [{ id: 'usr_admin' }, { id: 'usr_member' }],
+      });
+      mockList.mockResolvedValue([]);
+      const res = await POST(req('POST', { body: { email: 'new@example.com' } }));
+      expect(res.status).toBe(409);
+      const body = await res.json();
+      expect(body.error).toBe('SEAT_CAP_REACHED');
+      expect(body.code).toBe('SEAT_CAP_REACHED');
+      expect(body.seat_cap).toBe(2);
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
+
+    it('counts pending invites toward the cap, not just members', async () => {
+      mockGetTeam.mockResolvedValue({
+        org: { id: 'org_a', name: 'A', slug: 'a', plan: 'indie', hosted_mode: true },
+        members: [{ id: 'usr_admin' }],
+      });
+      mockList.mockResolvedValue([{ id: 'inv_1', email: 'x@y.co', role: 'member', createdAt: 'a', expiresAt: 'b', expired: false }]);
+      const res = await POST(req('POST', { body: { email: 'new@example.com' } }));
+      expect(res.status).toBe(409);
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
+
+    it('allows up to 10 seats for a hosted team org before blocking', async () => {
+      mockGetTeam.mockResolvedValue({
+        org: { id: 'org_a', name: 'A', slug: 'a', plan: 'team', hosted_mode: true },
+        members: Array.from({ length: 9 }, (_, i) => ({ id: `usr_${i}` })),
+      });
+      mockList.mockResolvedValue([]);
+      const res = await POST(req('POST', { body: { email: 'new@example.com' } }));
+      expect(res.status).toBe(201);
+      expect(mockCreate).toHaveBeenCalled();
+    });
+
+    it('blocks the 11th seat for a hosted team org already at 10', async () => {
+      mockGetTeam.mockResolvedValue({
+        org: { id: 'org_a', name: 'A', slug: 'a', plan: 'team', hosted_mode: true },
+        members: Array.from({ length: 10 }, (_, i) => ({ id: `usr_${i}` })),
+      });
+      mockList.mockResolvedValue([]);
+      const res = await POST(req('POST', { body: { email: 'new@example.com' } }));
+      expect(res.status).toBe(409);
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
+
+    it('self-host (hosted_mode false) never blocks, even far over the free seat cap', async () => {
+      mockGetTeam.mockResolvedValue({
+        org: { id: 'org_a', name: 'A', slug: 'a', plan: 'free', hosted_mode: false },
+        members: Array.from({ length: 20 }, (_, i) => ({ id: `usr_${i}` })),
+      });
+      mockList.mockResolvedValue([]);
+      const res = await POST(req('POST', { body: { email: 'new@example.com' } }));
+      expect(res.status).toBe(201);
+      expect(mockCreate).toHaveBeenCalled();
+    });
+
+    it('a downgrade with existing members over the new cap blocks only new invites (existing members untouched)', async () => {
+      // Org downgraded team (10 seats) -> indie (2 seats) with 6 pre-existing
+      // members. Nothing here removes them; the cap only blocks the NEXT invite.
+      mockGetTeam.mockResolvedValue({
+        org: { id: 'org_a', name: 'A', slug: 'a', plan: 'indie', hosted_mode: true },
+        members: Array.from({ length: 6 }, (_, i) => ({ id: `usr_${i}` })),
+      });
+      mockList.mockResolvedValue([]);
+      const res = await POST(req('POST', { body: { email: 'new@example.com' } }));
+      expect(res.status).toBe(409);
+      expect(mockGetTeam).toHaveBeenCalled(); // members were read, never mutated
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
   });
 });
 

@@ -24,6 +24,7 @@ export default function PublicNavbar() {
           <a href="/explain" className="hover:text-text-primary transition-colors">How it works</a>
           <Link href="/proof" className="hover:text-text-primary transition-colors">Proof</Link>
           <Link href="/connect" className="hover:text-text-primary transition-colors">Connect</Link>
+          <Link href="/pricing" className="hover:text-text-primary transition-colors">Pricing</Link>
           <Link href="/docs" className="hover:text-text-primary transition-colors">Docs</Link>
           <Link href="/downloads" className="hover:text-text-primary transition-colors">Downloads</Link>
           <a
@@ -87,6 +88,9 @@ export default function PublicNavbar() {
               </Link>
               <Link href="/connect" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary">
                 Connect an Agent
+              </Link>
+              <Link href="/pricing" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary">
+                Pricing
               </Link>
               <Link href="/docs" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary">
                 Docs

@@ -67,6 +67,26 @@ export async function saveStripeCustomerId(
 }
 
 /**
+ * Self-heal for a stale/deleted Stripe customer id (2026-08-09 prod bug:
+ * live-mode cutover left orgs pointing at test-mode customer ids, and
+ * Stripe-dashboard deletions have the same shape). Clears the link only on
+ * an exact match, so a concurrent checkout that already minted a fresh
+ * customer id is never clobbered.
+ */
+export async function clearStripeCustomerId(
+  sql: SqlTag,
+  { orgId, staleCustomerId }: { orgId: string; staleCustomerId: string },
+): Promise<boolean> {
+  const rows = await sql`
+    UPDATE organizations
+    SET stripe_customer_id = NULL, updated_at = NOW()
+    WHERE id = ${orgId} AND stripe_customer_id = ${staleCustomerId}
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+/**
  * Idempotency claim: true exactly once per Stripe event id. The caller runs
  * the handler only on true — retries and replays claim nothing.
  */

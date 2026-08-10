@@ -4,7 +4,11 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { getOrgId } from '../../../lib/org';
 import { getStripe, priceIdForPlan, appUrl } from '../../../lib/billing-stripe';
-import { getOrgBillingState, saveStripeCustomerId } from '../../../lib/repositories/billing.repository';
+import {
+  getOrgBillingState,
+  saveStripeCustomerId,
+  clearStripeCustomerId,
+} from '../../../lib/repositories/billing.repository';
 import { getSql } from '../../../lib/db';
 
 /**
@@ -14,6 +18,19 @@ import { getSql } from '../../../lib/db';
  * anonymous trial cookie." 501 (not 500) when Stripe is unconfigured, so
  * self-host instances answer honestly instead of erroring.
  */
+
+/**
+ * A stale/deleted Stripe customer id (proven in prod 2026-08-09: live-mode
+ * cutover left orgs pointing at test-mode ids) throws a resource_missing
+ * error naming the customer param. Anything else is a real Stripe failure.
+ */
+function isStaleCustomerError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { code?: unknown; param?: unknown; message?: unknown };
+  if (e.code !== 'resource_missing') return false;
+  if (e.param === 'customer') return true;
+  return typeof e.message === 'string' && e.message.toLowerCase().includes('customer');
+}
 export async function POST(request: Request) {
   const userId = request.headers.get('x-user-id') || '';
   const role = request.headers.get('x-org-role') || '';
@@ -64,14 +81,35 @@ export async function POST(request: Request) {
   }
 
   const base = appUrl();
-  const session = await stripe.checkout.sessions.create({
-    customer: customerId,
-    mode: 'subscription',
+  const sessionParams = (custId: string) => ({
+    customer: custId,
+    mode: 'subscription' as const,
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${base}/settings?tab=billing&billing=success`,
     cancel_url: `${base}/settings?tab=billing&billing=canceled`,
     metadata: { org_id: orgId, plan },
   });
+
+  let session;
+  try {
+    session = await stripe.checkout.sessions.create(sessionParams(customerId));
+  } catch (err) {
+    if (!isStaleCustomerError(err)) throw err;
+    // Self-heal, once: the stored customer id no longer exists on Stripe
+    // (live/test cutover, or deleted in the Stripe dashboard). Clear it,
+    // mint a fresh customer, and retry exactly once — a second failure
+    // propagates.
+    console.warn(`[BillingCheckout] healing stale Stripe customer for org ${orgId} (was ${customerId.slice(0, 8)}...)`);
+    await clearStripeCustomerId(sql, { orgId, staleCustomerId: customerId });
+    const freshCustomer = await stripe.customers.create({ metadata: { org_id: orgId } });
+    customerId = freshCustomer.id;
+    const won = await saveStripeCustomerId(sql, { orgId, customerId });
+    if (!won) {
+      const fresh = await getOrgBillingState(sql, orgId);
+      customerId = fresh?.stripeCustomerId ?? customerId;
+    }
+    session = await stripe.checkout.sessions.create(sessionParams(customerId));
+  }
 
   return NextResponse.json({ url: session.url });
 }
