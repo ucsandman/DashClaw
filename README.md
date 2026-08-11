@@ -1,3 +1,5 @@
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.ucsandman%2Fdashclaw.svg)](https://mcptoplist.com/server/io.github.ucsandman%2Fdashclaw)
+
 <div align="center">
   <img src="public/images/logo-circular.png" alt="DashClaw" width="200" />
 
