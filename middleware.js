@@ -5,7 +5,7 @@ import { getDemoFixtures } from './app/lib/demo/demoFixtures';
 import {
   demoAgents,
   demoListActions, demoCreateAction, demoActionDetail, demoAssumptions,
-  demoTokens, demoPolicies, demoPolicySummary, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost,
+  demoTokens, demoPolicies, demoApprovalFloods, demoPolicySummary, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost,
   demoCalibrationController, demoDoctor,
   demoPlans, demoPlanDetail, demoActionArtifacts,
   demoTuningProposals, demoTighteningProposals, demoLooseningProposals, demoCalibrationProposals,
@@ -1200,6 +1200,10 @@ const DEMO_API_ROUTES = [
   ['/api/inspiration', ({ request, fixtures }) => demoJson(request, { ideas: fixtures.ideas, stats: { totalIdeas: fixtures.ideas.length }, lastUpdated: new Date().toISOString() })],
   ['/api/settings', ({ request, fixtures }) => demoJson(request, { settings: fixtures.settings })],
   ['/api/policies', demoFixtureRoute(demoPolicies)],
+  // Interruption-budget banner on /approvals. The banner treats any non-OK as
+  // "no flood" and renders nothing, so without this entry the demo showed no
+  // sign the capability exists — a silent gap rather than a visible error.
+  ['/api/approvals/floods', demoFixtureRoute(demoApprovalFloods)],
   ['/api/policies/summary', demoFixtureRoute(demoPolicySummary)],
   ['/api/policies/contract', ({ request }) => demoJson(request, demoContract())],
   ['/api/policies/review', ({ request }) => demoJson(request, demoReview())],

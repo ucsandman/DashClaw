@@ -166,8 +166,12 @@ const COUNT_CHECKS = [
   // The Python SDK's guide entry carries its own method_count field (the
   // Node entry has no equivalent field to gate) — same source of truth as
   // the README Python SDK method checks above.
+  // `\s*` after the colon is load-bearing: the guide JSON is pretty-printed, so
+  // the field reads `"method_count": 59`. Without it this pattern silently stopped
+  // matching and the check downgraded itself to an un-asserted `warn` — the count
+  // was unguarded while the script still reported all-clear.
   S.sdk && { file: 'public/guides/platform-guide-data.json', label: 'Python SDK method_count field (guide)',
-    re: /"method_count":(\d+)/, expected: [S.sdk.python] },
+    re: /"method_count":\s*(\d+)/, expected: [S.sdk.python] },
 ].filter(Boolean);
 
 // Freshness stamps: the date should be >= the file's last commit date. We never
@@ -196,21 +200,29 @@ function lastCommitDate(file) {
 
 const errors = [];
 const warnings = [];
+// A check that never ran is not a passing check. When a doc is reworded, deleted,
+// or the SDK counter fails, the assertion silently stops asserting while this
+// script still prints "all gated counts match" — the count is then unguarded and
+// nothing says so. (Lived example: `"method_count":(\d+)` stopped matching once the
+// guide JSON was pretty-printed to `"method_count": 59`, and the check spent that
+// whole time reporting a tolerant `warn` nobody read.) These are fatal under
+// --strict for the same reason a drifted count is.
+const deadGuards = [];
 const oks = [];
 
-if (!S.sdk) warnings.push('count-sdk-methods.mjs did not return counts — SDK method checks skipped this run.');
+if (!S.sdk) deadGuards.push('count-sdk-methods.mjs did not return counts — every SDK method check was skipped this run.');
 
 for (const c of COUNT_CHECKS) {
   let text;
   try {
     text = read(c.file);
   } catch {
-    warnings.push(`${c.file}: file not found — '${c.label}' not checked.`);
+    deadGuards.push(`${c.file}: file not found — '${c.label}' never ran.`);
     continue;
   }
   const m = c.re.exec(text);
   if (!m) {
-    warnings.push(`${c.file}: '${c.label}' pattern not found — doc may have been reworded; not asserted.`);
+    deadGuards.push(`${c.file}: '${c.label}' pattern matched nothing — the doc was reworded and this count is now unguarded. Update the pattern (or drop the check if the string is gone for good).`);
     continue;
   }
   const got = m.slice(1, c.expected.length + 1).map((t) => (c.word ? toNum(t) : Number(t)));
@@ -259,12 +271,12 @@ for (const e of ENUMERATIONS) {
   try {
     text = read(e.file);
   } catch {
-    warnings.push(`${e.file}: file not found — '${e.label}' not checked.`);
+    deadGuards.push(`${e.file}: file not found — '${e.label}' never ran.`);
     continue;
   }
   const m = e.section.exec(text);
   if (!m) {
-    warnings.push(`${e.file}: '${e.label}' section not found — doc may have been reworded; not asserted.`);
+    deadGuards.push(`${e.file}: '${e.label}' section matched nothing — the doc was reworded and this enumeration is now unguarded. Update the pattern (or drop the check if the section is gone for good).`);
     continue;
   }
   groupCounts.push({ file: e.file, groups: Number(m[1]) });
@@ -306,16 +318,18 @@ if (distinct.length > 1) {
 console.log('doc-counts: reconciling hardcoded counts + freshness dates against source-of-truth\n');
 for (const o of oks) console.log(`  ok   ${o}`);
 for (const w of warnings) console.log(`  warn ${w}`);
+for (const g of deadGuards) console.error(`  DEAD  ${g}`);
 for (const e of errors) console.error(`  DRIFT ${e}`);
 
 console.log(`\n  (not yet gated, sweep by hand: ${UNCOVERED.length} surfaces — see UNCOVERED in this script)`);
 
-if (errors.length === 0) {
+if (errors.length === 0 && deadGuards.length === 0) {
   console.log('\ndoc-counts: all gated counts match source-of-truth.');
   process.exit(0);
 }
 
-console.error(`\ndoc-counts: ${errors.length} count(s) drifted from source-of-truth.`);
+if (errors.length) console.error(`\ndoc-counts: ${errors.length} count(s) drifted from source-of-truth.`);
+if (deadGuards.length) console.error(`doc-counts: ${deadGuards.length} check(s) never ran — those counts are unguarded.`);
 if (STRICT) {
   console.error('Fix the doc strings above (or regenerate the source), then re-run.');
   process.exit(1);

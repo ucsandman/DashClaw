@@ -558,6 +558,39 @@ export function demoPolicies(fixtures: DemoFixtures) {
   return { policies: fixtures.policies.map(toApiPolicyShape), lastUpdated: new Date().toISOString() };
 }
 
+/** GET /api/approvals/floods — the interruption-budget banner on /approvals.
+ *  Without an entry this 403'd through the demo write-block's sibling path and
+ *  `ApprovalFloodBanner` swallowed it (`if (!res.ok) return`), so the whole
+ *  capability was invisible on the demo deployment — no error, just no banner.
+ *
+ *  The flood is pinned to the real `require_approval` fixture rather than an
+ *  invented id: the banner names the rule and its Pause button targets that id,
+ *  so a visitor who clicks through to /policies finds the rule actually there.
+ *  Count sits above the per-policy budget because a flood is only a flood when
+ *  it exceeds it. The three actions stay honest 403s via the write block —
+ *  stateless fixtures can't clear a flood. */
+export function demoApprovalFloods(fixtures: DemoFixtures) {
+  const budget = { perPolicy: 10, windowMin: 15, fleetWide: 30 };
+  const gate = fixtures.policies.find(
+    (p: AnyRecord) => (p.policy_type ?? p.type) === 'require_approval' && (p.active === true || p.active === 1)
+  );
+  if (!gate) return { floods: [], fleet: null, budget };
+  return {
+    floods: [
+      {
+        policy_id: gate.id,
+        name: gate.name,
+        count: budget.perPolicy + 4,
+        tripped_at: new Date(Date.now() - 6 * 60 * 1000).toISOString(),
+      },
+    ],
+    // Fleet-wide stays clear: one tripped rule is the honest, legible story,
+    // and a second simultaneous alarm would read as noise on a demo surface.
+    fleet: null,
+    budget,
+  };
+}
+
 /** GET /api/policies/summary — the posture-hero fixture for the /policies
  *  workbench. Hand-crafted (buildPolicySummary pulls the server-only compiler,
  *  which can't ship in the edge middleware bundle) but derived from the same

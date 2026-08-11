@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoApiKeys,
-  demoActionDetail, demoPolicies, demoPolicySummary, demoCalibrationController, demoDoctor,
+  demoActionDetail, demoPolicies, demoApprovalFloods, demoPolicySummary, demoCalibrationController, demoDoctor,
   demoTuningProposals, demoTighteningProposals, demoLooseningProposals, demoCalibrationProposals,
 } from '@/lib/demo/demoMiddleware';
 import { getDemoFixtures } from '@/lib/demo/demoFixtures';
@@ -118,6 +118,27 @@ describe('demo workbench fixtures — /policies, /calibration, /doctor', () => {
     expect(s.shields.some((sh) => sh.on)).toBe(true);
     expect(s.decisions30d.total).toBeGreaterThan(0);
     expect(s.agents.total).toBeGreaterThan(0);
+  });
+
+  it('approval floods (/api/approvals/floods) trip a real rule so the banner renders', () => {
+    const r = demoApprovalFloods(real) as any;
+    // ApprovalFloodBanner returns null on an empty list, so "shaped correctly but
+    // empty" is indistinguishable from the 403 this entry exists to replace.
+    expect(r.floods.length).toBeGreaterThan(0);
+    const flood = r.floods[0];
+    expect(flood).toMatchObject({
+      policy_id: expect.any(String), name: expect.any(String),
+      count: expect.any(Number), tripped_at: expect.any(String),
+    });
+    // A flood under the budget is not a flood — the banner would claim an alarm
+    // the numbers it prints right next to it don't support.
+    expect(flood.count).toBeGreaterThan(r.budget.perPolicy);
+    expect(r.budget.windowMin).toBeGreaterThan(0);
+    // The banner names the rule and its Pause button PATCHes this id, so a
+    // visitor clicking through to /policies has to find it actually there.
+    const { policies } = demoPolicies(real) as any;
+    expect(policies.map((p: any) => p.id)).toContain(flood.policy_id);
+    expect(policies.find((p: any) => p.id === flood.policy_id).name).toBe(flood.name);
   });
 
   it('policies (/api/policies) answer in guard_policies column shape for the Ledger', () => {
