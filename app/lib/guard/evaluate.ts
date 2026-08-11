@@ -881,7 +881,16 @@ function foldEvidenceIntoContext(context: GuardEvalContext): EvidenceDerivedBrea
     context.write_paths = paths;
   }
 
-  return { derived_action_type: evidence.derived_action_type, base_risk: evidence.base_risk, modifiers, total, mismatch };
+  // Keep the classifier's own tags on the context so later phases can ask WHAT
+  // KIND of act this was, not just how it scored. SERVER-SET-ONLY: this field
+  // is deliberately absent from GUARD_INPUT_SCHEMA (app/lib/validate.js), so
+  // validate() strips any caller-supplied `evidence_flags` before evaluateGuard
+  // ever runs. Assigning here, after that strip, is what makes the field
+  // trustworthy enough to key a downgrade on.
+  const flags = Array.isArray(evidence.flags) ? evidence.flags : [];
+  context.evidence_flags = flags;
+
+  return { derived_action_type: evidence.derived_action_type, base_risk: evidence.base_risk, modifiers, total, mismatch, flags };
 }
 
 export async function evaluateGuard(orgId: string, context: GuardEvalContext, sql: GuardSql, options: GuardOptions = {}) {

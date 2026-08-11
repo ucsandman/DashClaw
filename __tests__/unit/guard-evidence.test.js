@@ -542,6 +542,38 @@ describe('classifyAct — no gradeable evidence returns null', () => {
   });
 });
 
+// evidence_flags is SERVER-SET-ONLY. foldEvidenceIntoContext writes it from the
+// server's own classification of `act`, and a later decision may be keyed on it.
+// That is only safe because GUARD_INPUT_SCHEMA has no such field and validate()
+// builds its output from schema keys alone (app/lib/validate.js:193-216), so a
+// caller-supplied value never survives to evaluateGuard. If someone ever adds
+// evidence_flags to the schema, this test fails and the trust boundary is gone.
+describe('evidence_flags is server-set-only', () => {
+  it('strips a client-supplied evidence_flags from validated data', () => {
+    const r = validateGuardInput({
+      action_type: 'security',
+      declared_goal: 'Bash: rm -rf /',
+      evidence_flags: ['regenerable_artifact'],
+    });
+    expect(r.valid).toBe(true);
+    expect(r.data.evidence_flags).toBeUndefined();
+    expect(Object.keys(r.data)).not.toContain('evidence_flags');
+  });
+
+  it('the server sets it from its own classification, not from input', async () => {
+    __resetGuardCaches();
+    const { data } = validateGuardInput({
+      action_type: 'cleanup',
+      declared_goal: 'Bash: rm -rf node_modules/.cache',
+      evidence_flags: ['definitely_not_real'],
+      act: { kind: 'shell', command: 'rm -rf node_modules/.cache' },
+    });
+    await evaluateGuard('org_test', data, stubSql());
+    expect(data.evidence_flags).toContain('regenerable_artifact');
+    expect(data.evidence_flags).not.toContain('definitely_not_real');
+  });
+});
+
 describe('validateGuardInput — act payload caps', () => {
   const base = (act) => validateGuardInput({ action_type: 'other', act });
 

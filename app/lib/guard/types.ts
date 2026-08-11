@@ -31,6 +31,15 @@ export interface GuardEvalContext {
   // resolved to. Both flow through the persisted decision context.
   act?: unknown;
   intent_source?: 'evidence' | 'declared';
+  /**
+   * SERVER-SET-ONLY. The act classifier's tags for this call, written by
+   * foldEvidenceIntoContext (evaluate.ts) from the server's own classification
+   * of `act`. Deliberately NOT in GUARD_INPUT_SCHEMA (app/lib/validate.js), so
+   * a caller-supplied value is stripped before evaluateGuard runs — that strip
+   * is the whole reason a decision may be keyed on this field. Never populate
+   * it from request input.
+   */
+  evidence_flags?: string[];
   target?: string;
   write_paths?: unknown;
   provider?: string;

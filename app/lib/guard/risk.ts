@@ -105,6 +105,18 @@ export interface EvidenceDerivedBreakdown {
   modifiers: { reason: string; delta: number }[];
   total: number;
   mismatch: boolean;
+  /**
+   * The act classifier's own tags for this call (`regenerable_artifact`,
+   * `destructive`, `protected_target`, `remote_exec`, …). The server already
+   * computes these to grade the act and then discarded them; keeping them is
+   * what lets a decision record WHAT KIND of act was graded rather than only
+   * the number it produced.
+   *
+   * Sibling term, exactly like the rest of this interface: it folds into the
+   * effective score via max() and NEVER enters any hashed or signed vector
+   * (score-provenance invariant, see the note above `EvidenceDerivedBreakdown`).
+   */
+  flags: string[];
 }
 
 /** Full derivation ledger for one guard evaluation's risk score. */
