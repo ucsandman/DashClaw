@@ -27,11 +27,35 @@ function firstOperand(stage: ShellStage, fallback: string): string {
   return first !== undefined ? noun(first) : fallback;
 }
 
+/**
+ * True only when a token is purely a dash followed by letters, e.g. `-rf`.
+ * A value-bearing token like `-oci.fast` must never be scanned letter by
+ * letter, or the letter 'f' inside ".fast" reads as a force flag.
+ */
+function isBundledShortFlags(f: string): boolean {
+  return /^-[a-zA-Z]+$/.test(f);
+}
+
 function hasFlag(stage: ShellStage, ...names: string[]): boolean {
-  return stage.flags.some((f) => names.includes(f) || (f.startsWith('-') && !f.startsWith('--') && names.some((n) => {
-    const ch = n[1];
-    return n.length === 2 && ch !== undefined && f.includes(ch);
-  })));
+  return stage.flags.some((f) => {
+    if (names.includes(f)) return true;
+    // A long flag can carry its value attached: --force-with-lease=refs/heads/main.
+    if (names.some((n) => n.startsWith('--') && f.startsWith(`${n}=`))) return true;
+    if (!isBundledShortFlags(f)) return false;
+    return names.some((n) => {
+      const ch = n[1];
+      return n.length === 2 && ch !== undefined && f.includes(ch);
+    });
+  });
+}
+
+/**
+ * `>` and `>>` survive tokenisation as ordinary operands (parse-shell.ts has
+ * no notion of redirection). A stage that redirects writes a file and must
+ * never be described by a read-only rule.
+ */
+function hasRedirection(stage: ShellStage): boolean {
+  return stage.operands.some((o) => o === '>' || o === '>>');
 }
 
 /** Returns null when the stage is not recognised. Null is a valid outcome. */
@@ -67,6 +91,9 @@ function describeStage(stage: ShellStage): Clause | null {
   }
 
   if (binary === 'bash' || binary === 'sh' || binary === 'zsh') {
+    // A -c payload is the actual command. Without reading it, "Runs a
+    // script" would be a confident sentence about nothing.
+    if (hasFlag(stage, '-c')) return null;
     return { text: 'Runs a script', warnings: [], ruleId: 'bash.interpreter' };
   }
 
@@ -93,7 +120,12 @@ function describeStage(stage: ShellStage): Clause | null {
     return { text: 'Runs a command against your database', warnings: [], ruleId: 'bash.sql' };
   }
 
-  if (['ls', 'cat', 'pwd', 'head', 'tail', 'wc', 'which', 'echo', 'find', 'grep'].includes(binary)) {
+  if (['ls', 'cat', 'pwd', 'head', 'tail', 'wc', 'which', 'echo', 'grep'].includes(binary)) {
+    // A redirected stage writes a file; it must not take the calm read rule.
+    // `find` is deliberately absent — it takes -delete and -exec, so it is
+    // not read-only and we cannot cheaply prove otherwise. It falls through
+    // to the unrecognised return below.
+    if (hasRedirection(stage)) return null;
     return { text: 'Reads information from your computer', warnings: ['Reads only, changes nothing.'], ruleId: 'bash.read' };
   }
 
@@ -101,15 +133,52 @@ function describeStage(stage: ShellStage): Clause | null {
 }
 
 /**
- * curl|bash is materially different from either half: the operator never sees
- * the code that runs. Detected across stages, so it must be checked on the
- * pipeline rather than on any single stage.
+ * curl|bash is materially different from either half: the operator never
+ * sees the code that runs. `curlStage` is the matched curl/wget stage
+ * itself, never `stages[0]` — the source noun must name what was actually
+ * downloaded, not whatever happened to run first in the pipeline.
  */
-function isPipeToShell(stages: ShellStage[]): boolean {
-  return stages.some((s, i) => {
+function describePipeToShell(curlStage: ShellStage): Clause {
+  const source = firstOperand(curlStage, 'a website');
+  return {
+    text: `Downloads a script from ${source} and runs it straight away, without showing it to you`,
+    warnings: ['Whoever controls that website chooses what runs.'],
+    ruleId: 'bash.pipe-to-shell',
+  };
+}
+
+/**
+ * Walks every stage once, in order. A curl/wget stage immediately followed
+ * by a shell stage is consumed as one pair and produces a single combined
+ * clause; every other stage is described on its own. This keeps every stage
+ * accounted for — no short-circuit ever discards the rest of the pipeline
+ * the way a pre-check over the whole command would.
+ *
+ * `stagesUnderstood` counts input stages, not output clauses (a pair counts
+ * as two), so completeness stays a true count of the whole command.
+ */
+function describeStages(stages: ShellStage[]): { clauses: Clause[]; complete: boolean } {
+  const clauses: Clause[] = [];
+  let stagesUnderstood = 0;
+  let i = 0;
+  while (i < stages.length) {
+    const stage = stages[i];
+    if (!stage) break;
     const next = stages[i + 1];
-    return (s.binary === 'curl' || s.binary === 'wget') && !!next && ['bash', 'sh', 'zsh'].includes(next.binary);
-  });
+    if ((stage.binary === 'curl' || stage.binary === 'wget') && next && ['bash', 'sh', 'zsh'].includes(next.binary)) {
+      clauses.push(describePipeToShell(stage));
+      stagesUnderstood += 2;
+      i += 2;
+      continue;
+    }
+    const clause = describeStage(stage);
+    if (clause) {
+      clauses.push(clause);
+      stagesUnderstood += 1;
+    }
+    i += 1;
+  }
+  return { clauses, complete: stagesUnderstood === stages.length };
 }
 
 export function describeBash(command: string, bashIntel?: BashIntel): PlainDescription {
@@ -121,23 +190,9 @@ export function describeBash(command: string, bashIntel?: BashIntel): PlainDescr
   const reversible: boolean | 'unknown' =
     typeof bashIntel?.reversible === 'boolean' ? bashIntel.reversible : 'unknown';
 
-  if (isPipeToShell(stages)) {
-    const firstStageOperand = stages[0]?.operands[0];
-    const source = firstStageOperand !== undefined ? noun(firstStageOperand) : 'a website';
-    return {
-      headline: `Downloads a script from ${source} and runs it straight away, without showing it to you.`,
-      warnings: ['Whoever controls that website chooses what runs.'],
-      confidence: 'high',
-      reversible,
-      ruleId: 'bash.pipe-to-shell',
-    };
-  }
-
-  const clauses = stages.map(describeStage);
-  const known = clauses.filter((c): c is Clause => c !== null);
+  const { clauses: known, complete } = describeStages(stages);
   if (known.length === 0) return unknownDescription('bash.unrecognised');
 
-  const complete = known.length === stages.length;
   const text = known.map((c) => c.text).join(', then ');
   const warnings = [...new Set(known.flatMap((c) => c.warnings))];
 
