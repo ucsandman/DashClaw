@@ -63,7 +63,9 @@ describe('describeBash', () => {
     const out = describeBash('npm install left-pad && ls', { intent: 'write', reversible: true, risk_score: 30 });
     expect(out.headline).toContain(', then ');
     const installIndex = out.headline.indexOf('left-pad');
-    const readIndex = out.headline.indexOf('Reads information');
+    // Lower-case: every clause after the first is lowercased so the joined
+    // clauses read as one sentence rather than several (F1, 2026-08-11).
+    const readIndex = out.headline.indexOf('reads information');
     expect(installIndex).toBeGreaterThanOrEqual(0);
     expect(readIndex).toBeGreaterThan(installIndex);
   });
@@ -186,7 +188,7 @@ describe('describeBash', () => {
     expect(piped.warnings.join(' ')).toContain('chooses what runs');
 
     const install = describeBash('npm install foo\nrm -rf /', { intent: 'write', reversible: false, risk_score: 90 });
-    expect(install.headline).toContain('Deletes');
+    expect(install.headline).toContain('deletes'); // second clause, so lowercased (F1)
     expect(install.warnings.join(' ')).toContain('Recycle Bin');
   });
 

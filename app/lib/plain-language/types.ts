@@ -33,6 +33,39 @@ export const CALM_RULE_IDS: ReadonlySet<string> = new Set([
   'conversation',
 ]);
 
+/**
+ * The longest headline any rule may ever produce.
+ *
+ * A headline is one sentence, and it is prepended to messages with hard
+ * channel limits: Telegram caps a message at 4096 characters and Discord caps
+ * an embed description at 4096. Before this cap existed, a 120-stage chain
+ * from a declared_goal of only 1562 characters composed a 5034-character
+ * headline, which 400ed BOTH channels — so the operator received no approval
+ * notification at all for exactly the class of command most worth one
+ * (measured, 2026-08-11 pre-merge review).
+ *
+ * 400 rather than something tighter because it holds four or five typical
+ * clauses (the longest single clause is a verb plus an 80-character noun).
+ * 400 rather than something looser because a sentence longer than a phone
+ * screen has stopped being a headline, and the exact command is always
+ * rendered directly below it. It also leaves both 4096-character channels at
+ * least 3600 characters for that command.
+ */
+export const MAX_HEADLINE = 400;
+
+/**
+ * The final backstop on headline length, applied once at the end of
+ * describeAction so that no rule — present or future — can emit an unbounded
+ * sentence. Rules that can legitimately run long (a shell chain) trim
+ * themselves clause by clause first, so arriving here means the text was
+ * never sentence-shaped to begin with; cutting it is safe because the
+ * untruncated value is always shown beneath the sentence.
+ */
+export function clampHeadline(desc: PlainDescription): PlainDescription {
+  if (desc.headline.length <= MAX_HEADLINE) return desc;
+  return { ...desc, headline: `${desc.headline.slice(0, MAX_HEADLINE - 1)}…` };
+}
+
 export const UNKNOWN_HEADLINE = "I can't tell you what this one does in plain English.";
 
 export const UNKNOWN_DETAIL =

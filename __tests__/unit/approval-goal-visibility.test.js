@@ -37,15 +37,23 @@ describe('approval goal visibility', () => {
     expect(sentBodies[0].text).not.toContain('more chars');
   });
 
-  it('cuts at 3500 with an honest marker and stays under the 4096 limit', async () => {
+  it('cuts only as far as the 4096-char limit forces, with an honest marker', async () => {
     const goal = 'y'.repeat(5000);
     await fireTelegramApproval({
       action_id: 'act_2', agent_id: 'a', action_type: 'other',
       declared_goal: goal, risk_score: 85, status: 'pending_approval',
     });
     const text = sentBodies[0].text;
+    // The goal's budget is now measured from the composed message rather than
+    // reserved as a fixed 3500 (2026-08-11): a guessed reserve was safe only
+    // while the plain-English block above it was short. Measuring shows the
+    // operator MORE of the command, never less, so the old floor still holds.
     expect(text).toContain('y'.repeat(3500));
-    expect(text).toContain('(+1500 more chars');
     expect(text.length).toBeLessThanOrEqual(4096);
+
+    // Whatever it cut, the marker accounts for it exactly.
+    const kept = text.match(/Goal: (y+)/)?.[1].length ?? 0;
+    const dropped = Number(text.match(/\(\+(\d+) more chars/)?.[1] ?? 0);
+    expect(kept + dropped).toBe(5000);
   });
 });

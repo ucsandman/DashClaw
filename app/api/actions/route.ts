@@ -75,7 +75,11 @@ export async function enrichWithPlainLanguage(
         action_type: row.action_type as string | null,
         declared_goal: row.declared_goal as string | null,
         risk_score: row.risk_score as number | null,
-        target: (row.target as string | null) ?? (context?.target as string | null) ?? null,
+        // The guard context is the ONLY source of `target` here.
+        // action_records has no such column (schema/schema.js:165), so the
+        // row can never carry one and reading it first only made this look
+        // like it had a fallback it never had.
+        target: (context?.target as string | null) ?? null,
         intel: (context?.intel as never) ?? null,
       }),
     };

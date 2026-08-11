@@ -1,9 +1,10 @@
 import { describeBash, type BashIntel } from './bash';
 import { describeFile, type FileIntel } from './files';
 import { describeGenericTool, describeMcp } from './tools';
-import { applySafetyFloor, type PlainDescription, unknownDescription } from './types';
+import { applySafetyFloor, clampHeadline, MAX_HEADLINE, type PlainDescription, unknownDescription } from './types';
 
 export type { PlainDescription, Confidence } from './types';
+export { MAX_HEADLINE } from './types';
 
 /** The hook's declared_goal cap (hooks/dashclaw_pretool.py:511). */
 const GOAL_CAP = 2000;
@@ -31,13 +32,19 @@ function route(input: DescribeInput): PlainDescription {
 
   const { label, payload } = splitGoal(goal);
 
-  // The stop hook writes prose with no label.
+  // The stop hook writes prose with no label. The spec passes that prose
+  // through as the sentence, because it is already plain English and it is
+  // the only description of the row that exists — but passing it through is
+  // NOT understanding it. Claiming 'high' and reversible:true here meant a
+  // bare `rm -rf /` recorded without a label asserted "this can be undone",
+  // at full confidence, about a string nothing had parsed (2026-08-11
+  // pre-merge review). Nothing read it, so nothing may vouch for it.
   if (label === null) {
     return {
       headline: goal,
       warnings: [],
-      confidence: 'high',
-      reversible: true,
+      confidence: 'partial',
+      reversible: 'unknown',
       ruleId: 'conversation',
     };
   }
@@ -76,5 +83,37 @@ export function describeAction(input: DescribeInput): PlainDescription {
     };
   }
 
-  return applySafetyFloor(desc, input.risk_score ?? 0);
+  // clampHeadline runs last so it covers every rule and the safety floor's
+  // own replacement text — nothing downstream can widen what it bounded.
+  return clampHeadline(applySafetyFloor(desc, input.risk_score ?? 0));
+}
+
+/**
+ * The block a notification channel prepends above the exact command: the
+ * sentence, then its warnings.
+ *
+ * Telegram and Discord both call this, so the two cards cannot drift and
+ * neither can rediscover the same bug. Warnings are the point — a Telegram
+ * card that said "Overwrites the shared code history on GitHub" while
+ * silently dropping "Work other people pushed can be lost." withheld the one
+ * line the operator needed, on the surface they actually read.
+ *
+ * The block is bounded so each channel can compute the room left for the
+ * command underneath it by subtraction, and so a long warning list can never
+ * push a message past a channel limit on its own. The headline is always
+ * kept (it is already <= MAX_HEADLINE); warnings are added while they fit,
+ * worst first, since that is the order the rules emit them in.
+ */
+const MAX_NOTIFICATION_PLAIN = MAX_HEADLINE + 500;
+
+export function plainNotificationLines(desc: PlainDescription): string[] {
+  if (desc.confidence === 'unknown') return [];
+  const lines = [desc.headline];
+  let used = desc.headline.length;
+  for (const warning of desc.warnings) {
+    if (used + 1 + warning.length > MAX_NOTIFICATION_PLAIN) break;
+    lines.push(warning);
+    used += 1 + warning.length;
+  }
+  return lines;
 }

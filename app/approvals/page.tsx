@@ -471,15 +471,21 @@ export default function ApprovalsPage() {
                                 ))}
                                 {/* The literal command is never hidden or replaced. An
                                     operator who does not trust the sentence can always
-                                    drop to the exact text, with no click. */}
-                                <div className="mt-3">
-                                  <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
-                                    Exact command
+                                    drop to the exact text, with no click.
+                                    The one exception hides nothing: unlabelled prose is
+                                    passed through as the headline verbatim, so rendering
+                                    it again below would print the identical string twice
+                                    under a heading that misnames it. */}
+                                {action.declared_goal !== action.plain.headline && (
+                                  <div className="mt-3">
+                                    <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+                                      Exact command
+                                    </div>
+                                    <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-surface-tertiary px-3 py-2 font-mono text-xs leading-relaxed text-secondary">
+                                      {action.declared_goal}
+                                    </pre>
                                   </div>
-                                  <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-surface-tertiary px-3 py-2 font-mono text-xs leading-relaxed text-secondary">
-                                    {action.declared_goal}
-                                  </pre>
-                                </div>
+                                )}
                               </>
                             ) : (
                               /* No plain description to show: previous behaviour,

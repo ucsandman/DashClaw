@@ -11,7 +11,7 @@
  */
 
 import { recordSentApprovalNotification } from './approvalNotifications';
-import { describeAction } from './plain-language';
+import { describeAction, plainNotificationLines } from './plain-language';
 import type { SqlTag } from './types/db';
 
 interface ApprovalAction {
@@ -95,6 +95,11 @@ export function buildEmbedPayload(action: ApprovalAction): DiscordMessagePayload
     declared_goal: action.declared_goal,
     risk_score: action.risk_score,
   });
+  // Sentence AND warnings, bounded by the same shared helper Telegram uses —
+  // Discord caps a description at 4096 chars and rejects the whole message
+  // above it, and an unbounded headline used to compose 5164 (2026-08-11
+  // pre-merge review).
+  const description = plainNotificationLines(plain).join('\n');
 
   const embed: DiscordEmbed = {
     color: BRAND_ORANGE,
@@ -104,7 +109,7 @@ export function buildEmbedPayload(action: ApprovalAction): DiscordMessagePayload
     // above fields, so this reads before the Goal field below. Omitted
     // when the translator has no confident read, so the card is identical
     // to today's.
-    ...(plain.confidence !== 'unknown' ? { description: plain.headline } : {}),
+    ...(description ? { description } : {}),
     fields: [
       { name: 'Agent',      value: action.agent_id || 'unknown',       inline: true },
       { name: 'Action',     value: action.action_type || 'unknown',    inline: true },
