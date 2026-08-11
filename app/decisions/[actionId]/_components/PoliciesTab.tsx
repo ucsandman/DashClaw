@@ -4,6 +4,7 @@ import { HelpCircle, ShieldCheck, Scale } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { parseJsonArray } from '../../../lib/parseJson';
+import { describeAction } from '../../../lib/plain-language';
 import { formatTime } from './helpers';
 
 interface PoliciesTabProps {
@@ -46,6 +47,32 @@ export default function PoliciesTab({ actionId, action, guardDecision, trace, as
                   </div>
                 </div>
               )}
+
+              {(() => {
+                // Same describeAction() the /approvals card and notification
+                // channels call — one sentence, everywhere, so an operator
+                // never sees the detail page disagree with what they already
+                // saw. Silent when confidence is 'unknown' rather than
+                // rendering an empty box.
+                const plain = describeAction({
+                  declared_goal: action.declared_goal,
+                  risk_score: action.risk_score,
+                  target: action.target,
+                  intel: guardDecision.context?.intel,
+                });
+                if (plain.confidence === 'unknown') return null;
+                return (
+                  <div className="mb-4 rounded-lg border border-border bg-surface-tertiary p-3">
+                    <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+                      In plain English
+                    </div>
+                    <p className="text-sm text-white">{plain.headline}</p>
+                    {plain.warnings.map((w) => (
+                      <p key={w} className="mt-1 text-sm text-warning">{w}</p>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {(() => {
                 // Classifier signals (hook intel validations persisted in
