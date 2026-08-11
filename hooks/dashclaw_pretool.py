@@ -1628,6 +1628,21 @@ def _build_act(tool_name, tool_input):
     return None
 
 
+# The guard scorer matches systems_touched against a DECLARED-SYSTEM vocabulary
+# (app/lib/guard/risk.ts): filesystem/shell are +5, database/production/postgres/
+# neon/redis are +10. Our internal tool categories ("execution", "file_io", ...)
+# share no word with that vocabulary, so forwarding the category raw made
+# systemsTouchedFactors() return [] on every Claude Code tool call — the
+# modifier was dead on this path and the server risk FLOOR was thinner than the
+# design says. Map to the scorer's words instead. Categories with no declared
+# system of their own stay empty: inventing one would inflate the floor on
+# nothing. The category itself is still reported under context["tool"].
+CATEGORY_SYSTEMS = {
+    "execution": ["shell"],
+    "file_io": ["filesystem"],
+}
+
+
 def _build_guard_context(tool_name, tool_info, enrichment, tool_input):
     """Assemble the guard context dict and forward the resolved target path."""
     context = {
@@ -1636,7 +1651,7 @@ def _build_guard_context(tool_name, tool_info, enrichment, tool_input):
         "declared_goal": enrichment["declared_goal"],
         "risk_score": enrichment["risk_score"],
         "reversible": enrichment["reversible"],
-        "systems_touched": [tool_info["category"]],
+        "systems_touched": list(CATEGORY_SYSTEMS.get(tool_info["category"], [])),
         "tool": {
             "name": tool_name,
             "category": tool_info["category"],

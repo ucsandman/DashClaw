@@ -4826,3 +4826,14 @@ Session paused with documented state; resume prompt specifies exact sequence for
 - Task 14: /dashclaw-ship to land feat/work-orders on main with unified version bump and push; npm run release:sdks is owed afterward because SDK source changed.
 - Progress notes saved to project_work_orders_build_in_progress.md, indexed in MEMORY.md.
 
+
+## 2026-08-11 — Hook-Reported Reversibility Left Hardcoded; Only the systems_touched Vocabulary Fixed
+
+Two server-side risk modifiers were found dead on the Claude Code hook path. One was fixed, one was deliberately not, and the reason is a band boundary.
+
+- `systems_touched` carried the hook's internal tool category (`execution`, `file_io`, `orchestration`, `interactive`, `mcp`, `unknown`). The scorer matches a declared-system vocabulary (`app/lib/guard/risk.ts`): `filesystem`/`shell` +5, `database`/`production`/`postgres`/`neon`/`redis` +10. Zero overlap, so `systemsTouchedFactors()` returned `[]` on every hook call. FIXED via `CATEGORY_SYSTEMS` in `hooks/dashclaw_pretool.py`: `file_io`→`filesystem`, `execution`→`shell`, everything else empty. Band-neutral: `apply` 60→65 and `security` 80→85 cross neither 40 nor 70, so no governance decision changes — only the breakdown becomes honest and the floor rises where a client under-reports.
+- `reversible` is hardcoded `True` in both `_enrich_file` and `_enrich_default`, so the +15 irreversible modifier can never fire for a Write/Edit or any non-Bash tool. NOT FIXED. Making it honest moves a Write from 60 to 75, crossing RISK_HIGH_MIN (70), which would fire require_approval on ordinary file edits — precisely the approval friction the 2026-08-11 recalibration work removed. The correct fix is not `False`; it is `False only when the write destroys unrecoverable prior content`, which needs the hook to know whether the target exists and is tracked. That is a design change with an operator-friction cost, so it waits for an explicit call.
+- The Bash path is unaffected: `bash_classifier.py` computes `reversible = intent != "destructive"` honestly.
+- Alternative rejected: teaching the scorer the hook's category words instead. `app/landingData.js` and the demo fixtures use real system names (`stripe`, `postgres-prod`), so declared-system names are the public contract; the hook was the outlier.
+
+Files: `hooks/dashclaw_pretool.py`, `hooks/tests/test_pretool_systems_touched.py`, `app/lib/guard/risk.ts` (unchanged, referenced)
