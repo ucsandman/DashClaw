@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-08-10
+last-verified: 2026-08-11
 doc-type: architecture
 ---
 
@@ -49,7 +49,7 @@ As of this verification (2026-08-09), generated API inventory reports **131 rout
 
 | Surface | Path | Purpose |
 |:---|:---|:---|
-| Approvals inbox | `/approvals` | The one primary human surface: what your agent just tried, what is frozen and waiting on you, two buttons per item. Multi-select inline + bulk approve/deny over a capped, SSE-live event stream; a flood banner collapses approval storms with pause-rule and bulk-resolve controls, and pending approvals are never auto-resolved. |
+| Approvals inbox | `/approvals` | The one primary human surface: what your agent just tried, what is frozen and waiting on you, two buttons per item. Every pending item leads with a plain-English sentence for what the command does (`app/lib/plain-language/`), an irreversibility band when the classifier reports the act cannot be undone, and the exact command underneath; an unreadable command renders an honest "not translated" card rather than a guess. Multi-select inline + bulk approve/deny over a capped, SSE-live event stream; a flood banner collapses approval storms with pause-rule and bulk-resolve controls, and pending approvals are never auto-resolved. |
 | Decisions | `/decisions` | Visual ledger of governed actions with risk composition, matched policies, approver, outcome status, and replay links. |
 | Replay | `/replay/[actionId]` | Action-level evidence view for a single governed decision. |
 | Policies | `/policies` | Interruption-contract cockpit: a plain-English contract of when agents interrupt you (grants, shields as "Add protection"), a review feed of silently-recorded warns with Fine / Always allow / Tighten verdicts, plus policy generation, simulation, calibration review, and import/proof surfaces. |

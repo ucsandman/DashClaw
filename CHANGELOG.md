@@ -13,6 +13,23 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.18.0] — 2026-08-11
+
+**You can now read the approvals queue without reading shell.** An approval you do not understand is an approval you rubber-stamp, and the queue previously showed the raw `declared_goal` and nothing else. Every pending item now leads with one plain-English sentence for what the command actually does, and the exact command is still printed directly underneath it — never hidden, never replaced.
+
+### Added
+
+- **Plain-language translation of governed actions** (`app/lib/plain-language/`). A deterministic read-time translator: pure, synchronous, no LLM and no network. Because it runs at read time, improving a phrase re-reads all existing history correctly with no backfill and no migration. It covers shell commands (via a shallow parser and a rule table), file tools, MCP calls, and generic tools; anything else renders as an explicit non-answer.
+- **The irreversibility band.** When the hook's classifier reports the act cannot be undone, the card leads with a red "This cannot be undone." band above the sentence. `reversible` is read from the classifier's intel and never inferred by the translator.
+- **Plain-English warnings, worst first.** Drawn only from fixed phrases, so the queue cannot be used to render attacker-supplied text: "Work other people pushed can be lost.", "This file holds credentials or configuration.", and the rest.
+- **The same sentence on every approval surface.** `/approvals` cards, the decision detail page, and the Telegram and Discord approval notifications all render through one function, so the four cannot drift and none of them can rediscover the same bug independently.
+
+### Security
+
+- **A calm sentence can never contradict a dangerous score.** When a rule reads an action as routine but the classifier scored it high risk, or the act is irreversible, the sentence is withdrawn rather than shown next to a red score. "Lists the files in a folder" beside a red 85 teaches an operator to stop reading the sentence at all, so the rule is treated as the thing that is wrong.
+- **Refusal beats a guess.** A command the parser cannot read with confidence renders "I can't tell you what this one does in plain English." with a "Not translated" badge, rather than a confident sentence about a string nothing parsed. Shell input that can expand into other code (command substitution, `eval`) is denied a calm reading for the same reason.
+- **Headlines are capped at 400 characters.** A 120-stage pipeline composed a 5034-character headline that 400ed both Telegram and Discord, so the operator received no approval notification at all for exactly the class of command most worth one. The cap is applied last, after every rule and the safety floor, so nothing downstream can widen it.
+
 ## [5.17.5] — 2026-08-11
 
 **Both running and completed.** A decision that reported its outcome through the durable-finality endpoint stayed `running` in the ledger forever, so Decision Replay rendered a red **RUNNING** beside a green **Completed** badge on the same line. Reported by the maintainer reading a decision detail page.

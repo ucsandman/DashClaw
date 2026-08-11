@@ -54,6 +54,7 @@ A 10-second capability scan before the dense sections:
 
 - **Fail-closed intercept.** A blocked tool call never runs. The hook cancels it before execution (exit 2 at the seam).
 - **One-click remote approval.** Resolve from the `/approvals` inbox, the CLI, a phone PWA, Telegram, or Discord. No presence required.
+- **Approvals in plain English.** Every pending item leads with one sentence for what the command actually does, flags what cannot be undone, and warns when a file holds credentials. When no rule reads the command with confidence, it says so instead of guessing. The exact command is always shown underneath.
 - **Tamper-evident audit.** Every decision lands in a signed, replayable ledger, and anyone can verify a receipt without an API key (Ed25519, key published via JWKS).
 - **Calibrated interruptions.** Your approve/deny verdicts tune how often it interrupts, with a proven cap on false interruptions instead of a guessed threshold.
 - **Proof enforcement is still on.** A liveness probe drives a synthetic held action through the real hook path and verdicts by whether it actually executed. Stale never renders green.
@@ -280,7 +281,7 @@ Approved actions carry a terminal outcome separate from their lifecycle status. 
 
 | Surface | What it is | Setup |
 |---|---|---|
-| Dashboard (`/approvals`) | The primary inbox: what your agent tried, what waits on you, two buttons per item. | None |
+| Dashboard (`/approvals`) | The primary inbox: what your agent tried, what waits on you, two buttons per item, each led by a plain-English sentence for what the command does. | None |
 | CLI (`@dashclaw/cli`) | Terminal inbox: `dashclaw approvals`, `dashclaw approve <id>`. | `npm i -g @dashclaw/cli` |
 | Mobile PWA (`/approve`) | Phone-first allow/deny with risk score and policy. Add to home screen. | None |
 | Telegram | Inline Approve/Reject in an admin chat. | [telegram-setup.md](docs/telegram-setup.md) |

@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.17.5",
+    "current_version": "5.18.0",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.17.5 (platform-only ship: outcome-to-lifecycle reconciliation in setActionOutcome and the stale-outcome sweep backfill) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.5 so the registry stays aligned with the platform version.",
+    "reason": "no Node SDK source change in 5.18.0 (platform-only ship: plain-language translation of governed actions on the approvals surfaces) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.18.0 so the registry stays aligned with the platform version.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.17.5",
+    "current_version": "5.18.0",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.17.5 (platform-only ship: outcome-to-lifecycle reconciliation in setActionOutcome and the stale-outcome sweep backfill) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.5 so the registry stays aligned with the platform version.",
+    "reason": "no Python SDK source change in 5.18.0 (platform-only ship: plain-language translation of governed actions on the approvals surfaces) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.18.0 so the registry stays aligned with the platform version.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.17.5 both running and completed. A decision that reported its outcome through POST /api/actions/:id/outcome kept lifecycle status='running' forever, so Decision Replay rendered RUNNING beside a Completed outcome badge on the same line. The two closure paths only reconciled one way: a terminal PATCH implicitly advances outcome_status, but the outcome POST wrote only the outcome_* columns. setActionOutcome now closes status and timestamp_end in the same UPDATE (completed to completed, partial/failed to failed, lost_confirmation to unknown) and only when the lifecycle is still open. Neither sweep UPDATE could reach an affected row (both gate on outcome_status), so the backfill was broadened from lost_confirmation-only to every terminal outcome and existing stuck rows self-heal on the next sweep. No migration. Platform only, no Node/Python SDK surface change.",
+  "reason": "5.18.0 the approvals queue in plain English. Every pending approval now leads with one deterministic plain-English sentence for what the command actually does, with the exact command still rendered underneath it. The translator (app/lib/plain-language/) is pure and synchronous - no LLM, no network - and runs at read time, so improving a phrase re-reads all existing history with no backfill and no migration. It covers shell, file tools, MCP and generic tools; anything it cannot read with confidence renders an explicit non-answer rather than a guess. Three safety invariants: a calm sentence is withdrawn when the classifier scored the act dangerous or irreversible, shell that can expand into other code is denied a calm reading, and headlines are capped at 400 characters after a 120-stage pipeline composed a 5034-character headline that 400ed both Telegram and Discord. The same sentence renders on /approvals, the decision detail page, and the Telegram and Discord approval cards. No schema change, no route change. Platform only, no Node/Python SDK surface change.",
   "domains": [
     "platform"
   ]
