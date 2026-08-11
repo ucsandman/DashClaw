@@ -538,7 +538,7 @@ async function cmdInstallOpenclaw() {
     console.log();
     console.log(`  ${green('Done.')} DashClaw governance is wired into OpenClaw.`);
     console.log(`  ${dim('Agent id:')} ${installAgentId}`);
-    console.log(`  ${dim('Config:')}   ${result.configPath}`);
+    console.log(`  ${dim('Config:')}   ${result.configPath}${result.configBackup ? dim(' (backup: ' + result.configBackup + ')') : ''}`);
     console.log(`  ${dim('AGENTS:')}   ${result.agentsMd.path}${result.agentsMd.backup ? dim(' (backup: ' + result.agentsMd.backup + ')') : ''}`);
     if (!writeConfig) console.log(`  ${dim('Key:')}      ${result.envPath} (DASHCLAW_API_KEY)`);
     if (result.migrated) {

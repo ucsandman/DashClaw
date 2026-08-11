@@ -146,6 +146,13 @@ export function openclawBin(env = process.env, override = null) {
  * 2026.7.1-2; a single stale plugins.allow entry is enough to trigger it). So
  * the value is the LAST non-empty line, never the whole stream: trimming the
  * stream instead hands the caller a box-drawn banner as its "config path".
+ *
+ * SCALARS ONLY. `config get` on an object path (`config get plugins`) pretty-
+ * prints JSON, whose last line is `}` — this would return that brace as the
+ * value. Safe here because all three call sites read a scalar: `config file`,
+ * `agents.defaults.workspace` (a path string), and
+ * `plugins.entries.<id>.enabled` (a boolean). Reading an object path needs
+ * jsonTail() below, not this.
  */
 export function lastLine(stdout) {
   const lines = String(stdout ?? '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
@@ -186,14 +193,29 @@ function jsonTail(stdout) {
 }
 
 /**
+ * Anything that looks like an API key regardless of whose it is: two letters,
+ * `_live_`/`_test_`, then at least eight key characters. `config validate` and
+ * `plugins doctor` read openclaw.json, which under --write-config holds the
+ * credential — and may hold a STALE one from an earlier install that this run
+ * never saw, so matching only the key in hand is not enough.
+ */
+const CREDENTIAL_SHAPE = /\b[A-Za-z]{2}_(?:live|test)_[A-Za-z0-9_-]{8,}/g;
+
+/**
  * Keep a secret out of anything we throw or print. The key never reaches argv
  * any more, but `config patch --stdin` can quote the payload it failed to parse
- * back at us, so every message built from subprocess output goes through here.
+ * back at us, so EVERY message built from subprocess output goes through here —
+ * the two plugin subcommands and the two verification subcommands included.
+ *
+ * The 6-character floor is deliberate: below it a "key" cannot be a credential,
+ * and blanket-replacing a 1-2 character string would shred the diagnosis the
+ * message exists to deliver.
  */
 export function redactKey(text, key) {
   const s = String(text ?? '');
   const k = String(key ?? '');
-  return k.length >= 6 ? s.split(k).join('***') : s;
+  const withoutKnown = k.length >= 6 ? s.split(k).join('***') : s;
+  return withoutKnown.replace(CREDENTIAL_SHAPE, '***');
 }
 
 /** true when `actual` is the same release as `wanted` or newer (prerelease ignored). */
@@ -237,6 +259,15 @@ export function runOpenclaw(argv, { bin = 'openclaw', input = null, spawnImpl = 
       resolve({ ok: false, stdout: '', stderr: String(err?.message || err) });
       return;
     }
+    // setEncoding puts a StringDecoder on the stream, which holds an incomplete
+    // UTF-8 sequence back until its remaining bytes arrive. Without it each
+    // Buffer is stringified independently and a character straddling a 64KB
+    // pipe boundary decodes to U+FFFD on both sides — proven at 375KB, and
+    // `plugins list --json` is already 138KB. execFile had this for free; the
+    // move to spawn lost it. The damage is SILENT: replacement characters are
+    // legal JSON, so a corrupted listing still parses.
+    child.stdout?.setEncoding('utf8');
+    child.stderr?.setEncoding('utf8');
     child.stdout?.on('data', (d) => { stdout += d; });
     child.stderr?.on('data', (d) => { stderr += d; });
     // A spawn that never started still gets its stdin written to; swallow the
@@ -369,6 +400,49 @@ function backupOnce(path) {
   return bak;
 }
 
+/**
+ * The same document with the plugin's stored `dashclawApiKey` removed, or null
+ * when there is nothing to remove. `knownKey` is the fallback for a config
+ * openclaw accepted but JSON.parse will not (it reads JSON5): the document
+ * cannot be rewritten safely, but a value we already hold can still be cut out.
+ */
+export function scrubStoredKey(source, knownKey = null) {
+  const text = String(source ?? '');
+  try {
+    const parsed = JSON.parse(text);
+    const cfg = parsed?.plugins?.entries?.[PLUGIN_ENTRY_KEY]?.config;
+    if (!cfg || typeof cfg.dashclawApiKey !== 'string' || !cfg.dashclawApiKey) return null;
+    cfg.dashclawApiKey = null;
+    return `${JSON.stringify(parsed, null, 2)}\n`;
+  } catch {
+    if (knownKey && knownKey.length >= 6 && text.includes(knownKey)) {
+      return text.split(knownKey).join('');
+    }
+    return null;
+  }
+}
+
+/**
+ * Back up openclaw.json — but never WITH a live credential inside it.
+ *
+ * A byte-for-byte copy of a config holding a plaintext `dashclawApiKey` just
+ * moves the secret to a second file on the same disk, which defeats the stated
+ * point of the migration ("so `openclaw secrets audit` comes back clean") while
+ * the success line points the operator at it. The pre-existing case matters
+ * too: backupOnce keeps the FIRST backup, so a `.dashclaw-bak` left by an
+ * earlier --write-config run is scrubbed here as well.
+ *
+ * The backup stays a usable restore point — only that one field is emptied, and
+ * by the time it is written the key is already in .env.
+ */
+function backupConfigOnce(configPath, knownKey = null) {
+  const bak = backupOnce(configPath);
+  if (!bak) return null;
+  const scrubbed = scrubStoredKey(readFileSync(bak, 'utf8'), knownKey);
+  if (scrubbed !== null) writeFileSync(bak, scrubbed);
+  return bak;
+}
+
 export const OPENCLAW_PLUGIN_SPEC = '@dashclaw/openclaw-plugin';
 export const OPENCLAW_PLUGIN_VERSION = '1.6.2';
 
@@ -426,8 +500,13 @@ export async function installOpenclaw({
   // 1. Read-only. Fail before touching anything.
   await preflightImpl(baseUrl, key);
 
-  // 2-3. Locate config.
+  // 2-3. Locate config and workspace. Both read-only, and both resolved BEFORE
+  // the first write: the workspace used to be read at the last step, so an
+  // unset agents.defaults.workspace exited 1 with governance already live and
+  // no summary ever printed.
   await locate();
+  const ws = expandHome(workspace || (await resolveWorkspace({ run: exec })));
+  const agentsMdPath = join(ws, 'AGENTS.md');
   logger.info(`OpenClaw config: ${configPath}`);
   if (keySource && keySource !== 'argument') logger.info(`Using the API key found in ${keySource}`);
 
@@ -441,39 +520,73 @@ export async function installOpenclaw({
     logger.info(`${PLUGIN_ENTRY_KEY} ${present} already installed (>= ${pluginVersion}) — keeping it.`);
   } else {
     const installed = await exec(['plugins', 'install', spec]);
-    if (!installed.ok) throw new Error(`openclaw plugins install ${spec} failed: ${installed.stderr.trim()}`);
+    if (!installed.ok) {
+      throw new Error(`openclaw plugins install ${spec} failed: ${redactKey(installed.stderr.trim(), key)}`);
+    }
     resolvedPluginVersion = pluginVersion;
   }
 
-  // 5. Back up, then ONE validated write — BEFORE the plugin goes live. The
-  // reverse order is what bricks an agent: a failed patch behind a successful
-  // enable leaves a live plugin with failClosed and no url, so it refuses every
-  // tool call. Failing here instead leaves the plugin not-yet-enabled and exits
-  // non-zero, which is loud and harmless.
-  const configBackup = backupOnce(configPath);
-  const patch = buildPluginConfigPatch({ agentId, baseUrl, apiKey: key, writeConfig });
-  const patched = await exec(['config', 'patch', '--stdin'], { input: JSON.stringify(patch) });
-  if (!patched.ok) throw new Error(`openclaw config patch failed: ${redactKey(patched.stderr.trim(), key)}`);
-
-  // 6. Now make it live. `plugins enable` also owns plugins.allow (see
-  // buildPluginConfigPatch) and does not overwrite the config just patched —
-  // both verified against the real CLI.
-  const enabled = await exec(['plugins', 'enable', PLUGIN_ENTRY_KEY]);
-  if (!enabled.ok) throw new Error(`openclaw plugins enable ${PLUGIN_ENTRY_KEY} failed: ${enabled.stderr.trim()}`);
-
-  // 7. Secret to .env unless explicitly told otherwise. The parent may not
-  // exist yet on a profile whose state dir has never been written.
+  // 5. Secret to .env FIRST, before anything can make the plugin live. The
+  // parent may not exist yet on a profile whose state dir has never been
+  // written.
+  //
+  // Ordering is the whole point. A DASHCLAW_API_KEY sitting in .env is inert
+  // until a plugin is there to read it, and the write is idempotent — so
+  // writing it early costs nothing. Writing it LATE is what bricks an agent:
+  // the patch sends dashclawApiKey:null and `plugins enable` makes the plugin
+  // live, so an EPERM/EBUSY on a trailing .env write (or a Ctrl-C in the
+  // seconds those subprocesses take) leaves failClosed:true with the key in
+  // neither place. The plugin throws on a missing dashclawApiKey and converts
+  // that to {block:true}: an agent that refuses every tool call.
+  //
+  // It also has to precede the PATCH, not just the enable: on the migration
+  // path the patch is what deletes the plaintext key from openclaw.json, and
+  // the backup is scrubbed of it, so a .env write after that has no copy left
+  // to fall back on.
   if (!writeConfig) {
     mkdirSync(dirname(resolvedEnvPath), { recursive: true });
     const current = existsSync(resolvedEnvPath) ? readFileSync(resolvedEnvPath, 'utf8') : '';
     writeFileSync(resolvedEnvPath, upsertEnvVar(current, 'DASHCLAW_API_KEY', key));
     logger.info(`Wrote DASHCLAW_API_KEY to ${resolvedEnvPath}`);
-    if (keyMigrated) logger.info(`Removed the plaintext key from ${configPath} (backup: ${configBackup}).`);
   }
 
-  // 8. AGENTS.md in the RESOLVED workspace.
-  const ws = expandHome(workspace || (await resolveWorkspace({ run: exec })));
-  const agentsMdPath = join(ws, 'AGENTS.md');
+  // 6. Back up, then ONE validated write — still BEFORE the plugin goes live.
+  // The reverse order is what bricks an agent: a failed patch behind a
+  // successful enable leaves a live plugin with failClosed and no url, so it
+  // refuses every tool call. Failing here instead leaves the plugin
+  // not-yet-enabled and exits non-zero, which is loud and harmless.
+  const configBackup = backupConfigOnce(configPath, key);
+  const backupNote = configBackup ? ` (backup: ${configBackup})` : '';
+  const patch = buildPluginConfigPatch({ agentId, baseUrl, apiKey: key, writeConfig });
+  const patched = await exec(['config', 'patch', '--stdin'], { input: JSON.stringify(patch) });
+  if (!patched.ok) {
+    throw new Error(
+      `openclaw config patch failed: ${redactKey(patched.stderr.trim(), key)}. ` +
+      `The plugin was NOT enabled and ${configPath} is unchanged${backupNote}.`,
+    );
+  }
+  // Only a real migration: under --write-config the patch puts the key back in
+  // the config, so nothing moved and saying so would be a lie.
+  if (keyMigrated && !writeConfig) {
+    logger.info(
+      `Removed the plaintext key from ${configPath} — it now lives only in ${resolvedEnvPath}. ` +
+      `The backup${configBackup ? ` at ${configBackup}` : ''} was written without it.`,
+    );
+  }
+
+  // 7. Now make it live. `plugins enable` also owns plugins.allow (see
+  // buildPluginConfigPatch) and does not overwrite the config just patched —
+  // both verified against the real CLI.
+  const enabled = await exec(['plugins', 'enable', PLUGIN_ENTRY_KEY]);
+  if (!enabled.ok) {
+    throw new Error(
+      `openclaw plugins enable ${PLUGIN_ENTRY_KEY} failed: ${redactKey(enabled.stderr.trim(), key)}. ` +
+      `${configPath} was patched but the plugin is not in plugins.allow, so it is not enforcing${backupNote}. ` +
+      'Re-run this installer to finish.',
+    );
+  }
+
+  // 8. AGENTS.md in the workspace resolved at step 3.
   mkdirSync(dirname(agentsMdPath), { recursive: true });
   const agentsMd = mergeAgentsMd({ agentsMdPath, baseUrl, agentId });
   if (agentsMd.migrated) {
@@ -491,11 +604,14 @@ export async function installOpenclaw({
     const isEnabled = live.ok && lastLine(live.stdout) === 'true';
     verified = { config: validated.ok, plugins: doctor.ok, enabled: isEnabled };
     if (!validated.ok || !doctor.ok || !isEnabled) {
+      // Both of these read openclaw.json, which under --write-config holds the
+      // credential — a validator that quotes the offending value quotes the key.
+      const safe = (t) => redactKey(String(t ?? '').trim(), key);
       logger.warn(
         'WARNING: install completed but verification failed — governance may not be enforcing.\n' +
-        `  config validate: ${validated.ok ? 'ok' : validated.stderr.trim()}\n` +
-        `  plugins doctor:  ${doctor.ok ? 'ok' : doctor.stderr.trim()}\n` +
-        `  plugin enabled:  ${isEnabled ? 'ok' : lastLine(live.stdout) || live.stderr.trim() || 'not enabled'}`,
+        `  config validate: ${validated.ok ? 'ok' : safe(validated.stderr)}\n` +
+        `  plugins doctor:  ${doctor.ok ? 'ok' : safe(doctor.stderr)}\n` +
+        `  plugin enabled:  ${isEnabled ? 'ok' : safe(lastLine(live.stdout)) || safe(live.stderr) || 'not enabled'}`,
       );
     }
   }

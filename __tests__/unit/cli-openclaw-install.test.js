@@ -169,6 +169,23 @@ describe('redactKey', () => {
     expect(redactKey('boom', null)).toBe('boom');
     expect(redactKey('a short k here', 'k')).toBe('a short k here'); // too short to redact safely
   });
+
+  // Under --write-config the key lives in openclaw.json, so `config validate`
+  // and `plugins doctor` can quote a credential we never passed them — a stale
+  // one from an earlier install, or one for a different instance entirely.
+  // Matching only the key in hand would print it verbatim.
+  it('redacts a credential-shaped token even when it is not the key we hold', () => {
+    const out = redactKey('config error: dashclawApiKey "dc_live_9fA2bQ71xZ" is rejected', 'unrelated-key');
+    expect(out).not.toContain('dc_live_9fA2bQ71xZ');
+    expect(out).toContain('***');
+    expect(out).toContain('dashclawApiKey');           // the diagnosis survives
+    expect(redactKey('key oc_test_AbCdEf0123 bad', null)).not.toContain('oc_test_AbCdEf0123');
+  });
+
+  it('does not shred ordinary prose that merely looks underscored', () => {
+    expect(redactKey('plugin dashclaw_governance failed to load', null))
+      .toBe('plugin dashclaw_governance failed to load');
+  });
 });
 
 describe('isVersionAtLeast', () => {
@@ -342,20 +359,31 @@ describe('installOpenclaw', () => {
       envPath, run: h.run, preflightImpl: h.preflightImpl, logger: { info() {}, warn() {} },
     });
     expect(h.calls.some((c) => c.startsWith('plugins enable'))).toBe(true);
-    const patchCall = h.calls.find((c) => c.startsWith('config patch'));
-    expect(patchCall).toBeDefined();
-    expect(patchCall).not.toContain('allow');
+    expect(h.calls).toContain('config patch --stdin');
+    // Asserted against the PAYLOAD, not the argv. The argv is the constant
+    // string 'config patch --stdin' since the patch moved to stdin, so a
+    // `not.toContain('allow')` on it can no longer fail — it is the payload
+    // that would carry plugins.allow and wipe every other enabled plugin.
+    const payload = JSON.parse(h.inputFor('config patch'));
+    expect(payload.plugins.allow).toBeUndefined();
+    expect(Object.keys(payload.plugins)).toEqual(['entries']);
   });
 
   it('writes the key to .env, not into the config patch', async () => {
     const h = harness();
     const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
     await installOpenclaw({
-      baseUrl: 'https://dc.example.com', apiKey: 'super-secret', agentId: 'a',
+      baseUrl: 'https://dc.example.com', apiKey: SAMPLE_KEY, agentId: 'a',
       envPath, run: h.run, preflightImpl: h.preflightImpl, logger: { info() {}, warn() {} },
     });
-    expect(readFileSync(envPath, 'utf8')).toContain('DASHCLAW_API_KEY=super-secret');
-    expect(h.calls.find((c) => c.startsWith('config patch'))).not.toContain('super-secret');
+    expect(readFileSync(envPath, 'utf8')).toContain(`DASHCLAW_API_KEY=${SAMPLE_KEY}`);
+    // Same tautology trap: the key was never going to appear in the argv once
+    // the payload moved to stdin. The property with teeth is that the stdin
+    // payload itself carries no key unless --write-config asked for one.
+    const payload = h.inputFor('config patch');
+    expect(payload).not.toContain(SAMPLE_KEY);
+    expect(JSON.parse(payload).plugins.entries['dashclaw-governance'].config.dashclawApiKey).toBeNull();
+    expect(h.calls.join('\n')).not.toContain(SAMPLE_KEY);
   });
 
   it('writes AGENTS.md into the resolved workspace, not the cwd', async () => {
@@ -375,23 +403,33 @@ describe('installOpenclaw', () => {
   // enable leaves a live plugin with failClosed:true and no dashclawUrl, so the
   // agent refuses every tool call. The sequence is now patch-then-enable, and
   // this asserts the property that actually matters.
-  it('never enables the plugin when the config patch fails', async () => {
+  it('never enables the plugin when the config patch fails, and names the backup', async () => {
     const calls = [];
+    const dir = mkdtempSync(join(tmpdir(), 'oc-cfg-'));
+    const cfg = join(dir, 'openclaw.json');
+    writeFileSync(cfg, '{"original":true}');
     const run = async (argv) => {
       calls.push(argv.join(' '));
-      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: '/tmp/openclaw.json', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: cfg, stderr: '' };
       if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
       if (argv[0] === 'config' && argv[1] === 'patch') return { ok: false, stdout: '', stderr: 'patch boom' };
       return { ok: true, stdout: '', stderr: '' };
     };
     const preflightImpl = async () => {};
     const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
-    await expect(installOpenclaw({
-      baseUrl: 'https://dc.example.com', apiKey: 'k', agentId: 'a',
+    const err = await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: SAMPLE_KEY, agentId: 'a',
       envPath, run, preflightImpl, logger: { info() {}, warn() {} },
-    })).rejects.toThrow(/config patch/);
+    }).then(() => null, (e) => e);
+    expect(err.message).toMatch(/config patch/);
     expect(calls.some((c) => c.startsWith('plugins enable'))).toBe(false);
-    expect(existsSync(envPath)).toBe(false); // no key written behind a failed patch either
+    // design.md's "report the path": the operator is told where the untouched
+    // original is without having to guess the .dashclaw-bak convention.
+    expect(err.message).toContain(`${cfg}.dashclaw-bak`);
+    // The key IS already in .env by now, and that is deliberate — see the
+    // ordering test below. A DASHCLAW_API_KEY sitting in .env does nothing
+    // until a plugin is live to read it, and the write is idempotent.
+    expect(readFileSync(envPath, 'utf8')).toContain(`DASHCLAW_API_KEY=${SAMPLE_KEY}`);
   });
 
   it('patches BEFORE enabling, so a failure cannot leave a live unconfigured plugin', async () => {
@@ -405,6 +443,70 @@ describe('installOpenclaw', () => {
     const enableAt = h.calls.findIndex((c) => c.startsWith('plugins enable'));
     expect(patchAt).toBeGreaterThanOrEqual(0);
     expect(enableAt).toBeGreaterThan(patchAt);
+  });
+
+  // The brick window the patch-then-enable reorder MOVED rather than closed.
+  // The .env write used to run at the very end, after `plugins enable` had
+  // already made the plugin live. An EPERM/EBUSY on that write — or a Ctrl-C
+  // in the seconds it takes — left enabled:true, failClosed:true and no key in
+  // either the config (the patch sends null) or .env. The plugin throws on a
+  // missing dashclawApiKey (packages/openclaw-plugin/src/index.ts) and turns
+  // that into {block:true}: an agent that refuses every tool call, which is
+  // the exact outcome this whole feature exists to prevent.
+  it('has the key in .env before anything can make the plugin live', async () => {
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    const seen = {};
+    const snapshot = () => (existsSync(envPath) ? readFileSync(envPath, 'utf8') : null);
+    const run = async (argv) => {
+      const cmd = argv.join(' ');
+      if (cmd.startsWith('config patch')) seen.patch = snapshot();
+      if (cmd.startsWith('plugins enable')) seen.enable = snapshot();
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: '/tmp/openclaw.json', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get' && argv[2].endsWith('.enabled')) return { ok: true, stdout: 'true', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
+      return { ok: true, stdout: '', stderr: '' };
+    };
+    await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: SAMPLE_KEY, agentId: 'a',
+      envPath, run, preflightImpl: async () => {}, logger: { info() {}, warn() {} },
+    });
+    expect(seen.enable).toContain(`DASHCLAW_API_KEY=${SAMPLE_KEY}`);
+    // Also before the patch: on the migration path the patch is what DELETES
+    // the plaintext key from openclaw.json, so writing .env afterwards would
+    // leave a window whose only surviving copy is a backup.
+    expect(seen.patch).toContain(`DASHCLAW_API_KEY=${SAMPLE_KEY}`);
+  });
+
+  // Nothing covered this state. `plugins enable` owns plugins.allow — the flag
+  // that actually makes the plugin live — so a failure here leaves a patched
+  // config with a plugin that is configured but not enforcing.
+  it('reports what is half-done when `plugins enable` fails after the patch landed', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'oc-cfg-'));
+    const cfg = join(dir, 'openclaw.json');
+    writeFileSync(cfg, '{"original":true}');
+    const calls = [];
+    const run = async (argv) => {
+      calls.push(argv.join(' '));
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: cfg, stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
+      if (argv[0] === 'plugins' && argv[1] === 'enable') return { ok: false, stdout: '', stderr: 'enable boom' };
+      return { ok: true, stdout: '', stderr: '' };
+    };
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    const err = await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: SAMPLE_KEY, agentId: 'a',
+      envPath, run, preflightImpl: async () => {}, logger: { info() {}, warn() {} },
+    }).then(() => null, (e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toMatch(/plugins enable/);
+    expect(err.message).toContain(`${cfg}.dashclaw-bak`);
+    expect(err.message).not.toContain(SAMPLE_KEY);
+    // The key is already durable, so a later manual `openclaw plugins enable`
+    // cannot bring the plugin up keyless — which is what would block it.
+    expect(readFileSync(envPath, 'utf8')).toContain(`DASHCLAW_API_KEY=${SAMPLE_KEY}`);
+    // And nothing past the failure ran: no AGENTS.md, no verify.
+    expect(existsSync(join(workspaceDir, 'AGENTS.md'))).toBe(false);
+    expect(calls.some((c) => c.startsWith('config validate'))).toBe(false);
   });
 
   // The defect this whole pass exists for: `openclaw config patch` takes NO
@@ -446,6 +548,59 @@ describe('installOpenclaw', () => {
     });
     expect(res.configBackup).toBe(`${cfg}.dashclaw-bak`);
     expect(readFileSync(res.configBackup, 'utf8')).toBe('{"original":true}');
+  });
+
+  // The migration path's whole stated purpose (design.md) is that
+  // `openclaw secrets audit` comes back clean afterwards. A byte-for-byte
+  // backup of a config that still held the plaintext key defeats that: the
+  // secret simply moves to a second file on the same disk, and the success
+  // line pointed the operator at it while saying the key had been removed.
+  it('never leaves the plaintext key in the config backup on the migration path', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'oc-mig-'));
+    const cfg = join(dir, 'openclaw.json');
+    writeFileSync(cfg, JSON.stringify({
+      keep: 'me',
+      plugins: { entries: { 'dashclaw-governance': { config: { agentId: 'a', dashclawApiKey: SAMPLE_KEY } } } },
+    }, null, 2));
+    const infos = [];
+    const run = async (argv) => {
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: cfg, stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get' && argv[2].endsWith('.enabled')) return { ok: true, stdout: 'true', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
+      return { ok: true, stdout: '', stderr: '' };
+    };
+    const res = await installOpenclaw({
+      baseUrl: 'https://dc.example.com', agentId: 'a', // no apiKey → resolved from the config, migrating
+      run, preflightImpl: async () => {}, logger: { info(m) { infos.push(m); }, warn() {} },
+    });
+    expect(res.keyMigrated).toBe(true);
+    const backup = readFileSync(res.configBackup, 'utf8');
+    expect(backup).not.toContain(SAMPLE_KEY);
+    expect(JSON.parse(backup).keep).toBe('me');                       // still a usable restore point
+    expect(readFileSync(res.envPath, 'utf8')).toContain(`DASHCLAW_API_KEY=${SAMPLE_KEY}`);
+    expect(infos.join('\n')).not.toContain(SAMPLE_KEY);
+  });
+
+  it('scrubs a plaintext key out of a backup an earlier run already left behind', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'oc-mig2-'));
+    const cfg = join(dir, 'openclaw.json');
+    const stale = `${cfg}.dashclaw-bak`;
+    const withKey = JSON.stringify({
+      plugins: { entries: { 'dashclaw-governance': { config: { dashclawApiKey: SAMPLE_KEY } } } },
+    }, null, 2);
+    writeFileSync(cfg, '{"plugins":{"entries":{}}}');
+    writeFileSync(stale, withKey); // backupOnce keeps the FIRST backup, so this file survives the run
+    const run = async (argv) => {
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: cfg, stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get' && argv[2].endsWith('.enabled')) return { ok: true, stdout: 'true', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
+      return { ok: true, stdout: '', stderr: '' };
+    };
+    await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: 'k', agentId: 'a',
+      run, preflightImpl: async () => {}, logger: { info() {}, warn() {} },
+    });
+    expect(readFileSync(stale, 'utf8')).not.toContain(SAMPLE_KEY);
   });
 
   // The old default was a hardcoded join(homedir(), '.openclaw', '.env'), which
@@ -547,6 +702,73 @@ describe('installOpenclaw', () => {
     expect(warnings.join('\n')).toMatch(/verification failed/);
   });
 
+  // The workspace used to be resolved at the LAST step, after the plugin was
+  // installed, the config patched and the plugin enabled. An unset
+  // agents.defaults.workspace therefore exited 1 with governance already live
+  // and no summary printed. It is read-only, so it belongs with the other
+  // read-only resolution, before the first write.
+  it('resolves the workspace before it writes anything', async () => {
+    const calls = [];
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    const run = async (argv) => {
+      calls.push(argv.join(' '));
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: '/tmp/openclaw.json', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: 'null', stderr: '' };
+      return { ok: true, stdout: '', stderr: '' };
+    };
+    await expect(installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: SAMPLE_KEY, agentId: 'a',
+      envPath, run, preflightImpl: async () => {}, logger: { info() {}, warn() {} },
+    })).rejects.toThrow(/workspace/);
+    expect(calls.some((c) => c.startsWith('plugins install'))).toBe(false);
+    expect(calls.some((c) => c.startsWith('config patch'))).toBe(false);
+    expect(calls.some((c) => c.startsWith('plugins enable'))).toBe(false);
+    expect(existsSync(envPath)).toBe(false);
+  });
+
+  it('keeps the api key out of a warning built from config validate / plugins doctor stderr', async () => {
+    const warnings = [];
+    const run = async (argv) => {
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: '/tmp/openclaw.json', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get' && argv[2].endsWith('.enabled')) return { ok: true, stdout: 'true', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
+      // --write-config leaves the key in openclaw.json, so a validator that
+      // quotes the offending value quotes the credential back at us.
+      if (argv[0] === 'config' && argv[1] === 'validate') {
+        return { ok: false, stdout: '', stderr: `invalid dashclawApiKey: "${SAMPLE_KEY}"` };
+      }
+      return { ok: true, stdout: '', stderr: '' };
+    };
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: SAMPLE_KEY, agentId: 'a', writeConfig: true,
+      envPath, run, preflightImpl: async () => {}, logger: { info() {}, warn(m) { warnings.push(m); } },
+    });
+    expect(warnings.join('\n')).toMatch(/verification failed/);
+    expect(warnings.join('\n')).not.toContain(SAMPLE_KEY);
+  });
+
+  it('keeps the api key out of a plugins install / plugins enable failure', async () => {
+    const failing = (which) => async (argv) => {
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: '/tmp/openclaw.json', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
+      if (argv[0] === 'plugins' && argv[1] === which) {
+        return { ok: false, stdout: '', stderr: `boom, config was {"dashclawApiKey":"${SAMPLE_KEY}"}` };
+      }
+      return { ok: true, stdout: '', stderr: '' };
+    };
+    for (const which of ['install', 'enable']) {
+      const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+      const err = await installOpenclaw({
+        baseUrl: 'https://dc.example.com', apiKey: SAMPLE_KEY, agentId: 'a',
+        envPath, run: failing(which), preflightImpl: async () => {}, logger: { info() {}, warn() {} },
+      }).then(() => null, (e) => e);
+      expect(err.message).toContain(`plugins ${which}`);
+      expect(err.message).not.toContain(SAMPLE_KEY);
+      expect(err.message).toContain('***');
+    }
+  });
+
   it('keeps the api key out of a thrown message even when openclaw echoes it back', async () => {
     const run = async (argv, opts) => {
       if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: '/tmp/openclaw.json', stderr: '' };
@@ -643,6 +865,13 @@ describe('installedPluginVersion', () => {
 // called it — every installOpenclaw test injected a `run` that returned
 // {ok:true} for any argv, so neither the command shape nor the spawn was ever
 // observed. These drive the real function against real child processes.
+// 6 JS chars / 15 UTF-8 bytes per repeat. Pipe reads arrive in 64KB chunks and
+// 65536 mod 15 === 1, so the very first boundary falls one byte INTO a 3-byte
+// 日 — and the next three boundaries land at offsets 2, 3 and 4, two of which
+// are also mid-character. 25000 repeats is 375KB, so this crosses five.
+const WIDE_UNIT = 'x日本語é✅';
+const WIDE_REPEATS = 25000;
+
 describe('runOpenclaw', () => {
   const node = process.execPath;
 
@@ -666,6 +895,18 @@ describe('runOpenclaw', () => {
       // resume() first: a paused stdin never emits "end", which would look like
       // runOpenclaw failing to close it.
       endOnly: write('end-only.mjs', 'process.stdin.resume();\nprocess.stdin.on("end", () => process.stdout.write("closed"));\n'),
+      // Big enough to be split across several 64KB pipe chunks, with 2-, 3- and
+      // 4-byte code points at offsets that do not divide the chunk size.
+      wide: write('wide.mjs',
+        `const s = ${JSON.stringify(WIDE_UNIT)}.repeat(${WIDE_REPEATS});\n` +
+        'process.stdout.write(s);\nprocess.stderr.write(s);\n'),
+      // Platform-independent version of the same defect: two chunks, the first
+      // ending one byte into a 3-byte character. The delay is what forces two
+      // separate 'data' events rather than one coalesced read.
+      split: write('split.mjs',
+        'const b = Buffer.from("A日Z", "utf8");\n' +
+        'process.stdout.write(b.subarray(0, 2));\n' +
+        'setTimeout(() => process.stdout.write(b.subarray(2)), 50);\n'),
     };
   });
 
@@ -692,6 +933,63 @@ describe('runOpenclaw', () => {
     const res = await runOpenclaw([scripts.endOnly], { bin: node });
     expect(res.ok).toBe(true);
     expect(res.stdout).toBe('closed');
+  });
+
+  // The move from execFile to spawn dropped execFile's StringDecoder. `stdout +=
+  // d` stringifies each Buffer INDEPENDENTLY, so a UTF-8 sequence split across
+  // two 64KB chunks is destroyed — each half decodes to U+FFFD. `plugins list
+  // --json` is already 138KB, past the first boundary; it survives today only
+  // because it happens to be pure ASCII. One non-ASCII character in any
+  // plugin's name or description makes JSON.parse fail, installedPluginVersion
+  // return null, and the version-skip silently stop working — which
+  // reintroduces the silent plugin DOWNGRADE that skip exists to prevent.
+  it('decodes a character split across two chunks', async () => {
+    const res = await runOpenclaw([scripts.split], { bin: node });
+    expect(res.ok).toBe(true);
+    expect(res.stdout).toBe('A日Z');
+    expect(res.stdout).not.toContain('�');
+  });
+
+  it('decodes multi-byte output split across 64KB pipe boundaries', async () => {
+    const expected = WIDE_UNIT.repeat(WIDE_REPEATS);
+    const res = await runOpenclaw([scripts.wide], { bin: node });
+    expect(res.ok).toBe(true);
+    expect(res.stdout).not.toContain('�');
+    expect(res.stderr).not.toContain('�');
+    expect(res.stdout).toBe(expected);
+    expect(res.stderr).toBe(expected);
+  });
+
+  // The consequence on the one stream that is actually large enough to be
+  // chunked: `plugins list --json` is 138KB against the real CLI, past the
+  // first boundary, and survives today only by being pure ASCII. Note the
+  // damage is SILENT — U+FFFD is a legal JSON string character, so the
+  // document still parses and nothing raises; the fields just come back wrong.
+  it('reads a plugins list with non-ASCII fields back intact', async () => {
+    const CHUNK = 65_536;
+    const build = (pad) => JSON.stringify({
+      plugins: [
+        { id: 'filler', description: 'x'.repeat(pad) + '日'.repeat(400) },
+        { id: 'dashclaw-governance', version: '1.6.2', description: 'Gouvernance — 日本語 ✅' },
+      ],
+    });
+    // Pad until byte 65536 is a UTF-8 continuation byte, i.e. the read boundary
+    // lands INSIDE a character rather than between two.
+    let listing = null;
+    for (let pad = CHUNK - 600; pad < CHUNK && !listing; pad++) {
+      const candidate = Buffer.from(build(pad), 'utf8');
+      if (candidate.length > CHUNK && (candidate[CHUNK] & 0xc0) === 0x80) listing = build(pad);
+    }
+    expect(listing).not.toBeNull();
+
+    const dir = mkdtempSync(join(tmpdir(), 'oc-list-'));
+    const script = join(dir, 'list.mjs');
+    writeFileSync(script, `process.stdout.write(${JSON.stringify(listing)});\n`);
+    const run = (argv) => runOpenclaw([script, ...argv], { bin: node });
+
+    await expect(installedPluginVersion({ run })).resolves.toBe('1.6.2');
+    const res = await run([]);
+    expect(JSON.parse(res.stdout)).toEqual(JSON.parse(listing));
   });
 
   it('resolves ok:false instead of throwing when the binary does not exist', async () => {
