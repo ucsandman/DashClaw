@@ -183,7 +183,7 @@ export default function GovernancePanel() {
             type="number" min="0" step="0.01" placeholder="blank = disabled"
             value={form.costThreshold}
             onChange={(e) => setForm((f) => ({ ...f, costThreshold: e.target.value }))}
-            className="w-40 rounded border border-white/10 bg-black/40 px-2 py-1 text-xs text-secondary placeholder:text-zinc-700 focus:border-brand/50 focus:outline-none"
+            className="w-40 rounded border border-white/10 bg-black/40 px-2 py-1 text-xs text-secondary placeholder:text-tertiary focus:border-brand/50 focus:outline-none"
           />
           <p className="text-xs text-tertiary">Fires a cost-exceeded signal when a single action&apos;s estimated cost crosses this amount. Blank or 0 disables it.</p>
         </div>

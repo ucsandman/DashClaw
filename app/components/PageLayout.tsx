@@ -45,7 +45,11 @@ export default function PageLayout({ title, subtitle, breadcrumbs, actions, matu
                 <nav aria-label="Breadcrumb" className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-tertiary">
                   {breadcrumbs.map((crumb: React.ReactNode, i: number) => (
                     <span key={i} className="flex items-center gap-1.5">
-                      {i > 0 && <span aria-hidden="true" className="text-zinc-700">/</span>}
+                      {/* No colour override: the separator inherits the nav's
+                          text-tertiary. It used to hardcode text-zinc-700
+                          (#3f3f46), both a raw hex in a tokens-only codebase and
+                          1.36:1 at its worst. */}
+                      {i > 0 && <span aria-hidden="true">/</span>}
                       <span className={i === breadcrumbs.length - 1 ? 'text-secondary' : ''}>
                         {crumb}
                       </span>

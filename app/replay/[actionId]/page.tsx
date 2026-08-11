@@ -471,7 +471,7 @@ export default function PublicReplayPage() {
                 <DashClawLogo size={14} className="grayscale opacity-50" />
                 <span className="text-[9px] font-bold text-disabled uppercase tracking-[0.2em]">Verified by DashClaw Runtime</span>
               </div>
-              <div className="text-[9px] font-mono text-zinc-700 uppercase tracking-tighter">
+              <div className="text-[9px] font-mono text-tertiary uppercase tracking-tighter">
                 {new Date(action.timestamp_start).toLocaleDateString()} {new Date(action.timestamp_start).toLocaleTimeString()}
               </div>
             </div>

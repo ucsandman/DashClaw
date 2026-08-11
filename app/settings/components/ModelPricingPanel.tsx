@@ -256,7 +256,7 @@ export default function ModelPricingPanel() {
                   placeholder="e.g. deepseek"
                   value={newRow.pattern}
                   onChange={(e) => setNewRow({ ...newRow, pattern: e.target.value })}
-                  className="w-full rounded border border-white/10 bg-black/40 px-2 py-1 text-xs font-mono text-secondary placeholder:text-zinc-700 focus:border-brand/50 focus:outline-none"
+                  className="w-full rounded border border-white/10 bg-black/40 px-2 py-1 text-xs font-mono text-secondary placeholder:text-tertiary focus:border-brand/50 focus:outline-none"
                 />
               </td>
               <td className="px-5 py-2">
@@ -265,7 +265,7 @@ export default function ModelPricingPanel() {
                   placeholder="Display name"
                   value={newRow.label}
                   onChange={(e) => setNewRow({ ...newRow, label: e.target.value })}
-                  className="w-full rounded border border-white/10 bg-black/40 px-2 py-1 text-xs text-secondary placeholder:text-zinc-700 focus:border-brand/50 focus:outline-none"
+                  className="w-full rounded border border-white/10 bg-black/40 px-2 py-1 text-xs text-secondary placeholder:text-tertiary focus:border-brand/50 focus:outline-none"
                 />
               </td>
               <td className="px-5 py-2">
@@ -276,7 +276,7 @@ export default function ModelPricingPanel() {
                   placeholder="0.00"
                   value={newRow.input}
                   onChange={(e) => setNewRow({ ...newRow, input: e.target.value })}
-                  className="w-full rounded border border-white/10 bg-black/40 px-2 py-1 text-xs text-right font-mono text-secondary placeholder:text-zinc-700 focus:border-brand/50 focus:outline-none"
+                  className="w-full rounded border border-white/10 bg-black/40 px-2 py-1 text-xs text-right font-mono text-secondary placeholder:text-tertiary focus:border-brand/50 focus:outline-none"
                 />
               </td>
               <td className="px-5 py-2">
@@ -287,7 +287,7 @@ export default function ModelPricingPanel() {
                   placeholder="0.00"
                   value={newRow.output}
                   onChange={(e) => setNewRow({ ...newRow, output: e.target.value })}
-                  className="w-full rounded border border-white/10 bg-black/40 px-2 py-1 text-xs text-right font-mono text-secondary placeholder:text-zinc-700 focus:border-brand/50 focus:outline-none"
+                  className="w-full rounded border border-white/10 bg-black/40 px-2 py-1 text-xs text-right font-mono text-secondary placeholder:text-tertiary focus:border-brand/50 focus:outline-none"
                 />
               </td>
               <td className="px-5 py-2 text-right">

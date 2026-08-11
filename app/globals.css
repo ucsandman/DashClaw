@@ -32,13 +32,24 @@
   --color-text-tertiary: #9b9ba8;
   --color-text-disabled: #5c5c66;
 
-  /* Semantic status */
+  /* Semantic status.
+     error and info sit one step lighter than the rest of the -500 family
+     because -500 does not clear WCAG 1.4.3 as TEXT on our darkest surfaces:
+     #ef4444 measures 3.78:1 and #3b82f6 3.86:1 on --color-bg-elevated, both
+     under the 4.5:1 floor. At -400 the worst case becomes 5.14:1 and 5.59:1.
+     success (#22c55e, 6.24:1) and warning (#eab308, 7.41:1) already clear it
+     and are left on -500. */
   --color-success: #22c55e;
   --color-warning: #eab308;
-  --color-error: #ef4444;
-  --color-info: #3b82f6;
+  --color-error: #f87171;
+  --color-info: #60a5fa;
 
-  /* Semantic status backgrounds */
+  /* Semantic status backgrounds.
+     These deliberately keep the -500 rgb even though the foregrounds moved to
+     -400. Re-tinting them to match LOWERS contrast, because the tint sits
+     BEHIND the text: error text on a -400 tint over --color-bg-elevated falls
+     to 4.32:1 and fails, while the -500 tint holds it at 4.60:1. The mismatch
+     is intentional and imperceptible at 12% alpha — do not "tidy" it. */
   --color-success-subtle: rgba(34, 197, 94, 0.12);
   --color-warning-subtle: rgba(234, 179, 8, 0.12);
   --color-error-subtle: rgba(239, 68, 68, 0.12);
