@@ -504,7 +504,11 @@ def _enrich_bash(tool_input: dict, tool_info: dict, label: str = "Bash") -> dict
         "action_type": action_type,
         "risk_score": risk_score,
         "reversible": bash_intel["reversible"],
-        "declared_goal": label + ": " + command[:120],
+        # Full command up to the server's declared_goal cap (validate.js maxLength
+        # 2000). The old 120-char slice amputated the very thing the approval
+        # surfaces exist to show the operator (field report 2026-08-07: a Telegram
+        # approval card cut a command mid-word, making it unjudgeable).
+        "declared_goal": (label + ": " + command)[:2000],
         # A shell redirection target is a write path; forward it as `target` so a
         # protected_path policy can gate `echo secret > app/secrets/x` style writes.
         # A script-then-execute hit forwards the script path instead, so
@@ -624,7 +628,10 @@ def _enrich_default(tool_name: str, tool_input: dict, tool_info: dict) -> dict:
         "action_type": action_type,
         "risk_score": base_risk,
         "reversible": True,
-        "declared_goal": "%s: %s" % (tool_name, json.dumps(tool_input)[:120]),
+        # Same full-visibility rule as the Bash path: slice the WHOLE goal to the
+        # server cap (2000), never the payload to 120 — operators judge approvals
+        # by this string.
+        "declared_goal": ("%s: %s" % (tool_name, json.dumps(tool_input)))[:2000],
         "intel": {},
     }
 

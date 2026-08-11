@@ -158,6 +158,13 @@ TOOL_CATALOG: dict[str, dict] = {
         "orchestration", "danger",
         _risk(75, spawn=True, network=True, modify=True, escalate=True),
     ),
+    # `Workflow` fans out multiple sub-agents deterministically (Claude Code
+    # dynamic workflows). Same governance profile as Agent/Task spawns so a
+    # fan-out is guard-evaluated and recorded before it runs (roadmap v4.3).
+    "Workflow": _tool(
+        "orchestration", "danger",
+        _risk(75, spawn=True, network=True, modify=True, escalate=True),
+    ),
     "Skill": _tool(
         "orchestration", "danger",
         _risk(60, spawn=True, modify=True, escalate=True),
@@ -271,14 +278,37 @@ _ALL_CATEGORIES = frozenset({
 })
 
 
+_warned_unknown_categories = False
+
+
 def _governed_categories() -> frozenset[str]:
     """Return the set of governed categories, respecting the env override."""
+    global _warned_unknown_categories
     env_val = os.environ.get("DASHCLAW_GOVERNED_CATEGORIES", "").strip()
     if not env_val:
         return _DEFAULT_GOVERNED_CATEGORIES
     if env_val.lower() == "all":
         return _ALL_CATEGORIES
-    return frozenset(c.strip() for c in env_val.split(",") if c.strip())
+    requested = frozenset(c.strip() for c in env_val.split(",") if c.strip())
+    # A typo here ("executon") silently removes a real category from
+    # governance with zero diagnostics anywhere — the total-and-invisible
+    # failure mode. Warn loudly (once per process) but do NOT auto-correct:
+    # the operator's explicit list still stands.
+    unknown = requested - _ALL_CATEGORIES
+    if unknown and not _warned_unknown_categories:
+        _warned_unknown_categories = True
+        import sys
+        print(
+            "[DashClaw] WARNING: DASHCLAW_GOVERNED_CATEGORIES contains unknown "
+            "categor{} {} — valid values: {}. Tools in misspelled categories are "
+            "NOT governed.".format(
+                "y" if len(unknown) == 1 else "ies",
+                ", ".join(sorted(unknown)),
+                ", ".join(sorted(_ALL_CATEGORIES)),
+            ),
+            file=sys.stderr,
+        )
+    return requested
 
 
 def _is_governed(category: str) -> bool:

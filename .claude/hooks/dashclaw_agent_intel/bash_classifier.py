@@ -114,6 +114,75 @@ _INLINE_ESCAPE_HATCH_RE = re.compile(
     re.IGNORECASE,
 )
 
+# F2 (governance gap audit 2026-08-05): `find` with a delete predicate is a
+# mass delete wearing a read-only command's name.
+_FIND_DELETE_RE = re.compile(r"\s-delete\b|\s-exec\s+\S*(rm|shred)\b", re.IGNORECASE)
+
+# Obfuscated command construction (evasion audit 2026-08-08): a decode-then-
+# execute pipe (base64/hex/openssl output piped straight into a shell or
+# interpreter) runs a command the classifier never sees as text. Paired with
+# the `eval` base-command check, this closes the base64+eval evasion that slid
+# a destructive delete past the guard. `eval` itself is matched by base name,
+# not here, because the parser identifies it reliably.
+_DECODE_EXEC_RE = re.compile(
+    r"(?:base64\s+(?:-d|-D|--decode)|xxd\s+-r|openssl\s+enc\b[^|]*?-d)\b"
+    r"[^|]*\|\s*(?:sh|bash|zsh|dash|ksh|eval|python\d?|perl|ruby|node)\b",
+    re.IGNORECASE,
+)
+
+# Pipe into a BARE shell (round-2 audit, 2026-08-08): `curl … | sh`,
+# `echo "<cmd>" | bash`, `printf … | zsh`. The shell reads its program from
+# stdin, so the real command is invisible to the classifier regardless of the
+# upstream producer — this generalizes _DECODE_EXEC_RE beyond the three
+# decoders. The negative lookahead exempts a named script file (`… | bash
+# deploy.sh`), which is an ordinary invocation, not stdin execution.
+_PIPE_TO_SHELL_RE = re.compile(
+    r"\|\s*(?:sh|bash|zsh|dash|ksh)\b(?!(?:\s+-[A-Za-z]+)*\s+[^\s|;&]*\.[A-Za-z])",
+    re.IGNORECASE,
+)
+
+# A shell running an inline command string: `sh -c '<cmd>'`, `bash -lc '<cmd>'`.
+# `-c` (in any combined short-flag form, or `--command`) means the program is a
+# string argument the per-token classifier never inspects — same invisible-
+# execution class as eval (round-2 audit, 2026-08-08).
+_SHELL_DASH_C_RE = re.compile(
+    r"\b(?:sh|bash|zsh|dash|ksh)\s+(?:-[A-Za-z]*c[A-Za-z]*|--command)\b",
+    re.IGNORECASE,
+)
+
+# Leading assignment keyword (`export F=-rf`, `declare X=…`) — stripped before
+# the static-assignment match so the value still resolves (round-2 audit).
+_ASSIGNMENT_PREFIX_RE = re.compile(r"^(?:export|declare|local|readonly)\s+")
+
+
+def _is_obfuscated_exec(base_name: str, raw_command: str) -> bool:
+    """True when the command runs a program the per-token classifier can't
+    see: `eval`, a decode-to-shell pipe, a bare pipe into a shell, or a shell
+    `-c '<string>'`. In every case the real command is invisible, so the effect
+    is unverifiable and must inherit the worst-case (block) path."""
+    return (
+        base_name == "eval"
+        or bool(_DECODE_EXEC_RE.search(raw_command))
+        or bool(_PIPE_TO_SHELL_RE.search(raw_command))
+        or bool(_SHELL_DASH_C_RE.search(raw_command))
+    )
+
+# A chain segment that is ONLY a `VAR=value` assignment. Used to resolve
+# statically-known assignments into later segments so `F=-rf; rm $F x` grades
+# as `rm -rf x` — the flag-in-a-variable evasion (audit 2026-08-08). Only
+# literal values are ever substituted; a dynamic value ($, `, $( ) is left
+# unresolved and the segment is graded as-is (we never execute or guess).
+_STATIC_ASSIGNMENT_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
+
+# Raw block devices (Linux sd/hd/nvme/mmcblk/vd/xvd, macOS disk, Windows
+# PhysicalDrive) reached via output redirect or dd's of= — destroys a disk
+# without naming a single file (F2).
+_RAW_DEVICE_WRITE_RE = re.compile(
+    r"(>\s*|\bof=)[\"']?(/dev/(sd[a-z]|hd[a-z]|nvme\d+n?\d*(p\d+)?|disk\d+|mmcblk\d+|vd[a-z]|xvd[a-z])\b"
+    r"|\\\\\.\\physicaldrive\d+)",
+    re.IGNORECASE,
+)
+
 # PowerShell cmdlets follow Verb-Noun; the approved verb carries the intent.
 # The pretool hook routes the PowerShell tool through this classifier the same
 # way it routes Bash — before that, every cmdlet fell through to "unknown" and
@@ -127,6 +196,13 @@ _PS_SPECIAL_CMDLETS = {
     "invoke-restmethod": "network",
     "test-connection": "network",
     "test-netconnection": "network",
+    # A pause has no side effects at all. The verb map's start→
+    # process_management (right for Start-Process/Start-Service) made
+    # `Start-Sleep 90` the highest-intent segment of a compound command,
+    # which mapped to action_type security (server base 80) and detonated a
+    # 100-block on a routine push-then-wait pipeline (2026-08-06, the
+    # post-enforce-flip false-positive family).
+    "start-sleep": "readonly",
 }
 
 _PS_VERB_INTENTS = {
@@ -218,6 +294,61 @@ _BOUNDED_RM_BASE = 55
 _BOUNDED_RM_MAX_TARGETS = 3
 _GLOB_CHARS = "*?["
 
+# Recursive deletes of well-known regenerable build artifacts are routine
+# maintenance — the tool that made them remakes them. The 2026-07-03 hard
+# block of `rm -rf .next` at 100 interrupted a Turbopack-panic remediation
+# for zero protective value (calibration vector rm-rf-next-build-cache).
+# Names are deliberately conservative: dot-dirs and unambiguous outputs only
+# (no `build`/`out`/`target` — too often real content).
+_REGENERABLE_RM_BASE = 35
+_REGENERABLE_ARTIFACT_DIRS = frozenset({
+    ".next", ".turbo", ".cache", ".parcel-cache", "dist", "coverage",
+    "node_modules", "__pycache__", ".pytest_cache", ".nuxt", ".svelte-kit",
+})
+
+
+def _is_regenerable_dir_name(target: str) -> bool:
+    """True for a regenerable artifact root OR any path beneath one.
+
+    Bare-name matching made a strict subset score higher than its superset:
+    `rm -rf node_modules` graded 35 (cleanup) while `rm -rf node_modules/.cache`
+    missed the allowlist, fell through to `security` (base 80) and clamped to
+    100 (2026-08-11 calibration probe). Deleting part of a regenerable
+    directory cannot be more dangerous than deleting all of it.
+
+    Absolute, home-relative, drive-qualified and `..`-traversing paths are now
+    rejected EXPLICITLY. They were previously excluded only as a side effect of
+    requiring a bare name, and that guarantee disappears once subtrees match.
+    """
+    t = target.replace("\\", "/").rstrip("/")
+    if t.startswith("./"):
+        t = t[2:]
+    if not t or t.startswith("/") or t.startswith("~"):
+        return False
+    if re.match(r"^[a-zA-Z]:", t):
+        return False
+    parts = t.split("/")
+    if ".." in parts:
+        return False
+    return parts[0] in _REGENERABLE_ARTIFACT_DIRS
+
+
+def is_regenerable_artifact_rm(parsed: dict) -> bool:
+    """True for an rm / rmdir / Remove-Item (recursive or not) whose EVERY
+    target is a relative, well-known regenerable build-artifact directory —
+    the root itself or anything beneath it. Any glob, absolute path, parent
+    traversal, or unknown root disqualifies the whole command."""
+    base = (parsed.get("base_command") or "").rsplit("/", 1)[-1].lower()
+    if base not in ("rm", "rmdir", "remove-item"):
+        return False
+    targets = parsed.get("targets", [])
+    if not targets:
+        return False
+    return all(
+        not any(ch in t for ch in _GLOB_CHARS) and _is_regenerable_dir_name(t)
+        for t in targets
+    )
+
 
 def is_bounded_rm(parsed: dict) -> bool:
     """True for a non-recursive rm / Remove-Item with a few explicit,
@@ -230,8 +361,18 @@ def is_bounded_rm(parsed: dict) -> bool:
         recursive = "--recursive" in flags or any(
             f.startswith("-") and not f.startswith("--") and "r" in f.lower() for f in flags
         )
+    elif base == "rmdir":
+        # coreutils rmdir only ever removes EMPTY directories (-p just prunes
+        # empty parents) — strictly safer than a bounded rm. The one recursive
+        # spelling is Windows cmd's `rmdir /s`; treat that as unbounded.
+        recursive = any(f.lower() == "/s" for f in flags)
     elif base.lower() == "remove-item":
-        recursive = any(f.lower().startswith("-rec") for f in flags)
+        # `-Recurse:$false` is an EXPLICIT non-recursive switch — the prefix
+        # test alone misread it as recursion (2026-07-02 wrong self-block).
+        recursive = any(
+            f.lower().startswith("-rec") and not f.lower().endswith(":$false")
+            for f in flags
+        )
     else:
         return False
     if recursive:
@@ -245,6 +386,44 @@ def is_bounded_rm(parsed: dict) -> bool:
 # ---------------------------------------------------------------------------
 # Intent classification
 # ---------------------------------------------------------------------------
+
+def _strip_quotes(value: str) -> str:
+    """Strip one matching pair of surrounding single/double quotes."""
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
+
+
+def _resolve_static_chain_vars(segment_texts: list[str]) -> list[str]:
+    """Substitute earlier literal `VAR=value` assignments into later chain
+    segments, so `F=-rf; rm $F x` grades as `rm -rf x` and the hidden flags
+    are visible to the destructive-command checks (evasion audit 2026-08-08).
+
+    Only assignments whose value is a static literal are resolved: a value
+    containing `$`, a backtick, or `$(` is dynamic and left as a variable, so
+    nothing is ever executed or guessed. A segment with no known variables is
+    returned unchanged, so this is a no-op for ordinary chains."""
+    known: dict[str, str] = {}
+    resolved: list[str] = []
+    for text in segment_texts:
+        subbed = text
+        for name, value in known.items():
+            subbed = re.sub(
+                r"\$\{" + name + r"\}|\$" + name + r"(?![A-Za-z0-9_])",
+                lambda _m, v=value: v,
+                subbed,
+            )
+        resolved.append(subbed)
+        # A leading `export`/`declare`/`local`/`readonly` still sets the value,
+        # so strip it before matching the assignment (round-2 evasion audit).
+        assignment = _ASSIGNMENT_PREFIX_RE.sub("", subbed.strip())
+        m = _STATIC_ASSIGNMENT_RE.match(assignment)
+        if m:
+            raw_val = m.group(2).strip()
+            if "$" not in raw_val and "`" not in raw_val:
+                known[m.group(1)] = _strip_quotes(raw_val)
+    return resolved
+
 
 def _classify_git(parsed: dict) -> str:
     """Classify a git command by its subcommand and flags."""
@@ -283,8 +462,21 @@ def _classify_intent(parsed: dict, raw_command: str) -> str:
     # Check for sudo wrapper early — used for escalation decisions.
     wrapper = parsed.get("wrapper")
 
+    # Obfuscated command construction: `eval`, a decode-then-shell pipe, a bare
+    # pipe into a shell, or `sh -c '<string>'` all run a command invisible to
+    # this classifier. Grade as destructive (worst case): the effect is
+    # unverifiable, so it inherits the same block path as an unbounded rm rather
+    # than the low `unknown`/`network` base that let these slip past the guard
+    # (evasion audits 2026-08-08, rounds 1 and 2).
+    if _is_obfuscated_exec(base_name, raw_command):
+        return "destructive"
+
     # Handle mkfs variants (mkfs.ext4, mkfs.xfs, etc.).
     if base_name.startswith("mkfs"):
+        return "destructive"
+
+    # find with -delete / -exec rm is a mass delete, not a read-only lookup (F2).
+    if base_name == "find" and _FIND_DELETE_RE.search(raw_command):
         return "destructive"
 
     # Git has special subcommand-level classification.
@@ -374,6 +566,20 @@ def _run_destructive_command_validation(
     flags = parsed.get("flags", [])
     targets = parsed.get("targets", [])
 
+    # Obfuscated command execution — block outright. `eval`, a decode-to-shell
+    # pipe, a bare pipe into a shell (`curl … | sh`), and `sh -c '<string>'` all
+    # execute commands this classifier never sees as text, defeating every check
+    # below; blocking the construct is the only reliable guard (evasion audits
+    # 2026-08-08, rounds 1 and 2). Legitimate uses (`eval "$(ssh-agent -s)"`,
+    # a vetted install script) are surfaced for one-click approval, not silently
+    # allowed — the correct posture for a control plane.
+    if _is_obfuscated_exec(base, raw_command):
+        return {
+            "check": "destructive_command",
+            "result": "block",
+            "reason": "obfuscated command execution (eval / pipe-to-shell / sh -c)",
+        }
+
     # Fork bomb detection.
     if _FORK_BOMB_RE.search(raw_command):
         return {
@@ -388,6 +594,14 @@ def _run_destructive_command_validation(
             "check": "destructive_command",
             "result": "block",
             "reason": "DROP TABLE detected",
+        }
+
+    # Write to a raw block device (redirect or dd of=) — always block (F2).
+    if _RAW_DEVICE_WRITE_RE.search(raw_command):
+        return {
+            "check": "destructive_command",
+            "result": "block",
+            "reason": "write to raw block device",
         }
 
     # mkfs — always block.
@@ -646,6 +860,17 @@ def _compute_risk(
     if inline_eval and _INLINE_ESCAPE_HATCH_RE.search(raw_command):
         score += 10
 
+    # Regenerable-artifact deletes cap BELOW the interruption bands, applied
+    # after the boosts (the destructive_command warn would otherwise push a
+    # routine `rm -rf .next` back over the line). A block-result validation
+    # always wins — the cap never masks a hard signal.
+    if (
+        intent == "destructive"
+        and is_regenerable_artifact_rm(parsed)
+        and not any(v["result"] == "block" for v in validations)
+    ):
+        score = min(score, _REGENERABLE_RM_BASE)
+
     return min(score, 100)
 
 
@@ -675,9 +900,13 @@ def classify_bash(
     # blunt unknown-fallback (70) on every routine chain.
     segment_texts = split_chain_texts(command)
     if len(segment_texts) > 1:
+        # Resolve statically-known `VAR=value` assignments into later segments
+        # first, so flags hidden in a variable (`F=-rf; rm $F x`) are visible to
+        # per-segment classification (evasion audit 2026-08-08).
+        resolved_texts = _resolve_static_chain_vars(segment_texts)
         results = [
             classify_bash(text, mode=mode, workspace=workspace)
-            for text in segment_texts
+            for text in resolved_texts
         ]
         worst = max(results, key=lambda r: r["risk_score"])
         # parsed mirrors the segment that determined the classification (so
