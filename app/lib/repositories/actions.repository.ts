@@ -622,7 +622,14 @@ async function listActionsViaQueryMock(
   filters: ParsedListActionsFilters,
 ): Promise<{ actions: Row[]; total: number; stats: Row }> {
   const { conditions, params, where } = buildListActionsQueryParts(orgId, filters);
-  const listCols = 'action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error, containment_status, containment_ref, containment_resolved_by, containment_resolved_at';
+  // guard_decision_id is load-bearing for /approvals, not decoration: it is
+  // the key enrichWithPlainLanguage batches its guard-context read on, and
+  // without it that read is handed an empty id list and every card silently
+  // loses its intel — plain.reversible can never be false, so the
+  // irreversibility band never renders and the same action reads differently
+  // here than on /decisions/[id]. Keep it in step with the tagged-sql path
+  // below; plain-language-review-regressions.test.js asserts both.
+  const listCols = 'action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error, containment_status, containment_ref, containment_resolved_by, containment_resolved_at, guard_decision_id';
   const query = `SELECT ${listCols} FROM action_records ${where} ORDER BY timestamp_start DESC LIMIT $${params.push(filters.parsedLimit)} OFFSET $${params.push(filters.parsedOffset)}`;
   const countQuery = `SELECT COUNT(*) as total FROM action_records ${where}`;
   const statsQuery = `
@@ -687,7 +694,7 @@ async function listActionsViaTaggedSql(
   const [actions, countResult, stats] = await Promise.all([
     sql`
       SELECT
-        action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error, approval_expires_at, act_content_hash, containment_status, containment_ref, containment_resolved_by, containment_resolved_at, enforcement_mode, executed_despite
+        action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error, approval_expires_at, act_content_hash, containment_status, containment_ref, containment_resolved_by, containment_resolved_at, enforcement_mode, executed_despite, guard_decision_id
       FROM action_records
       ${where}
       ORDER BY timestamp_start DESC
@@ -1226,6 +1233,41 @@ export async function getActionWithRelations(
       last_message_at: msgRaw.last_message_at || null,
     },
   };
+}
+
+/**
+ * Batched read of guard-decision contexts for one page of action rows.
+ *
+ * The plain-language translator needs `context.intel` for every pending
+ * approval, but `listActions` deliberately does not join guard_decisions —
+ * widening that shared query would cost every other caller. One extra
+ * indexed lookup per page is cheaper and touches nothing else.
+ *
+ * Returns a map of guard_decision_id -> parsed context. Rows whose context
+ * will not parse are omitted; the caller degrades to an untranslated card.
+ */
+export async function getGuardContextsByIds(
+  sql: SqlClient,
+  orgId: string,
+  ids: string[],
+): Promise<Map<string, Record<string, unknown>>> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  const out = new Map<string, Record<string, unknown>>();
+  if (unique.length === 0) return out;
+
+  const rows = await sql`
+    SELECT id, context
+    FROM guard_decisions
+    WHERE org_id = ${orgId} AND id = ANY(${unique})
+  `;
+
+  for (const row of rows) {
+    const parsed = parseJsonColumn(row.context);
+    if (parsed && typeof parsed === 'object') {
+      out.set(String(row.id), parsed as Record<string, unknown>);
+    }
+  }
+  return out;
 }
 
 interface UpdateActionOutcomeOptions {

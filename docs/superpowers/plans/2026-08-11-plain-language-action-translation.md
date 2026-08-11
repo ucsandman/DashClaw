@@ -214,9 +214,10 @@ In `app/lib/guard/types.ts`, replace the `intel` member (currently lines 42-47):
     green?: { observed_level?: string };
     tool?: { required_permission?: string };
     /**
-     * Emitted by hooks/dashclaw_agent_intel/bash_classifier.py via
-     * _enrich_bash. The classifier is the sole authority on risk — the
-     * plain-language module reads these and never recomputes them.
+     * Emitted by _enrich_bash in hooks/dashclaw_pretool.py, which delegates
+     * the classification itself to hooks/dashclaw_agent_intel/bash_classifier.py.
+     * The classifier is the sole authority on risk — the plain-language
+     * module reads these and never recomputes them.
      */
     bash?: {
       intent?: 'destructive' | 'write' | 'network' | 'read' | 'unknown';
@@ -962,7 +963,7 @@ function describeStage(stage: ShellStage): Clause | null {
     return {
       text: pkg
         ? `Adds a third-party package, ${pkg}, to your project`
-        : 'Installs the project’s third-party packages',
+        : "Installs the project's third-party packages",
       warnings: [],
       ruleId: 'bash.package.install',
     };
@@ -1027,11 +1028,11 @@ export function describeBash(command: string, bashIntel?: BashIntel): PlainDescr
   const warnings = [...new Set(known.flatMap((c) => c.warnings))];
 
   if (!complete) {
-    warnings.unshift('There is more in this command that I can’t read. Check it below before approving.');
+    warnings.unshift("There is more in this command that I can't read. Check it below before approving.");
   }
 
   return {
-    headline: complete ? `${text}.` : `${text}. There is more here I can’t read.`,
+    headline: complete ? `${text}.` : `${text}. There is more here I can't read.`,
     warnings,
     confidence: complete ? 'high' : 'partial',
     reversible,

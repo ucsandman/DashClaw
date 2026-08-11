@@ -13,6 +13,24 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.18.0] — 2026-08-11
+
+**You can now read the approvals queue without reading shell.** An approval you do not understand is an approval you rubber-stamp, and the queue previously showed the raw `declared_goal` and nothing else. Every pending item now leads with one plain-English sentence for what the command actually does, and the exact command is still printed directly underneath it — never hidden, never replaced.
+
+### Added
+
+- **Plain-language translation of governed actions** (`app/lib/plain-language/`). A deterministic read-time translator: pure, synchronous, no LLM and no network. Because it runs at read time, improving a phrase re-reads all existing history correctly with no backfill and no migration. It covers shell commands (via a shallow parser and a rule table), file tools, MCP calls, and generic tools; anything else renders as an explicit non-answer.
+- **The irreversibility band.** When the hook's classifier reports the act cannot be undone, the card leads with a red "This cannot be undone." band above the sentence. `reversible` is read from the classifier's intel and never inferred by the translator.
+- **Plain-English warnings, worst first.** Drawn only from fixed phrases, so the queue cannot be used to render attacker-supplied text: "Work other people pushed can be lost.", "This file holds credentials or configuration.", and the rest.
+- **The same sentence on every approval surface.** `/approvals` cards, the decision detail page, and the Telegram and Discord approval notifications all render through one function, so the four cannot drift and none of them can rediscover the same bug independently.
+- **`@dashclaw/cli` 0.10.0**, carrying the `dashclaw install openclaw` target described under 5.17.6 (that version was written up but never published, so its contents ship here). The CLI versions independently of the platform, and the release workflow skips any version already on the registry — at the unbumped 0.9.3 the new subcommand would have been published never, so the bump is the thing that actually ships it.
+
+### Security
+
+- **A calm sentence can never contradict a dangerous score.** When a rule reads an action as routine but the classifier scored it high risk, or the act is irreversible, the sentence is withdrawn rather than shown next to a red score. "Lists the files in a folder" beside a red 85 teaches an operator to stop reading the sentence at all, so the rule is treated as the thing that is wrong.
+- **Refusal beats a guess.** A command the parser cannot read with confidence renders "I can't tell you what this one does in plain English." with a "Not translated" badge, rather than a confident sentence about a string nothing parsed. Shell input that can expand into other code (command substitution, `eval`) is denied a calm reading for the same reason.
+- **Headlines are capped at 400 characters.** A 120-stage pipeline composed a 5034-character headline that 400ed both Telegram and Discord, so the operator received no approval notification at all for exactly the class of command most worth one. The cap is applied last, after every rule and the safety floor, so nothing downstream can widen it.
+
 ## [5.17.6] — 2026-08-11
 
 **Fail-closed on governance that was already working.** An OpenClaw workspace provisioned by `dashclaw install codex` inherited a governance block written for the wrong runtime: it told the agent to call `dashclaw_session_start` and `dashclaw_guard` through a `dashclaw` MCP server, and OpenClaw never exposes one. An agent that follows its own instructions refuses to act — correctly fail-closed on a missing tool — while the DashClaw plugin was enforcing governance normally the entire time by intercepting every tool call at the gateway. The outage was in the paperwork, not the governance.
@@ -27,6 +45,7 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 ### Fixed
 
 - **`dashclaw install openclaw` finds and replaces a codex-authored block instead of leaving it live.** Detection requires the block to contain both `dashclaw_session_start` and the literal string `install codex`, so an AGENTS.md that merely mentions Codex in prose is never touched. Whenever AGENTS.md already exists the installer takes a `.dashclaw-bak` copy before writing — the first backup wins if one is already there, so re-running the installer never overwrites the original snapshot — and when the block it replaced was codex-authored, it says so on the console instead of rewriting the file silently.
+
 
 ## [5.17.5] — 2026-08-11
 

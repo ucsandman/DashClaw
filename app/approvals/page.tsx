@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  ShieldAlert, Check, X, Clock, User, Zap,
+  AlertTriangle, ShieldAlert, Check, X, Clock, User, Zap,
   RefreshCw, Info, Ban, Hourglass, AppWindow,
 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
@@ -435,6 +435,9 @@ export default function ApprovalsPage() {
                                   <Badge variant="info" size="xs">Act-bound</Badge>
                                 </span>
                               )}
+                              {action.plain?.confidence === 'unknown' && (
+                                <Badge variant="default" size="xs">Not translated</Badge>
+                              )}
                               <EntityLink
                                 type="decision"
                                 id={action.action_id}
@@ -442,16 +445,61 @@ export default function ApprovalsPage() {
                                 className="font-mono text-[11px] text-tertiary"
                               />
                             </div>
-                            {/* Short goals read as a headline; long ones (full
-                                commands since the hook stopped truncating at 120
-                                chars) render as a scrollable mono block so the
-                                operator can judge the WHOLE command. */}
-                            {(action.declared_goal || '').length > 160 ? (
-                              <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-surface-tertiary px-3 py-2 font-mono text-xs leading-relaxed text-secondary">
-                                {action.declared_goal}
-                              </pre>
+                            {action.plain?.headline ? (
+                              <>
+                                {action.plain?.reversible === false && (
+                                  <div className="mb-3 flex items-start gap-2 rounded-r-lg border-l-2 border-error bg-error/10 px-3 py-2 text-sm text-error">
+                                    <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                                    <span><strong className="font-semibold">This cannot be undone.</strong></span>
+                                  </div>
+                                )}
+                                <h3
+                                  className={`break-words text-lg font-semibold ${
+                                    action.plain?.confidence === 'unknown' ? 'text-tertiary' : 'text-white'
+                                  }`}
+                                >
+                                  {action.plain.headline}
+                                </h3>
+                                {action.plain?.detail && action.plain.confidence === 'unknown' && (
+                                  <p className="mt-1.5 text-sm text-tertiary">{action.plain.detail}</p>
+                                )}
+                                {(action.plain?.warnings || []).map((w: string) => (
+                                  <p key={w} className="mt-1.5 flex items-start gap-2 text-sm text-warning">
+                                    <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                                    <span>{w}</span>
+                                  </p>
+                                ))}
+                                {/* The literal command is never hidden or replaced. An
+                                    operator who does not trust the sentence can always
+                                    drop to the exact text, with no click.
+                                    The one exception hides nothing: unlabelled prose is
+                                    passed through as the headline verbatim, so rendering
+                                    it again below would print the identical string twice
+                                    under a heading that misnames it. */}
+                                {action.declared_goal !== action.plain.headline && (
+                                  <div className="mt-3">
+                                    <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+                                      Exact command
+                                    </div>
+                                    <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-surface-tertiary px-3 py-2 font-mono text-xs leading-relaxed text-secondary">
+                                      {action.declared_goal}
+                                    </pre>
+                                  </div>
+                                )}
+                              </>
                             ) : (
-                              <h3 className="break-words text-lg font-semibold text-white">{action.declared_goal}</h3>
+                              /* No plain description to show: previous behaviour,
+                                 unchanged. Short goals read as a headline; long ones
+                                 render as a scrollable mono block so the operator can
+                                 judge the WHOLE command. There is nothing to fall back
+                                 from here, so the command never renders twice. */
+                              (action.declared_goal || '').length > 160 ? (
+                                <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-surface-tertiary px-3 py-2 font-mono text-xs leading-relaxed text-secondary">
+                                  {action.declared_goal}
+                                </pre>
+                              ) : (
+                                <h3 className="break-words text-lg font-semibold text-white">{action.declared_goal}</h3>
+                              )
                             )}
                           </div>
                           <div className="shrink-0 text-right">

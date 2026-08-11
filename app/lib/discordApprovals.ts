@@ -11,6 +11,7 @@
  */
 
 import { recordSentApprovalNotification } from './approvalNotifications';
+import { describeAction, plainNotificationLines } from './plain-language';
 import type { SqlTag } from './types/db';
 
 interface ApprovalAction {
@@ -32,6 +33,7 @@ interface EmbedField {
 interface DiscordEmbed {
   color: number;
   title: string;
+  description?: string;
   fields: EmbedField[];
   footer: { text: string };
 }
@@ -81,9 +83,33 @@ export function buildEmbedPayload(action: ApprovalAction): DiscordMessagePayload
     ? `${fullGoal.slice(0, 1000)}… (+${fullGoal.length - 1000} more chars)`
     : fullGoal;
 
+  // Same describeAction() the /approvals card and the decision detail page
+  // read — one sentence, everywhere. No guard-decision intel is available at
+  // this call site, so the translator degrades honestly (see
+  // plain-language/index.ts). Built from the untruncated declared_goal, so
+  // the 1000-char cap above — which only ever applies to the Goal field —
+  // can never cut the sentence off (field report 2026-08-07 was exactly this
+  // kind of invisible truncation).
+  const plain = describeAction({
+    action_type: action.action_type,
+    declared_goal: action.declared_goal,
+    risk_score: action.risk_score,
+  });
+  // Sentence AND warnings, bounded by the same shared helper Telegram uses —
+  // Discord caps a description at 4096 chars and rejects the whole message
+  // above it, and an unbounded headline used to compose 5164 (2026-08-11
+  // pre-merge review).
+  const description = plainNotificationLines(plain).join('\n');
+
   const embed: DiscordEmbed = {
     color: BRAND_ORANGE,
     title: 'DashClaw approval needed',
+    // Plain sentence first, exact command second — same order as the
+    // /approvals card and the detail page. Discord renders description
+    // above fields, so this reads before the Goal field below. Omitted
+    // when the translator has no confident read, so the card is identical
+    // to today's.
+    ...(description ? { description } : {}),
     fields: [
       { name: 'Agent',      value: action.agent_id || 'unknown',       inline: true },
       { name: 'Action',     value: action.action_type || 'unknown',    inline: true },

@@ -19,12 +19,14 @@ import { fireNewConnectAlert } from '../../lib/notification-adapters/discord';
 import { fireApprovalSurfaces } from '../../lib/approvalSurfaces';
 import { redactAny } from '../../lib/security';
 import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository';
+import { describeAction } from '../../lib/plain-language';
 import {
   createActionRecord,
   createBlockedActionRecord,
   deleteActionsByFilter,
   deleteActionsByIds,
   getActionByIdempotencyKey,
+  getGuardContextsByIds,
   hasAgentAction,
   isFirstActionForOrg,
   listActionIdsByFilter,
@@ -40,7 +42,49 @@ import crypto from 'crypto';
 
 const GUARD_DECISION_ID_RE = /^act_gd_[a-f0-9]{16}$/;
 
+/**
+ * Attach a plain-English description to each pending-approval row.
+ *
+ * Exported for unit tests. Read-time only: this never runs on the guard hot
+ * path, and improving a phrase re-reads all existing history correctly with
+ * no backfill.
+ *
+ * Best-effort by design — a failed context read degrades each card to its
+ * untranslated form rather than failing the hero surface.
+ */
+export async function enrichWithPlainLanguage(
+  sql: unknown,
+  orgId: string,
+  rows: Array<Record<string, unknown>>,
+): Promise<Array<Record<string, unknown>>> {
+  const ids = rows
+    .map((r) => r.guard_decision_id)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
 
+  const contexts = await getGuardContextsByIds(sql as never, orgId, ids).catch((err: unknown) => {
+    console.warn('[ACTIONS GET] guard context read for plain language failed:', (err as Error)?.message);
+    return new Map<string, Record<string, unknown>>();
+  });
+
+  return rows.map((row) => {
+    const gdId = typeof row.guard_decision_id === 'string' ? row.guard_decision_id : null;
+    const context = gdId ? contexts.get(gdId) : undefined;
+    return {
+      ...row,
+      plain: describeAction({
+        action_type: row.action_type as string | null,
+        declared_goal: row.declared_goal as string | null,
+        risk_score: row.risk_score as number | null,
+        // The guard context is the ONLY source of `target` here.
+        // action_records has no such column (schema/schema.js:165), so the
+        // row can never carry one and reading it first only made this look
+        // like it had a fallback it never had.
+        target: (context?.target as string | null) ?? null,
+        intel: (context?.intel as never) ?? null,
+      }),
+    };
+  });
+}
 
 export async function GET(request: Request) {
   try {
@@ -158,6 +202,13 @@ export async function GET(request: Request) {
       } catch (err) {
         console.warn('[ACTIONS GET] containment evidence enrichment failed:', (err as Error)?.message);
       }
+    }
+
+    // Plain-language translation (2026-08-11 plain-language-action-translation):
+    // enrich only the pending-approval queue — /approvals is the hero surface —
+    // so every other list caller keeps today's payload and query count.
+    if (status === 'pending_approval' && Array.isArray(actions)) {
+      actions = await enrichWithPlainLanguage(sql, orgId, actions);
     }
 
     return NextResponse.json({

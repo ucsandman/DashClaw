@@ -14,6 +14,65 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-11 — the approvals queue learns to speak English, and a feature that was never once looked at
+
+An approval you do not understand is an approval you rubber-stamp. The queue
+showed the raw `declared_goal` and nothing else, which meant the hero surface
+of a governance runtime was asking operators to make safety judgments by
+reading shell. v5.18.0 puts one plain-English sentence at the top of every
+pending card, with the exact command still printed underneath it — never
+hidden, never replaced, because an operator who does not trust the sentence
+must always be able to drop to the literal text with no click.
+
+The translator is deliberately boring: pure, synchronous, no LLM, no network,
+running at read time. That last choice is the one worth defending. Because
+nothing is stored, improving a phrase re-reads all existing history correctly,
+with no backfill and no migration. The cost is that the sentence is only ever
+as good as the rule table, and the rule table currently covers roughly 60% of
+the shell commands real agents run. The other 40% render "I can't tell you
+what this one does in plain English." That is the intended behaviour, not a
+gap being papered over — a confident sentence about a string nothing parsed is
+worse than no sentence.
+
+Three safety invariants came out of review rather than design, and all three
+are the interesting part of the change. A calm sentence may never contradict a
+dangerous score: when a rule read an action as routine but the classifier
+scored it high risk, the sentence is withdrawn, because "Lists the files in a
+folder" next to a red 85 teaches an operator to stop reading the sentence for
+good. Shell that can expand into other code is denied a calm reading at all;
+`echo $(rm -rf /)` was, at one point in this build, rendering as "Reads only,
+changes nothing." And headlines are capped at 400 characters, because a
+120-stage pipeline composed a 5034-character headline that 400ed both Telegram
+and Discord, so the operator got no notification whatsoever for exactly the
+class of command most worth one.
+
+Now the part that does not look good. The review chain caught four Critical
+bugs, which is the system working. But the implementation plan I wrote had
+eight defects in it — one task pointed at the wrong file entirely, another
+would have shipped a silent no-op — and they were found by the reviewers and
+implementers, not by me. Worse: the feature was built, tested, gated, and
+declared complete without a single human or machine ever looking at the
+rendered page. Every software link had a unit test — query, context read,
+enrichment, translation, render condition — and the irreversibility band, the
+most important element in the spec, was dead code for most of the build. No
+test painted it. Nobody noticed until the final whole-branch review, which
+returned DO NOT SHIP.
+
+So the first thing this ship did was drive `/approvals` headless against the
+real route and look at it. It renders: the red "This cannot be undone." band
+on a `git push --force`, the credential warning on a `Write: .env`, and the
+honest "Not translated" card on a `base64 | eval` chain. Getting there took
+four failed authentication attempts against a local instance, which is its own
+small indictment of how hard this repo makes it to simply *see* the product.
+`__tests__` proving data exists is not the same claim as a human being able to
+read it, and this repo's own CLAUDE.md has said so since July.
+
+Known gap, stated rather than buried: demo mode does not run the enrichment,
+so `/approvals` in the demo sandbox still shows raw commands while the landing
+page now advertises the sentence. The card falls back safely — no crash, just
+the old rendering — but the demo and the marketing claim disagree, and that
+should close.
+
 ## 2026-08-11 — nine reviews, thirty-five tests, and a feature that had never been run
 
 `dashclaw install openclaw` shipped this session: one command that installs
@@ -73,6 +132,7 @@ the credential. Tests went from 35 to 72. The lesson isn't "write more
 tests" — there were 35 of them. It is that a suite built entirely against a
 mock of the one system you're integrating with proves the code matches your
 model of that system, not the system itself.
+
 
 ## 2026-08-11 — a decision that was both running and completed
 

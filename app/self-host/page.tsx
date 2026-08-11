@@ -198,6 +198,7 @@ dashclaw doctor`}</pre>
                   'Role constraints -- a named authority bundle per agent role (allowed action types, risk ceiling, path scope); anything outside the role escalates to your inbox',
                   'Containment verdicts -- a file-scoped edit can proceed reversibly instead of freezing: staged in an isolated worktree, you promote or discard the diff on your own time',
                   'Approval flood guard with bulk resolution',
+                  'Plain-English approvals -- every pending item leads with one sentence for what the command actually does, flags what cannot be undone, and shows the exact command underneath',
                   'One judgment queue on /policies -- tuning, tightening, loosening, and calibration proposals with ratify/dismiss/undo in one click',
                   'Calibrated interruption controller on /calibration -- set a target false-interruption rate, hold it with a distribution-free bound (shadow first, tighten-only when active)',
                   'Guard degradation observability (deadline fallbacks surfaced, never silent)',

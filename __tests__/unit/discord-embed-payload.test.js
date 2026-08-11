@@ -93,4 +93,38 @@ describe('buildEmbedPayload', () => {
     expect(payload.embeds[0].footer).toBeDefined();
     expect(payload.embeds[0].footer.text).toContain('act_abc12345');
   });
+
+  it('sets the plain-language headline as the embed description, ahead of the Goal field', () => {
+    const payload = buildEmbedPayload({ ...baseAction, declared_goal: 'Bash: rm -rf /tmp/build' });
+    const embed = payload.embeds[0];
+    // Sentence AND warnings: a card that showed the consequence but dropped
+    // the warning withheld the line the operator needed (F2, 2026-08-11).
+    expect(embed.description).toBe([
+      'Deletes /tmp/build and everything inside it.',
+      'Deleted files do not go to the Recycle Bin.',
+    ].join('\n'));
+    // Exact command is never hidden or replaced.
+    expect(embed.fields[3].name.toLowerCase()).toContain('goal');
+    expect(embed.fields[3].value).toBe('Bash: rm -rf /tmp/build');
+  });
+
+  it('omits description when the translator has no confident read', () => {
+    const payload = buildEmbedPayload({ ...baseAction, declared_goal: 'Bash: some-tool --mystery-flag' });
+    expect(payload.embeds[0].description).toBeUndefined();
+  });
+
+  it('keeps the description intact even when the Goal field is cut for length (field report 2026-08-07)', () => {
+    const longPath = '/tmp/' + 'a'.repeat(4000);
+    const payload = buildEmbedPayload({ ...baseAction, declared_goal: `Bash: rm -rf ${longPath}` });
+    const embed = payload.embeds[0];
+    // The third line is the point of F2: this goal is past the hook's 2000-char
+    // record cap, and the channel now says so instead of the operator finding
+    // out only if they open the card.
+    expect(embed.description).toBe([
+      `Deletes /tmp/${'a'.repeat(75)}… and everything inside it.`,
+      'Deleted files do not go to the Recycle Bin.',
+      'This command was too long to record in full, so I can only read the start of it.',
+    ].join('\n'));
+    expect(embed.fields[3].value).toContain('more chars'); // the existing honest-cut marker
+  });
 });

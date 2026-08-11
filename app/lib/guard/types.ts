@@ -41,9 +41,27 @@ export interface GuardEvalContext {
   tool?: { required_permission?: string };
   intel?: {
     branch?: { freshness: string; commits_behind?: number; name?: string };
-    mcp?: { healthy?: boolean };
+    mcp?: { healthy?: boolean; server?: string };
     green?: { observed_level?: string };
     tool?: { required_permission?: string };
+    /**
+     * Emitted by _enrich_bash in hooks/dashclaw_pretool.py, which delegates
+     * the classification to hooks/dashclaw_agent_intel/bash_classifier.py.
+     * The classifier is the sole authority on risk — the plain-language
+     * module reads these and never recomputes them.
+     */
+    bash?: {
+      intent?: 'destructive' | 'write' | 'network' | 'read' | 'unknown';
+      risk_score?: number;
+      reversible?: boolean;
+      validations?: Array<{ check?: string; reason?: string; severity?: string }>;
+    };
+    /** Emitted by _enrich_file in hooks/dashclaw_pretool.py. */
+    file?: {
+      sensitive_path?: boolean;
+      traversal_detected?: boolean;
+      outside_workspace?: boolean;
+    };
   };
   client_capabilities?: unknown; // validated in validate.js; array of capability strings
   [field: string]: unknown;
