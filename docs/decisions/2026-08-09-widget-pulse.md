@@ -372,8 +372,10 @@ Supporting tokens: baseline track `--color-bg-tertiary`; reveal divider `--color
 
 ### Implementation traps (all verified in this repo)
 
-1. **`borderColor` in `tailwind.config.js` only defines `DEFAULT` / `hover` / `active`.** `border-brand` and `border-error` **do not exist**. Set the ring colour with an inline style (`style={{ borderColor: 'var(--color-brand)' }}`) or an arbitrary value (`border-[color:var(--color-brand)]`).
-2. **Alpha modifiers compile to nothing here** (`bg-brand/10` → no CSS). Use element `opacity`, the `-subtle` tokens, or `rgba()` on the token layer.
+1. ~~**`borderColor` in `tailwind.config.js` only defines `DEFAULT` / `hover` / `active`.** `border-brand` and `border-error` **do not exist**. Set the ring colour with an inline style (`style={{ borderColor: 'var(--color-brand)' }}`) or an arbitrary value (`border-[color:var(--color-brand)]`).~~
+   **Superseded 2026-08-10.** Half right at the time: `border-brand` always resolved (`borderColor` spreads `theme('colors')`, which carries the `brand` group), but `border-error` / `border-success` / `border-warning` genuinely did not — only `textColor` had the single-prefix status aliases. `borderColor` and `backgroundColor` now carry them too, so `border-error` and `bg-error` resolve. No inline style needed.
+2. ~~**Alpha modifiers compile to nothing here** (`bg-brand/10` → no CSS). Use element `opacity`, the `-subtle` tokens, or `rgba()` on the token layer.~~
+   **Superseded 2026-08-10.** Token colours are now function-valued in `tailwind.config.js`, which is the one form Tailwind hands an opacity modifier to, so `bg-brand/10` compiles to a real `color-mix()` rule. Write the modifier you mean. Pinned by `__tests__/unit/tailwind-token-alpha.test.js`.
 3. **Field tinting is deleted** from the original OWED concept. Zero brand orange at rest is stronger and cheaper than a full-field `--color-brand-subtle` wash, and it answers OWED's own stated concern about spending orange as a surface. The ring carries the signal on its own.
 4. **Type floor:** `text-xs` is 13px in this repo (`fontSize.xs = 0.8125rem`). Nothing on this surface goes below it at any window size.
 

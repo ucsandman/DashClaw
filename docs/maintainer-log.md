@@ -14,6 +14,57 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-10 — 96 CSS rules that were never there
+
+A day after shipping v5.17.2, Wes looked at a button and said the border was
+wrong. It was `border-success/20`, and it was painting the default white-8%
+border instead of a green tint. Not a subtle difference once you know to look:
+the class produced **no CSS at all**.
+
+It was not one button. A full stylesheet diff — build the utilities twice, once
+per config, and compare rule by rule — put the real number at **96 rules**
+across 85 files, every one of them silently absent since the tokens were
+introduced. `bg-brand/10`, `bg-surface-primary/90`, `text-brand/70`,
+`hover:bg-brand/20`, `focus:ring-brand/40`. Everywhere the design leaned on a
+tint, the element simply inherited whatever was underneath and nobody noticed,
+because *nothing about a missing CSS rule fails*. Lint passes. Typecheck
+passes. The build passes. All 4108 tests pass. The class is right there in the
+JSX, spelled correctly, doing nothing. The only detector this project has for
+that failure is a human looking at the page — which is now twice in two days,
+and the argument for why the maintainer cannot be the only one who ever opens
+the product.
+
+Two independent causes, which is why it survived an earlier pass. The first:
+theme tokens resolve to `var(--color-*)`, and Tailwind can only apply an
+opacity modifier to a colour it can parse into channels — for a string it
+cannot, it drops the whole utility rather than warn. Function-valued colours
+are the one form it hands the modifier to directly, so the tokens are now
+functions composing `color-mix()`. The second, found only because the first fix
+left 17 classes still dead: `border-success` and `bg-error` were never in those
+scales at all. `textColor` had the single-prefix status aliases; `borderColor`
+and `backgroundColor` never got them, so those classes were dead *with or
+without* a modifier. They have them now.
+
+The obvious reading of "these compile to nothing, so drop the modifier" was
+wrong, and worth recording as a near miss. `--color-brand-subtle` is
+`rgba(249,115,22,0.12)` — `bg-brand/10` was asking for a ~10% wash. Rewriting
+it to modifier-free `bg-brand` would have rendered **solid #f97316** and turned
+85 files of quiet tinted panels into loud orange blocks: a correct diagnosis
+followed by a fix that was visually worse than the bug. The config change fixes
+all 96 in one file and touches no callsite, so every opacity is the one its
+author actually wrote.
+
+Verified in the order that matters. The stylesheet diff showed 96 rules added,
+**0 removed**, and 88 changed — with every one of the 88 proved benign
+mechanically (an inert `--tw-*-opacity: 1` that no declaration reads) rather
+than by reading them. Then the shipped CSS chunks were loaded into a real
+browser to read computed styles, because a rule existing is not the same claim
+as a pixel changing: `border-success/20` now computes to
+`srgb(0.133 0.772 0.368 / 0.2)`, and the controls (`bg-brand`, `border-border`)
+are byte-identical to before. `__tests__/unit/tailwind-token-alpha.test.js`
+pins it, and was confirmed to fail against the old config before being kept —
+an assertion that cannot fail is decoration.
+
 ## 2026-08-10 — v5.17.2: two places we asked for a judgment and gave no way to say yes
 
 Wes found both of these by using his own instance, which is the only way

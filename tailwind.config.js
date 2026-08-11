@@ -1,5 +1,26 @@
 /** @type {import('tailwindcss').Config} */
 // Force reload after file move
+
+// Theme tokens are CSS custom properties, which Tailwind cannot parse into
+// channels — so it silently dropped any opacity modifier written against them.
+// `bg-brand/10`, `border-status-success/20` and friends compiled to ZERO CSS and
+// the element just fell back to whatever it inherited. Function-valued colors are
+// the one form Tailwind hands the modifier to directly (see `withAlphaValue`), so
+// we compose it with `color-mix()` and keep the custom property intact.
+//
+// When no modifier is present Tailwind passes its own `var(--tw-*-opacity, 1)`
+// placeholder; we return the bare custom property in that case, so every
+// modifier-free utility emits exactly the CSS it always has. (The legacy
+// `bg-opacity-*` utilities are unused here and were already inert against these
+// tokens, so nothing depends on that placeholder.)
+const token = (name) => {
+  const value = `var(${name})`
+  return ({ opacityValue } = {}) =>
+    opacityValue === undefined || String(opacityValue).startsWith('var(')
+      ? value
+      : `color-mix(in srgb, ${value} calc(${opacityValue} * 100%), transparent)`
+}
+
 module.exports = {
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
@@ -10,36 +31,36 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          DEFAULT: 'var(--color-brand)',
-          subtle: 'var(--color-brand-subtle)',
-          hover: 'var(--color-brand-hover)',
+          DEFAULT: token('--color-brand'),
+          subtle: token('--color-brand-subtle'),
+          hover: token('--color-brand-hover'),
         },
         surface: {
-          primary: 'var(--color-bg-primary)',
-          secondary: 'var(--color-bg-secondary)',
-          tertiary: 'var(--color-bg-tertiary)',
-          elevated: 'var(--color-bg-elevated)',
+          primary: token('--color-bg-primary'),
+          secondary: token('--color-bg-secondary'),
+          tertiary: token('--color-bg-tertiary'),
+          elevated: token('--color-bg-elevated'),
         },
         border: {
-          DEFAULT: 'var(--color-border)',
-          hover: 'var(--color-border-hover)',
-          active: 'var(--color-border-active)',
+          DEFAULT: token('--color-border'),
+          hover: token('--color-border-hover'),
+          active: token('--color-border-active'),
         },
         text: {
-          primary: 'var(--color-text-primary)',
-          secondary: 'var(--color-text-secondary)',
-          tertiary: 'var(--color-text-tertiary)',
-          disabled: 'var(--color-text-disabled)',
+          primary: token('--color-text-primary'),
+          secondary: token('--color-text-secondary'),
+          tertiary: token('--color-text-tertiary'),
+          disabled: token('--color-text-disabled'),
         },
         status: {
-          success: 'var(--color-success)',
-          warning: 'var(--color-warning)',
-          error: 'var(--color-error)',
-          info: 'var(--color-info)',
-          'success-subtle': 'var(--color-success-subtle)',
-          'warning-subtle': 'var(--color-warning-subtle)',
-          'error-subtle': 'var(--color-error-subtle)',
-          'info-subtle': 'var(--color-info-subtle)',
+          success: token('--color-success'),
+          warning: token('--color-warning'),
+          error: token('--color-error'),
+          info: token('--color-info'),
+          'success-subtle': token('--color-success-subtle'),
+          'warning-subtle': token('--color-warning-subtle'),
+          'error-subtle': token('--color-error-subtle'),
+          'info-subtle': token('--color-info-subtle'),
         },
       },
       // Ergonomic single-prefix aliases. `colors.text.primary` above generates
@@ -47,29 +68,41 @@ module.exports = {
       // / `border-active` forms so we can wean components off `text-zinc-*`
       // without losing the existing `text-text-primary` callsites.
       textColor: {
-        primary: 'var(--color-text-primary)',
-        secondary: 'var(--color-text-secondary)',
-        tertiary: 'var(--color-text-tertiary)',
-        disabled: 'var(--color-text-disabled)',
-        success: 'var(--color-success)',
-        warning: 'var(--color-warning)',
-        error: 'var(--color-error)',
-        info: 'var(--color-info)',
+        primary: token('--color-text-primary'),
+        secondary: token('--color-text-secondary'),
+        tertiary: token('--color-text-tertiary'),
+        disabled: token('--color-text-disabled'),
+        success: token('--color-success'),
+        warning: token('--color-warning'),
+        error: token('--color-error'),
+        info: token('--color-info'),
       },
       backgroundColor: {
-        primary: 'var(--color-bg-primary)',
-        secondary: 'var(--color-bg-secondary)',
-        tertiary: 'var(--color-bg-tertiary)',
-        elevated: 'var(--color-bg-elevated)',
-        'success-subtle': 'var(--color-success-subtle)',
-        'warning-subtle': 'var(--color-warning-subtle)',
-        'error-subtle': 'var(--color-error-subtle)',
-        'info-subtle': 'var(--color-info-subtle)',
+        primary: token('--color-bg-primary'),
+        secondary: token('--color-bg-secondary'),
+        tertiary: token('--color-bg-tertiary'),
+        elevated: token('--color-bg-elevated'),
+        // Status aliases, matching `textColor` above. Without these, `bg-success`
+        // and `border-error` were never in the scale at all and compiled to
+        // nothing — a separate failure from the modifier one, and a silent one,
+        // since only the longer `bg-status-success` form ever resolved.
+        success: token('--color-success'),
+        warning: token('--color-warning'),
+        error: token('--color-error'),
+        info: token('--color-info'),
+        'success-subtle': token('--color-success-subtle'),
+        'warning-subtle': token('--color-warning-subtle'),
+        'error-subtle': token('--color-error-subtle'),
+        'info-subtle': token('--color-info-subtle'),
       },
       borderColor: {
-        DEFAULT: 'var(--color-border)',
-        hover: 'var(--color-border-hover)',
-        active: 'var(--color-border-active)',
+        DEFAULT: token('--color-border'),
+        hover: token('--color-border-hover'),
+        active: token('--color-border-active'),
+        success: token('--color-success'),
+        warning: token('--color-warning'),
+        error: token('--color-error'),
+        info: token('--color-info'),
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', '-apple-system', 'sans-serif'],
