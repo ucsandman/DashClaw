@@ -13,6 +13,17 @@ and the **100 is literal** — read off the card.
 > ordinary regenerable-delete path **already works correctly**. There is exactly one live
 > defect, below. The corrected numbers are what follow.
 
+## Status: FIXED (commit `1526b85`)
+
+Both mirrors widened to accept a proper subtree of an allowlisted root, with the
+traversal / absolute / home rejections made explicit and pinned. After the fix, the same
+23-command probe puts **1** command in the >=80 interruption band, down from 4, and the
+survivor is `git push --force-with-lease`. Gates: lint 0, typecheck 0,
+vitest 451 files / 4364 tests / 0 fail, `next build` 0.
+
+The rest of this document is the diagnosis that led there; the numbers below are the
+BEFORE state.
+
 ## The finding in one line
 
 `isRegenerableArtifactTarget` matches by **bare directory name**, so deleting a

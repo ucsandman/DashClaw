@@ -1,7 +1,15 @@
 # RESUME — approval calibration work (paused 2026-08-11, power outage guard)
 
-**Status: nothing was built. No file in this repo was edited.** This session was
-analysis plus one background tournament that was still running when work stopped.
+**Status: the fix LANDED (commit `1526b85`).** The tournament completed, the root cause
+was measured rather than designed for, and a small two-mirror fix shipped with tests and
+all gates green. See
+[`2026-08-11-approval-calibration-evidence.md`](superpowers/specs/2026-08-11-approval-calibration-evidence.md)
+for the measurement and
+[`2026-08-11-approval-calibration-decision.md`](superpowers/specs/2026-08-11-approval-calibration-decision.md)
+for the tournament's architecture proposal (NOT built - the cheap fix superseded slice 1).
+
+Everything below this line was written while work was paused and is kept as the record of
+how the diagnosis moved.
 
 Git: branch `main`, clean, up to date with `origin/main`, HEAD `38d7c2d9`.
 The requested `wip: power outage guard` commit was run and exited 1 —

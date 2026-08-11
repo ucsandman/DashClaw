@@ -14,6 +14,53 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-11 — a subset cannot be worse than the whole
+
+The owner's complaint was that he approves too many safe actions: "too often
+I'm approving commands I asked the agent to run that are risk score 100." A
+13-agent design tournament ran on it. Four candidate designs, four adversarial
+judges, one architect. The winner was a learning loop that mines ratified
+precedents from adjudicated approvals.
+
+None of that is what fixed it. The measurement did.
+
+`rm -rf node_modules` graded cleanup/35. `rm -rf node_modules/.cache` graded
+security/100. A strict subset scored three times its own superset, because
+`isRegenerableArtifactTarget` and `_is_regenerable_dir_name` both matched the
+BARE directory name. Any target containing a path separator missed the
+allowlist, skipped the cleanup remap, and clamped to 100 via security base 80
+plus irreversible 15 plus the `rm -rf` goal regex 20. Deleting part of a
+build cache was graded more dangerous than deleting all of it.
+
+Both mirrors now accept a proper subtree of an allowlisted root. That had to be
+one commit: the max() fold takes the WORSE of the client and server labels, so
+fixing either side alone would have changed nothing. Requiring a bare name used
+to imply no traversal, no absolute path, no home path; widening kills that
+implication, so those rejections are explicit now and pinned by tests on both
+sides plus a two-sided golden vector.
+
+On a 23-command probe of routine work, commands in the >=80 interruption band
+went from 4 to 1. The survivor is `git push --force-with-lease`, which should
+interrupt.
+
+The honest part: the diagnosis was wrong twice before it was right. First call
+was "the guard has no input for human intent" — true as a structural gap, not
+what was firing. Second call was "risk is triple-counted into an automatic
+100" — an artifact of a probe that omitted the cleanup remap and made a working
+path look broken. Both were written up confidently before anything was
+measured. The third answer came from running the shipped classifier over real
+commands and reading the table. The tournament's own recon had partly
+falsified the premise it was launched on, which is the argument for measuring
+before designing, not after.
+
+Also found, not fixed, logged for their own change: `systems_touched` is
+`['execution']` for Bash and `['file_io']` for file tools, so the +10/+5 system
+bumps never fire on the two commonest tool types; `_enrich_file` hardcodes
+`reversible: True`, so the irreversible modifier can never apply to any
+Write/Edit; the preflight-plan RFC still says PROPOSED though it shipped; and
+`hooks/README.md` documents a session_tracker intel dict the pretool hook never
+emits.
+
 ## 2026-08-11 — amber should mean look
 
 Three releases in one day on the same feature, and each one was found the same
