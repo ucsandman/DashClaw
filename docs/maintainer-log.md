@@ -73,6 +73,23 @@ page now advertises the sentence. The card falls back safely — no crash, just
 the old rendering — but the demo and the marketing claim disagree, and that
 should close.
 
+Two more things this release taught, both after the push. First, a release can
+still fail once it is out of your hands: `v5.18.0` published both SDKs and then
+died on `publish-cli` with a 422, because `cli/package.json` carried no
+`repository` field and npm would not verify a sigstore provenance bundle whose
+source repo the manifest could not corroborate. Both SDK manifests have always
+had the field; the CLI only started publishing through `release.yml` recently,
+so the gap had never been exercised. Nothing was half-published — npm rejected
+the upload outright, so `0.10.0` stayed free and the fix needed no version bump.
+
+Second, and more useful: this release shipped alongside another agent's
+OpenClaw work, whose `cli/**` source had changed while `cli/package.json` sat
+at the already-published `0.9.3`. The release workflow skips any version already
+on the registry, so `dashclaw install openclaw` would have been published to
+nobody — green pipeline, working code, zero users. Both failures are the same
+shape: the packaging metadata, not the code, decides whether anyone actually
+receives what you wrote.
+
 ## 2026-08-11 — nine reviews, thirty-five tests, and a feature that had never been run
 
 `dashclaw install openclaw` shipped this session: one command that installs
