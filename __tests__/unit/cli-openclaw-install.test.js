@@ -1,7 +1,9 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { upsertEnvVar, buildAgentsMdBlock, isCodexAuthoredBlock, buildPluginConfigPatch, openclawBin, resolveConfigPath, resolveWorkspace, mergeAgentsMd, installOpenclaw } from '../../cli/lib/openclaw/install.js';
 import { AGENTS_MANAGED_START, AGENTS_MANAGED_END } from '../../cli/lib/codex/install.js';
 
@@ -295,5 +297,53 @@ describe('installOpenclaw', () => {
       envPath, run, preflightImpl, logger: { info() {}, warn() {} },
     })).rejects.toThrow(/plugins enable/);
     expect(calls.some((c) => c.startsWith('config patch'))).toBe(false);
+  });
+});
+
+// Behavioral, not textual: these spawn the real CLI instead of grepping the
+// source for "case 'openclaw':", which would pass even if that string sat in
+// a comment. Both invocations are inherently safe against running a real
+// install: `install bogus` never matches a switch case, and `install --help`
+// is caught by the isHelpInvocation guard in main() (dashclaw.js) BEFORE
+// config is loaded or cmdInstall runs at all — before that guard existed,
+// `dashclaw install codex --help` silently ignored the flag and ran the
+// install for real. Resolved from import.meta.url, not process.cwd(), so
+// this doesn't depend on which directory vitest was invoked from.
+describe('cli wiring', () => {
+  // NOT `new URL('../../cli/bin/dashclaw.js', import.meta.url)`: under this
+  // project's vitest config (environment: 'jsdom'), the global `URL` is
+  // jsdom's polyfill, not Node's — the resulting object's .protocol reads
+  // wrong to node:url's fileURLToPath ("The URL must be of scheme file")
+  // even though import.meta.url itself is a normal file: string. Resolving
+  // via node:path instead avoids the global URL class entirely.
+  const cliPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'cli', 'bin', 'dashclaw.js');
+
+  function runCli(argv) {
+    // Strip any DASHCLAW_* the host machine/operator may have set so the
+    // spawned process never touches a real saved config or key. Neither
+    // invocation below reaches an install regardless (see comment above),
+    // so this is defense in depth, not a requirement for either to pass.
+    const env = { ...process.env };
+    delete env.DASHCLAW_BASE_URL;
+    delete env.DASHCLAW_API_KEY;
+    delete env.DASHCLAW_AGENT_ID;
+    return spawnSync(process.execPath, [cliPath, ...argv], {
+      encoding: 'utf8',
+      env,
+      timeout: 10_000,
+    });
+  }
+
+  it('install --help exits 0 and documents the openclaw target', () => {
+    const { status, stdout } = runCli(['install', '--help']);
+    expect(status).toBe(0);
+    expect(stdout).toContain('dashclaw install openclaw');
+    expect(stdout).toContain('--write-config');
+  });
+
+  it('install bogus exits non-zero and names openclaw among the valid targets', () => {
+    const { status, stderr } = runCli(['install', 'bogus']);
+    expect(status).toBe(1);
+    expect(stderr).toContain('openclaw');
   });
 });

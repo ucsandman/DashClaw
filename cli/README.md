@@ -162,6 +162,22 @@ dashclaw install codex --no-trust-hooks          # skip the hook-trust step
 
 The install ends with a **hook-trust step**: codex-cli 0.142+ silently skips hooks it has not been told to trust — no prompt, no log line, the hook just never fires — so an untrusted install looks governed but enforces nothing. The installer spawns `codex app-server`, reads each hook's trust hash via `hooks/list`, writes the matching `[hooks.state]` entries into `config.toml`, and re-lists to verify every hook reports `trusted`. Binary auto-detection checks `--codex-bin`, OpenClaw's vendored codex copies, then `PATH`, and uses the newest hook-capable (≥ 0.142) binary it finds. If none exists the install still succeeds but prints a loud warning with the fix.
 
+### `dashclaw install openclaw`
+
+Provision DashClaw governance into an OpenClaw agent: installs and enables the `dashclaw-governance` OpenClaw plugin, patches the agent's identity/URL into `openclaw.json` via `openclaw config patch`, writes the API key to `~/.openclaw/.env` (or into `openclaw.json` with `--write-config`), and merges a governance protocol block into the resolved workspace's `AGENTS.md` (migrating a pre-existing codex-authored block if found, with a `.dashclaw-bak` backup).
+
+```bash
+dashclaw install openclaw                        # uses the resolved DASHCLAW_BASE_URL / DASHCLAW_API_KEY
+dashclaw install openclaw --agent-id forge-1      # ledger identity (default: openclaw)
+dashclaw install openclaw --api-key oc_live_...   # explicit key (or DASHCLAW_API_KEY / saved config)
+dashclaw install openclaw --write-config          # store the key in openclaw.json instead of .env
+dashclaw install openclaw --openclaw-bin <path>   # openclaw executable, if not on PATH
+dashclaw install openclaw --workspace <path>      # override the workspace resolved from config
+dashclaw install openclaw --no-verify             # skip the post-install config validate + plugins doctor check
+```
+
+Unlike `install claude`/`install codex`, the target agent calls no DashClaw tools itself — the plugin intercepts every tool call automatically, so guard/record/session-start are already satisfied. The install ends with a verification step (`openclaw config validate` + `openclaw plugins doctor`, skippable with `--no-verify`): the install still completes and files are written even if verification fails, but the command exits `1` and prints what to check, because an install that looks done while governance silently isn't enforcing is the one failure mode this feature exists to prevent.
+
 ### `dashclaw codex notify '<json>'`
 
 Records a Codex turn-complete event as a DashClaw action record. Called by Codex's notify config (wired by `install codex --include-notify`); always exits 0 so Codex never sees an error from the spawn.

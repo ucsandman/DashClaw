@@ -15,6 +15,7 @@ import { resolveConfig, clearConfigFile, configPath, ask, askSecret } from '../l
 import { installCodex, codexConfigPath, codexHooksDir } from '../lib/codex/install.js';
 import { isHelpInvocation } from '../lib/argv.js';
 import { installClaude } from '../lib/claude/install.js';
+import { installOpenclaw, OPENCLAW_PLUGIN_VERSION } from '../lib/openclaw/install.js';
 import { upCommand, runDown, resolveBaseDir } from '../lib/up/index.js';
 import { runCodexNotify } from '../lib/codex/notify.js';
 import { apiRequest } from '../lib/api.js';
@@ -103,6 +104,14 @@ ${bold('Usage:')}
     --no-trust-hooks                     Skip the hook-trust step (codex >= 0.142 silently
                                          skips untrusted hooks — governance won't enforce)
                                          (targets $CODEX_HOME/config.toml when CODEX_HOME is set)
+  dashclaw install openclaw              Provision DashClaw governance into OpenClaw
+    --agent-id <id>                      Ledger identity (default: openclaw; set one per machine)
+    --api-key <key>                      API key (or DASHCLAW_API_KEY / saved config)
+    --write-config                       Store the API key in openclaw.json instead of ~/.openclaw/.env
+    --openclaw-bin <path>                openclaw executable, if not on PATH
+    --workspace <path>                   Override the workspace resolved from config
+    --plugin-version <v>                 Plugin version to install (default: ${OPENCLAW_PLUGIN_VERSION})
+    --no-verify                          Skip config validate + plugins doctor
   dashclaw codex notify '<json>'         Record a Codex turn-complete event
     --agent-id <id>                      Ledger identity for the turn (beats DASHCLAW_AGENT_ID)
                                          (called by Codex's notify config; always exits 0)
@@ -502,6 +511,58 @@ async function cmdInstallClaude() {
   }
 }
 
+async function cmdInstallOpenclaw() {
+  const installAgentId = getFlag('--agent-id') || 'openclaw';
+  const installApiKey = getFlag('--api-key') || apiKey;
+  const writeConfig = args.includes('--write-config');
+  const openclawBinPath = getFlag('--openclaw-bin') || null;
+  const workspace = getFlag('--workspace') || null;
+  const pluginVersion = getFlag('--plugin-version') || undefined;
+  const verify = !args.includes('--no-verify');
+
+  try {
+    const result = await installOpenclaw({
+      baseUrl,
+      apiKey: installApiKey,
+      agentId: installAgentId,
+      writeConfig,
+      openclawBinPath,
+      workspace,
+      pluginVersion,
+      verify,
+      logger: console,
+    });
+
+    console.log();
+    console.log(`  ${green('Done.')} DashClaw governance is wired into OpenClaw.`);
+    console.log(`  ${dim('Agent id:')} ${installAgentId}`);
+    console.log(`  ${dim('Config:')}   ${result.configPath}`);
+    console.log(`  ${dim('AGENTS:')}   ${result.agentsMd.path}${result.agentsMd.backup ? dim(' (backup: ' + result.agentsMd.backup + ')') : ''}`);
+    if (!writeConfig) console.log(`  ${dim('Key:')}      ${result.envPath} (DASHCLAW_API_KEY)`);
+    if (result.migrated) {
+      console.log(`  ${yellow('Replaced a codex-authored governance block.')} That block told the`);
+      console.log(`  agent to call an MCP server OpenClaw does not have.`);
+    }
+    console.log();
+    console.log(`  Next: restart the OpenClaw gateway so the plugin loads.`);
+
+    // The library warns (governance may not be enforcing) but leaves the exit
+    // code to the caller. A silent success here is exactly the "looks
+    // installed, nothing is actually enforcing" failure this feature exists
+    // to prevent, so a failed verify must fail the command.
+    if (result.verified && (!result.verified.config || !result.verified.plugins)) {
+      console.log();
+      console.log(`  ${yellow('WARNING: verification failed.')} The install above DID complete —`);
+      console.log(`  config was patched and AGENTS.md was written. Governance may not be`);
+      console.log(`  enforcing yet. Run ${dim('openclaw config validate')} and ${dim('openclaw plugins doctor')} to see why.`);
+      process.exitCode = 1;
+    }
+  } catch (err) {
+    console.error(red(`Error: ${err.message}`));
+    process.exit(1);
+  }
+}
+
 async function cmdInstall() {
   const target = args[1];
   switch (target) {
@@ -509,9 +570,11 @@ async function cmdInstall() {
       return cmdInstallCodex();
     case 'claude':
       return cmdInstallClaude();
+    case 'openclaw':
+      return cmdInstallOpenclaw();
     default:
       console.error(`Unknown install target: dashclaw install ${target || '(missing)'}\n` +
-                    'Try: dashclaw install claude [--trial] | dashclaw install codex [--project <path>]');
+                    'Try: dashclaw install claude [--trial] | dashclaw install codex [--project <path>] | dashclaw install openclaw');
       process.exitCode = 1;
   }
 }
