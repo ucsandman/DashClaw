@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = marketingPageMetadata({
   title: 'OpenClaw Integration Guide - DashClaw',
   description:
-    'Add governance to OpenClaw agents with DashClaw in under 20 minutes.',
+    'Add governance to OpenClaw agents with DashClaw in one command.',
   path: '/guides/openclaw',
 });
 
@@ -23,23 +23,6 @@ export default async function OpenClawGuidePage() {
   const headerStore = await headers();
   const host = headerStore.get('host') || 'localhost:3000';
   const baseUrl = getGuideBaseUrl(host);
-
-  const pluginConfigJson = `{
-  "plugins": {
-    "entries": {
-      "dashclaw-governance": {
-        "enabled": true,
-        "config": {
-          "dashclawUrl": "${baseUrl}",
-          "dashclawApiKey": "oc_live_...",
-          "agentId": "my-openclaw-agent",
-          "failClosed": true,
-          "highRiskTools": ["bash", "exec", "write_file"]
-        }
-      }
-    }
-  }
-}`;
 
   const guardrailsYaml = `version: 1
 project: my-openclaw-agent
@@ -75,65 +58,64 @@ policies:
         - "vercel deploy"
         - "kubectl apply"`;
 
+  const subhead = (
+    <>
+      One command wires DashClaw governance into an OpenClaw agent. Restart the gateway and your
+      next tool call shows up in <span className="text-secondary">/decisions</span>.
+    </>
+  );
+
   const steps = [
     {
       number: 1,
-      title: 'Deploy DashClaw',
+      title: 'Prerequisites',
       summary:
-        'Get a running instance. Click the Vercel deploy button or run locally.',
-      note: 'Already have an instance? Skip to Step 2.',
+        'Three things before you start: OpenClaw installed and on PATH, a running DashClaw instance (deploy one or use an existing one), and an API key for that instance.',
+      note: 'Already have all three? Skip to Step 2.',
     },
     {
       number: 2,
-      title: 'Install the plugin',
+      title: 'Run the install command',
       summary:
-        'Install through the OpenClaw plugin CLI. The plugin self registers via openclaw.plugin.json; no manual import or wiring is required.',
+        'One command installs and enables the dashclaw-governance plugin, patches your OpenClaw config, and writes the governance block into AGENTS.md. Give every machine its own --agent-id: moltfire-openclaw, forge-openclaw, whatever fits your fleet. Reuse one id across machines and /decisions cannot tell the agents apart.',
       codeTitle: 'Terminal',
-      codeBody: 'openclaw plugins install @dashclaw/openclaw-plugin',
+      codeBody: 'dashclaw install openclaw --agent-id moltfire-openclaw',
+      note:
+        'The API key is written to ~/.openclaw/.env as DASHCLAW_API_KEY. Pass --write-config to store it in openclaw.json instead.',
     },
     {
       number: 3,
-      title: 'Set environment variables',
+      title: 'Restart the gateway',
       summary:
-        'Export your DashClaw connection details before the gateway starts. API keys for self hosted instances start with oc_live_.',
-      codeTitle: '.env',
-      codeBody: `DASHCLAW_BASE_URL=${baseUrl}
-DASHCLAW_API_KEY=oc_live_...
-DASHCLAW_AGENT_ID=my-openclaw-agent`,
+        'OpenClaw reads plugin config when its processes start, so the newly enabled plugin has no effect until you restart.',
+      codeTitle: 'Terminal',
+      codeBody: 'openclaw gateway restart',
     },
     {
       number: 4,
-      title: 'Configure the plugin',
+      title: 'Trigger a governed tool call',
       summary:
-        'Drop a config block into your OpenClaw settings. Pick the tools that should always start at high risk; the classifier may raise the score further for known dangerous commands but will not lower it.',
-      codeTitle: 'openclaw.config.json',
-      codeBody: pluginConfigJson,
-      note:
-        'failClosed defaults to true. If DashClaw is unreachable, the plugin blocks the action instead of allowing it. This is the correct default for governance. Do not flip it to false unless you have a specific reason and you have thought through what happens when your governance plane goes down.',
-    },
-    {
-      number: 5,
-      title: 'Run your OpenClaw agent and trigger a tool call',
-      summary:
-        'Start your agent and ask it to do something that uses a governed tool (bash, write, edit). The plugin classifies the tool call, runs guard against your policies, waits for approval if required, and records the outcome to DashClaw.',
+        'Start the agent and give it something that uses a governed tool: bash, write, edit. From here governance is automatic. Guard runs before the call, a record opens, the call waits if a policy requires approval, and the outcome is recorded after. The agent calls no DashClaw tools itself. An Agent Session opens on its first tool call and closes when the run ends.',
       codeTitle: 'Example prompt',
       codeBody:
         'Create a file called hello.txt with the contents "Hello from a governed agent"',
       note:
-        'Watch the gateway logs. You should see [dashclaw-governance] entries as the plugin classifies and guards each tool call.',
+        'Watch the gateway logs. You should see [dashclaw-governance] entries as the plugin classifies and guards the call.',
     },
     {
-      number: 6,
-      title: 'See the result in DashClaw',
+      number: 5,
+      title: 'Verify it is working',
       summary:
-        'Open your DashClaw dashboard to confirm the action was recorded.',
+        'Two checks: ask OpenClaw if the plugin is healthy, then look for the tool call in DashClaw.',
+      codeTitle: 'Terminal',
+      codeBody: 'openclaw plugins doctor',
       note:
-        "Go to /decisions. You should see your tool call in the ledger with agent_id 'my-openclaw-agent' and a classified action_type (apply for a file write, deploy for a git push, security for sensitive paths, or other for unknown tools).",
+        'Then open /decisions in your DashClaw instance. The tool call should be there within seconds, tagged with the agent id you installed with.',
     },
   ];
 
   const proofMoment =
-    "Go to /decisions. You should see your OpenClaw tool call in the ledger with agent_id 'my-openclaw-agent', a classified action_type that matches the tool call, and status 'completed'. Token usage and cost are attributed automatically once the agent's next LLM turn completes.";
+    "Go to /decisions. You should see your OpenClaw tool call in the ledger with agent_id 'moltfire-openclaw', a classified action_type that matches the tool call, and status 'completed'. Token usage and cost are attributed automatically once the agent's next LLM turn completes.";
 
   return (
     <div className="min-h-screen text-white">
@@ -142,7 +124,7 @@ DASHCLAW_AGENT_ID=my-openclaw-agent`,
           '@context': 'https://schema.org',
           '@type': 'TechArticle',
           headline: 'OpenClaw Integration Guide - DashClaw',
-          description: 'Add governance to OpenClaw agents with DashClaw in under 20 minutes.',
+          description: 'Add governance to OpenClaw agents with DashClaw in one command.',
           url: 'https://www.dashclaw.io/guides/openclaw',
         }}
       />
@@ -172,6 +154,7 @@ DASHCLAW_AGENT_ID=my-openclaw-agent`,
           <GuideClient
             frameworkName="OpenClaw"
             frameworkIcon={<Waypoints size={28} />}
+            subhead={subhead}
             steps={steps}
             proofMoment={proofMoment}
             guardrailsYaml={guardrailsYaml}
@@ -242,6 +225,40 @@ DASHCLAW_AGENT_ID=my-openclaw-agent`,
               cannot enroll itself. Disable with <span className="font-mono text-secondary">autoPairing: false</span>{' '}
               in the plugin config.
             </p>
+          </section>
+
+          {/* Troubleshooting: the failure mode this whole feature exists to fix */}
+          <section className="mt-6 rounded-xl border border-border-hover bg-surface-secondary p-6 sm:p-8">
+            <p className="text-xs uppercase tracking-[0.32em] text-tertiary">
+              Troubleshooting
+            </p>
+            <p className="mt-4 text-sm text-secondary leading-relaxed">
+              <span className="font-semibold text-white">
+                &ldquo;My agent says it cannot reach the dashclaw MCP server.&rdquo;
+              </span>{' '}
+              OpenClaw has no DashClaw MCP server, and never did. Governance runs at the gateway:
+              the <span className="font-mono text-secondary">dashclaw-governance</span> plugin
+              intercepts every tool call before it executes, so the agent is not supposed to call
+              anything itself.
+            </p>
+            <p className="mt-4 text-sm text-secondary leading-relaxed">
+              If <span className="font-mono text-secondary">AGENTS.md</span> instructs the agent to
+              call <span className="font-mono text-secondary">dashclaw_session_start</span> through
+              an MCP server, that block came from{' '}
+              <span className="font-mono text-secondary">dashclaw install codex</span> running
+              against this same workspace, which is easy to do if the OpenClaw agent runs Codex as
+              its underlying runtime. The agent then fail-closes on a tool that does not exist here,
+              even though the gateway plugin is governing every call correctly the whole time.
+            </p>
+            <p className="mt-4 text-sm text-secondary leading-relaxed">
+              Fix: re-run the install command. It recognizes the codex-authored block, replaces it
+              with the OpenClaw protocol, and leaves a{' '}
+              <span className="font-mono text-secondary">.dashclaw-bak</span> copy of what was there
+              before.
+            </p>
+            <div className="mt-4 overflow-hidden rounded-xl border border-border-hover bg-surface-tertiary">
+              <pre className="overflow-x-auto whitespace-pre-wrap px-4 py-4 text-xs text-secondary">dashclaw install openclaw --agent-id moltfire-openclaw</pre>
+            </div>
           </section>
         </div>
       </main>
