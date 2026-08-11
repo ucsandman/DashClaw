@@ -25,4 +25,10 @@ describe('upsertEnvVar', () => {
     const out = upsertEnvVar('# DASHCLAW_API_KEY=nope\n', 'DASHCLAW_API_KEY', 'dc-1');
     expect(out).toBe('# DASHCLAW_API_KEY=nope\nDASHCLAW_API_KEY=dc-1\n');
   });
+
+  it('treats the value as a literal, not a replacement pattern', () => {
+    expect(upsertEnvVar('A=1\n', 'A', '$&')).toBe('A=$&\n');
+    expect(upsertEnvVar('A=1\n', 'A', "x$'y")).toBe("A=x$'y\n");
+    expect(upsertEnvVar('A=1\n', 'A', 'p$$q')).toBe('A=p$$q\n');
+  });
 });

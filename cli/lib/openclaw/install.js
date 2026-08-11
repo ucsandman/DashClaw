@@ -9,7 +9,7 @@ export function upsertEnvVar(source, key, value) {
   const line = `${key}=${value}`;
   const pattern = new RegExp(`^${key}=.*$`, 'm');
   if (pattern.test(source)) {
-    return ensureTrailingNewline(source.replace(pattern, line));
+    return ensureTrailingNewline(source.replace(pattern, () => line));
   }
   const base = source.length === 0 || source.endsWith('\n') ? source : `${source}\n`;
   return ensureTrailingNewline(base + line);
