@@ -45,9 +45,10 @@ export interface GuardEvalContext {
     green?: { observed_level?: string };
     tool?: { required_permission?: string };
     /**
-     * Emitted by hooks/dashclaw_agent_intel/bash_classifier.py via
-     * _enrich_bash. The classifier is the sole authority on risk — the
-     * plain-language module reads these and never recomputes them.
+     * Emitted by _enrich_bash in hooks/dashclaw_pretool.py, which delegates
+     * the classification to hooks/dashclaw_agent_intel/bash_classifier.py.
+     * The classifier is the sole authority on risk — the plain-language
+     * module reads these and never recomputes them.
      */
     bash?: {
       intent?: 'destructive' | 'write' | 'network' | 'read' | 'unknown';
