@@ -13,6 +13,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.17.3] — 2026-08-10
+
+**96 CSS rules that were never there.** Every theme-token class written with an opacity modifier compiled to nothing, so the tint simply didn't render and the element inherited whatever was underneath. Nothing failed: lint, typecheck, the build and all 4108 tests pass on a class that emits no rule. Found by the maintainer looking at a button.
+
+### Fixed
+
+- **Theme tokens honour opacity modifiers** (`tailwind.config.js`). Token colours resolved to plain `var(--color-*)` strings, and Tailwind drops a colour utility entirely when it cannot parse the value into channels — it does not warn. `bg-brand/10`, `border-status-success/20`, `text-brand/70`, `bg-surface-primary/90` and 92 more across 85 files emitted **zero CSS**. The token colours are now function-valued, the one form Tailwind hands the modifier to, composing `color-mix()`. Fixed entirely in config: **no callsite changed**, so every opacity is the one its author wrote. Stripping the modifiers instead — the obvious reading — would have rendered `bg-brand/10` as solid `#f97316`, because `--color-brand-subtle` is `rgba(249,115,22,0.12)`; 85 files of 12% washes would have become solid orange.
+- **Keyboard focus rings were Tailwind's default blue.** `focus-visible:ring-brand/40` emitted nothing, so the ring fell through to the stock `rgba(59,130,246,0.5)` — the "flat blue accent" that `.impeccable.md` names as the first tell of the generic-SaaS anti-reference. Focus now renders brand orange as designed.
+- **Semantic status borders were all identical.** `border-success/20` (×58), `border-warning/20` (×24) and `border-error/20` (×16) every one rendered the same generic `rgba(255,255,255,0.08)`, so a PASS card, a warning and an error were indistinguishable at the border. `DESIGN.md` had specified the `/20` border for badges all along; the components now match their own spec.
+- **Scrims and sticky headers had no backdrop.** `bg-surface-tertiary/50`, `bg-primary/40` and `bg-surface-primary/80` all resolved to `rgba(0,0,0,0)`, so content scrolled through sticky headers instead of behind them.
+
+### Added
+
+- **`border-success` / `bg-error` and siblings resolve at all.** `borderColor` and `backgroundColor` gained the single-prefix status aliases `textColor` already had. Those classes were never in either scale — dead *with or without* a modifier — and only the longer `border-status-success` / `bg-success-subtle` forms worked.
+- `__tests__/unit/tailwind-token-alpha.test.js` — pins the modifier behaviour, the aliases, and that modifier-free utilities are unchanged. Confirmed to fail against the old config before being kept.
+
 ## [5.17.2] — 2026-08-10
 
 **Both halves of an operator's judgment get a button.** Two surfaces asked the human to decide something and then gave them no way to say yes — one because the control pointed at nothing, one because the positive verdict lived in a right-click menu. Both found by the maintainer using his own instance.
