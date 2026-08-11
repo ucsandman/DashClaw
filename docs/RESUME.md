@@ -18,7 +18,61 @@ using the agent's intent, and to run a subagent tournament to solve it.
 I read the guard engine, found the root cause, and launched a 13-agent
 tournament to design the fix. The tournament had not reported back yet.
 
-## The root cause (verified in source — this is the real work product)
+## CORRECTION — the recon partly falsified the opening diagnosis
+
+Added after the recon agents reported. **Read this before acting on the section below.**
+
+My first read was "the missing input is human intent." That is still true as a
+structural gap, but the recon found the *measured* pain is somewhere much simpler
+and cheaper to fix:
+
+1. **The default pack cannot produce the stated complaint.** `catastrophe-only`
+   has **no risk-score-driven `require_approval` at all** — its only score rule is
+   a hard **block** at exactly 100 (`policies.yml:16-23`). Blocks are absolute and
+   un-approvable per MAINTAINER.md. So "approving commands at risk score 100" is
+   not reachable under the shipped default. Either a richer pack is active, or
+   "approving" means "having to stop and deal with the interruption."
+   **This is the open question for Wes — see below.**
+2. **The measured false positives are a client-side classifier bug, not a server
+   policy or threshold problem.** The risk-calibration golden-vector fixture has
+   **8 of 8 real-session incidents confirmed as false positives**: `git show --format=`,
+   `Get-Content -Tail`, single-file delete, empty-dir `rmdir`, `rm -rf .next`, plus two
+   mined patterns that fired wrong **11x and 15x** — `cd`-prefixed command chains and
+   `npx` test runs. Cause: a blunt "unknown command → 70" fallback plus naive substring
+   regex in `hooks/dashclaw_agent_intel/bash_classifier.py`.
+3. **`max()` makes that bug unappealable.** Because client-reported risk can only
+   RAISE the effective score (`risk.ts:193-198`), a blunt-70 misfire becomes the
+   FINAL score. The same wrong answer repeated 11 and 15 times.
+4. **Two risk modifiers are dead code on the normal path.** `systems_touched` is
+   `['execution']` for Bash and `['file_io']` for file tools; neither matches
+   `HIGH_RISK_SYSTEMS`/`MODERATE_RISK_SYSTEMS` (`risk.ts:20-21`), so the +10/+5 bumps
+   never fire. And `_enrich_file` hardcodes `reversible: True`, so the +15 irreversible
+   modifier can never apply to any Write/Edit/MultiEdit.
+5. **The local DB does not corroborate the complaint.** 111/112 decisions are `allow`,
+   0 blocks, 1 `require_approval` (risk 75). risk 100 has never occurred. 87% of rows
+   belong to an auto-provisioned demo org. **Do not treat this DB as evidence of
+   anything about Wes's real usage.**
+6. **A score-LOWERING mechanism already exists and is inert:** the predictive-risk LLM
+   amplifier can subtract up to 20 points from org history alone, structurally immune
+   to same-call injection — but it is off by default.
+7. **Docs drift found in passing:** the preflight-plan RFC still says "Status: PROPOSED"
+   though the feature is fully live; `hooks/README.md` documents a `session_tracker.py`
+   intel dict that `dashclaw_pretool.py` never emits.
+
+**Implication:** a fix that starts with the hook classifier's fallback and regex
+precision may capture most of the real relief for a fraction of the cost of any of
+the four tournament designs. The tournament is still worth finishing — the intent
+gap is real for the unattended case — but it should not be built before the cheap
+defect is fixed and re-measured.
+
+**OPEN QUESTION FOR WES (blocking the build, not the design):** which policy pack is
+your live instance actually running, and when you say "risk score 100," are you
+reading that number off the approvals card, or is it shorthand for "it interrupted me
+again"? The answer decides whether this is a classifier fix or a policy-pack fix.
+
+---
+
+## The root cause as first diagnosed (still structurally true, now second-order)
 
 The guard scores the **shape of a command** and has **no input for who wanted it**.
 
