@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.17.3",
+    "current_version": "5.17.4",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.17.3 (platform-only ship: Tailwind theme tokens made alpha-aware so opacity modifiers compile) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.3 so the registry stays aligned with the platform version.",
+    "reason": "no Node SDK source change in 5.17.4 (platform-only ship: demo flood-banner dispatch, doc-count guard hardening, assumptions link a11y) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.4 so the registry stays aligned with the platform version.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.17.3",
+    "current_version": "5.17.4",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.17.3 (platform-only ship: Tailwind theme tokens made alpha-aware so opacity modifiers compile) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.3 so the registry stays aligned with the platform version.",
+    "reason": "no Python SDK source change in 5.17.4 (platform-only ship: demo flood-banner dispatch, doc-count guard hardening, assumptions link a11y) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.4 so the registry stays aligned with the platform version.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.17.3 theme tokens honour opacity modifiers. Token colours resolved to plain var(--color-*) strings, which Tailwind cannot apply an opacity modifier to, so every token class written with one compiled to zero CSS - 96 rules across 85 files that never rendered, including keyboard focus rings (which fell back to Tailwind's default blue) and every semantic status border. Fixed in tailwind.config.js by making the token colours function-valued; borderColor and backgroundColor also gained the single-prefix status aliases textColor already had. No callsite changes, no Node/Python SDK surface change.",
+  "reason": "5.17.4 checks that were not checking. The doc-count gate had a dead assertion (its pattern predated the guide JSON being pretty-printed, so it matched nothing and downgraded itself to a warning while still reporting all-clear); never-ran conditions are now fatal under --strict. The demo deployment had no dispatch entry for /api/approvals/floods, so it 403'd and the banner - which treats any non-OK as 'no flood' - rendered nothing, hiding the interruption-budget capability entirely. The /assumptions row's link to its decision was labelled only with a truncated action id and now carries a real accessible name. Platform only, no Node/Python SDK surface change.",
   "domains": [
     "platform"
   ]

@@ -312,6 +312,12 @@ export default function AssumptionsPage() {
                       {a.action_id && (
                         <Link
                           href={`/decisions/${a.action_id}`}
+                          // The visible label is a truncated id, so on its own the
+                          // accessible name is an opaque string with no hint that it
+                          // navigates — the row's only way through to the decision
+                          // this assumption was recorded against.
+                          title={`Open decision ${a.action_id}`}
+                          aria-label={`Open the decision this assumption was recorded against (${a.action_id})`}
                           className="font-mono text-brand transition-colors hover:text-brand-hover"
                         >
                           {a.action_id.slice(0, 16)}…
