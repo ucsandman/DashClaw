@@ -81,6 +81,41 @@ export function isCodexAuthoredBlock(source) {
   return source.includes('dashclaw_session_start') && source.includes('install codex');
 }
 
+export const PLUGIN_ENTRY_KEY = 'dashclaw-governance';
+
+/**
+ * The object handed to `openclaw config patch`. Objects merge recursively and
+ * null deletes a path, so omitting the key is not enough — we set it to null to
+ * actively remove a previously stored plaintext key.
+ *
+ * plugins.allow is deliberately absent: it is an array, and config patch
+ * REPLACES arrays, so patching it would drop every other enabled plugin. The
+ * allowlist is handled by `openclaw plugins enable`.
+ */
+export function buildPluginConfigPatch({
+  agentId,
+  baseUrl,
+  apiKey = null,
+  failClosed = true,
+  writeConfig = false,
+}) {
+  return {
+    plugins: {
+      entries: {
+        [PLUGIN_ENTRY_KEY]: {
+          enabled: true,
+          config: {
+            agentId,
+            dashclawUrl: baseUrl,
+            failClosed,
+            dashclawApiKey: writeConfig ? apiKey : null,
+          },
+        },
+      },
+    },
+  };
+}
+
 function ensureTrailingNewline(s) {
   return s.endsWith('\n') ? s : `${s}\n`;
 }

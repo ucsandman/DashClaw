@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { upsertEnvVar, buildAgentsMdBlock, isCodexAuthoredBlock } from '../../cli/lib/openclaw/install.js';
+import { upsertEnvVar, buildAgentsMdBlock, isCodexAuthoredBlock, buildPluginConfigPatch } from '../../cli/lib/openclaw/install.js';
 import { AGENTS_MANAGED_START, AGENTS_MANAGED_END } from '../../cli/lib/codex/install.js';
 
 describe('upsertEnvVar', () => {
@@ -89,5 +89,34 @@ describe('isCodexAuthoredBlock', () => {
 
   it('does not flag unrelated prose that merely mentions codex', () => {
     expect(isCodexAuthoredBlock('We also run codex here.')).toBe(false);
+  });
+});
+
+describe('buildPluginConfigPatch', () => {
+  const base = { agentId: 'forge-openclaw', baseUrl: 'https://dc.example.com', apiKey: 'dc-secret' };
+
+  it('omits the api key by default and clears any stored one', () => {
+    const patch = buildPluginConfigPatch(base);
+    const cfg = patch.plugins.entries['dashclaw-governance'].config;
+    expect(cfg.dashclawApiKey).toBeNull();   // null deletes the path on config patch
+    expect(JSON.stringify(patch)).not.toContain('dc-secret');
+  });
+
+  it('includes the api key only under writeConfig', () => {
+    const cfg = buildPluginConfigPatch({ ...base, writeConfig: true })
+      .plugins.entries['dashclaw-governance'].config;
+    expect(cfg.dashclawApiKey).toBe('dc-secret');
+  });
+
+  it('sets identity, url, enabled and failClosed', () => {
+    const entry = buildPluginConfigPatch(base).plugins.entries['dashclaw-governance'];
+    expect(entry.enabled).toBe(true);
+    expect(entry.config.agentId).toBe('forge-openclaw');
+    expect(entry.config.dashclawUrl).toBe('https://dc.example.com');
+    expect(entry.config.failClosed).toBe(true);
+  });
+
+  it('never touches plugins.allow, which config patch would replace wholesale', () => {
+    expect(buildPluginConfigPatch(base).plugins.allow).toBeUndefined();
   });
 });
