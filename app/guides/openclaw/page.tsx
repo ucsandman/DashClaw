@@ -77,11 +77,11 @@ policies:
       number: 2,
       title: 'Run the install command',
       summary:
-        'One command installs and enables the dashclaw-governance plugin, patches your OpenClaw config, and writes the governance block into AGENTS.md. Give every machine its own --agent-id: moltfire-openclaw, forge-openclaw, whatever fits your fleet. Reuse one id across machines and /decisions cannot tell the agents apart.',
+        'One command installs the dashclaw-governance plugin, patches your OpenClaw config, enables the plugin, and writes the governance block into AGENTS.md. Give every machine its own --agent-id: moltfire-openclaw, forge-openclaw, whatever fits your fleet. Reuse one id across machines and /decisions cannot tell the agents apart. Add --base-url if this machine has no DASHCLAW_BASE_URL and no saved config.',
       codeTitle: 'Terminal',
       codeBody: 'dashclaw install openclaw --agent-id moltfire-openclaw',
       note:
-        'The API key is written to ~/.openclaw/.env as DASHCLAW_API_KEY. Pass --write-config to store it in openclaw.json instead. The installer also sets failClosed: true, and there is currently no flag to change it: if DashClaw is unreachable, the plugin blocks the call instead of letting it through.',
+        'The API key is written as DASHCLAW_API_KEY to the .env beside your openclaw.json, so it follows openclaw --profile rather than always landing in the default profile. Pass --write-config to store it in openclaw.json instead. The key is written before the plugin is enabled, on purpose: a plugin that comes up with no key refuses every tool call. The installer also sets failClosed: true, and there is currently no flag to change it: if DashClaw is unreachable, the plugin blocks the call instead of letting it through.',
     },
     {
       number: 3,

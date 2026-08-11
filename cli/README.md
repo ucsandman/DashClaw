@@ -164,7 +164,7 @@ The install ends with a **hook-trust step**: codex-cli 0.142+ silently skips hoo
 
 ### `dashclaw install openclaw`
 
-Provision DashClaw governance into an OpenClaw agent: installs the `dashclaw-governance` OpenClaw plugin, patches the agent's identity/URL into `openclaw.json` via `openclaw config patch --stdin`, enables the plugin, writes the API key to the `.env` beside `openclaw.json` (or into `openclaw.json` with `--write-config`), and merges a governance protocol block into the resolved workspace's `AGENTS.md` (migrating a pre-existing codex-authored block if found, with a `.dashclaw-bak` backup).
+Provision DashClaw governance into an OpenClaw agent: installs the `dashclaw-governance` OpenClaw plugin, writes the API key to the `.env` beside `openclaw.json` (or into `openclaw.json` with `--write-config`), patches the agent's identity/URL into `openclaw.json` via `openclaw config patch --stdin`, enables the plugin, and merges a governance protocol block into the resolved workspace's `AGENTS.md` (migrating a pre-existing codex-authored block if found, with a `.dashclaw-bak` backup).
 
 ```bash
 dashclaw install openclaw                        # uses the resolved DASHCLAW_BASE_URL / DASHCLAW_API_KEY
@@ -174,15 +174,19 @@ dashclaw install openclaw --api-key oc_live_...   # explicit key (or DASHCLAW_AP
 dashclaw install openclaw --write-config          # store the key in openclaw.json instead of .env
 dashclaw install openclaw --openclaw-bin <path>   # openclaw executable, if not on PATH
 dashclaw install openclaw --workspace <path>      # override the workspace resolved from config
-dashclaw install openclaw --plugin-version <v>    # pin a plugin version (default: run `dashclaw install --help`)
+dashclaw install openclaw --plugin-version <v>    # MINIMUM plugin version (default: run `dashclaw install --help`)
 dashclaw install openclaw --no-verify             # skip the post-install config validate + plugins doctor check
 ```
 
-The config write lands **before** the plugin is enabled, and the payload goes over **stdin**, not argv. Both are load-bearing: `openclaw config patch` accepts no positional argument, so an argv payload fails on every platform — and behind an already-successful `plugins enable` that failure left a live plugin with `failClosed` and no URL, i.e. an agent that refuses every tool call. stdin also keeps the API key out of the process table and out of any error message. `openclaw.json` is backed up to `.dashclaw-bak` before the patch.
+**Write order is load-bearing.** The API key lands in `.env` **first**, before the config patch and before the plugin is enabled. It is inert there until a plugin exists to read it and the write is idempotent, so writing it early costs nothing — while writing it last leaves a window where an EPERM, or a Ctrl-C during the seconds those subprocesses take, brings the plugin up live with `failClosed` and no key anywhere, and it then refuses every tool call. It also has to precede the *patch*, not just the enable: on the migration path the patch is what deletes the plaintext key from `openclaw.json`.
+
+The config write then lands **before** the plugin is enabled, and the payload goes over **stdin**, not argv. Both are load-bearing: `openclaw config patch` accepts no positional argument, so an argv payload fails on every platform — and behind an already-successful `plugins enable` that failure left a live plugin with `failClosed` and no URL, i.e. an agent that refuses every tool call. stdin also keeps the API key out of the process table and out of any error message.
+
+`openclaw.json` is backed up to `.dashclaw-bak` before the patch, and any plaintext `dashclawApiKey` is emptied out of the copy — a byte-for-byte backup of a config holding the key would just move the secret to a second file, which is the opposite of what the migration is for. The backup path is printed on success and named in the error if the patch or the enable fails.
 
 The API key is resolved in this order: `--api-key`, then `DASHCLAW_API_KEY` / saved config, then `DASHCLAW_API_KEY` in the profile's `.env`, then a plaintext `dashclawApiKey` left in `openclaw.json` — that last one is rewritten to `.env` and deleted from the config, so a re-install migrates a plaintext key out rather than preserving it. Paths follow `openclaw --profile`: the `.env` is resolved from the directory of whatever `openclaw config file` reports, never a hardcoded `~/.openclaw`.
 
-Re-running is the documented remedy for a broken agent, so the plugin install is **skipped when an equal-or-newer version is already installed** rather than pinning a newer plugin back down to the default version.
+Re-running is the documented remedy for a broken agent, so the plugin install is **skipped when an equal-or-newer version is already installed** rather than pinning a newer plugin back down to the default version. That makes `--plugin-version` a **minimum, not a pin**: it will install *up* to the version you name and never downgrade past it.
 
 Unlike `install claude`/`install codex`, the target agent calls no DashClaw tools itself — the plugin intercepts every tool call automatically, so guard/record/session-start are already satisfied. The install ends with a verification step (`openclaw config validate`, `openclaw plugins doctor`, and a read-back of `plugins.entries.dashclaw-governance.enabled`, skippable with `--no-verify`): the install still completes and files are written even if verification fails, but the command exits `1` and prints what to check, because an install that looks done while governance silently isn't enforcing is the one failure mode this feature exists to prevent. The enabled flag is read back rather than inferred from `plugins enable` exiting 0.
 

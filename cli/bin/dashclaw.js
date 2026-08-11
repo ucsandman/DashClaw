@@ -107,12 +107,16 @@ ${bold('Usage:')}
   dashclaw install openclaw              Provision DashClaw governance into OpenClaw
     --agent-id <id>                      Ledger identity (default: openclaw; set one per machine)
     --base-url <url>                     DashClaw instance URL (or DASHCLAW_BASE_URL / saved config)
-    --api-key <key>                      API key (or DASHCLAW_API_KEY / saved config / ~/.openclaw/.env)
-    --write-config                       Store the API key in openclaw.json instead of ~/.openclaw/.env
+    --api-key <key>                      API key (or DASHCLAW_API_KEY / saved config / the profile's
+                                         .env / a plaintext key in openclaw.json, migrated out)
+    --write-config                       Store the API key in openclaw.json instead of the .env
+                                         beside it (the .env follows openclaw --profile)
     --openclaw-bin <path>                openclaw executable, if not on PATH
     --workspace <path>                   Override the workspace resolved from config
-    --plugin-version <v>                 Plugin version to install (default: ${OPENCLAW_PLUGIN_VERSION})
-    --no-verify                          Skip config validate + plugins doctor
+    --plugin-version <v>                 Minimum plugin version (default: ${OPENCLAW_PLUGIN_VERSION}); an
+                                         equal-or-newer installed build is kept, never downgraded
+    --no-verify                          Skip the post-install check (config validate, plugins
+                                         doctor, and reading plugins.entries.*.enabled back)
   dashclaw codex notify '<json>'         Record a Codex turn-complete event
     --agent-id <id>                      Ledger identity for the turn (beats DASHCLAW_AGENT_ID)
                                          (called by Codex's notify config; always exits 0)

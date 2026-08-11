@@ -56,7 +56,7 @@ else stays a pure, testable function:
 |---|---|---|
 | `openclaw.json` | `openclaw config patch` | One validated write, recursive merge |
 | Plugin lifecycle | `openclaw plugins install` / `enable` | Accepts npm specs; don't reinvent resolution |
-| `~/.openclaw/.env` | direct write | Plain `KEY=value`; we own the format |
+| `.env` beside `openclaw.json` | direct write | Plain `KEY=value`; we own the format, and the path follows `--profile` |
 | `AGENTS.md` block | direct write | Reuse `replaceManagedBlock` from the codex installer |
 | Verification | `openclaw config validate` + `plugins doctor` | Prove it worked |
 
@@ -65,7 +65,7 @@ than writing a config it cannot validate.
 
 ## Secret handling
 
-The API key goes to `~/.openclaw/.env` as `DASHCLAW_API_KEY`, **not** into
+The API key goes to the `.env` beside `openclaw.json` as `DASHCLAW_API_KEY`, **not** into
 `openclaw.json`. This matches the plugin's own documented recommendation
 ("environment variables — recommended when secrets live outside the gateway
 config"), and `.env` already carries `OPENAI_API_KEY` and `GEMINI_API_KEY`, so
@@ -75,6 +75,16 @@ it is an established path rather than a new mechanism.
 
 Installing over an existing plaintext `dashclawApiKey` migrates it to `.env`
 and removes it from the config, so `openclaw secrets audit` comes back clean.
+
+That last clause is the reason the `openclaw.json` backup is **scrubbed** of
+that one field rather than copied byte for byte: a verbatim backup of a config
+that still held the key would leave the secret sitting in a second file on the
+same disk, so the audit would not come back clean and the "removed the
+plaintext key" line would be pointing the operator at a copy of it. Only
+`dashclawApiKey` is emptied; everything else survives, so the backup is still a
+usable restore point — and by the time it is written the key is already in
+`.env`. A `.dashclaw-bak` an earlier `--write-config` run left behind is
+scrubbed on the same pass, since the first backup is the one that is kept.
 
 ## Components
 
@@ -99,23 +109,37 @@ builders plus one async orchestrator.
 
 ## Data flow
 
-Read-only until step 3. Nothing is written until success is known to be possible.
+Read-only through step 3. Nothing is written until success is known to be possible.
 
 1. **Preflight** — reuse `claude/install.js`'s `preflight(endpoint, apiKey)`.
    Verify DashClaw is reachable and the key valid before touching any file.
 2. Resolve the `openclaw` binary; clear error with install hint if absent.
-3. `openclaw config file` → path → back it up.
+3. `openclaw config file` → config path; `openclaw config get
+   agents.defaults.workspace` → workspace. Both read-only, and both resolved
+   here rather than at the step that needs them: an unresolvable workspace must
+   fail before the first write, not after governance is already live.
 4. `openclaw plugins install @dashclaw/openclaw-plugin@1.6.2`; skip if already
-   present at or above that version. 1.6.2 is the current published version and
-   the one verified running in production on 2026-08-10; the pin is bumped
-   deliberately, never floated.
-5. `openclaw config patch` → plugin entry: `enabled`, `agentId`, `dashclawUrl`,
+   present at or above that version — so the flag is a **minimum**, not a pin.
+   1.6.2 is the current published version and the one verified running in
+   production on 2026-08-10; the floor is raised deliberately, never floated.
+5. `upsertEnvVar(<dir of openclaw.json>/.env, 'DASHCLAW_API_KEY', key)`. **This
+   is the first write, and it precedes both remaining steps deliberately** — a
+   key in `.env` is inert until a plugin exists to read it, while a plugin made
+   live before the key exists refuses every tool call under `failClosed`. It
+   precedes the *patch* as well as the enable, because on the migration path
+   the patch is what deletes the plaintext key from `openclaw.json`.
+6. Back up `openclaw.json` (scrubbed, see *Secret handling*), then
+   `openclaw config patch` → plugin entry: `enabled`, `agentId`, `dashclawUrl`,
    `failClosed`. No key unless `--write-config`.
-6. `upsertEnvVar(~/.openclaw/.env, 'DASHCLAW_API_KEY', key)`.
-7. Resolve workspace → `AGENTS.md` → back up → replace or insert the managed
-   block, migrating a codex-authored block if present.
-8. Verify: `openclaw config validate` + `openclaw plugins doctor`.
-9. Print a summary: agent id used, files touched, and "restart the gateway".
+7. `openclaw plugins enable dashclaw-governance` — separate from the patch
+   because `config patch` replaces arrays wholesale, and `plugins.allow` is an
+   array holding every other enabled plugin.
+8. `AGENTS.md` in the resolved workspace → back up → replace or insert the
+   managed block, migrating a codex-authored block if present.
+9. Verify: `openclaw config validate`, `openclaw plugins doctor`, and a
+   read-back of `plugins.entries.dashclaw-governance.enabled`.
+10. Print a summary: agent id used, files touched, backup paths, and
+    "restart the gateway".
 
 ## Migration of a codex-authored block
 
@@ -143,7 +167,20 @@ The failure mode that matters is **governance silently not enforcing** — the
 same class the codex installer already shouts about for untrusted hooks. So:
 
 - Preflight fails → exit non-zero, zero writes.
-- `config patch` fails → restore backup, report the path.
+- `config patch` fails → **report the backup path and the state; do not restore
+  it.** *(Amended 2026-08-11, after the fix round the implementation forced.)*
+  The original line said "restore backup". Restoring is wrong here for three
+  reasons the code made obvious. The backup is written **once** — the first one
+  wins, so on a re-install it can be arbitrarily old, and restoring it would
+  revert config the operator changed since for reasons unrelated to DashClaw.
+  It is also **scrubbed** of any plaintext `dashclawApiKey` (see *Secret
+  handling*), so restoring it over a live config would destroy a credential.
+  And `config patch` validates before it writes, so a failed patch leaves
+  `openclaw.json` untouched — there is nothing to roll back. What the operator
+  actually needs is the information: the error names the backup path, says the
+  plugin was not enabled and the config is unchanged, and the success summary
+  prints the path too. A `plugins enable` failure after a successful patch gets
+  the same treatment, plus the one instruction that fixes it (re-run).
 - `plugins doctor` reports the plugin unloadable after install → loud warning,
   not a footnote. An install that appears to succeed while governance is dead
   is worse than a visible failure.
@@ -178,11 +215,11 @@ dashclaw install openclaw
   --openclaw-bin <path>  if not on PATH
   --workspace <path>     override the resolved workspace
   --plugin-version <v>   default: 1.6.2
-  --no-verify            skip step 8
+  --no-verify            skip step 9
 ```
 
 API key precedence, first hit wins: `--api-key` → `DASHCLAW_API_KEY` in the
-environment → `DASHCLAW_API_KEY` in `~/.openclaw/.env` → existing
+environment or the saved config → `DASHCLAW_API_KEY` in the profile's `.env` → existing
 `dashclawApiKey` in `openclaw.json` (migrated out on write) → error asking for
 `--api-key`. Resolution happens before preflight so step 1 tests the key that
 will actually be installed.
