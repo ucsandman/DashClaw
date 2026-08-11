@@ -22,6 +22,7 @@
 - **No hardcoded hex values** in any UI change. Use the CSS tokens in `app/globals.css` and the Tailwind theme. Read `.impeccable.md` before touching UI.
 - **No direct SQL in route files.** All DB access goes through `app/lib/repositories/*.repository.ts`.
 - **Gates before push:** `npm run lint`, `npx vitest run` (full suite), `npm run typecheck`, `npx next build`.
+- **SHARED TREE — another Claude Code agent is working in this repo.** Never run `git add -A`, `git add .`, `git stash`, `git checkout -- <path>`, or `git reset` on anything you did not create. Stage **explicit paths only**, and run `git status --short` before every commit to confirm nothing foreign is staged. If a file you need to modify has uncommitted changes you did not make, **stop and report it** rather than editing over them. Re-read every shared file with the Read tool immediately before editing it — `app/api/actions/route.ts`, `app/approvals/page.tsx` and `app/lib/repositories/actions.repository.ts` are all high-churn and may have drifted since this plan was written.
 
 ---
 
@@ -1773,12 +1774,17 @@ If step 3 surfaces a problem, fix it on the spot and repeat steps 1-3. Do not de
 
 - [ ] **Step 5: Commit and push**
 
+Shared tree — stage explicit paths, never `-A`. If `git status` shows files you did not create, leave them alone and say so.
+
 ```bash
-git status                      # .gitattributes drifts silently in this repo
-git add -A
+git status --short              # .gitattributes drifts silently in this repo
+# Stage ONLY the paths this plan created or modified, e.g.:
+git add app/lib/plain-language __tests__/unit/plain-language-*.test.js
 git commit -m "test(plain-language): rendered verification of the approvals card"
 git push
 ```
+
+If the push is rejected because the other agent pushed first, `git pull --rebase` and re-run the full gate before pushing again — do not force.
 
 - [ ] **Step 6: Read remote CI**
 
