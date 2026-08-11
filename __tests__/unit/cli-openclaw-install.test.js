@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { upsertEnvVar, buildAgentsMdBlock, isCodexAuthoredBlock, buildPluginConfigPatch } from '../../cli/lib/openclaw/install.js';
+import { upsertEnvVar, buildAgentsMdBlock, isCodexAuthoredBlock, buildPluginConfigPatch, openclawBin, resolveConfigPath, resolveWorkspace } from '../../cli/lib/openclaw/install.js';
 import { AGENTS_MANAGED_START, AGENTS_MANAGED_END } from '../../cli/lib/codex/install.js';
 
 describe('upsertEnvVar', () => {
@@ -118,5 +118,35 @@ describe('buildPluginConfigPatch', () => {
 
   it('never touches plugins.allow, which config patch would replace wholesale', () => {
     expect(buildPluginConfigPatch(base).plugins.allow).toBeUndefined();
+  });
+});
+
+describe('openclawBin', () => {
+  it('prefers an explicit override', () => {
+    expect(openclawBin({}, 'C:/tools/openclaw.mjs')).toBe('C:/tools/openclaw.mjs');
+  });
+
+  it('falls back to OPENCLAW_BIN then the bare command', () => {
+    expect(openclawBin({ OPENCLAW_BIN: '/opt/openclaw' })).toBe('/opt/openclaw');
+    expect(openclawBin({})).toBe('openclaw');
+  });
+});
+
+describe('resolveConfigPath / resolveWorkspace', () => {
+  const runOk = (out) => async () => ({ ok: true, stdout: out, stderr: '' });
+
+  it('reads the config path from `config file`', async () => {
+    await expect(resolveConfigPath({ run: runOk('  /home/u/.openclaw/openclaw.json \n') }))
+      .resolves.toBe('/home/u/.openclaw/openclaw.json');
+  });
+
+  it('reads the workspace from `config get`, unquoting a JSON string', async () => {
+    await expect(resolveWorkspace({ run: runOk('"C:\\\\Users\\\\sandm\\\\clawd"\n') }))
+      .resolves.toBe('C:\\Users\\sandm\\clawd');
+  });
+
+  it('throws a directive error when openclaw fails', async () => {
+    const runFail = async () => ({ ok: false, stdout: '', stderr: 'not found' });
+    await expect(resolveConfigPath({ run: runFail })).rejects.toThrow(/openclaw config file failed/);
   });
 });

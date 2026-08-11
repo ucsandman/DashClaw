@@ -1,5 +1,6 @@
 // cli/lib/openclaw/install.js
 
+import { execFile } from 'node:child_process';
 import { AGENTS_MANAGED_START, AGENTS_MANAGED_END } from '../codex/install.js';
 
 /**
@@ -118,4 +119,48 @@ export function buildPluginConfigPatch({
 
 function ensureTrailingNewline(s) {
   return s.endsWith('\n') ? s : `${s}\n`;
+}
+
+export function openclawBin(env = process.env, override = null) {
+  if (override) return override;
+  if (env.OPENCLAW_BIN) return env.OPENCLAW_BIN;
+  return 'openclaw';
+}
+
+/**
+ * Run the openclaw CLI. Never through a shell: an argv array keeps a message
+ * or JSON5 payload from being mangled by shell/MSYS quoting.
+ */
+export function runOpenclaw(argv, { bin = 'openclaw', execFileImpl = execFile } = {}) {
+  return new Promise((resolve) => {
+    execFileImpl(bin, argv, { maxBuffer: 8 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
+      resolve({ ok: !err, stdout: String(stdout || ''), stderr: String(stderr || err?.message || '') });
+    });
+  });
+}
+
+export async function resolveConfigPath({ run }) {
+  const res = await run(['config', 'file']);
+  if (!res.ok || !res.stdout.trim()) {
+    throw new Error(`openclaw config file failed: ${res.stderr.trim() || 'no output'}`);
+  }
+  return res.stdout.trim();
+}
+
+/**
+ * The AGENTS.md target. Read from config, never from the cwd — resolving it
+ * from the cwd is precisely how a Codex protocol landed in an OpenClaw
+ * workspace and fail-closed the agent.
+ */
+export async function resolveWorkspace({ run }) {
+  const res = await run(['config', 'get', 'agents.defaults.workspace']);
+  if (!res.ok || !res.stdout.trim()) {
+    throw new Error(`openclaw config get agents.defaults.workspace failed: ${res.stderr.trim() || 'no output'}`);
+  }
+  const raw = res.stdout.trim();
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === 'string') return parsed;
+  } catch { /* not JSON-quoted — use as-is */ }
+  return raw;
 }
