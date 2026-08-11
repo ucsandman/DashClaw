@@ -1228,6 +1228,41 @@ export async function getActionWithRelations(
   };
 }
 
+/**
+ * Batched read of guard-decision contexts for one page of action rows.
+ *
+ * The plain-language translator needs `context.intel` for every pending
+ * approval, but `listActions` deliberately does not join guard_decisions —
+ * widening that shared query would cost every other caller. One extra
+ * indexed lookup per page is cheaper and touches nothing else.
+ *
+ * Returns a map of guard_decision_id -> parsed context. Rows whose context
+ * will not parse are omitted; the caller degrades to an untranslated card.
+ */
+export async function getGuardContextsByIds(
+  sql: SqlClient,
+  orgId: string,
+  ids: string[],
+): Promise<Map<string, Record<string, unknown>>> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  const out = new Map<string, Record<string, unknown>>();
+  if (unique.length === 0) return out;
+
+  const rows = await sql`
+    SELECT id, context
+    FROM guard_decisions
+    WHERE org_id = ${orgId} AND id = ANY(${unique})
+  `;
+
+  for (const row of rows) {
+    const parsed = parseJsonColumn(row.context);
+    if (parsed && typeof parsed === 'object') {
+      out.set(String(row.id), parsed as Record<string, unknown>);
+    }
+  }
+  return out;
+}
+
 interface UpdateActionOutcomeOptions {
   gateStatus?: string | null;
   /**
