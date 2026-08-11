@@ -963,7 +963,7 @@ function describeStage(stage: ShellStage): Clause | null {
     return {
       text: pkg
         ? `Adds a third-party package, ${pkg}, to your project`
-        : 'Installs the project’s third-party packages',
+        : "Installs the project's third-party packages",
       warnings: [],
       ruleId: 'bash.package.install',
     };
@@ -1028,11 +1028,11 @@ export function describeBash(command: string, bashIntel?: BashIntel): PlainDescr
   const warnings = [...new Set(known.flatMap((c) => c.warnings))];
 
   if (!complete) {
-    warnings.unshift('There is more in this command that I can’t read. Check it below before approving.');
+    warnings.unshift("There is more in this command that I can't read. Check it below before approving.");
   }
 
   return {
-    headline: complete ? `${text}.` : `${text}. There is more here I can’t read.`,
+    headline: complete ? `${text}.` : `${text}. There is more here I can't read.`,
     warnings,
     confidence: complete ? 'high' : 'partial',
     reversible,

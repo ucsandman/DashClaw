@@ -5,7 +5,7 @@
  */
 
 import { recordSentApprovalNotification } from './approvalNotifications';
-import { describeAction } from './plain-language';
+import { describeAction, plainNotificationLines } from './plain-language';
 import type { SqlTag } from './types/db';
 
 interface ApprovalAction {
@@ -35,6 +35,30 @@ interface TelegramMessage {
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
 const FETCH_TIMEOUT_MS = 1500;
 
+/**
+ * Telegram's hard limit on `text`. Exceeding it is a 400, and sendMessage
+ * only warns and returns — so the operator gets NO approval message and the
+ * sent-message id is never recorded, which also breaks cross-channel
+ * clearing. Every other length in this file is derived from this one by
+ * subtraction rather than guessed, because a guessed reserve is what let a
+ * 6843-character message reach the API (2026-08-11 pre-merge review).
+ */
+const TELEGRAM_TEXT_LIMIT = 4096;
+
+/**
+ * Fit the goal into `budget` characters, saying so honestly when it cuts —
+ * an invisible truncation once made a real command unjudgeable (field report
+ * 2026-08-07). Room for the note is reserved using the FULL length's digit
+ * count, which is never shorter than the remainder's, so the result always
+ * fits the budget it was given.
+ */
+function fitGoal(goal: string, budget: number): string {
+  if (goal.length <= budget) return goal;
+  const note = (n: number) => `\n… (+${n} more chars — open the action link for the rest)`;
+  const keep = Math.max(0, budget - note(goal.length).length);
+  return `${goal.slice(0, keep)}${note(goal.length - keep)}`;
+}
+
 function isEnabled(): boolean {
   if (!process.env.TELEGRAM_BOT_TOKEN) return false;
   if (!process.env.TELEGRAM_ADMIN_CHAT_ID) return false;
@@ -42,24 +66,17 @@ function isEnabled(): boolean {
   return true;
 }
 
-function buildMessage(action: ApprovalAction): TelegramMessage {
+/** Exported for unit testing (plain-language-review-regressions.test.js). */
+export function buildTelegramMessage(action: ApprovalAction): TelegramMessage {
   const risk = action.risk_score ?? 0;
   const reversible = action.reversible === false ? 'irreversible' : 'reversible';
-  // Show the operator the FULL goal (they judge the approval by it). Telegram's
-  // hard message limit is 4096 chars; fixed parts stay well under 300, so 3500
-  // leaves safe headroom. When we do cut, say so honestly instead of ending
-  // mid-word — an invisible truncation made a real command unjudgeable
-  // (field report 2026-08-07).
   const fullGoal = action.declared_goal || '—';
-  const goal = fullGoal.length > 3500
-    ? `${fullGoal.slice(0, 3500)}\n… (+${fullGoal.length - 3500} more chars — open the action link for the rest)`
-    : fullGoal;
 
   // Same describeAction() the /approvals card and the decision detail page
   // read — one sentence, everywhere. No guard-decision intel is available at
   // this call site, so the translator degrades honestly (see
   // plain-language/index.ts). Built from the untruncated declared_goal and
-  // rendered as its own line, so the 3500-char cap above — which only ever
+  // rendered as its own lines, so the goal budget below — which only ever
   // applies to `goal` — can never cut the sentence off (field report
   // 2026-08-07 was exactly this kind of invisible truncation).
   const plain = describeAction({
@@ -67,22 +84,36 @@ function buildMessage(action: ApprovalAction): TelegramMessage {
     declared_goal: action.declared_goal,
     risk_score: action.risk_score,
   });
+  // The warnings travel with the sentence. Telegram is where the operator
+  // usually is, and it used to show "Overwrites the shared code history on
+  // GitHub" with no mention that other people's work can be lost.
+  const plainLines = plainNotificationLines(plain);
 
-  const text = [
+  // Plain sentence first, exact command second — same order as the
+  // /approvals card and the detail page. Silent when the translator has no
+  // confident read, so the message is byte-identical to today's.
+  const head = [
     '⏳ DashClaw approval needed',
     '',
     `Agent:   ${action.agent_id || 'unknown'}`,
     `Action:  ${action.action_type || 'unknown'}`,
     `Risk:    ${risk} • ${reversible}`,
     '',
-    // Plain sentence first, exact command second — same order as the
-    // /approvals card and the detail page. Silent when the translator has
-    // no confident read, so the message is byte-identical to today's.
-    ...(plain.confidence !== 'unknown' ? [plain.headline, ''] : []),
-    `Goal: ${goal}`,
-    '',
-    action.action_id,
-  ].join('\n');
+    ...(plainLines.length > 0 ? [...plainLines, ''] : []),
+  ];
+  const tail = ['', action.action_id || ''];
+
+  // Show the operator as much of the goal as the message can carry: compose
+  // everything else first, then hand the remainder to the goal. Measuring
+  // beats reserving — a fixed 3500-char goal cap was safe only while the
+  // sentence above it was short, and a 120-stage chain (headline 5034 chars)
+  // pushed a 1562-char goal to a 6843-char message that Telegram rejected
+  // outright. plainNotificationLines bounds `head`, so the budget is always
+  // positive.
+  const overhead = [...head, 'Goal: ', ...tail].join('\n').length;
+  const goal = fitGoal(fullGoal, Math.max(0, TELEGRAM_TEXT_LIMIT - overhead));
+
+  const text = [...head, `Goal: ${goal}`, ...tail].join('\n');
 
   const reply_markup: TelegramReplyMarkup = {
     inline_keyboard: [[
@@ -97,7 +128,7 @@ function buildMessage(action: ApprovalAction): TelegramMessage {
 async function sendApprovalMessage(action: ApprovalAction, sql?: SqlTag, orgId?: string): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chat_id = process.env.TELEGRAM_ADMIN_CHAT_ID;
-  const payload = buildMessage(action);
+  const payload = buildTelegramMessage(action);
 
   const res = await fetch(`${TELEGRAM_API_BASE}/bot${token}/sendMessage`, {
     method: 'POST',

