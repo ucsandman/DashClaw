@@ -14,6 +14,51 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-11 — what the operator actually approves
+
+Reading the owner's LIVE instance changed this work twice.
+
+First: his two risk-100 rules had been edited from `block` to `require_approval`
+on 2026-08-09, which is why he was approving at 100 and not being blocked. He
+was reading a real number; the doubt was mine and it was wrong.
+
+Second, and worse: an active grant read `security -> C:/Users/`, with no expiry.
+`applyAllowGrants` downgrades `require_approval` to `allow` on a match, and his
+risk-100 rules were not marked ungrantable, so a recursive delete anywhere under
+his user profile would have been silently allowed. It came from `pathPrefix`,
+which collapsed any path deeper than two segments to its first two — sound for
+`github.com/owner`, catastrophic for `C:/Users/sandm/anything`. The review feed
+used that collapsed label as a group heading AND as the grant's authorization
+scope, so the button was lying about what it granted. Nine junk grants
+deactivated, both rules marked ungrantable, and only hostnames collapse now.
+
+Then the measurement. His most-approved shape today was not anything dangerous:
+`rm -rf <os-temp>/scratchpad/e2e-out`, the frontend-verify skill deleting its own
+output, approved four times in one evening from his phone. Nothing in either
+classifier knew the OS temp directory is scratch. It does now — narrowly: the
+root itself, traversal out of it, lookalikes like `/nottmp/`, and a
+project-relative `tmp/` all keep the full destructive grade.
+
+The tournament's winning design shipped too — Precedent, which mines adjudicated
+approvals and offers a narrow, expiring grant for a shape the operator keeps
+waving through. Its safety is structural rather than statistical: a closed
+allowlist of one entry, exact flag-set equality so a superset never matches, a
+scope the governed agent cannot author, and eligibility re-checked at match time
+so narrowing the allowlist retires stored precedents with no migration. Five
+approvals, across two distinct days, zero denials — because five approvals inside
+one frantic hour is one decision repeated, not five judgments.
+
+The honest part, twice over. The evidence says Precedent would not have fixed the
+complaint: the static OS-temp fix already dropped that shape below the
+interruption band, so the loop had nothing left to learn there. It shipped
+because the owner asked for it after being shown that, which is his call to make,
+not mine. And the rendered proof is incomplete — the loop was driven end to end
+through the real HTTP route against real database rows (mined 6 approvals across
+3 days, proposal returned with honest evidence), but the browser sign-in against
+the local admin password failed and the card was never seen on screen. Verified
+by API and by types, not by eye. That is a weaker claim than this project's own
+definition of done and it is recorded as such.
+
 ## 2026-08-11 — a subset cannot be worse than the whole
 
 The owner's complaint was that he approves too many safe actions: "too often
