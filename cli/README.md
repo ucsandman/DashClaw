@@ -164,20 +164,27 @@ The install ends with a **hook-trust step**: codex-cli 0.142+ silently skips hoo
 
 ### `dashclaw install openclaw`
 
-Provision DashClaw governance into an OpenClaw agent: installs and enables the `dashclaw-governance` OpenClaw plugin, patches the agent's identity/URL into `openclaw.json` via `openclaw config patch`, writes the API key to `~/.openclaw/.env` (or into `openclaw.json` with `--write-config`), and merges a governance protocol block into the resolved workspace's `AGENTS.md` (migrating a pre-existing codex-authored block if found, with a `.dashclaw-bak` backup).
+Provision DashClaw governance into an OpenClaw agent: installs the `dashclaw-governance` OpenClaw plugin, patches the agent's identity/URL into `openclaw.json` via `openclaw config patch --stdin`, enables the plugin, writes the API key to the `.env` beside `openclaw.json` (or into `openclaw.json` with `--write-config`), and merges a governance protocol block into the resolved workspace's `AGENTS.md` (migrating a pre-existing codex-authored block if found, with a `.dashclaw-bak` backup).
 
 ```bash
 dashclaw install openclaw                        # uses the resolved DASHCLAW_BASE_URL / DASHCLAW_API_KEY
 dashclaw install openclaw --agent-id forge-1      # ledger identity (default: openclaw)
-dashclaw install openclaw --api-key oc_live_...   # explicit key (or DASHCLAW_API_KEY / saved config)
+dashclaw install openclaw --base-url https://...  # instance URL (or DASHCLAW_BASE_URL / saved config)
+dashclaw install openclaw --api-key oc_live_...   # explicit key (or DASHCLAW_API_KEY / saved config / .env)
 dashclaw install openclaw --write-config          # store the key in openclaw.json instead of .env
 dashclaw install openclaw --openclaw-bin <path>   # openclaw executable, if not on PATH
 dashclaw install openclaw --workspace <path>      # override the workspace resolved from config
-dashclaw install openclaw --plugin-version <v>    # pin a plugin version (default: 1.6.2)
+dashclaw install openclaw --plugin-version <v>    # pin a plugin version (default: run `dashclaw install --help`)
 dashclaw install openclaw --no-verify             # skip the post-install config validate + plugins doctor check
 ```
 
-Unlike `install claude`/`install codex`, the target agent calls no DashClaw tools itself — the plugin intercepts every tool call automatically, so guard/record/session-start are already satisfied. The install ends with a verification step (`openclaw config validate` + `openclaw plugins doctor`, skippable with `--no-verify`): the install still completes and files are written even if verification fails, but the command exits `1` and prints what to check, because an install that looks done while governance silently isn't enforcing is the one failure mode this feature exists to prevent.
+The config write lands **before** the plugin is enabled, and the payload goes over **stdin**, not argv. Both are load-bearing: `openclaw config patch` accepts no positional argument, so an argv payload fails on every platform — and behind an already-successful `plugins enable` that failure left a live plugin with `failClosed` and no URL, i.e. an agent that refuses every tool call. stdin also keeps the API key out of the process table and out of any error message. `openclaw.json` is backed up to `.dashclaw-bak` before the patch.
+
+The API key is resolved in this order: `--api-key`, then `DASHCLAW_API_KEY` / saved config, then `DASHCLAW_API_KEY` in the profile's `.env`, then a plaintext `dashclawApiKey` left in `openclaw.json` — that last one is rewritten to `.env` and deleted from the config, so a re-install migrates a plaintext key out rather than preserving it. Paths follow `openclaw --profile`: the `.env` is resolved from the directory of whatever `openclaw config file` reports, never a hardcoded `~/.openclaw`.
+
+Re-running is the documented remedy for a broken agent, so the plugin install is **skipped when an equal-or-newer version is already installed** rather than pinning a newer plugin back down to the default version.
+
+Unlike `install claude`/`install codex`, the target agent calls no DashClaw tools itself — the plugin intercepts every tool call automatically, so guard/record/session-start are already satisfied. The install ends with a verification step (`openclaw config validate`, `openclaw plugins doctor`, and a read-back of `plugins.entries.dashclaw-governance.enabled`, skippable with `--no-verify`): the install still completes and files are written even if verification fails, but the command exits `1` and prints what to check, because an install that looks done while governance silently isn't enforcing is the one failure mode this feature exists to prevent. The enabled flag is read back rather than inferred from `plugins enable` exiting 0.
 
 ### `dashclaw codex notify '<json>'`
 

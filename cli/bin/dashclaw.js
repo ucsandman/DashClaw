@@ -106,7 +106,8 @@ ${bold('Usage:')}
                                          (targets $CODEX_HOME/config.toml when CODEX_HOME is set)
   dashclaw install openclaw              Provision DashClaw governance into OpenClaw
     --agent-id <id>                      Ledger identity (default: openclaw; set one per machine)
-    --api-key <key>                      API key (or DASHCLAW_API_KEY / saved config)
+    --base-url <url>                     DashClaw instance URL (or DASHCLAW_BASE_URL / saved config)
+    --api-key <key>                      API key (or DASHCLAW_API_KEY / saved config / ~/.openclaw/.env)
     --write-config                       Store the API key in openclaw.json instead of ~/.openclaw/.env
     --openclaw-bin <path>                openclaw executable, if not on PATH
     --workspace <path>                   Override the workspace resolved from config
@@ -513,6 +514,7 @@ async function cmdInstallClaude() {
 
 async function cmdInstallOpenclaw() {
   const installAgentId = getFlag('--agent-id') || 'openclaw';
+  const installBaseUrl = getFlag('--base-url') || baseUrl;
   const installApiKey = getFlag('--api-key') || apiKey;
   const writeConfig = args.includes('--write-config');
   const openclawBinPath = getFlag('--openclaw-bin') || null;
@@ -522,7 +524,7 @@ async function cmdInstallOpenclaw() {
 
   try {
     const result = await installOpenclaw({
-      baseUrl,
+      baseUrl: installBaseUrl,
       apiKey: installApiKey,
       agentId: installAgentId,
       writeConfig,
@@ -550,7 +552,7 @@ async function cmdInstallOpenclaw() {
     // code to the caller. A silent success here is exactly the "looks
     // installed, nothing is actually enforcing" failure this feature exists
     // to prevent, so a failed verify must fail the command.
-    if (result.verified && (!result.verified.config || !result.verified.plugins)) {
+    if (result.verified && (!result.verified.config || !result.verified.plugins || !result.verified.enabled)) {
       console.log();
       console.log(`  ${yellow('WARNING: verification failed.')} The install above DID complete —`);
       console.log(`  config was patched and AGENTS.md was written. Governance may not be`);
