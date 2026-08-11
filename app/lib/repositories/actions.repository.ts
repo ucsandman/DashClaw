@@ -1536,6 +1536,29 @@ export async function setActionOutcome(
 
   const progressJson = progress != null ? JSON.stringify(progress) : null;
 
+  // Lifecycle reconciliation: the two closure paths were only symmetric in one
+  // direction. A terminal PATCH implicitly advances `outcome_status`
+  // (updateActionOutcomeViaTaggedSql), but a terminal outcome POST used to
+  // leave the lifecycle `status` at 'running' forever — and neither sweep
+  // UPDATE can heal that row, because both gate on `outcome_status` still
+  // being 'pending' / 'lost_confirmation'. The decision then rendered
+  // "RUNNING" beside a "Completed" outcome badge, counted as in-flight in the
+  // ops stats, and tripped the doctor's zombie-running check. Mirrors the
+  // sweep's reconciliation: only a still-open lifecycle flips, so an
+  // already-terminal status and 'pending_approval' (owned by the approvals
+  // expiry sweep) are never clobbered. 'partial' maps to 'failed' for the same
+  // reason the PATCH direction maps cancelled/blocked to a failed outcome —
+  // the action did not successfully complete. The nuance stays visible: the
+  // outcome badge still reads "Partial".
+  const lifecycleStatus =
+    status === 'completed' ? 'completed'
+      : status === 'lost_confirmation' ? 'unknown'
+        : 'failed';
+  // Sent as a bound parameter, not a SQL expression: `timestamp_end` is TEXT
+  // in the drizzle schema but timestamptz on some migrated instances, and an
+  // untyped parameter resolves against whichever the column actually is.
+  const closedAt = new Date().toISOString();
+
   const updated = await sql`
     UPDATE action_records
     SET outcome_status   = ${status},
@@ -1543,6 +1566,9 @@ export async function setActionOutcome(
         outcome_summary  = ${summary},
         outcome_error    = ${error_message},
         outcome_progress = ${progressJson}::jsonb,
+        status           = CASE WHEN status IS NULL OR status IN ('running', 'pending')
+                                THEN ${lifecycleStatus} ELSE status END,
+        timestamp_end    = COALESCE(timestamp_end, ${closedAt}),
         -- Closure provenance (drizzle/0048, v4.2): the durable-finality outcome
         -- write is a real 'outcome' close. COALESCE preserves any earlier stamp
         -- (e.g. a Stop-hook 'stop_autoclose' PATCH) so first-close truth wins.
@@ -1620,10 +1646,11 @@ export async function setActionOutcome(
  * approvals expiry sweep owns that lifecycle (approval_expires_at). A late
  * agent PATCH still lands (updateOutcome overwrites status), so a genuinely
  * slow action self-heals to completed/failed. A second backfill UPDATE
- * reconciles rows that were marked lost_confirmation BEFORE this change and
- * are therefore stuck at status='running' with outcome_status already
- * terminal (the primary UPDATE's outcome_status='pending' gate can never
- * reach them again).
+ * reconciles every row already stuck at status='running' with a terminal
+ * outcome_status — whether it was swept to lost_confirmation before the
+ * reconciliation above existed, or reported completed/partial/failed through
+ * POST /api/actions/:id/outcome before setActionOutcome closed the lifecycle.
+ * The primary UPDATE's outcome_status='pending' gate can never reach them.
  */
 export async function sweepLostOutcomesForOrg(
   sql: SqlClient,
@@ -1650,22 +1677,31 @@ export async function sweepLostOutcomesForOrg(
       AND (status IS NULL OR status NOT IN ('completed', 'failed', 'cancelled', 'blocked'))
     RETURNING action_id, agent_id, agent_name, action_type, declared_goal, created_at, outcome_at
   `;
-  // Backfill: rows already lost_confirmation but still claiming 'running' /
-  // 'pending' (swept before the lifecycle reconciliation existed). Count-only
-  // — their lost_confirmation signal/webhook already fired when they flipped.
+  // Backfill: rows whose outcome is already terminal but whose lifecycle still
+  // claims 'running' / 'pending'. Two populations land here — rows swept to
+  // lost_confirmation before the reconciliation above existed, and rows that
+  // reported completed/partial/failed through POST /api/actions/:id/outcome
+  // before setActionOutcome closed the lifecycle. Neither is reachable by the
+  // primary UPDATE (its outcome_status='pending' gate can never match them
+  // again), so this is their only heal path. Count-only — any signal/webhook
+  // for these rows already fired when the outcome landed.
   try {
     const backfilled = await sql`
       UPDATE action_records
-      SET status = 'unknown',
-          error_message = COALESCE(error_message, 'Outcome never reported — reconciled to unknown by the stale-outcome sweep'),
+      SET status = CASE WHEN outcome_status = 'completed' THEN 'completed'
+                        WHEN outcome_status IN ('partial', 'failed') THEN 'failed'
+                        ELSE 'unknown' END,
+          error_message = CASE WHEN outcome_status = 'lost_confirmation'
+                               THEN COALESCE(error_message, 'Outcome never reported — reconciled to unknown by the stale-outcome sweep')
+                               ELSE error_message END,
           updated_at = CURRENT_TIMESTAMP
       WHERE org_id = ${orgId}
-        AND outcome_status = 'lost_confirmation'
+        AND outcome_status IN ('completed', 'partial', 'failed', 'lost_confirmation')
         AND (status IS NULL OR status IN ('running', 'pending'))
       RETURNING action_id
     `;
     if (backfilled.length > 0) {
-      console.warn(`[OUTCOME SWEEP] reconciled ${backfilled.length} zombie running/pending row(s) already marked lost_confirmation (org ${orgId})`);
+      console.warn(`[OUTCOME SWEEP] reconciled ${backfilled.length} zombie running/pending row(s) whose outcome was already terminal (org ${orgId})`);
     }
   } catch (err) {
     console.warn('[OUTCOME SWEEP] zombie-status backfill failed:', (err as Error)?.message || err);

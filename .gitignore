@@ -99,6 +99,9 @@ findings.json
 # frontend-verify skill output (headless page-state dumps)
 .frontend-verify/
 
+# Brainstorming visual-companion sessions (mockups + server state; machine-local).
+.superpowers/
+
 # Self-improvement loop artifacts (weekly memory-self-review -> apply-self-review).
 # Transient, machine-local; the tracked specs/RFCs elsewhere in docs/superpowers/ are unaffected.
 docs/superpowers/applied/

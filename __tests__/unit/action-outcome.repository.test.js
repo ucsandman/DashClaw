@@ -12,6 +12,20 @@ function makeSqlMock(responses) {
   return vi.fn(() => Promise.resolve(queue.shift() ?? []));
 }
 
+// A post-UPDATE row as setActionOutcome's RETURNING clause shapes it.
+function terminalRow(outcomeStatus) {
+  return {
+    action_id: 'act_1',
+    outcome_status: outcomeStatus,
+    outcome_at: '2026-05-13T00:00:01Z',
+    outcome_summary: null,
+    outcome_error: null,
+    outcome_progress: null,
+    created_at: '2026-05-13T00:00:00Z',
+    elapsed_ms: 1000,
+  };
+}
+
 describe('getActionOutcome', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -159,6 +173,35 @@ describe('setActionOutcome', () => {
     );
     expect(jsonArg).toBeDefined();
   });
+
+  it('closes the lifecycle status and timestamp_end alongside the outcome', async () => {
+    // Regression: the outcome POST used to write only the outcome_* columns,
+    // leaving status='running' forever (no sweep can reach a row whose
+    // outcome is already terminal). /decisions then rendered "RUNNING" beside
+    // a "Completed" badge.
+    const sql = makeSqlMock([[terminalRow('completed')]]);
+    const result = await setActionOutcome(sql, 'org_1', 'act_1', { status: 'completed' });
+    expect(result.ok).toBe(true);
+    const fullSql = sql.mock.calls[0][0].join('');
+    // Only a still-open lifecycle flips — a terminal status and
+    // 'pending_approval' (owned by the approvals expiry sweep) are preserved.
+    expect(fullSql).toMatch(/status\s+=\s+CASE WHEN status IS NULL OR status IN \('running', 'pending'\)/);
+    expect(fullSql).toMatch(/timestamp_end\s+=\s+COALESCE\(timestamp_end,/);
+  });
+
+  it('maps a partial outcome to a failed lifecycle status', async () => {
+    const sql = makeSqlMock([[terminalRow('partial')]]);
+    await setActionOutcome(sql, 'org_1', 'act_1', { status: 'partial', progress: { step: 1 } });
+    // 'partial' is not a lifecycle value: the action did not successfully
+    // complete, and the outcome badge still carries the "Partial" nuance.
+    expect(sql.mock.calls[0]).toContain('failed');
+  });
+
+  it('maps a lost_confirmation outcome to the unknown lifecycle status', async () => {
+    const sql = makeSqlMock([[terminalRow('lost_confirmation')]]);
+    await setActionOutcome(sql, 'org_1', 'act_1', { status: 'lost_confirmation' });
+    expect(sql.mock.calls[0]).toContain('unknown');
+  });
 });
 
 describe('sweepLostOutcomesForOrg', () => {
@@ -238,6 +281,21 @@ describe('sweepLostOutcomesForOrg', () => {
     const backfillSql = sql.mock.calls[1][0].join('');
     expect(backfillSql).toContain("'lost_confirmation'");
     expect(backfillSql).toContain("'unknown'");
+  });
+
+  it('backfills rows stuck in running whose agent-reported outcome is already terminal', async () => {
+    // A row that reported completed/partial/failed via POST /outcome before
+    // setActionOutcome closed the lifecycle is unreachable by the primary
+    // UPDATE (outcome_status is no longer 'pending'), so the backfill must
+    // cover every terminal outcome, not just lost_confirmation.
+    const sql = makeSqlMock([[], [{ action_id: 'act_zombie' }]]);
+    await sweepLostOutcomesForOrg(sql, 'org_a', 15);
+    const backfillSql = sql.mock.calls[1][0].join('');
+    expect(backfillSql).toMatch(/outcome_status\s+IN\s+\('completed',\s*'partial',\s*'failed',\s*'lost_confirmation'\)/);
+    // Lifecycle mapping mirrors setActionOutcome: completed stays completed,
+    // partial/failed read as failed, lost_confirmation as unknown.
+    expect(backfillSql).toMatch(/WHEN outcome_status = 'completed' THEN 'completed'/);
+    expect(backfillSql).toMatch(/WHEN outcome_status IN \('partial', 'failed'\) THEN 'failed'/);
   });
 
   it('a backfill failure never sinks the primary sweep result', async () => {

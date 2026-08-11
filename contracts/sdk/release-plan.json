@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.17.3",
+    "current_version": "5.17.5",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.17.3 (platform-only ship: Tailwind theme tokens made alpha-aware so opacity modifiers compile) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.3 so the registry stays aligned with the platform version.",
+    "reason": "no Node SDK source change in 5.17.5 (platform-only ship: outcome-to-lifecycle reconciliation in setActionOutcome and the stale-outcome sweep backfill) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.5 so the registry stays aligned with the platform version.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.17.3",
+    "current_version": "5.17.5",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.17.3 (platform-only ship: Tailwind theme tokens made alpha-aware so opacity modifiers compile) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.3 so the registry stays aligned with the platform version.",
+    "reason": "no Python SDK source change in 5.17.5 (platform-only ship: outcome-to-lifecycle reconciliation in setActionOutcome and the stale-outcome sweep backfill) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.5 so the registry stays aligned with the platform version.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.17.3 theme tokens honour opacity modifiers. Token colours resolved to plain var(--color-*) strings, which Tailwind cannot apply an opacity modifier to, so every token class written with one compiled to zero CSS - 96 rules across 85 files that never rendered, including keyboard focus rings (which fell back to Tailwind's default blue) and every semantic status border. Fixed in tailwind.config.js by making the token colours function-valued; borderColor and backgroundColor also gained the single-prefix status aliases textColor already had. No callsite changes, no Node/Python SDK surface change.",
+  "reason": "5.17.5 both running and completed. A decision that reported its outcome through POST /api/actions/:id/outcome kept lifecycle status='running' forever, so Decision Replay rendered RUNNING beside a Completed outcome badge on the same line. The two closure paths only reconciled one way: a terminal PATCH implicitly advances outcome_status, but the outcome POST wrote only the outcome_* columns. setActionOutcome now closes status and timestamp_end in the same UPDATE (completed to completed, partial/failed to failed, lost_confirmation to unknown) and only when the lifecycle is still open. Neither sweep UPDATE could reach an affected row (both gate on outcome_status), so the backfill was broadened from lost_confirmation-only to every terminal outcome and existing stuck rows self-heal on the next sweep. No migration. Platform only, no Node/Python SDK surface change.",
   "domains": [
     "platform"
   ]

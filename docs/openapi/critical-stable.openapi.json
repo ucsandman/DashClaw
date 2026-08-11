@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "DashClaw Critical Stable API",
-    "version": "5.17.3",
+    "version": "5.17.5",
     "description": "Generated OpenAPI spec for critical stable DashClaw endpoints. Source: app/api/**/route.js"
   },
   "servers": [
