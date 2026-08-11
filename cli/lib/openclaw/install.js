@@ -1,7 +1,8 @@
 // cli/lib/openclaw/install.js
 
 import { execFile } from 'node:child_process';
-import { AGENTS_MANAGED_START, AGENTS_MANAGED_END } from '../codex/install.js';
+import { existsSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
+import { replaceManagedBlock, AGENTS_MANAGED_START, AGENTS_MANAGED_END } from '../codex/install.js';
 
 /**
  * Upsert KEY=value in .env content. Replaces an existing assignment in place so
@@ -163,4 +164,28 @@ export async function resolveWorkspace({ run }) {
     if (typeof parsed === 'string') return parsed;
   } catch { /* not JSON-quoted — use as-is */ }
   return raw;
+}
+
+/**
+ * Write the governance block into a project's AGENTS.md — creating the file if absent,
+ * preserving surrounding content, and replacing a pre-existing wrong block (one authored
+ * for a different runtime) while leaving a backup.
+ */
+export function mergeAgentsMd({ agentsMdPath, baseUrl, agentId }) {
+  const existed = existsSync(agentsMdPath);
+  const source = existed ? readFileSync(agentsMdPath, 'utf8') : '';
+  const migrated = isCodexAuthoredBlock(source);
+
+  let backup = null;
+  if (existed && source.length > 0) {
+    backup = `${agentsMdPath}.dashclaw-backup`;
+    copyFileSync(agentsMdPath, backup);
+  }
+
+  const next = replaceManagedBlock(source, buildAgentsMdBlock({ baseUrl, agentId }), {
+    startMarker: AGENTS_MANAGED_START,
+    endMarker: AGENTS_MANAGED_END,
+  });
+  writeFileSync(agentsMdPath, next);
+  return { path: agentsMdPath, backup, migrated };
 }

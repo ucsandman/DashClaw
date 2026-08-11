@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { upsertEnvVar, buildAgentsMdBlock, isCodexAuthoredBlock, buildPluginConfigPatch, openclawBin, resolveConfigPath, resolveWorkspace } from '../../cli/lib/openclaw/install.js';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { upsertEnvVar, buildAgentsMdBlock, isCodexAuthoredBlock, buildPluginConfigPatch, openclawBin, resolveConfigPath, resolveWorkspace, mergeAgentsMd } from '../../cli/lib/openclaw/install.js';
 import { AGENTS_MANAGED_START, AGENTS_MANAGED_END } from '../../cli/lib/codex/install.js';
 
 describe('upsertEnvVar', () => {
@@ -148,5 +151,55 @@ describe('resolveConfigPath / resolveWorkspace', () => {
   it('throws a directive error when openclaw fails', async () => {
     const runFail = async () => ({ ok: false, stdout: '', stderr: 'not found' });
     await expect(resolveConfigPath({ run: runFail })).rejects.toThrow(/openclaw config file failed/);
+  });
+});
+
+const opts = { baseUrl: 'https://dc.example.com', agentId: 'forge-openclaw' };
+
+function tmpAgents(initial) {
+  const dir = mkdtempSync(join(tmpdir(), 'oc-agents-'));
+  const p = join(dir, 'AGENTS.md');
+  if (initial !== undefined) writeFileSync(p, initial);
+  return p;
+}
+
+describe('mergeAgentsMd', () => {
+  it('creates the file when absent', () => {
+    const p = tmpAgents();
+    const res = mergeAgentsMd({ agentsMdPath: p, ...opts });
+    expect(readFileSync(p, 'utf8')).toContain('DashClaw Governance Protocol');
+    expect(res.migrated).toBe(false);
+  });
+
+  it('preserves surrounding content', () => {
+    const p = tmpAgents('# House rules\n\nBe kind.\n');
+    mergeAgentsMd({ agentsMdPath: p, ...opts });
+    const out = readFileSync(p, 'utf8');
+    expect(out).toContain('# House rules');
+    expect(out).toContain('Be kind.');
+  });
+
+  it('replaces a codex block and reports the migration, leaving a backup', () => {
+    const p = tmpAgents(
+      '# Rules\n\n<!-- >>> dashclaw start — managed block, do not edit by hand -->\n' +
+      'Call `dashclaw_session_start` via the `dashclaw` MCP server.\n' +
+      'The PreToolUse hook installed by `dashclaw install codex` guards Bash.\n' +
+      '<!-- <<< dashclaw end -->\n',
+    );
+    const res = mergeAgentsMd({ agentsMdPath: p, ...opts });
+    const out = readFileSync(p, 'utf8');
+    expect(res.migrated).toBe(true);
+    expect(existsSync(res.backup)).toBe(true);
+    expect(out).not.toContain('dashclaw_session_start');
+    expect(out).toContain('# Rules');
+    expect(out.match(/dashclaw start/g)).toHaveLength(1); // exactly one block
+  });
+
+  it('is idempotent', () => {
+    const p = tmpAgents('# Rules\n');
+    mergeAgentsMd({ agentsMdPath: p, ...opts });
+    const first = readFileSync(p, 'utf8');
+    mergeAgentsMd({ agentsMdPath: p, ...opts });
+    expect(readFileSync(p, 'utf8')).toBe(first);
   });
 });
