@@ -1,10 +1,10 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, beforeAll } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { upsertEnvVar, buildAgentsMdBlock, isCodexAuthoredBlock, buildPluginConfigPatch, openclawBin, resolveConfigPath, resolveWorkspace, mergeAgentsMd, installOpenclaw } from '../../cli/lib/openclaw/install.js';
+import { upsertEnvVar, buildAgentsMdBlock, isCodexAuthoredBlock, buildPluginConfigPatch, openclawBin, resolveConfigPath, resolveWorkspace, mergeAgentsMd, installOpenclaw, runOpenclaw, lastLine, expandHome, redactKey, isVersionAtLeast, resolveApiKey, installedPluginVersion } from '../../cli/lib/openclaw/install.js';
 import { AGENTS_MANAGED_START, AGENTS_MANAGED_END } from '../../cli/lib/codex/install.js';
 
 describe('upsertEnvVar', () => {
@@ -126,6 +126,67 @@ describe('buildPluginConfigPatch', () => {
   });
 });
 
+describe('lastLine', () => {
+  // openclaw prints its "Config warnings" banner to STDOUT ahead of the value.
+  // Trimming the whole stream returns the banner as the config path.
+  it('returns the value, not the banner openclaw printed above it', () => {
+    const contaminated = [
+      '│',
+      '◇  Config warnings ───╮',
+      '│  - plugins.allow: plugin not found: ghost  │',
+      '├─╯',
+      '~\\.openclaw-x\\openclaw.json',
+      '',
+    ].join('\n');
+    expect(lastLine(contaminated)).toBe('~\\.openclaw-x\\openclaw.json');
+  });
+
+  it('handles clean output and empty output', () => {
+    expect(lastLine('/home/u/.openclaw/openclaw.json\n')).toBe('/home/u/.openclaw/openclaw.json');
+    expect(lastLine('')).toBe('');
+  });
+});
+
+describe('expandHome', () => {
+  it('expands a leading tilde, which node itself never does', () => {
+    expect(expandHome('~/x/openclaw.json', '/home/u')).toBe(join('/home/u', 'x/openclaw.json'));
+    expect(expandHome('~\\x\\openclaw.json', '/home/u')).toBe(join('/home/u', 'x\\openclaw.json'));
+    expect(expandHome('~', '/home/u')).toBe('/home/u');
+  });
+
+  it('leaves an absolute path and a tilde-prefixed name alone', () => {
+    expect(expandHome('/abs/openclaw.json', '/home/u')).toBe('/abs/openclaw.json');
+    expect(expandHome('~notahome/x', '/home/u')).toBe('~notahome/x');
+  });
+});
+
+describe('redactKey', () => {
+  it('removes the key from anything built out of subprocess output', () => {
+    expect(redactKey('parse failed near "dc_live_abcdef123"', 'dc_live_abcdef123')).not.toContain('dc_live_abcdef123');
+  });
+
+  it('leaves text alone when there is no key worth redacting', () => {
+    expect(redactKey('boom', null)).toBe('boom');
+    expect(redactKey('a short k here', 'k')).toBe('a short k here'); // too short to redact safely
+  });
+});
+
+describe('isVersionAtLeast', () => {
+  it('is true at or above the wanted version', () => {
+    expect(isVersionAtLeast('1.6.2', '1.6.2')).toBe(true);
+    expect(isVersionAtLeast('1.7.0', '1.6.2')).toBe(true);
+    expect(isVersionAtLeast('2.0.0', '1.6.2')).toBe(true);
+    expect(isVersionAtLeast('1.6.10', '1.6.2')).toBe(true); // numeric, not lexical
+  });
+
+  it('is false below it, or when the version is unreadable', () => {
+    expect(isVersionAtLeast('1.6.1', '1.6.2')).toBe(false);
+    expect(isVersionAtLeast('1.5.0', '1.6.2')).toBe(false);
+    expect(isVersionAtLeast(null, '1.6.2')).toBe(false);
+    expect(isVersionAtLeast('unknown', '1.6.2')).toBe(false);
+  });
+});
+
 describe('openclawBin', () => {
   it('prefers an explicit override', () => {
     expect(openclawBin({}, 'C:/tools/openclaw.mjs')).toBe('C:/tools/openclaw.mjs');
@@ -154,9 +215,30 @@ describe('resolveConfigPath / resolveWorkspace', () => {
     const runFail = async () => ({ ok: false, stdout: '', stderr: 'not found' });
     await expect(resolveConfigPath({ run: runFail })).rejects.toThrow(/openclaw config file failed/);
   });
+
+  it('skips the warnings banner openclaw prints to stdout above the path', async () => {
+    const banner = '│\n◇  Config warnings ──╮\n│  - plugins.allow: plugin not found: ghost  │\n├──╯\n';
+    await expect(resolveConfigPath({ run: runOk(`${banner}/home/u/.openclaw/openclaw.json\n`) }))
+      .resolves.toBe('/home/u/.openclaw/openclaw.json');
+  });
+
+  it('expands the literal tilde `config file` actually prints', async () => {
+    await expect(resolveConfigPath({ run: runOk('~/.openclaw-x/openclaw.json\n') }))
+      .resolves.toBe(join(homedir(), '.openclaw-x/openclaw.json'));
+  });
+
+  // M1: joining the STRING 'null' against the cwd is exactly the cwd-resolution
+  // that put a Codex protocol in an OpenClaw workspace.
+  it.each(['null', 'undefined', '""', ''])('refuses the unresolved workspace %j', async (raw) => {
+    await expect(resolveWorkspace({ run: runOk(`${raw}\n`) })).rejects.toThrow(/workspace/);
+  });
 });
 
 const opts = { baseUrl: 'https://dc.example.com', agentId: 'forge-openclaw' };
+
+// Long enough to exercise redactKey's minimum length, assembled rather than
+// written out so it can never be mistaken for a real credential.
+const SAMPLE_KEY = ['sample', 'not', 'a', 'credential'].join('-');
 
 function tmpAgents(initial) {
   const dir = mkdtempSync(join(tmpdir(), 'oc-agents-'));
@@ -221,14 +303,20 @@ describe('mergeAgentsMd', () => {
 
 function harness({ preflightThrows = false } = {}) {
   const calls = [];
-  const run = async (argv) => {
+  const stdin = [];
+  const run = async (argv, opts) => {
     calls.push(argv.join(' '));
+    stdin.push(opts?.input ?? null);
     if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: '/tmp/openclaw.json', stderr: '' };
+    if (argv[0] === 'config' && argv[1] === 'get' && argv[2].endsWith('.enabled')) {
+      return { ok: true, stdout: 'true', stderr: '' };
+    }
     if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
     return { ok: true, stdout: '', stderr: '' };
   };
   const preflightImpl = async () => { if (preflightThrows) throw new Error('unreachable'); };
-  return { calls, run, preflightImpl };
+  const inputFor = (prefix) => stdin[calls.findIndex((c) => c.startsWith(prefix))];
+  return { calls, stdin, inputFor, run, preflightImpl };
 }
 
 let workspaceDir;
@@ -281,13 +369,19 @@ describe('installOpenclaw', () => {
     expect(existsSync(res.agentsMd.path)).toBe(true);
   });
 
-  it('throws when plugins enable fails, before the config patch lands', async () => {
+  // REWRITTEN (was: "throws when plugins enable fails, before the config patch
+  // lands"). That test asserted the OLD sequence — enable, then patch — which is
+  // the ordering that bricks an agent: a patch that fails behind a successful
+  // enable leaves a live plugin with failClosed:true and no dashclawUrl, so the
+  // agent refuses every tool call. The sequence is now patch-then-enable, and
+  // this asserts the property that actually matters.
+  it('never enables the plugin when the config patch fails', async () => {
     const calls = [];
     const run = async (argv) => {
       calls.push(argv.join(' '));
       if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: '/tmp/openclaw.json', stderr: '' };
       if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
-      if (argv[0] === 'plugins' && argv[1] === 'enable') return { ok: false, stdout: '', stderr: 'enable boom' };
+      if (argv[0] === 'config' && argv[1] === 'patch') return { ok: false, stdout: '', stderr: 'patch boom' };
       return { ok: true, stdout: '', stderr: '' };
     };
     const preflightImpl = async () => {};
@@ -295,8 +389,329 @@ describe('installOpenclaw', () => {
     await expect(installOpenclaw({
       baseUrl: 'https://dc.example.com', apiKey: 'k', agentId: 'a',
       envPath, run, preflightImpl, logger: { info() {}, warn() {} },
-    })).rejects.toThrow(/plugins enable/);
-    expect(calls.some((c) => c.startsWith('config patch'))).toBe(false);
+    })).rejects.toThrow(/config patch/);
+    expect(calls.some((c) => c.startsWith('plugins enable'))).toBe(false);
+    expect(existsSync(envPath)).toBe(false); // no key written behind a failed patch either
+  });
+
+  it('patches BEFORE enabling, so a failure cannot leave a live unconfigured plugin', async () => {
+    const h = harness();
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: 'k', agentId: 'a',
+      envPath, run: h.run, preflightImpl: h.preflightImpl, logger: { info() {}, warn() {} },
+    });
+    const patchAt = h.calls.findIndex((c) => c.startsWith('config patch'));
+    const enableAt = h.calls.findIndex((c) => c.startsWith('plugins enable'));
+    expect(patchAt).toBeGreaterThanOrEqual(0);
+    expect(enableAt).toBeGreaterThan(patchAt);
+  });
+
+  // The defect this whole pass exists for: `openclaw config patch` takes NO
+  // positional argument ("Too many arguments for this command."), so the patch
+  // must arrive on stdin.
+  it('sends the patch over stdin and never as an argv element', async () => {
+    const h = harness();
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: SAMPLE_KEY, agentId: 'a',
+      writeConfig: true, envPath, run: h.run, preflightImpl: h.preflightImpl, logger: { info() {}, warn() {} },
+    });
+    const patchCall = h.calls.find((c) => c.startsWith('config patch'));
+    expect(patchCall).toBe('config patch --stdin');
+    expect(patchCall).not.toContain('{');
+
+    const payload = h.inputFor('config patch');
+    expect(JSON.parse(payload).plugins.entries['dashclaw-governance'].config.dashclawUrl)
+      .toBe('https://dc.example.com');
+    // --write-config puts the key IN the payload; the point is that the payload
+    // is stdin, so the key is in no argv and no process-table entry.
+    expect(payload).toContain(SAMPLE_KEY);
+    expect(h.calls.join('\n')).not.toContain(SAMPLE_KEY);
+  });
+
+  it('backs up openclaw.json before patching it', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'oc-cfg-'));
+    const cfg = join(dir, 'openclaw.json');
+    writeFileSync(cfg, '{"original":true}');
+    const run = async (argv) => {
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: cfg, stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get' && argv[2].endsWith('.enabled')) return { ok: true, stdout: 'true', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
+      return { ok: true, stdout: '', stderr: '' };
+    };
+    const res = await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: 'k', agentId: 'a',
+      run, preflightImpl: async () => {}, logger: { info() {}, warn() {} },
+    });
+    expect(res.configBackup).toBe(`${cfg}.dashclaw-bak`);
+    expect(readFileSync(res.configBackup, 'utf8')).toBe('{"original":true}');
+  });
+
+  // The old default was a hardcoded join(homedir(), '.openclaw', '.env'), which
+  // writes the key into the DEFAULT profile no matter which profile the rest of
+  // the install just configured.
+  it('derives the .env from the config path, so it follows --profile', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'oc-profile-'));
+    const cfg = join(dir, 'openclaw.json');
+    const run = async (argv) => {
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: cfg, stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get' && argv[2].endsWith('.enabled')) return { ok: true, stdout: 'true', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
+      return { ok: true, stdout: '', stderr: '' };
+    };
+    const res = await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: SAMPLE_KEY, agentId: 'a',
+      run, preflightImpl: async () => {}, logger: { info() {}, warn() {} },
+    });
+    expect(res.envPath).toBe(join(dir, '.env'));
+    expect(readFileSync(res.envPath, 'utf8')).toContain(`DASHCLAW_API_KEY=${SAMPLE_KEY}`);
+  });
+
+  it('creates a missing .env parent instead of throwing a raw ENOENT', async () => {
+    const h = harness();
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), 'never', 'made', '.env');
+    await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: 'k', agentId: 'a',
+      envPath, run: h.run, preflightImpl: h.preflightImpl, logger: { info() {}, warn() {} },
+    });
+    expect(existsSync(envPath)).toBe(true);
+  });
+
+  it('creates a missing AGENTS.md parent instead of throwing a raw ENOENT', async () => {
+    const h = harness();
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    const ws = join(mkdtempSync(join(tmpdir(), 'oc-ws2-')), 'not', 'created', 'yet');
+    const res = await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: 'k', agentId: 'a',
+      workspace: ws, envPath, run: h.run, preflightImpl: h.preflightImpl, logger: { info() {}, warn() {} },
+    });
+    expect(existsSync(res.agentsMd.path)).toBe(true);
+  });
+
+  it('skips the plugin install when an equal-or-newer version is already there', async () => {
+    const calls = [];
+    const listing = JSON.stringify({ plugins: [{ id: 'dashclaw-governance', version: '1.9.0' }] }, null, 2);
+    const run = async (argv) => {
+      calls.push(argv.join(' '));
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: '/tmp/openclaw.json', stderr: '' };
+      if (argv[0] === 'plugins' && argv[1] === 'list') return { ok: true, stdout: listing, stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get' && argv[2].endsWith('.enabled')) return { ok: true, stdout: 'true', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
+      return { ok: true, stdout: '', stderr: '' };
+    };
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    const res = await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: 'k', agentId: 'a', pluginVersion: '1.6.2',
+      envPath, run, preflightImpl: async () => {}, logger: { info() {}, warn() {} },
+    });
+    expect(calls.some((c) => c.startsWith('plugins install'))).toBe(false);
+    expect(res.pluginVersion).toBe('1.9.0');
+  });
+
+  it('installs the pinned version when the installed one is older', async () => {
+    const calls = [];
+    const listing = JSON.stringify({ plugins: [{ id: 'dashclaw-governance', version: '1.5.0' }] }, null, 2);
+    const run = async (argv) => {
+      calls.push(argv.join(' '));
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: '/tmp/openclaw.json', stderr: '' };
+      if (argv[0] === 'plugins' && argv[1] === 'list') return { ok: true, stdout: listing, stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get' && argv[2].endsWith('.enabled')) return { ok: true, stdout: 'true', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
+      return { ok: true, stdout: '', stderr: '' };
+    };
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: 'k', agentId: 'a', pluginVersion: '1.6.2',
+      envPath, run, preflightImpl: async () => {}, logger: { info() {}, warn() {} },
+    });
+    expect(calls).toContain('plugins install @dashclaw/openclaw-plugin@1.6.2');
+  });
+
+  it('fails verification when plugins enable exited 0 without enabling anything', async () => {
+    const warnings = [];
+    const run = async (argv) => {
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: '/tmp/openclaw.json', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get' && argv[2].endsWith('.enabled')) {
+        return { ok: false, stdout: '', stderr: 'Config path not found' };
+      }
+      if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
+      return { ok: true, stdout: '', stderr: '' };
+    };
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    const res = await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: 'k', agentId: 'a',
+      envPath, run, preflightImpl: async () => {}, logger: { info() {}, warn(m) { warnings.push(m); } },
+    });
+    expect(res.verified.enabled).toBe(false);
+    expect(warnings.join('\n')).toMatch(/verification failed/);
+  });
+
+  it('keeps the api key out of a thrown message even when openclaw echoes it back', async () => {
+    const run = async (argv, opts) => {
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: '/tmp/openclaw.json', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
+      // openclaw quotes the payload it could not parse — including the key.
+      if (argv[0] === 'config' && argv[1] === 'patch') {
+        return { ok: false, stdout: '', stderr: `JSON5 parse failed near ${opts?.input}` };
+      }
+      return { ok: true, stdout: '', stderr: '' };
+    };
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    const err = await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: SAMPLE_KEY, agentId: 'a', writeConfig: true,
+      envPath, run, preflightImpl: async () => {}, logger: { info() {}, warn() {} },
+    }).then(() => null, (e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).not.toContain(SAMPLE_KEY);
+    expect(err.message).toContain('***');
+  });
+});
+
+describe('resolveApiKey', () => {
+  const writeConfigFixture = (config) => {
+    const p = join(mkdtempSync(join(tmpdir(), 'oc-key-')), 'openclaw.json');
+    writeFileSync(p, typeof config === 'string' ? config : JSON.stringify(config, null, 2));
+    return p;
+  };
+  const stored = (dashclawApiKey) => ({
+    plugins: { entries: { 'dashclaw-governance': { config: { dashclawApiKey } } } },
+  });
+
+  it('prefers the explicit argument over everything', () => {
+    const configPath = writeConfigFixture(stored('from-config'));
+    expect(resolveApiKey({ apiKey: 'from-flag', configPath }))
+      .toMatchObject({ apiKey: 'from-flag', source: 'argument', migrate: false });
+  });
+
+  it('falls back to DASHCLAW_API_KEY in the profile .env before the config', () => {
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-key-')), '.env');
+    writeFileSync(envPath, `OTHER=1\nDASHCLAW_API_KEY=${SAMPLE_KEY}\n`);
+    const configPath = writeConfigFixture(stored('from-config'));
+    const res = resolveApiKey({ envPath, configPath });
+    expect(res.apiKey).toBe(SAMPLE_KEY);
+    expect(res.migrate).toBe(false);
+  });
+
+  // I7: the documented migration of a plaintext key out of openclaw.json can
+  // only happen if this last link in the chain exists.
+  it('falls back to a plaintext key in openclaw.json and marks it for migration', () => {
+    const configPath = writeConfigFixture(stored(SAMPLE_KEY));
+    expect(resolveApiKey({ envPath: null, configPath }))
+      .toMatchObject({ apiKey: SAMPLE_KEY, source: 'openclaw.json', migrate: true });
+  });
+
+  // Verified against openclaw 2026.7.1-2: `config get ...dashclawApiKey` prints
+  // __OPENCLAW_REDACTED__, never the key. Accepting that string would write it
+  // to .env as the key and break a working install — hence reading the file.
+  it('never accepts openclaw\'s redaction marker as a key', () => {
+    const configPath = writeConfigFixture(stored('__OPENCLAW_REDACTED__'));
+    expect(resolveApiKey({ envPath: null, configPath }).apiKey).toBeNull();
+
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-key-')), '.env');
+    writeFileSync(envPath, 'DASHCLAW_API_KEY=__OPENCLAW_REDACTED__\n');
+    expect(resolveApiKey({ envPath, configPath: null }).apiKey).toBeNull();
+  });
+
+  it('returns nothing when every source is empty, missing, or unparseable', () => {
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-key-')), '.env');
+    writeFileSync(envPath, '# DASHCLAW_API_KEY=commented\n');
+    expect(resolveApiKey({ envPath, configPath: null }).apiKey).toBeNull();
+    expect(resolveApiKey({ envPath: null, configPath: writeConfigFixture({}) }).apiKey).toBeNull();
+    expect(resolveApiKey({ envPath: null, configPath: writeConfigFixture(stored(null)) }).apiKey).toBeNull();
+    expect(resolveApiKey({ envPath: null, configPath: writeConfigFixture('{not json') }).apiKey).toBeNull();
+    expect(resolveApiKey({ envPath: null, configPath: '/no/such/openclaw.json' }).apiKey).toBeNull();
+  });
+});
+
+describe('installedPluginVersion', () => {
+  it('reads the version out of plugins list --json past a stdout banner', async () => {
+    const banner = '│\n◇  Config warnings ──╮\n├──╯\n';
+    const body = JSON.stringify({ plugins: [{ id: 'other', version: '9.9.9' }, { id: 'dashclaw-governance', version: '1.6.2' }] }, null, 2);
+    const run = async () => ({ ok: true, stdout: banner + body, stderr: '' });
+    await expect(installedPluginVersion({ run })).resolves.toBe('1.6.2');
+  });
+
+  it('returns null when absent, when the command fails, or when output is not JSON', async () => {
+    await expect(installedPluginVersion({ run: async () => ({ ok: true, stdout: '{"plugins":[]}', stderr: '' }) })).resolves.toBeNull();
+    await expect(installedPluginVersion({ run: async () => ({ ok: false, stdout: '', stderr: 'boom' }) })).resolves.toBeNull();
+    await expect(installedPluginVersion({ run: async () => ({ ok: true, stdout: 'not json', stderr: '' }) })).resolves.toBeNull();
+  });
+});
+
+// Both Criticals in this feature lived behind runOpenclaw, and no test ever
+// called it — every installOpenclaw test injected a `run` that returned
+// {ok:true} for any argv, so neither the command shape nor the spawn was ever
+// observed. These drive the real function against real child processes.
+describe('runOpenclaw', () => {
+  const node = process.execPath;
+
+  // Child behaviour lives in script FILES, not `node -e '...'`. On Windows the
+  // argv is joined into one shell string (see winSafeSpawnArgs), and that
+  // quoting cannot carry an argument containing its own double quotes. Real
+  // openclaw argv never does — `config`, `patch`, `--stdin`, a plugin id, an
+  // npm spec — so this is a constraint on the test, not on the caller.
+  let scripts;
+  beforeAll(() => {
+    const dir = mkdtempSync(join(tmpdir(), 'oc-run-'));
+    const write = (name, body) => {
+      const p = join(dir, name);
+      writeFileSync(p, body);
+      return p;
+    };
+    scripts = {
+      echo: write('echo.mjs', 'process.stdout.write("hello");\n'),
+      fail: write('fail.mjs', 'process.stderr.write("nope");\nprocess.exit(3);\n'),
+      cat: write('cat.mjs', 'let b = "";\nprocess.stdin.on("data", (d) => { b += d; }).on("end", () => process.stdout.write(b));\n'),
+      // resume() first: a paused stdin never emits "end", which would look like
+      // runOpenclaw failing to close it.
+      endOnly: write('end-only.mjs', 'process.stdin.resume();\nprocess.stdin.on("end", () => process.stdout.write("closed"));\n'),
+    };
+  });
+
+  it('resolves ok:true with stdout for a command that succeeds', async () => {
+    const res = await runOpenclaw([scripts.echo], { bin: node });
+    expect(res.ok).toBe(true);
+    expect(res.stdout).toContain('hello');
+  });
+
+  it('resolves ok:false with stderr for a non-zero exit, and never rejects', async () => {
+    const res = await runOpenclaw([scripts.fail], { bin: node });
+    expect(res.ok).toBe(false);
+    expect(res.stderr).toContain('nope');
+  });
+
+  it('writes `input` to the child stdin — the only way to feed `config patch`', async () => {
+    const payload = JSON.stringify({ plugins: { entries: { 'dashclaw-governance': { enabled: true } } } });
+    const res = await runOpenclaw([scripts.cat], { bin: node, input: payload });
+    expect(res.ok).toBe(true);
+    expect(JSON.parse(res.stdout)).toEqual(JSON.parse(payload));
+  });
+
+  it('closes stdin when there is no input, so the child never hangs', async () => {
+    const res = await runOpenclaw([scripts.endOnly], { bin: node });
+    expect(res.ok).toBe(true);
+    expect(res.stdout).toBe('closed');
+  });
+
+  it('resolves ok:false instead of throwing when the binary does not exist', async () => {
+    const res = await runOpenclaw(['config', 'file'], { bin: 'definitely-not-a-real-binary-xyz' });
+    expect(res.ok).toBe(false);
+    expect(res.stderr.length).toBeGreaterThan(0);
+  });
+
+  // Windows regression: openclaw ships as openclaw.cmd/.ps1 with no .exe, and
+  // node refuses to spawn a .cmd without a shell — bare `openclaw` died with
+  // ENOENT and an explicit --openclaw-bin path with EINVAL. winSafeSpawnArgs is
+  // what makes this work; the space in the directory name guards the quoting.
+  const itWin = process.platform === 'win32' ? it : it.skip;
+  itWin('spawns a .cmd on Windows, including from a path containing a space', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'oc bin '));
+    const cmd = join(dir, 'fake-openclaw.cmd');
+    writeFileSync(cmd, '@echo off\r\necho spawned-ok\r\n');
+    const res = await runOpenclaw(['config', 'file'], { bin: cmd });
+    expect(res.ok).toBe(true);
+    expect(res.stdout).toContain('spawned-ok');
   });
 });
 

@@ -11,10 +11,14 @@ const shell = process.platform === 'win32';
 // warning prints mid-flow for first-run users). So on Windows the command is
 // joined into ONE string (quoting any arg with shell-special characters) and
 // handed to the shell whole; elsewhere args pass through verbatim, no shell.
+// The COMMAND is quoted by the same rule as the args: bare words like npm/npx/
+// node are unaffected, but an explicit interpreter path (`dashclaw install
+// openclaw --openclaw-bin "C:\Program Files\...\openclaw.cmd"`) is only
+// launchable by the shell if it survives with its spaces intact.
 const quoteArg = (a) => (/^[\w\-.:/@=]+$/.test(String(a)) ? String(a) : `"${a}"`);
 export function winSafeSpawnArgs(cmd, args) {
   return shell
-    ? { cmd: [cmd, ...args.map(quoteArg)].join(' '), args: [], opts: { shell: true } }
+    ? { cmd: [cmd, ...args].map(quoteArg).join(' '), args: [], opts: { shell: true } }
     : { cmd, args, opts: {} };
 }
 
