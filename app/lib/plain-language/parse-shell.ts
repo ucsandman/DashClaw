@@ -22,7 +22,10 @@ export interface ShellStage {
 /** Binaries whose first bare word is a meaningful subcommand. */
 const SUBCOMMAND_BINARIES = new Set(['git', 'npm', 'npx', 'docker', 'kubectl', 'pnpm', 'yarn', 'cargo', 'pip']);
 
-/** Split on |, && , || and ; while respecting single and double quotes. */
+/**
+ * Split on |, && , || and ; while respecting single and double quotes and
+ * backslash escapes.
+ */
 function splitStages(command: string): string[] {
   const out: string[] = [];
   let buf = '';
@@ -36,6 +39,18 @@ function splitStages(command: string): string[] {
       buf += ch;
       continue;
     }
+    if (ch === '\\') {
+      // Outside quotes, a backslash escapes the next character so it
+      // cannot act as a separator or start a quote — e.g. `foo\; bar` is
+      // one command, not two. The escaped character is kept as-is here;
+      // only tokenise() resolves it to its final, unescaped form.
+      buf += ch;
+      if (i + 1 < command.length) {
+        buf += command[i + 1];
+        i += 1;
+      }
+      continue;
+    }
     if (ch === '"' || ch === "'") {
       quote = ch;
       buf += ch;
@@ -44,7 +59,8 @@ function splitStages(command: string): string[] {
     if (ch === ';' || ch === '|' || ch === '&') {
       // Consume a doubled operator (&& or ||) as one separator.
       if ((ch === '&' || ch === '|') && command[i + 1] === ch) i += 1;
-      // A single & is backgrounding, not a separator we care about.
+      // A single & backgrounds the preceding command, which ends it, so
+      // it is treated as a stage separator too.
       out.push(buf);
       buf = '';
       continue;
@@ -55,12 +71,16 @@ function splitStages(command: string): string[] {
   return out.map((s) => s.trim()).filter(Boolean);
 }
 
-/** Split a stage into words, keeping quoted runs together and unquoting them. */
+/**
+ * Split a stage into words, keeping quoted runs together, unquoting them,
+ * and resolving backslash escapes.
+ */
 function tokenise(stage: string): string[] {
   const out: string[] = [];
   let buf = '';
   let quote: string | null = null;
   let quoted = false;
+  let escaped = false;
 
   const flush = () => {
     if (buf || quoted) out.push(buf);
@@ -69,12 +89,24 @@ function tokenise(stage: string): string[] {
   };
 
   for (const ch of stage) {
+    if (escaped) {
+      buf += ch;
+      escaped = false;
+      continue;
+    }
     if (quote) {
       if (ch === quote) {
         quote = null;
       } else {
         buf += ch;
       }
+      continue;
+    }
+    if (ch === '\\') {
+      // Outside quotes, a backslash escapes the next character so it
+      // cannot act as a separator, a quote, or whitespace; the backslash
+      // itself is dropped, the same way a quote character is dropped.
+      escaped = true;
       continue;
     }
     if (ch === '"' || ch === "'") {
@@ -92,6 +124,20 @@ function tokenise(stage: string): string[] {
   return out;
 }
 
+/**
+ * Whether a bare word has subcommand shape: lowercase alphanumeric groups
+ * joined by single dashes. A value-taking global flag donates its value to
+ * the bare-word list ahead of the real subcommand (`npm --prefix ./x
+ * install`, `git -C /repo status`) — this parser has no notion of flag
+ * arity, so positionally it cannot tell that value apart from a subcommand.
+ * Naming that value as the subcommand would be an actively wrong noun, and
+ * this module would rather answer "no subcommand" than answer wrong. A path
+ * (containing '/', '\' or starting with '.') never matches.
+ */
+function looksLikeSubcommand(word: string): boolean {
+  return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(word);
+}
+
 export function parseShell(command: string): ShellStage[] {
   return splitStages(command).map((raw) => {
     const tokens = tokenise(raw);
@@ -103,8 +149,9 @@ export function parseShell(command: string): ShellStage[] {
 
     let subcommand: string | undefined;
     let operands = bare;
-    if (SUBCOMMAND_BINARIES.has(binary) && bare.length > 0) {
-      subcommand = bare[0];
+    const candidate = bare[0];
+    if (SUBCOMMAND_BINARIES.has(binary) && candidate !== undefined && looksLikeSubcommand(candidate)) {
+      subcommand = candidate;
       operands = bare.slice(1);
     }
 
