@@ -5,6 +5,7 @@ import { Card, CardHeader, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { parseJsonArray } from '../../../lib/parseJson';
 import { describeAction } from '../../../lib/plain-language';
+import { IRREVERSIBLE_TEXT } from '../../../lib/plain-language/types';
 import { formatTime } from './helpers';
 
 interface PoliciesTabProps {
@@ -66,10 +67,22 @@ export default function PoliciesTab({ actionId, action, guardDecision, trace, as
                     <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
                       In plain English
                     </div>
+                    {/* This page has no red irreversibility band of its own, and
+                        describeAction drops the sentence from `warnings` once the
+                        classifier has said reversible:false (the approvals card
+                        renders it as the band). Say it here explicitly, or the
+                        detail page tells the reader strictly less than the queue. */}
+                    {plain.reversible === false && (
+                      <p className="mb-1 text-sm font-semibold text-error">{IRREVERSIBLE_TEXT}</p>
+                    )}
                     <p className="text-sm text-white">{plain.headline}</p>
                     {plain.warnings.map((w) => (
                       <p key={w} className="mt-1 text-sm text-warning">{w}</p>
                     ))}
+                    {/* Not amber: a reassurance is the absence of a problem. */}
+                    {plain.reassurance && (
+                      <p className="mt-1 text-sm text-tertiary">{plain.reassurance}</p>
+                    )}
                   </div>
                 );
               })()}

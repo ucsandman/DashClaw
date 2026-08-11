@@ -92,7 +92,10 @@ const PENDING_POOL: Record<string, unknown>[] = [
   },
   {
     action_type: 'deploy',
-    declared_goal: 'Bash: psql "$DATABASE_URL" -c "DROP TABLE sessions"',
+    // No `$VAR`: a command the shell could expand is refused a confident
+    // reading by design, so the original fixture demonstrated the refusal
+    // path rather than the SQL rule it was written to show.
+    declared_goal: 'Bash: psql -h localhost -d app -c "DROP TABLE sessions"',
     risk_score: 94,
     reversible: 0,
     intel: { bash: { intent: 'destructive', risk_score: 94, reversible: false } },

@@ -5,6 +5,7 @@ import {
   AlertTriangle, ShieldAlert, Check, X, Clock, User, Zap,
   RefreshCw, Info, Ban, Hourglass, AppWindow,
 } from 'lucide-react';
+import { IRREVERSIBLE_TEXT } from '../lib/plain-language/types';
 import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -450,7 +451,7 @@ export default function ApprovalsPage() {
                                 {action.plain?.reversible === false && (
                                   <div className="mb-3 flex items-start gap-2 rounded-r-lg border-l-2 border-error bg-error/10 px-3 py-2 text-sm text-error">
                                     <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-                                    <span><strong className="font-semibold">This cannot be undone.</strong></span>
+                                    <span><strong className="font-semibold">{IRREVERSIBLE_TEXT}</strong></span>
                                   </div>
                                 )}
                                 <h3
@@ -469,6 +470,15 @@ export default function ApprovalsPage() {
                                     <span>{w}</span>
                                   </p>
                                 ))}
+                                {/* A reassurance is the absence of a problem, so it must not
+                                    wear the attention colour: amber is reserved for when
+                                    attention is actually required (.impeccable.md). */}
+                                {action.plain?.reassurance && (
+                                  <p className="mt-1.5 flex items-start gap-2 text-sm text-tertiary">
+                                    <Check size={14} className="mt-0.5 shrink-0" />
+                                    <span>{action.plain.reassurance}</span>
+                                  </p>
+                                )}
                                 {/* The literal command is never hidden or replaced. An
                                     operator who does not trust the sentence can always
                                     drop to the exact text, with no click.

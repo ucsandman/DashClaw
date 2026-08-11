@@ -1,7 +1,15 @@
 import { describeBash, type BashIntel } from './bash';
 import { describeFile, type FileIntel } from './files';
 import { describeGenericTool, describeMcp } from './tools';
-import { applySafetyFloor, clampHeadline, MAX_HEADLINE, type PlainDescription, unknownDescription } from './types';
+import {
+  applySafetyFloor,
+  clampHeadline,
+  IRREVERSIBLE_TEXT,
+  MAX_HEADLINE,
+  READ_ONLY_REASSURANCE,
+  type PlainDescription,
+  unknownDescription,
+} from './types';
 
 export type { PlainDescription, Confidence } from './types';
 export { MAX_HEADLINE } from './types';
@@ -85,7 +93,42 @@ export function describeAction(input: DescribeInput): PlainDescription {
 
   // clampHeadline runs last so it covers every rule and the safety floor's
   // own replacement text — nothing downstream can widen what it bounded.
-  return clampHeadline(applySafetyFloor(desc, input.risk_score ?? 0));
+  return splitPresentation(clampHeadline(applySafetyFloor(desc, input.risk_score ?? 0)));
+}
+
+/**
+ * Presentation-only pass, applied after every safety rule has had its say.
+ *
+ * Two things travelled in `warnings` that are not warnings:
+ *
+ * 1. The read-rule's reassurance. "Reads only, changes nothing." rendered in
+ *    the same amber, behind the same triangle, as "Work other people pushed
+ *    can be lost." — so the safest action on the queue wore the alarm colour.
+ *    It moves to `reassurance`. Crucially this runs AFTER describeBash's
+ *    calm-eligibility filter, so a reassurance that was suppressed as
+ *    unsupportable is already gone and can never be resurrected here.
+ *
+ * 2. The irreversibility sentence. `bash.sql.drop` and `bash.sql.delete`
+ *    emit it as a warning so the fact survives when the classifier sent no
+ *    reversibility at all — but when the classifier DID say `reversible:
+ *    false`, the card already renders that exact sentence as its red band,
+ *    and the operator read it twice in two colours. Dropped only in that
+ *    case, so the no-intel path keeps its only signal.
+ *
+ * Neither branch can invent text: both compare against the module's own
+ * fixed phrases.
+ */
+function splitPresentation(desc: PlainDescription): PlainDescription {
+  const reassurance = desc.warnings.includes(READ_ONLY_REASSURANCE)
+    ? READ_ONLY_REASSURANCE
+    : undefined;
+
+  const warnings = desc.warnings.filter(
+    (w) => w !== READ_ONLY_REASSURANCE && !(desc.reversible === false && w === IRREVERSIBLE_TEXT),
+  );
+
+  if (!reassurance && warnings.length === desc.warnings.length) return desc;
+  return { ...desc, warnings, ...(reassurance ? { reassurance } : {}) };
 }
 
 /**
@@ -110,10 +153,26 @@ export function plainNotificationLines(desc: PlainDescription): string[] {
   if (desc.confidence === 'unknown') return [];
   const lines = [desc.headline];
   let used = desc.headline.length;
-  for (const warning of desc.warnings) {
-    if (used + 1 + warning.length > MAX_NOTIFICATION_PLAIN) break;
-    lines.push(warning);
-    used += 1 + warning.length;
+
+  // The approvals card renders irreversibility as a red band above the
+  // sentence. A chat message has no band, so it has to be said in words or
+  // the operator reading Telegram is told strictly less than the operator
+  // reading the dashboard — and this is the one fact most worth telling.
+  // Worst first. The sql rules also carry this sentence as a warning when no
+  // classifier reversibility arrived, so the warning list is filtered to keep
+  // it from being said twice.
+  const body = [
+    ...(desc.reversible === false ? [IRREVERSIBLE_TEXT] : []),
+    ...desc.warnings.filter((w) => w !== IRREVERSIBLE_TEXT),
+    // A reassurance is the least urgent thing here, so it goes last and is
+    // the first casualty of the budget.
+    ...(desc.reassurance ? [desc.reassurance] : []),
+  ];
+
+  for (const line of body) {
+    if (used + 1 + line.length > MAX_NOTIFICATION_PLAIN) break;
+    lines.push(line);
+    used += 1 + line.length;
   }
   return lines;
 }

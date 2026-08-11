@@ -14,6 +14,46 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-11 — amber should mean look
+
+Three releases in one day on the same feature, and each one was found the same
+way: by looking at the rendered page rather than at a green pipeline.
+
+v5.19.0 fixes two things the approvals card was saying wrongly. The first is a
+colour. "Reads only, changes nothing." travelled in the same `warnings` array
+as "Work other people pushed can be lost.", so the single safest action on the
+queue rendered in amber, behind a warning triangle. On a surface whose whole
+job is to make attention scarce, that is exactly backwards — and this repo's
+own design context reserves the attention colour for when attention is
+actually required. It now has its own field and renders muted, behind a check.
+
+The interesting part was where to put the split. The rules deliberately emit
+that reassurance *into* `warnings`, because the pipeline's calm-eligibility
+filter needs to strip it when the command is not solely a read: `ls -la &&
+rm -rf ./dist` must never reassure anyone. So the split happens last, in
+`describeAction`, after that filter has had its say. A reassurance suppressed
+as unsupportable is already gone by then and cannot be resurrected. There is a
+test for exactly that, because it is the one way this change could have
+quietly reintroduced the calm lie the feature was built to prevent.
+
+The second is a duplicate. `bash.sql.drop` emits "This cannot be undone." as a
+warning so the fact survives when the classifier sends no reversibility at
+all — but when the classifier *did* say `reversible: false`, the card already
+rendered that exact sentence as its red band. An irreversible `DROP TABLE`
+printed the same sentence twice, in two different colours, one above the
+other. De-duplicating it turned up a better bug underneath: the decision
+detail page and the Telegram and Discord cards have no band at all, so the
+obvious fix would have deleted the sentence from them entirely. Both now say
+it in words, which also closes a gap nobody had noticed — an `rm -rf`
+notification warned about the Recycle Bin but had never once said "this cannot
+be undone", because on the card that was always the band's job.
+
+Both bugs had zero test coverage, which is how they shipped. Nine tests now
+cover the split, the de-duplication, the no-intel path that must *keep* the
+warning, and both notification paths. The pattern holds from this morning:
+every one of these was invisible to lint, typecheck, 4,300 tests and a green
+CI, and obvious within seconds of opening the page.
+
 ## 2026-08-11 — the approvals queue learns to speak English, and a feature that was never once looked at
 
 An approval you do not understand is an approval you rubber-stamp. The queue

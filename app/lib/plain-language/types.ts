@@ -8,6 +8,18 @@
 
 export type Confidence = 'high' | 'partial' | 'unknown';
 
+/**
+ * The irreversibility sentence. The approvals card renders it as its own red
+ * band above the headline, so a rule that ALSO emitted it as a warning
+ * printed the identical sentence twice on one card in two different colours
+ * (measured on `psql -c "DROP TABLE …"`, 2026-08-11). Shared so the band, the
+ * rules, and the de-duplication in describeAction cannot drift apart.
+ */
+export const IRREVERSIBLE_TEXT = 'This cannot be undone.';
+
+/** The only phrase in the module that means "relax" rather than "look". */
+export const READ_ONLY_REASSURANCE = 'Reads only, changes nothing.';
+
 export interface PlainDescription {
   /** One sentence, present tense, second person. The card headline. */
   headline: string;
@@ -15,6 +27,22 @@ export interface PlainDescription {
   detail?: string;
   /** Plain-English warnings, worst first. Drawn only from fixed phrases. */
   warnings: string[];
+  /**
+   * The one phrase that tells the operator to relax rather than to look.
+   *
+   * It used to travel in `warnings`, which meant the safest possible action —
+   * a plain read — wore the same amber triangle as "Work other people pushed
+   * can be lost." On a surface whose job is to make attention scarce, that is
+   * backwards: `.impeccable.md` reserves the attention colour for when
+   * attention is actually required. Split out so the renderer can style it as
+   * the absence of a problem.
+   *
+   * It is populated LAST, in describeAction, from the composed warning list,
+   * so every rule and the pipeline's calm-eligibility filter keep their
+   * existing semantics — a reassurance that was suppressed as unsupportable
+   * never reaches this field, because it was already gone.
+   */
+  reassurance?: string;
   confidence: Confidence;
   reversible: boolean | 'unknown';
   /** Which rule produced this. Used by golden tests and the safety floor. */

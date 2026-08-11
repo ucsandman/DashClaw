@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.18.1",
+    "current_version": "5.19.0",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.18.1 (platform-only ship: demo-mode parity for plain-language approvals) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.18.1 so the registry stays aligned with the platform version.",
+    "reason": "no Node SDK source change in 5.19.0 (platform-only ship: reassurance and irreversibility split out of the plain-language warning list) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.19.0 so the registry stays aligned with the platform version.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.18.1",
+    "current_version": "5.19.0",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.18.1 (platform-only ship: demo-mode parity for plain-language approvals) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.18.1 so the registry stays aligned with the platform version.",
+    "reason": "no Python SDK source change in 5.19.0 (platform-only ship: reassurance and irreversibility split out of the plain-language warning list) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.19.0 so the registry stays aligned with the platform version.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.18.1 closes the gap 5.18.0 opened: the landing page and /self-host began advertising that every pending approval leads with a plain-English sentence, while the demo sandbox still rendered raw declared_goal text, because demoListActions never ran the enrichment. The demo dispatch now applies describeAction to the pending-approval queue on exactly the same condition as the real route. The demo's pending fixtures were also replaced with real labelled tool calls: they previously carried abstract pseudo-goals ('REVIEW: data alerting') that no agent sends, which the translator correctly declined to read, so turning enrichment on produced 14 consecutive 'I can't tell you' cards - a worse demo than the raw text. Two pool entries stay deliberately unreadable so the demo still shows the translator refusing to guess. No production code path changed; demo fixtures and the demo middleware only. Platform only, no Node/Python SDK surface change.",
+  "reason": "5.19.0 fixes two things the approvals card said wrongly. (1) 'Reads only, changes nothing.' travelled in the same warnings array as 'Work other people pushed can be lost.', so the safest action on the queue wore the amber attention colour and a warning triangle - backwards on a surface whose job is to make attention scarce, and against .impeccable.md, which reserves that colour for when attention is actually required. PlainDescription gains a `reassurance` field, populated last in describeAction so describeBash's calm-eligibility filter keeps deciding whether the phrase survives at all; a reassurance suppressed as unsupportable can never be resurrected. (2) bash.sql.drop and bash.sql.delete emit 'This cannot be undone.' as a warning, which is the exact sentence the card renders as its red band, so an irreversible DROP TABLE printed that sentence twice in two different colours. It is now dropped from the warning list only when the classifier actually said reversible:false, so the no-intel path keeps its only signal. Because neither the decision detail page nor the Telegram/Discord cards have a band, both now state irreversibility in words - which also closes a real gap where an `rm -rf` notification never said it at all. Platform only, no Node/Python SDK surface change.",
   "domains": [
     "platform"
   ]

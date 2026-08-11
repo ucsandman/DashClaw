@@ -1,5 +1,11 @@
 import { parseShell, type ShellStage } from './parse-shell';
-import { MAX_HEADLINE, type PlainDescription, unknownDescription } from './types';
+import {
+  IRREVERSIBLE_TEXT,
+  MAX_HEADLINE,
+  READ_ONLY_REASSURANCE,
+  type PlainDescription,
+  unknownDescription,
+} from './types';
 
 export interface BashIntel {
   intent?: string;
@@ -17,10 +23,12 @@ interface Clause {
 const MAX_OPERAND = 80;
 
 /**
- * The read-rule's reassurance. Named so it can be found and stripped from
- * the aggregate warnings when it is not the whole story — see describeBash.
+ * The read-rule's reassurance. It travels through the clause pipeline as a
+ * warning so the calm-eligibility filter below can strip it when it is not
+ * the whole story; describeAction splits it into `reassurance` at the very
+ * end, once that filter has had its say.
  */
-const READ_ONLY_WARNING = 'Reads only, changes nothing.';
+const READ_ONLY_WARNING = READ_ONLY_REASSURANCE;
 
 /** Code runs that the operator has not seen. Fixed phrases, never built from command text. */
 const UNSEEN_CODE_WARNING = 'You are approving code that nobody has read.';
@@ -311,10 +319,10 @@ function describeStage(stage: ShellStage): Clause | null {
   if (binary === 'psql' || binary === 'mysql') {
     const sql = stage.operands.join(' ').toUpperCase();
     if (sql.includes('DROP TABLE')) {
-      return { text: 'Permanently deletes a table from your database', warnings: ['This cannot be undone.'], ruleId: 'bash.sql.drop' };
+      return { text: 'Permanently deletes a table from your database', warnings: [IRREVERSIBLE_TEXT], ruleId: 'bash.sql.drop' };
     }
     if (sql.includes('DELETE FROM')) {
-      return { text: 'Deletes rows from your database', warnings: ['This cannot be undone.'], ruleId: 'bash.sql.delete' };
+      return { text: 'Deletes rows from your database', warnings: [IRREVERSIBLE_TEXT], ruleId: 'bash.sql.delete' };
     }
     return { text: 'Runs a command against your database', warnings: [], ruleId: 'bash.sql' };
   }

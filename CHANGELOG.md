@@ -13,6 +13,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.19.0] — 2026-08-11
+
+**Amber should mean look.** Two sentences on the approvals card were dressed as something they are not: a reassurance wore the warning colour, and the one sentence that matters most was printed twice.
+
+### Added
+
+- **`PlainDescription.reassurance`.** "Reads only, changes nothing." used to travel in the same `warnings` array as "Work other people pushed can be lost.", so the safest possible action on the queue rendered in amber behind a warning triangle. On a surface whose entire job is to make attention scarce that is backwards, and `.impeccable.md` reserves the attention colour for when attention is actually required. It now has its own field and renders muted, behind a check. The field is populated **last**, in `describeAction`, so `describeBash`'s calm-eligibility filter still decides whether the phrase survives at all — a reassurance suppressed as unsupportable (a mixed chain like `ls -la && rm -rf ./dist`) can never be resurrected by the split.
+
+### Fixed
+
+- **The irreversibility sentence was printed twice.** `bash.sql.drop` and `bash.sql.delete` emit "This cannot be undone." as a warning so the fact survives when the classifier sends no reversibility at all. When it *did* send `reversible: false`, the card already rendered that exact sentence as its red band, and the operator read it twice in two different colours. It is now dropped from the warning list only in that case, so the no-intel path keeps its only signal.
+- **Two surfaces have no red band, and were about to lose the fact entirely.** The decision detail page and the Telegram/Discord approval cards render no band, so the de-duplication above would have silently deleted the sentence there. Both now state irreversibility in words. That also closes a pre-existing gap: an `rm -rf` notification warns about the Recycle Bin but never said "This cannot be undone.", because on the card that was always the band's job.
+- **A demo fixture demonstrated nothing.** The demo's `DROP TABLE` card used `psql "$DATABASE_URL" -c …`; a command the shell could expand is refused a confident reading by design, so the card exercised the refusal path rather than the SQL rule it existed to show.
+
+Nine tests were added for the split, the de-duplication, and both notification paths — none of this behaviour had any coverage, which is how it shipped wrong.
+
 ## [5.18.1] — 2026-08-11
 
 **The demo agreed with the marketing again.** 5.18.0 taught the landing page and `/self-host` to advertise that every pending approval leads with a plain-English sentence. The demo sandbox did not do that, so a prospect who clicked through to see the feature saw the claim contradicted by the product.
