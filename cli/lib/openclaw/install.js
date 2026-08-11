@@ -176,11 +176,7 @@ export function mergeAgentsMd({ agentsMdPath, baseUrl, agentId }) {
   const source = existed ? readFileSync(agentsMdPath, 'utf8') : '';
   const migrated = isCodexAuthoredBlock(source);
 
-  let backup = null;
-  if (existed && source.length > 0) {
-    backup = `${agentsMdPath}.dashclaw-backup`;
-    copyFileSync(agentsMdPath, backup);
-  }
+  const backup = backupOnce(agentsMdPath);
 
   const next = replaceManagedBlock(source, buildAgentsMdBlock({ baseUrl, agentId }), {
     startMarker: AGENTS_MANAGED_START,
@@ -188,4 +184,12 @@ export function mergeAgentsMd({ agentsMdPath, baseUrl, agentId }) {
   });
   writeFileSync(agentsMdPath, next);
   return { path: agentsMdPath, backup, migrated };
+}
+
+function backupOnce(path) {
+  if (!existsSync(path)) return null;
+  const bak = path + '.dashclaw-bak';
+  if (existsSync(bak)) return bak;
+  copyFileSync(path, bak);
+  return bak;
 }

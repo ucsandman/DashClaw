@@ -202,4 +202,17 @@ describe('mergeAgentsMd', () => {
     mergeAgentsMd({ agentsMdPath: p, ...opts });
     expect(readFileSync(p, 'utf8')).toBe(first);
   });
+
+  it('never overwrites an existing backup, so the true original survives a re-run', () => {
+    const p = tmpAgents('# Original\n\n<!-- >>> dashclaw start — managed block, do not edit by hand -->\n' +
+      'Call `dashclaw_session_start` via the `dashclaw` MCP server.\n' +
+      'The PreToolUse hook installed by `dashclaw install codex` guards Bash.\n' +
+      '<!-- <<< dashclaw end -->\n');
+    const first = mergeAgentsMd({ agentsMdPath: p, ...opts });
+    const originalBackup = readFileSync(first.backup, 'utf8');
+    expect(originalBackup).toContain('dashclaw_session_start');
+
+    mergeAgentsMd({ agentsMdPath: p, ...opts });
+    expect(readFileSync(first.backup, 'utf8')).toBe(originalBackup);
+  });
 });
