@@ -5,6 +5,7 @@
  */
 
 import { recordSentApprovalNotification } from './approvalNotifications';
+import { describeAction } from './plain-language';
 import type { SqlTag } from './types/db';
 
 interface ApprovalAction {
@@ -54,6 +55,19 @@ function buildMessage(action: ApprovalAction): TelegramMessage {
     ? `${fullGoal.slice(0, 3500)}\n… (+${fullGoal.length - 3500} more chars — open the action link for the rest)`
     : fullGoal;
 
+  // Same describeAction() the /approvals card and the decision detail page
+  // read — one sentence, everywhere. No guard-decision intel is available at
+  // this call site, so the translator degrades honestly (see
+  // plain-language/index.ts). Built from the untruncated declared_goal and
+  // rendered as its own line, so the 3500-char cap above — which only ever
+  // applies to `goal` — can never cut the sentence off (field report
+  // 2026-08-07 was exactly this kind of invisible truncation).
+  const plain = describeAction({
+    action_type: action.action_type,
+    declared_goal: action.declared_goal,
+    risk_score: action.risk_score,
+  });
+
   const text = [
     '⏳ DashClaw approval needed',
     '',
@@ -61,6 +75,10 @@ function buildMessage(action: ApprovalAction): TelegramMessage {
     `Action:  ${action.action_type || 'unknown'}`,
     `Risk:    ${risk} • ${reversible}`,
     '',
+    // Plain sentence first, exact command second — same order as the
+    // /approvals card and the detail page. Silent when the translator has
+    // no confident read, so the message is byte-identical to today's.
+    ...(plain.confidence !== 'unknown' ? [plain.headline, ''] : []),
     `Goal: ${goal}`,
     '',
     action.action_id,

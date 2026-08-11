@@ -117,6 +117,70 @@ describe('fireTelegramApproval — payload', () => {
     expect(body.text).toContain('reversible');
     expect(body.text).not.toContain('irreversible');
   });
+
+  it('puts the plain-language headline before the Goal line, exact command still present', async () => {
+    fireTelegramApproval({
+      action_id: 'act_plain0001',
+      status: 'pending_approval',
+      agent_id: 'a', action_type: 'deploy',
+      risk_score: 50, reversible: false,
+      declared_goal: 'Bash: rm -rf /tmp/build',
+    }, null, 'org_1');
+    await new Promise((r) => setImmediate(r));
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    const headlineIdx = body.text.indexOf('Deletes /tmp/build and everything inside it.');
+    const goalIdx = body.text.indexOf('Goal: Bash: rm -rf /tmp/build');
+    expect(headlineIdx).toBeGreaterThan(-1);
+    expect(goalIdx).toBeGreaterThan(-1);
+    expect(headlineIdx).toBeLessThan(goalIdx);
+  });
+
+  it('leaves the message exactly as today when the translator has no confident read', async () => {
+    fireTelegramApproval({
+      action_id: 'act_plain0002',
+      status: 'pending_approval',
+      agent_id: 'a', action_type: 'deploy',
+      risk_score: 50, reversible: false,
+      declared_goal: 'Bash: some-tool --mystery-flag',
+    }, null, 'org_1');
+    await new Promise((r) => setImmediate(r));
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.text).toBe([
+      '⏳ DashClaw approval needed',
+      '',
+      'Agent:   a',
+      'Action:  deploy',
+      'Risk:    50 • irreversible',
+      '',
+      'Goal: Bash: some-tool --mystery-flag',
+      '',
+      'act_plain0002',
+    ].join('\n'));
+  });
+
+  it('keeps the headline intact even when the raw command is long enough to be truncated (field report 2026-08-07)', async () => {
+    const longPath = '/tmp/' + 'a'.repeat(4000);
+    fireTelegramApproval({
+      action_id: 'act_plain0003',
+      status: 'pending_approval',
+      agent_id: 'a', action_type: 'deploy',
+      risk_score: 50, reversible: false,
+      declared_goal: `Bash: rm -rf ${longPath}`,
+    }, null, 'org_1');
+    await new Promise((r) => setImmediate(r));
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    const expectedHeadline = `Deletes /tmp/${'a'.repeat(75)}… and everything inside it.`;
+    expect(body.text).toContain(expectedHeadline);
+    expect(body.text).toContain('more chars — open the action link for the rest');
+
+    const headlineIdx = body.text.indexOf(expectedHeadline);
+    const goalIdx = body.text.indexOf('Goal: ');
+    expect(headlineIdx).toBeGreaterThan(-1);
+    expect(headlineIdx).toBeLessThan(goalIdx);
+  });
 });
 
 describe('fireTelegramApproval — fail-open', () => {

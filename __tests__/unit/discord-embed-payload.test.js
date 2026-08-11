@@ -93,4 +93,26 @@ describe('buildEmbedPayload', () => {
     expect(payload.embeds[0].footer).toBeDefined();
     expect(payload.embeds[0].footer.text).toContain('act_abc12345');
   });
+
+  it('sets the plain-language headline as the embed description, ahead of the Goal field', () => {
+    const payload = buildEmbedPayload({ ...baseAction, declared_goal: 'Bash: rm -rf /tmp/build' });
+    const embed = payload.embeds[0];
+    expect(embed.description).toBe('Deletes /tmp/build and everything inside it.');
+    // Exact command is never hidden or replaced.
+    expect(embed.fields[3].name.toLowerCase()).toContain('goal');
+    expect(embed.fields[3].value).toBe('Bash: rm -rf /tmp/build');
+  });
+
+  it('omits description when the translator has no confident read', () => {
+    const payload = buildEmbedPayload({ ...baseAction, declared_goal: 'Bash: some-tool --mystery-flag' });
+    expect(payload.embeds[0].description).toBeUndefined();
+  });
+
+  it('keeps the description intact even when the Goal field is cut for length (field report 2026-08-07)', () => {
+    const longPath = '/tmp/' + 'a'.repeat(4000);
+    const payload = buildEmbedPayload({ ...baseAction, declared_goal: `Bash: rm -rf ${longPath}` });
+    const embed = payload.embeds[0];
+    expect(embed.description).toBe(`Deletes /tmp/${'a'.repeat(75)}… and everything inside it.`);
+    expect(embed.fields[3].value).toContain('more chars'); // the existing honest-cut marker
+  });
 });
