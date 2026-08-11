@@ -13,6 +13,18 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.17.6] — 2026-08-11
+
+**Fail-closed on governance that was already working.** An OpenClaw workspace provisioned by `dashclaw install codex` inherited a governance block written for the wrong runtime: it told the agent to call `dashclaw_session_start` and `dashclaw_guard` through a `dashclaw` MCP server, and OpenClaw never exposes one. An agent that follows its own instructions refuses to act — correctly fail-closed on a missing tool — while the DashClaw plugin was enforcing governance normally the entire time by intercepting every tool call at the gateway. The outage was in the paperwork, not the governance.
+
+### Added
+
+- **`dashclaw install openclaw` provisions DashClaw governance into an OpenClaw agent in one command.** It installs `@dashclaw/openclaw-plugin` and enables it as a second step (`openclaw plugins install` then `openclaw plugins enable dashclaw-governance`) rather than in the same write, because `openclaw config patch` replaces arrays wholesale and patching `plugins.allow` directly would silently drop every other plugin already enabled. Agent id, DashClaw URL, and `failClosed: true` go through one validated `openclaw config patch` call — `failClosed` is set by the installer itself and there is no flag to turn it off. The API key goes to `~/.openclaw/.env` by default; `--write-config` puts it in the plugin config instead, and every other run sends `null` for that field so a plaintext key stored by an earlier `--write-config` run gets actively cleared, not left behind. The command is read-only until DashClaw reachability and the key are confirmed, resolves the workspace to write into from OpenClaw's own `agents.defaults.workspace` config — never the process's working directory — and closes with `openclaw config validate` plus `openclaw plugins doctor` (skip with `--no-verify`); a failed check leaves the install in place but sets a non-zero exit, because a governance block that looks installed while silently not enforcing is the exact failure this command exists to prevent.
+
+### Fixed
+
+- **`dashclaw install openclaw` finds and replaces a codex-authored block instead of leaving it live.** Detection requires the block to contain both `dashclaw_session_start` and the literal string `install codex`, so an AGENTS.md that merely mentions Codex in prose is never touched. Whenever AGENTS.md already exists the installer takes a `.dashclaw-bak` copy before writing — the first backup wins if one is already there, so re-running the installer never overwrites the original snapshot — and when the block it replaced was codex-authored, it says so on the console instead of rewriting the file silently.
+
 ## [5.17.5] — 2026-08-11
 
 **Both running and completed.** A decision that reported its outcome through the durable-finality endpoint stayed `running` in the ledger forever, so Decision Replay rendered a red **RUNNING** beside a green **Completed** badge on the same line. Reported by the maintainer reading a decision detail page.
