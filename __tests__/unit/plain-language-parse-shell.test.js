@@ -42,4 +42,21 @@ describe('parseShell', () => {
   it('returns an empty array for an empty command', () => {
     expect(parseShell('   ')).toEqual([]);
   });
+
+  it('does not mistake a global flag value for the subcommand', () => {
+    const [npmStage] = parseShell('npm --prefix ./x install');
+    expect(npmStage.subcommand).toBeUndefined();
+    expect(npmStage.operands).toEqual(['./x', 'install']);
+
+    const [gitStage] = parseShell('git -C /some/repo status');
+    expect(gitStage.subcommand).toBeUndefined();
+    expect(gitStage.operands).toEqual(['/some/repo', 'status']);
+  });
+
+  it('does not split on a backslash-escaped separator', () => {
+    const stages = parseShell('echo foo\\; bar');
+    expect(stages).toHaveLength(1);
+    expect(stages[0].binary).toBe('echo');
+    expect(stages[0].operands).toEqual(['foo;', 'bar']);
+  });
 });
