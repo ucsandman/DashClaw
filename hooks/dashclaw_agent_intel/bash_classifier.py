@@ -308,17 +308,36 @@ _REGENERABLE_ARTIFACT_DIRS = frozenset({
 
 
 def _is_regenerable_dir_name(target: str) -> bool:
+    """True for a regenerable artifact root OR any path beneath one.
+
+    Bare-name matching made a strict subset score higher than its superset:
+    `rm -rf node_modules` graded 35 (cleanup) while `rm -rf node_modules/.cache`
+    missed the allowlist, fell through to `security` (base 80) and clamped to
+    100 (2026-08-11 calibration probe). Deleting part of a regenerable
+    directory cannot be more dangerous than deleting all of it.
+
+    Absolute, home-relative, drive-qualified and `..`-traversing paths are now
+    rejected EXPLICITLY. They were previously excluded only as a side effect of
+    requiring a bare name, and that guarantee disappears once subtrees match.
+    """
     t = target.replace("\\", "/").rstrip("/")
     if t.startswith("./"):
         t = t[2:]
-    return t in _REGENERABLE_ARTIFACT_DIRS
+    if not t or t.startswith("/") or t.startswith("~"):
+        return False
+    if re.match(r"^[a-zA-Z]:", t):
+        return False
+    parts = t.split("/")
+    if ".." in parts:
+        return False
+    return parts[0] in _REGENERABLE_ARTIFACT_DIRS
 
 
 def is_regenerable_artifact_rm(parsed: dict) -> bool:
     """True for an rm / rmdir / Remove-Item (recursive or not) whose EVERY
-    target is a bare, relative, well-known regenerable build-artifact
-    directory name. Any glob, absolute path, parent traversal, or unknown
-    name disqualifies the whole command."""
+    target is a relative, well-known regenerable build-artifact directory —
+    the root itself or anything beneath it. Any glob, absolute path, parent
+    traversal, or unknown root disqualifies the whole command."""
     base = (parsed.get("base_command") or "").rsplit("/", 1)[-1].lower()
     if base not in ("rm", "rmdir", "remove-item"):
         return False

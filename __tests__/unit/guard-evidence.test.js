@@ -281,6 +281,41 @@ describe('classifyAct — path-aware rm (F5)', () => {
     expect(classifyAct({ kind: 'shell', command: 'rm -rf node_modules/*' }).base_risk).toBe(80);
     expect(classifyAct({ kind: 'shell', command: 'rm -rf /app/node_modules' }).base_risk).toBe(80);
   });
+
+  // Monotonicity (2026-08-11 calibration probe): bare-name matching graded
+  // `rm -rf node_modules/.cache` at 80/security while `rm -rf node_modules`
+  // graded 45/cleanup — a strict subset outranking its own superset. This is
+  // the mirror of test_regenerable_subtree_not_worse_than_whole_root in
+  // hooks/tests/test_bash_classifier.py; the max() fold (risk.ts:193) takes
+  // the WORSE label, so both sides must agree or neither fix lands.
+  it('a subtree of a regenerable root grades no worse than the whole root', () => {
+    const cmds = [
+      'rm -rf node_modules/.cache',
+      'rm -rf .next/cache',
+      'rm -rf .next/cache/webpack',
+      'rm -rf ./dist ./node_modules/.cache',
+    ];
+    const got = cmds.map((command) => {
+      const c = classifyAct({ kind: 'shell', command });
+      return `${command} -> ${c.derived_action_type}/${c.base_risk}`;
+    });
+    expect(got).toEqual(cmds.map((c) => `${c} -> cleanup/45`));
+  });
+
+  it('the subtree widening is not a traversal or absolute-path escape hatch', () => {
+    const cmds = [
+      'rm -rf node_modules/../src',
+      'rm -rf node_modules/../../etc',
+      'rm -rf /app/node_modules/.cache',
+      'rm -rf ~/node_modules/.cache',
+      'rm -rf C:/node_modules/.cache',
+    ];
+    const got = cmds.map((command) => {
+      const c = classifyAct({ kind: 'shell', command });
+      return `${command} -> ${c.derived_action_type}/${c.base_risk}`;
+    });
+    expect(got).toEqual(cmds.map((c) => `${c} -> security/80`));
+  });
 });
 
 // F2 classifier coverage backlog (governance gap audit 2026-08-05): destructive

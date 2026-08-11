@@ -104,11 +104,22 @@ function rmDeleteTargets(segment: string): string[] {
   return tokens.slice(idx + 1).filter((t) => t && !t.startsWith('-'));
 }
 
+// A regenerable artifact root OR any path beneath one. Bare-name matching made
+// a strict subset score higher than its superset: `rm -rf node_modules` graded
+// cleanup/35 while `rm -rf node_modules/.cache` missed the allowlist and
+// clamped to 100 (2026-08-11 calibration probe). Mirrors
+// bash_classifier.py _is_regenerable_dir_name — the max() fold (risk.ts:193)
+// takes the WORSE of the two labels, so the two must stay byte-equivalent.
+// Absolute, home-relative, drive-qualified and `..`-traversing paths are
+// rejected EXPLICITLY: requiring a bare name used to imply all four.
 function isRegenerableArtifactTarget(target: string): boolean {
   if (/[*?[]/.test(target)) return false;
   let t = target.replace(/\\/g, '/').replace(/\/+$/, '');
   if (t.startsWith('./')) t = t.slice(2);
-  return REGENERABLE_ARTIFACT_DIRS.has(t.toLowerCase());
+  if (!t || t.startsWith('/') || t.startsWith('~') || /^[a-z]:/i.test(t)) return false;
+  const parts = t.toLowerCase().split('/');
+  if (parts.includes('..')) return false;
+  return REGENERABLE_ARTIFACT_DIRS.has(parts[0] ?? '');
 }
 
 // The catastrophic-root class: filesystem/drive roots, home and user-profile

@@ -467,6 +467,35 @@ class TestRiskScore(unittest.TestCase):
             r = classify_bash(cmd)
             self.assertGreaterEqual(r["risk_score"], 70, cmd)
 
+    def test_regenerable_subtree_not_worse_than_whole_root(self):
+        # Monotonicity: a strict subset cannot outrank its superset. Bare-name
+        # matching graded `rm -rf node_modules/.cache` at 100 while
+        # `rm -rf node_modules` graded 35 (2026-08-11 calibration probe).
+        whole = classify_bash("rm -rf node_modules")["risk_score"]
+        for cmd in (
+            "rm -rf node_modules/.cache",
+            "rm -rf .next/cache",
+            "rm -rf .next/cache/webpack",
+            "rm -rf ./dist ./node_modules/.cache",
+        ):
+            r = classify_bash(cmd)
+            self.assertEqual(r["intent"], "destructive", cmd)
+            self.assertLessEqual(r["risk_score"], whole, cmd)
+
+    def test_regenerable_subtree_is_not_a_traversal_escape_hatch(self):
+        # Requiring a bare name used to imply "no `..`, no absolute, no home".
+        # Widening to subtrees removes that implication, so the rejections are
+        # now explicit and must stay pinned.
+        for cmd in (
+            "rm -rf node_modules/../src",
+            "rm -rf node_modules/../../etc",
+            "rm -rf /node_modules/.cache",
+            "rm -rf ~/node_modules/.cache",
+            "rm -rf C:/node_modules/.cache",
+        ):
+            r = classify_bash(cmd)
+            self.assertGreaterEqual(r["risk_score"], 70, cmd)
+
     def test_env_prefix_classifies_real_command(self):
         # KEY=value prefixes (e.g. fake dry-run creds) must not collapse the
         # command to "unknown" or trip the sensitive-target boost.

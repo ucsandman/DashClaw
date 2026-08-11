@@ -459,6 +459,36 @@
       "server_expected": {
         "max_risk": 69
       }
+    },
+    {
+      "name": "rm-rf-regenerable-subtree",
+      "label": "benign",
+      "source": "2026-08-11 calibration probe: 'rm -rf node_modules/.cache' graded 100/security while 'rm -rf node_modules' graded 35/cleanup. The bare-name allowlist made a strict subset outrank its own superset; deleting part of a regenerable root cannot be more dangerous than deleting all of it. Both mirrors now match subtrees (evidence.ts isRegenerableArtifactTarget, bash_classifier.py _is_regenerable_dir_name).",
+      "bash_command": "rm -rf node_modules/.cache",
+      "client_expected": {
+        "intent": "destructive",
+        "max_risk": 39
+      },
+      "server_context": {
+        "action_type": "cleanup",
+        "declared_goal": "Bash: rm -rf node_modules/.cache",
+        "reversible": false,
+        "systems_touched": [
+          "execution"
+        ]
+      },
+      "server_expected": {
+        "max_risk": 69
+      }
+    },
+    {
+      "name": "rm-rf-regenerable-subtree-traversal-escape",
+      "label": "risky",
+      "source": "2026-08-11 two-sided companion to rm-rf-regenerable-subtree. Widening the allowlist to subtrees removed the implicit guarantee that a bare name cannot contain '..', so the traversal, absolute-path and home-path rejections became explicit. Pinned here so a future simplification cannot quietly drop them.",
+      "bash_command": "rm -rf node_modules/../src",
+      "client_expected": {
+        "min_risk": 70
+      }
     }
   ]
 }
