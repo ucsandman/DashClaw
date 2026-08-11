@@ -1,4 +1,5 @@
 import { getHomepageDemoActions } from '../homepageDemoActions';
+import { describeAction } from '../plain-language';
 
 // Demo fixtures are dynamically-shaped demo data assembled fresh per request.
 // They are an external boundary to this module, so collections are typed loosely.
@@ -187,7 +188,27 @@ export function demoListActions(fixtures: DemoFixtures, url: URL) {
     total_cost: statsSource.reduce((s, a) => s + (parseFloat(a.cost_estimate) || 0), 0),
   };
 
-  return { actions: paged, total, stats, lastUpdated: new Date().toISOString() };
+  // Plain-language parity with the real route (app/api/actions/route.ts):
+  // only the pending-approval queue is enriched, so every other demo list
+  // keeps its existing payload. Without this the demo sandbox rendered raw
+  // commands while the landing page advertised the plain-English sentence —
+  // a prospect clicking through the demo saw the claim contradicted.
+  // There are no guard-decision contexts in demo mode, so the intel comes
+  // off the fixture row itself.
+  const enriched = status === 'pending_approval'
+    ? paged.map((a) => ({
+        ...a,
+        plain: describeAction({
+          action_type: a.action_type,
+          declared_goal: a.declared_goal,
+          risk_score: parseInt(a.risk_score, 10) || 0,
+          target: a.target ?? null,
+          intel: a.intel ?? null,
+        }),
+      }))
+    : paged;
+
+  return { actions: enriched, total, stats, lastUpdated: new Date().toISOString() };
 }
 
 export function demoCreateAction(fixtures: DemoFixtures, body: AnyRecord) {

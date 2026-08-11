@@ -13,6 +13,17 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.18.1] — 2026-08-11
+
+**The demo agreed with the marketing again.** 5.18.0 taught the landing page and `/self-host` to advertise that every pending approval leads with a plain-English sentence. The demo sandbox did not do that, so a prospect who clicked through to see the feature saw the claim contradicted by the product.
+
+### Fixed
+
+- **Demo mode never ran the plain-language enrichment.** `demoListActions` returned rows straight from the fixtures, so `/approvals` in the demo rendered raw `declared_goal` text. It now applies `describeAction` to the pending-approval queue on exactly the same condition as the real route (`status === 'pending_approval'`), reading intel off the fixture row since demo mode has no guard-decision contexts. The card already degraded safely without it, so this was a missing surface rather than a crash.
+- **The demo's pending fixtures were not commands.** They carried abstract pseudo-goals — `REVIEW: data alerting`, `DEPLOY: api stability` — that no agent ever sends. Turning enrichment on therefore produced 14 consecutive "I can't tell you what this one does" cards: the translator behaving correctly on input that was never realistic, and a worse demo than the raw text it replaced. Pending fixtures now draw from a pool of real labelled tool calls, so the queue shows the whole range: an irreversible force-push and `DROP TABLE` with the red band, a `Write: .env` credential warning, routine reads, and two entries left deliberately unreadable so the demo still shows the translator declining to guess rather than pretending it can read everything.
+
+No production code path changed — demo fixtures and the demo middleware only.
+
 ## [5.18.0] — 2026-08-11
 
 **You can now read the approvals queue without reading shell.** An approval you do not understand is an approval you rubber-stamp, and the queue previously showed the raw `declared_goal` and nothing else. Every pending item now leads with one plain-English sentence for what the command actually does, and the exact command is still printed directly underneath it — never hidden, never replaced.
