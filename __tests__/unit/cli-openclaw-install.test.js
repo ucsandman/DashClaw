@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { upsertEnvVar } from '../../cli/lib/openclaw/install.js';
+import { upsertEnvVar, buildAgentsMdBlock, isCodexAuthoredBlock } from '../../cli/lib/openclaw/install.js';
+import { AGENTS_MANAGED_START, AGENTS_MANAGED_END } from '../../cli/lib/codex/install.js';
 
 describe('upsertEnvVar', () => {
   it('appends when the key is absent, preserving neighbours', () => {
@@ -30,5 +31,63 @@ describe('upsertEnvVar', () => {
     expect(upsertEnvVar('A=1\n', 'A', '$&')).toBe('A=$&\n');
     expect(upsertEnvVar('A=1\n', 'A', "x$'y")).toBe("A=x$'y\n");
     expect(upsertEnvVar('A=1\n', 'A', 'p$$q')).toBe('A=p$$q\n');
+  });
+});
+
+const CODEX_BLOCK = `${AGENTS_MANAGED_START}
+## DashClaw Governance Protocol
+
+1. Call \`dashclaw_session_start\` via the \`dashclaw\` MCP server with your
+   agent id (\`codex\`).
+
+The PreToolUse hook installed by \`dashclaw install codex\` will guard
+Bash, Edit, Write, and MultiEdit automatically.
+${AGENTS_MANAGED_END}`;
+
+describe('buildAgentsMdBlock', () => {
+  const block = buildAgentsMdBlock({ baseUrl: 'https://dc.example.com', agentId: 'forge-openclaw' });
+
+  // Regression guard: an OpenClaw agent told to call these fail-closed and
+  // refused to work, because no dashclaw MCP server exists in that runtime.
+  it('never instructs the agent to call DashClaw tools itself', () => {
+    for (const banned of [
+      'dashclaw_guard',
+      'dashclaw_session_start',
+      'dashclaw_record',
+      'dashclaw_wait_for_approval',
+      'install codex',
+      'PreToolUse',
+      'dashclaw://',
+    ]) {
+      expect(block).not.toContain(banned);
+    }
+  });
+
+  it('carries the managed markers byte-identically', () => {
+    expect(block.startsWith(AGENTS_MANAGED_START)).toBe(true);
+    expect(block.trimEnd().endsWith(AGENTS_MANAGED_END)).toBe(true);
+  });
+
+  it('states the instance url and agent id', () => {
+    expect(block).toContain('https://dc.example.com');
+    expect(block).toContain('forge-openclaw');
+  });
+
+  it('keeps the load-bearing rule that a block is final', () => {
+    expect(block.toLowerCase()).toContain('block is final');
+  });
+});
+
+describe('isCodexAuthoredBlock', () => {
+  it('detects a codex-authored block', () => {
+    expect(isCodexAuthoredBlock(CODEX_BLOCK)).toBe(true);
+  });
+
+  it('does not flag our own block', () => {
+    expect(isCodexAuthoredBlock(buildAgentsMdBlock({ baseUrl: 'https://x', agentId: 'a' }))).toBe(false);
+  });
+
+  it('does not flag unrelated prose that merely mentions codex', () => {
+    expect(isCodexAuthoredBlock('We also run codex here.')).toBe(false);
   });
 });
