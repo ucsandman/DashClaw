@@ -31,10 +31,31 @@ export function shapeKey(actionType: string, targetPrefix: string | null): strin
   return `${actionType}::${targetPrefix ?? ''}`;
 }
 
-/** Path → first two segments (with trailing slash) so deep trees group sanely. */
+// A hostname segment: labels joined by dots, no leading dot, no drive colon.
+// `github.com` and `api.stripe.com` match; `.next`, `C:`, `Users`, `..` do not.
+const HOST_SEGMENT_RE = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)+$/i;
+
+/**
+ * Reduce a URL-ish path to `host/first-segment/` so deep trees group sanely.
+ *
+ * ONLY hosts shorten. Collapsing a FILESYSTEM path to its first two segments
+ * is a grant-widening bug: `C:/Users/sandm/Documents` became `C:/Users/`, and
+ * because a grant's target_prefix is a prefix match, a single approval on one
+ * file under the profile authorized every action of that type across the whole
+ * user tree. Live repro 2026-08-11 on my-dashclaw.vercel.app: grant
+ * gp_02ad86b4b16645fb94e4667d, `security -> C:/Users/`, which downgraded the
+ * risk-100 require_approval rail to allow for anything under C:/Users.
+ * (Backslash paths never hit this because targetPrefixOf only shortens when
+ * the target contains `/` — the bug fired exactly on forward-slash targets.)
+ *
+ * Filesystem paths now keep their exact target, which is the tighten-only
+ * direction: a grant covers what was approved and nothing more.
+ */
 function pathPrefix(p: string): string {
   const parts = p.split('/').filter(Boolean);
   if (parts.length <= 2) return p;
+  if (p.startsWith('/')) return p;
+  if (!HOST_SEGMENT_RE.test(parts[0] ?? '')) return p;
   return `${parts[0]}/${parts[1]}/`;
 }
 

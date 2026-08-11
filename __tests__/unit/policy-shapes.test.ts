@@ -166,13 +166,55 @@ describe('extractDecisionShape', () => {
       label: 'api → api.stripe.com',
     });
   });
-  it('groups path targets by first two segments', () => {
+  // REVERSED 2026-08-11. This used to assert 'sdk/lib/' — deep filesystem
+  // paths collapsed to their first two segments. That collapse was a live
+  // security hole, not a grouping nicety: /api/policies/review/verdict takes
+  // the GROUP's target_prefix straight into the allow_grant it creates, so a
+  // coarse group label became the grant's authorization scope. On
+  // my-dashclaw.vercel.app that produced `security -> C:/Users/`
+  // (gp_02ad86b4b16645fb94e4667d) from one approval, downgrading the risk-100
+  // require_approval rail to allow for anything under the whole user profile.
+  // A path shape now keeps its exact target: the group you click covers only
+  // what you actually saw. Host shapes still collapse (see the test below).
+  it('keeps deep filesystem path targets exact (a group label is an authorization scope)', () => {
     const s = extractDecisionShape({
       action_type: 'write',
       context: JSON.stringify({ target: 'sdk/lib/deep/file.ts' }),
     });
-    expect(s.target_prefix).toBe('sdk/lib/');
-    expect(s.key).toBe('write::sdk/lib/');
+    expect(s.target_prefix).toBe('sdk/lib/deep/file.ts');
+    expect(s.key).toBe('write::sdk/lib/deep/file.ts');
+  });
+
+  it('never collapses a Windows drive path to the user tree (live repro)', () => {
+    const s = extractDecisionShape({
+      action_type: 'security',
+      context: JSON.stringify({ target: 'C:/Users/sandm/Documents/notes.md' }),
+    });
+    expect(s.target_prefix).toBe('C:/Users/sandm/Documents/notes.md');
+  });
+
+  it('never collapses an absolute posix path', () => {
+    const s = extractDecisionShape({
+      action_type: 'security',
+      context: JSON.stringify({ target: '/home/wes/.ssh/id_rsa' }),
+    });
+    expect(s.target_prefix).toBe('/home/wes/.ssh/id_rsa');
+  });
+
+  it('still groups deep HOST paths by host/first-segment (unchanged)', () => {
+    const s = extractDecisionShape({
+      action_type: 'api',
+      context: JSON.stringify({ target: 'github.com/ucsandman/DashClaw/pulls/1' }),
+    });
+    expect(s.target_prefix).toBe('github.com/ucsandman/');
+  });
+
+  it('does not treat a dot-prefixed build dir as a host', () => {
+    const s = extractDecisionShape({
+      action_type: 'cleanup',
+      context: JSON.stringify({ target: '.next/cache/webpack/client' }),
+    });
+    expect(s.target_prefix).toBe('.next/cache/webpack/client');
   });
   it('handles missing/invalid context', () => {
     const s = extractDecisionShape({ action_type: 'sync', context: 'not json' });
