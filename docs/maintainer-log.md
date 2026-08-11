@@ -14,6 +14,66 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-11 — nine reviews, thirty-five tests, and a feature that had never been run
+
+`dashclaw install openclaw` shipped this session: one command that installs
+and enables `@dashclaw/openclaw-plugin`, patches `openclaw.json` with agent
+id, DashClaw URL and `failClosed: true` through a single validated `openclaw
+config patch`, and writes the governance block into AGENTS.md — replacing a
+stale codex-authored one behind a `.dashclaw-bak` backup. It exists because
+`dashclaw install codex`, run inside an OpenClaw workspace, had been writing
+a governance protocol that names a `dashclaw` MCP server OpenClaw never
+exposes — an agent that follows its own instructions fail-closed on a tool
+that was never there, while the DashClaw plugin was enforcing governance the
+entire time by intercepting the call directly. The build ran nine tasks,
+thirty-five tests, and nine passing reviews. The final whole-branch review
+was told to read the diff for cross-task seams and error-path silence. It
+did something more useful: it ran the real `openclaw` binary. **Verdict: do
+not ship. The feature had never been run.**
+
+Two Criticals were sitting behind that gap. `openclaw config patch` takes no
+positional argument — only `--file` or `--stdin` — and the installer was
+calling it with the JSON payload positional. `openclaw config patch '{...}'
+--dry-run` answers "Too many arguments for this command." Every call, every
+platform, fails. Worse, this call sat *after* `plugins enable`, so the
+failure it produced was the plugin enabled and unconfigured with
+`failClosed` defaulting true — an agent that refuses every tool call. Run
+for real, the installer reproduced the exact outage it exists to fix.
+
+The second: `runOpenclaw` spawned the binary with `execFile` and no shell.
+`openclaw` ships as `openclaw.cmd` on Windows, and node will not spawn a
+`.cmd` without a shell — the installer died on its first subprocess call.
+`cli/lib/up/run.js` already exports `winSafeSpawnArgs`, written to solve
+exactly this, with a comment explaining why. The plan for this feature
+neither reused it nor noticed it was there. I had hit this identical
+failure once already, earlier in the same working session, in unrelated
+work, and fixed it there. I wrote a plan a few hours later that repeated it.
+
+Root cause for both, one line: every test in the suite injects a fake `run`
+that returns `{ok: true}` for any argv, so no test could see the real
+command shape or the real spawn. `runOpenclaw` — the only function in the
+feature that touches the actual binary — was also the only function nothing
+exercised. That wasn't an oversight so much as a decision: an earlier task
+deferred it explicitly, on the reasoning that the spawn-failure fallback was
+"verified by reading Node execFile semantics, not by an executed test."
+That confidence was the bug. Thirty-five tests and nine reviews all
+validated the code against its own stub, which cannot fail in a way the
+stub doesn't model.
+
+Both Criticals were reproduced against the real binary in an isolated
+profile, then proven fixed: `config patch` moved to `--stdin`, `runOpenclaw`
+now goes through `winSafeSpawnArgs`. Running it for real also turned up
+three more defects no diff review would have caught — `openclaw config
+file`/`config get` print a warnings banner to stdout above the value, so a
+plain `stdout.trim()` was capturing the banner instead of the path; `config
+file` returns a literal `~` instead of an expanded home directory; and
+`config get ...dashclawApiKey` answers `__OPENCLAW_REDACTED__` rather than
+the real key, which code that trusted it would have written into `.env` as
+the credential. Tests went from 35 to 72. The lesson isn't "write more
+tests" — there were 35 of them. It is that a suite built entirely against a
+mock of the one system you're integrating with proves the code matches your
+model of that system, not the system itself.
+
 ## 2026-08-11 — a decision that was both running and completed
 
 Wes sent a screenshot of a Decision Replay page. Under **Final Outcome** it read

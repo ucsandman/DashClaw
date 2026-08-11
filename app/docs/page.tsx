@@ -634,8 +634,9 @@ hermes dashclaw doctor`}</CodeBlock>
             <div id="openclaw-plugin" className="scroll-mt-20 mb-10">
               <h3 className="text-lg font-semibold text-text-primary mb-4">OpenClaw Plugin</h3>
               <p className="text-xs text-text-tertiary mb-3">
-                <code className="font-mono text-text-secondary">@dashclaw/openclaw-plugin</code> wires governance into the OpenClaw agent framework. Intercepts <code className="font-mono text-text-secondary">before_tool_call</code> / <code className="font-mono text-text-secondary">after_tool_call</code> lifecycle hooks, calls guard / record / wait-for-approval automatically, and ships a <code className="font-mono text-text-secondary">HOOK.md</code> pack the openclaw CLI installs. Tool classification vocabulary aligns with DashClaw guard action types.
+                <code className="font-mono text-text-secondary">@dashclaw/openclaw-plugin</code> wires governance into the OpenClaw agent framework. Intercepts <code className="font-mono text-text-secondary">before_tool_call</code> / <code className="font-mono text-text-secondary">after_tool_call</code> lifecycle hooks, calls guard / record / wait-for-approval automatically, and ships a <code className="font-mono text-text-secondary">HOOK.md</code> pack the openclaw CLI installs. Tool classification vocabulary aligns with DashClaw guard action types. Full step-by-step at <Link href="/guides/openclaw" className="text-brand hover:text-brand-hover">/guides/openclaw</Link>.
               </p>
+              <CodeBlock title="Install">{`dashclaw install openclaw`}</CodeBlock>
             </div>
 
             <div id="governance-skill" className="scroll-mt-20 mb-10">
