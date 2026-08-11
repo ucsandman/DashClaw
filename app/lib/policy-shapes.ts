@@ -69,6 +69,8 @@ interface GrantRules {
   action_type?: unknown;
   target_prefix?: unknown;
   expires_at?: unknown;
+  /** Precedent grants only — see PRECEDENT_ELIGIBLE below. */
+  precedent_flags?: unknown;
 }
 
 interface GrantContext {
@@ -76,6 +78,8 @@ interface GrantContext {
   declared_action_type?: unknown;
   target?: unknown;
   write_paths?: unknown;
+  /** SERVER-SET-ONLY (guard/types.ts). Never populated from request input. */
+  evidence_flags?: unknown;
 }
 
 /** Default grant lifetime (F1, governance gap audit 2026-08-05): grants
@@ -160,8 +164,90 @@ export function grantMatches(rules: GrantRules, context: GrantContext): boolean 
   if (typeof rules.action_type !== 'string' || rules.action_type !== context.action_type) {
     return false;
   }
+  // Precedent grants are scoped by the SERVER's own evidence flag set, never by
+  // an operator-supplied target prefix. This branch is entered only when the
+  // field is present, so every pre-existing grant behaves byte-identically.
+  if (rules.precedent_flags !== undefined && rules.precedent_flags !== null) {
+    return precedentGrantMatches(rules.precedent_flags, context);
+  }
   if (rules.target_prefix === undefined || rules.target_prefix === null) return true;
   return targetPrefixMatches(String(rules.target_prefix), context);
+}
+
+// ── Precedent grants ────────────────────────────────────────────────────────
+// A precedent is an ordinary allow_grant whose scope is an exact
+// server-computed evidence flag set instead of a target prefix. It exists so a
+// shape the operator has personally waved through many times stops asking —
+// without ever becoming the kind of open-ended authorization that
+// `security -> C:/Users/` was (see pathPrefix above for that live incident).
+//
+// Three structural safety properties, in order of importance:
+//
+//  1. CLOSED ALLOWLIST. A shape not enumerated in PRECEDENT_ELIGIBLE can never
+//     be learned, at any approval count, by any code path. Adding an entry is a
+//     deliberate, reviewed act — not something evidence can do on its own.
+//  2. EXACT FLAG-SET EQUALITY. A superset never matches. An act carrying any
+//     additional property (a protected target, a privilege escalation) is a
+//     different kind of act and falls outside the precedent by construction.
+//  3. SERVER-AUTHORED SCOPE. The flags come from context.evidence_flags, which
+//     validate() strips from client input (guard/types.ts). A compromised agent
+//     cannot describe itself into a precedent's scope.
+//
+// ADMISSION RULE for PRECEDENT_ELIGIBLE, recorded so future edits are held to
+// it: a shape may be listed only if its worst case over EVERY input the
+// classifier grades into it is recoverable by re-running a build command, AND
+// its flag set alone proves workspace-boundedness.
+export const PRECEDENT_ELIGIBLE: ReadonlySet<string> = new Set([
+  // `regenerable_artifact` is set only when EVERY delete target passes
+  // isRegenerableArtifactTarget (guard/evidence.ts), which rejects globs,
+  // absolute paths, `~`, drive-qualified paths and `..`. So this shape is
+  // workspace-bounded BY CONSTRUCTION and needs no separate reach classifier.
+  'cleanup|destructive,regenerable_artifact',
+]);
+
+// Redundant denylist. PRECEDENT_ELIGIBLE alone is sufficient — this is a second
+// gate so that ADDING a bad entry above is not enough to open a hole by itself.
+export const NEVER_PRECEDENTED: ReadonlySet<string> = new Set([
+  'protected_target', 'device_write', 'interpreter_destructive', 'remote_exec',
+  'secret_exposure', 'sensitive_path', 'privilege', 'deploy', 'vcs_dangerous',
+]);
+
+/** Precedent grant lifetime. Deliberately shorter than GRANT_DEFAULT_TTL_DAYS:
+ *  a learned relaxation should have to re-earn itself. */
+export const PRECEDENT_TTL_DAYS = 14;
+
+/** Sorted, de-duplicated, non-empty string flags — or null when malformed. */
+export function normalizeFlags(raw: unknown): string[] | null {
+  if (!Array.isArray(raw)) return null;
+  const clean = raw.filter((f): f is string => typeof f === 'string' && f.length > 0);
+  if (clean.length === 0) return null;
+  return [...new Set(clean)].sort();
+}
+
+/** Stable precedent identity: `${action_type}|${sorted,flags}`. */
+export function precedentKey(actionType: string, flags: string[]): string {
+  return `${actionType}|${[...flags].sort().join(',')}`;
+}
+
+/** May this (action_type, flag set) EVER become a precedent? */
+export function precedentEligible(actionType: string, flags: string[]): boolean {
+  if (flags.some((f) => NEVER_PRECEDENTED.has(f))) return false;
+  return PRECEDENT_ELIGIBLE.has(precedentKey(actionType, flags));
+}
+
+function precedentGrantMatches(rawGrantFlags: unknown, context: GrantContext): boolean {
+  const grantFlags = normalizeFlags(rawGrantFlags);
+  if (!grantFlags) return false;
+  // No server-classified flags on this call means no evidence that it is the
+  // learned shape. Fail closed rather than fall through to a looser check.
+  const actFlags = normalizeFlags(context.evidence_flags);
+  if (!actFlags) return false;
+  const actionType = typeof context.action_type === 'string' ? context.action_type : '';
+  // Re-checked at MATCH time, not only at creation: narrowing the allowlist
+  // must retire already-stored precedents immediately, without a migration.
+  if (!precedentEligible(actionType, grantFlags)) return false;
+  if (grantFlags.length !== actFlags.length) return false;
+  return grantFlags.every((f, i) => f === actFlags[i]);
 }
 
 /** Shape of a stored guard_decisions row (action_type column + context JSON text). */

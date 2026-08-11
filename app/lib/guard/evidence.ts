@@ -112,8 +112,44 @@ function rmDeleteTargets(segment: string): string[] {
 // takes the WORSE of the two labels, so the two must stay byte-equivalent.
 // Absolute, home-relative, drive-qualified and `..`-traversing paths are
 // rejected EXPLICITLY: requiring a bare name used to imply all four.
+// Directories the OPERATING SYSTEM designates as scratch. Content strictly
+// inside one is disposable by construction (the OS may clear it on reboot), so
+// a recursive delete there is routine maintenance. Each entry starts and ends
+// with '/', so a substring search already enforces path boundaries and
+// '/nottmp/x' cannot match '/tmp/'. Mirrors _OS_SCRATCH_ROOTS in
+// bash_classifier.py — max() takes the worse label, so both sides must agree.
+const OS_SCRATCH_ROOTS = ['/tmp/', '/var/tmp/', '/private/tmp/', '/appdata/local/temp/'];
+
+/**
+ * A path STRICTLY INSIDE an OS scratch root. Something must remain after the
+ * root, so `rm -rf /tmp` itself keeps the destructive grade, and `..` is
+ * rejected outright or `/tmp/../etc` would inherit the scratch grade.
+ *
+ * Live evidence 2026-08-11: the frontend-verify skill's
+ * `rm -rf <temp>/scratchpad/e2e-out` graded security/100 and was hand-approved
+ * four times in one evening from a phone.
+ */
+function isOsScratchTarget(target: string): boolean {
+  const t = target.replace(/\\/g, '/').replace(/\/+$/, '');
+  if (!t || t.split('/').includes('..')) return false;
+  let low = t.toLowerCase();
+  // Only an ABSOLUTE path can be OS scratch; a project-relative `tmp/build` is
+  // ordinary repo content and keeps the destructive grade.
+  if (!low.startsWith('/')) {
+    if (!/^[a-z]:\//.test(low)) return false;
+    low = `/${low}`;
+  }
+  return OS_SCRATCH_ROOTS.some((root) => {
+    const idx = low.indexOf(root);
+    return idx !== -1 && low.length > idx + root.length;
+  });
+}
+
 function isRegenerableArtifactTarget(target: string): boolean {
   if (/[*?[]/.test(target)) return false;
+  // OS scratch roots are the one absolute-path exception, and safe for the same
+  // reason the named dirs are. Checked first: the guards below reject absolutes.
+  if (isOsScratchTarget(target)) return true;
   let t = target.replace(/\\/g, '/').replace(/\/+$/, '');
   if (t.startsWith('./')) t = t.slice(2);
   if (!t || t.startsWith('/') || t.startsWith('~') || /^[a-z]:/i.test(t)) return false;

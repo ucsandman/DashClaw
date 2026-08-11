@@ -6,6 +6,11 @@ import {
   grantMatches,
   extractDecisionShape,
   prefixMatches,
+  precedentKey,
+  precedentEligible,
+  normalizeFlags,
+  PRECEDENT_ELIGIBLE,
+  NEVER_PRECEDENTED,
 } from '@/lib/policy-shapes';
 
 describe('normalizeTarget', () => {
@@ -150,6 +155,99 @@ describe('grantMatches', () => {
       { action_type: 'write', target_prefix: 'sdk/lib/' },
       { action_type: 'write', write_paths: ['sdk/lib/deep/file.ts'] },
     )).toBe(true);
+  });
+});
+
+// Precedent grants: scope is an exact SERVER-computed evidence flag set, not an
+// operator-supplied target prefix. These tests exist because this is the one
+// mechanism in the system that turns repeated human approvals into a standing
+// relaxation — the failure mode is a hole that widens itself.
+describe('precedent grants', () => {
+  const ELIGIBLE = ['destructive', 'regenerable_artifact'];
+  const precedent = (flags: string[] = ELIGIBLE) => ({
+    action_type: 'cleanup',
+    precedent_flags: flags,
+  });
+  const call = (over: Record<string, unknown> = {}) => ({
+    action_type: 'cleanup',
+    evidence_flags: ELIGIBLE,
+    ...over,
+  });
+
+  it('normalizeFlags sorts, dedupes and rejects malformed input', () => {
+    expect(normalizeFlags(['b', 'a', 'b'])).toEqual(['a', 'b']);
+    expect(normalizeFlags([])).toBeNull();
+    expect(normalizeFlags('destructive')).toBeNull();
+    expect(normalizeFlags(null)).toBeNull();
+    expect(normalizeFlags([1, 2])).toBeNull();
+  });
+
+  it('precedentKey is order-independent', () => {
+    expect(precedentKey('cleanup', ['regenerable_artifact', 'destructive']))
+      .toBe(precedentKey('cleanup', ['destructive', 'regenerable_artifact']));
+  });
+
+  it('the shipped allowlist is exactly one entry (widening it is a reviewed act)', () => {
+    expect([...PRECEDENT_ELIGIBLE]).toEqual(['cleanup|destructive,regenerable_artifact']);
+  });
+
+  it('matches when the act carries exactly the learned flag set', () => {
+    expect(grantMatches(precedent(), call())).toBe(true);
+  });
+
+  it('a SUPERSET never matches — an extra property is a different kind of act', () => {
+    expect(grantMatches(precedent(), call({
+      evidence_flags: ['destructive', 'regenerable_artifact', 'protected_target'],
+    }))).toBe(false);
+  });
+
+  it('a SUBSET never matches', () => {
+    expect(grantMatches(precedent(), call({ evidence_flags: ['destructive'] }))).toBe(false);
+  });
+
+  it('fails closed when the call carries no server evidence flags', () => {
+    expect(grantMatches(precedent(), call({ evidence_flags: undefined }))).toBe(false);
+    expect(grantMatches(precedent(), call({ evidence_flags: [] }))).toBe(false);
+  });
+
+  it('fails closed on malformed precedent_flags', () => {
+    expect(grantMatches({ action_type: 'cleanup', precedent_flags: 'destructive' }, call())).toBe(false);
+    expect(grantMatches({ action_type: 'cleanup', precedent_flags: [] }, call())).toBe(false);
+  });
+
+  it('an off-allowlist action_type can never be precedented, however many flags line up', () => {
+    expect(precedentEligible('security', ELIGIBLE)).toBe(false);
+    expect(grantMatches(
+      { action_type: 'security', precedent_flags: ELIGIBLE },
+      call({ action_type: 'security' }),
+    )).toBe(false);
+  });
+
+  it('a NEVER_PRECEDENTED flag disqualifies even a stored precedent (match-time recheck)', () => {
+    for (const flag of NEVER_PRECEDENTED) {
+      expect(precedentEligible('cleanup', ['destructive', flag])).toBe(false);
+    }
+    // package installs must never become one-click-forever (npm postinstall = RCE)
+    expect(precedentEligible('build', ['package'])).toBe(false);
+  });
+
+  it('absent precedent_flags is a structural no-op — legacy grants are untouched', () => {
+    expect(grantMatches(
+      { action_type: 'apply', target_prefix: 'sdk/lib/' },
+      { action_type: 'apply', target: 'sdk/lib/deep/file.ts' },
+    )).toBe(true);
+    expect(grantMatches({ action_type: 'apply' }, { action_type: 'apply' })).toBe(true);
+  });
+
+  it('a precedent ignores target_prefix entirely — flags are the whole scope', () => {
+    expect(grantMatches(
+      { action_type: 'cleanup', precedent_flags: ELIGIBLE, target_prefix: 'C:/Users/' },
+      call({ target: 'C:/Users/sandm/Documents' }),
+    )).toBe(true);
+    expect(grantMatches(
+      { action_type: 'cleanup', precedent_flags: ELIGIBLE, target_prefix: 'C:/Users/' },
+      call({ evidence_flags: ['destructive'], target: 'C:/Users/sandm/Documents' }),
+    )).toBe(false);
   });
 });
 

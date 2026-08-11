@@ -302,6 +302,39 @@ describe('classifyAct — path-aware rm (F5)', () => {
     expect(got).toEqual(cmds.map((c) => `${c} -> cleanup/45`));
   });
 
+  // OS scratch (2026-08-11). Live evidence from my-dashclaw.vercel.app: the
+  // frontend-verify skill's `rm -rf <temp>/scratchpad/e2e-out` graded
+  // security/100 and was hand-approved four times in one evening from a phone.
+  // Content under an OS temp root is disposable by construction. Mirror of
+  // test_os_scratch_* in hooks/tests/test_bash_classifier.py.
+  it('a path inside an OS scratch root grades cleanup, not security', () => {
+    const cmds = [
+      'rm -rf "C:/Users/sandm/AppData/Local/Temp/claude/C--Projects/abc/scratchpad/e2e-out"',
+      'rm -rf /tmp/build-output',
+      'rm -rf /var/tmp/session-cache',
+    ];
+    const got = cmds.map((command) => {
+      const c = classifyAct({ kind: 'shell', command });
+      return `${c.derived_action_type}/${c.base_risk}`;
+    });
+    expect(got).toEqual(cmds.map(() => 'cleanup/45'));
+  });
+
+  it('the scratch exception does not cover the root itself, traversal, or lookalikes', () => {
+    const cmds = [
+      'rm -rf /tmp',
+      'rm -rf /tmp/../etc',
+      'rm -rf /nottmp/data',
+      'rm -rf tmp/build',
+      'rm -rf "C:/Users/sandm/AppData/Local/Temp/../../Documents"',
+    ];
+    const got = cmds.map((command) => {
+      const c = classifyAct({ kind: 'shell', command });
+      return `${command} -> ${c.derived_action_type}`;
+    });
+    expect(got).toEqual(cmds.map((c) => `${c} -> security`));
+  });
+
   it('the subtree widening is not a traversal or absolute-path escape hatch', () => {
     const cmds = [
       'rm -rf node_modules/../src',
@@ -411,11 +444,23 @@ describe('classifyAct — F2 coverage backlog', () => {
     }
   });
 
-  it('deeper profile paths keep the ordinary destructive grade (no over-escalation)', () => {
-    const c = classifyAct({ kind: 'shell', command: 'rm -rf /c/Users/sandm/AppData/Local/Temp/scratch' });
-    expect(c.derived_action_type).toBe('security');
-    expect(evidenceTotal(c)).toBe(80);
-    expect(c.flags).not.toContain('protected_target');
+  // AMENDED 2026-08-11. The original example was
+  // `rm -rf /c/Users/sandm/AppData/Local/Temp/scratch`, asserting security/80.
+  // That path is an OS temp root in msys spelling, and it is now graded as
+  // scratch (cleanup/45) — see the OS-scratch tests in the F5 block above.
+  // The property this test exists for is UNCHANGED and still pinned below: a
+  // deep path under a user profile must not over-escalate to protected_target
+  // /100. Both a temp path and a non-temp profile path are asserted so neither
+  // direction can regress.
+  it('deeper profile paths never over-escalate to protected_target', () => {
+    const scratch = classifyAct({ kind: 'shell', command: 'rm -rf /c/Users/sandm/AppData/Local/Temp/scratch' });
+    expect(scratch.derived_action_type).toBe('cleanup');
+    expect(scratch.flags).not.toContain('protected_target');
+
+    const realContent = classifyAct({ kind: 'shell', command: 'rm -rf /c/Users/sandm/Documents/taxes' });
+    expect(realContent.derived_action_type).toBe('security');
+    expect(evidenceTotal(realContent)).toBe(80);
+    expect(realContent.flags).not.toContain('protected_target');
   });
 
   it('Remove-Item -Recurse rides the same grading (PowerShell forwards as shell)', () => {

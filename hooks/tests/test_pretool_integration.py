@@ -206,8 +206,12 @@ class TestPretoolIntegration(unittest.TestCase):
 
     def test_bash_destructive_sends_high_risk(self):
         """Destructive bash commands should produce high risk scores."""
+        # Example changed 2026-08-11: this used `rm -rf /tmp/stuff`, now
+        # deliberately graded as OS scratch (bash_classifier._is_os_scratch_path).
+        # The property under test is the pretool hook forwarding a high risk
+        # score for a destructive command, not the specific path.
         code, _, _ = _run_hook(
-            {"tool_name": "Bash", "tool_input": {"command": "rm -rf /tmp/stuff"}, "tool_use_id": "tu-002"},
+            {"tool_name": "Bash", "tool_input": {"command": "rm -rf /home/wes/data"}, "tool_use_id": "tu-002"},
             self._env(),
         )
         self.assertEqual(code, 0)

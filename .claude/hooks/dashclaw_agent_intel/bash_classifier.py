@@ -307,6 +307,40 @@ _REGENERABLE_ARTIFACT_DIRS = frozenset({
 })
 
 
+# Directories the OPERATING SYSTEM designates as scratch. Anything strictly
+# inside one is disposable by construction — the OS itself may clear it on
+# reboot — so a recursive delete there is routine maintenance, not a
+# catastrophe. Added 2026-08-11 from live evidence: the frontend-verify skill's
+# `rm -rf <temp>/scratchpad/e2e-out` graded security/100 and was hand-approved
+# four times in one evening from a phone.
+# Each entry starts and ends with '/', so a plain substring search already
+# enforces path boundaries: '/nottmp/x' cannot match '/tmp/'.
+_OS_SCRATCH_ROOTS = ("/tmp/", "/var/tmp/", "/private/tmp/", "/appdata/local/temp/")
+
+
+def _is_os_scratch_path(target: str) -> bool:
+    """True for a path STRICTLY INSIDE an OS scratch root.
+
+    Something must remain after the root, so `rm -rf /tmp` itself still grades
+    destructive. `..` is rejected outright: without that, `/tmp/../etc` would
+    inherit the scratch grade.
+    """
+    t = target.replace("\\", "/").rstrip("/")
+    if not t or ".." in t.split("/"):
+        return False
+    low = t.lower()
+    # Only an ABSOLUTE path can be OS scratch. A project-relative `tmp/build`
+    # is ordinary repo content and must keep the destructive grade.
+    if not low.startswith("/"):
+        if not re.match(r"^[a-z]:/", low):
+            return False
+        low = "/" + low  # drive-qualified: give the search a leading boundary
+    return any(
+        (idx := low.find(root)) != -1 and len(low) > idx + len(root)
+        for root in _OS_SCRATCH_ROOTS
+    )
+
+
 def _is_regenerable_dir_name(target: str) -> bool:
     """True for a regenerable artifact root OR any path beneath one.
 
@@ -320,6 +354,11 @@ def _is_regenerable_dir_name(target: str) -> bool:
     rejected EXPLICITLY. They were previously excluded only as a side effect of
     requiring a bare name, and that guarantee disappears once subtrees match.
     """
+    # OS scratch roots are the one absolute-path exception, and they are safe
+    # for the same reason the named dirs are: the content is disposable by
+    # construction. Checked first because the guards below reject absolutes.
+    if _is_os_scratch_path(target):
+        return True
     t = target.replace("\\", "/").rstrip("/")
     if t.startswith("./"):
         t = t[2:]

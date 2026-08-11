@@ -425,7 +425,12 @@ class TestRiskScore(unittest.TestCase):
         self.assertLessEqual(r["risk_score"], 20)
 
     def test_destructive_high_risk(self):
-        r = classify_bash("rm -rf /tmp/build")
+        # Example changed 2026-08-11: this used `rm -rf /tmp/build`, which is
+        # now deliberately graded as OS scratch (see
+        # test_os_scratch_paths_grade_as_routine_cleanup). The property under
+        # test — a recursive delete of real content scores in the block band —
+        # is unchanged; only the example had to stop being a temp path.
+        r = classify_bash("rm -rf /home/wes/data")
         self.assertGreaterEqual(r["risk_score"], 85)
 
     def test_git_push_moderate_risk(self):
@@ -481,6 +486,34 @@ class TestRiskScore(unittest.TestCase):
             r = classify_bash(cmd)
             self.assertEqual(r["intent"], "destructive", cmd)
             self.assertLessEqual(r["risk_score"], whole, cmd)
+
+    def test_os_scratch_paths_grade_as_routine_cleanup(self):
+        # Live evidence 2026-08-11 (my-dashclaw.vercel.app): the frontend-verify
+        # skill's `rm -rf <temp>/scratchpad/e2e-out` graded 100 and was
+        # hand-approved four times in one evening from a phone. Content under an
+        # OS temp root is disposable by construction.
+        for cmd in (
+            'rm -rf "C:/Users/sandm/AppData/Local/Temp/claude/C--Projects/abc/scratchpad/e2e-out"',
+            "rm -rf /tmp/build-output",
+            "rm -rf /var/tmp/session-cache",
+            "rm -rf /private/tmp/x",
+        ):
+            r = classify_bash(cmd)
+            self.assertEqual(r["intent"], "destructive", cmd)
+            self.assertLessEqual(r["risk_score"], 39, cmd)
+
+    def test_os_scratch_exception_is_narrow(self):
+        # The root itself, traversal out of it, lookalike names, and a
+        # project-relative tmp/ all keep the full destructive grade.
+        for cmd in (
+            "rm -rf /tmp",
+            "rm -rf /tmp/../etc",
+            "rm -rf /nottmp/data",
+            "rm -rf tmp/build",
+            'rm -rf "C:/Users/sandm/AppData/Local/Temp/../../Documents"',
+        ):
+            r = classify_bash(cmd)
+            self.assertGreaterEqual(r["risk_score"], 70, cmd)
 
     def test_regenerable_subtree_is_not_a_traversal_escape_hatch(self):
         # Requiring a bare name used to imply "no `..`, no absolute, no home".
