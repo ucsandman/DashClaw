@@ -70,7 +70,7 @@ policies:
       number: 1,
       title: 'Prerequisites',
       summary:
-        'Three things before you start: OpenClaw installed and on PATH, a running DashClaw instance (deploy one or use an existing one), and an API key for that instance.',
+        'Three things before you start: OpenClaw installed and on PATH, a running DashClaw instance (deploy one or use an existing one), and an API key for that instance (it starts with oc_live_).',
       note: 'Already have all three? Skip to Step 2.',
     },
     {
@@ -81,7 +81,7 @@ policies:
       codeTitle: 'Terminal',
       codeBody: 'dashclaw install openclaw --agent-id moltfire-openclaw',
       note:
-        'The API key is written to ~/.openclaw/.env as DASHCLAW_API_KEY. Pass --write-config to store it in openclaw.json instead.',
+        'The API key is written to ~/.openclaw/.env as DASHCLAW_API_KEY. Pass --write-config to store it in openclaw.json instead. The installer also sets failClosed: true, and there is currently no flag to change it: if DashClaw is unreachable, the plugin blocks the call instead of letting it through.',
     },
     {
       number: 3,
@@ -167,7 +167,7 @@ policies:
               What gets governed
             </p>
             <p className="mt-4 text-sm text-secondary leading-relaxed">
-              The plugin classifies each tool call before it executes. Bash commands are parsed against known intent sets (git, rm, curl, npm). File operations are scanned for sensitive paths (<span className="font-mono text-secondary">.env</span>, credentials, private keys). Unknown tools fall through to action_type <span className="font-mono text-secondary">other</span> with a configurable default risk score of 50. Tools listed in <span className="font-mono text-secondary">highRiskTools</span> always start at risk 85; the classifier may raise the score further but will not lower it.
+              The plugin classifies each tool call before it executes. Bash commands are parsed against known intent sets (git, rm, curl, npm). File operations are scanned for sensitive paths (<span className="font-mono text-secondary">.env</span>, credentials, private keys). Unknown tools fall through to action_type <span className="font-mono text-secondary">other</span> with a configurable default risk score of 50. Tools listed in <span className="font-mono text-secondary">highRiskTools</span>, set in the same <span className="font-mono text-secondary">openclaw.json</span> the installer patches, always start at risk 85; the classifier may raise the score further but will not lower it.
             </p>
             <div className="mt-5 overflow-hidden rounded-xl border border-border-hover">
               <table className="w-full text-left text-sm">
@@ -181,6 +181,7 @@ policies:
                 </thead>
                 <tbody className="text-secondary">
                   {[
+                    { tool: 'write: hello.txt', type: 'apply', risk: 50, reversible: 'yes' },
                     { tool: 'bash: git push origin main', type: 'deploy', risk: 80, reversible: 'no' },
                     { tool: 'bash: rm -rf /tmp/data', type: 'security', risk: 90, reversible: 'no' },
                     { tool: 'write: .env.production', type: 'security', risk: 85, reversible: 'yes' },
@@ -223,7 +224,7 @@ policies:
               written to <span className="font-mono text-secondary">~/.dashclaw/identity/&lt;agentId&gt;.pem</span>{' '}
               and never leaves the agent&apos;s machine. Approval is what creates the identity — the agent
               cannot enroll itself. Disable with <span className="font-mono text-secondary">autoPairing: false</span>{' '}
-              in the plugin config.
+              in <span className="font-mono text-secondary">openclaw.json</span>, the same file the installer patches.
             </p>
           </section>
 

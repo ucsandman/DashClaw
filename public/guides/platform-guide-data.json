@@ -656,7 +656,7 @@
           "status": "stable",
           "statusEvidence": "Same finished GuideClient pattern; explicitly documents the failClosed:true default and why not to flip it — a deliberate, considered guide rather than boilerplate.",
           "interface": "/guides/openclaw",
-          "purpose": "Guide for installing @dashclaw/openclaw-plugin, setting env vars, configuring fail-closed behavior and high-risk tool classification, and verifying a governed tool call lands in /decisions.",
+          "purpose": "Guide for the one-command dashclaw install openclaw flow: installs and enables the plugin, sets a distinct agent id per machine, stores the API key (env var or --write-config), and verifies with openclaw plugins doctor and the /decisions ledger.",
           "clickPath": "Linked from /connect page and /self-host page",
           "gotchas": "None.",
           "file": "app/guides/openclaw/page.tsx"
