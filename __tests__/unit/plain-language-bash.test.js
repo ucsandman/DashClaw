@@ -133,4 +133,14 @@ describe('describeBash', () => {
     expect(describeBash('cat template >>/etc/passwd', {}).confidence).toBe('unknown');
     expect(describeBash('echo pwned>~/.bashrc', {}).confidence).toBe('unknown');
   });
+
+  // --- Fix round 3 regression ---
+
+  it('does not claim "changes nothing" when part of the pipeline could not be read', () => {
+    const partial = describeBash('ls -la | frobnicate', read);
+    expect(partial.warnings).not.toContain('Reads only, changes nothing.');
+
+    const whole = describeBash('ls -la', read);
+    expect(whole.warnings).toContain('Reads only, changes nothing.');
+  });
 });
