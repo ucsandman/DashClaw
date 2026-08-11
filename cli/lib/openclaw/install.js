@@ -263,9 +263,14 @@ export function runOpenclaw(argv, { bin = 'openclaw', input = null, spawnImpl = 
     // UTF-8 sequence back until its remaining bytes arrive. Without it each
     // Buffer is stringified independently and a character straddling a 64KB
     // pipe boundary decodes to U+FFFD on both sides — proven at 375KB, and
-    // `plugins list --json` is already 138KB. execFile had this for free; the
+    // `plugins list --json` measured 152,786 chars against the real CLI on
+    // 2026-08-11, well past the first boundary. It survives today only because
+    // that output happens to be pure ASCII. execFile had this for free; the
     // move to spawn lost it. The damage is SILENT: replacement characters are
-    // legal JSON, so a corrupted listing still parses.
+    // legal JSON, so a corrupted listing still parses and the fields are just
+    // wrong — installedPluginVersion would return null and the version skip
+    // would quietly stop working, reintroducing the plugin downgrade it
+    // prevents.
     child.stdout?.setEncoding('utf8');
     child.stderr?.setEncoding('utf8');
     child.stdout?.on('data', (d) => { stdout += d; });

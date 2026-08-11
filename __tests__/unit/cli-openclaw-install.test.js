@@ -938,11 +938,9 @@ describe('runOpenclaw', () => {
   // The move from execFile to spawn dropped execFile's StringDecoder. `stdout +=
   // d` stringifies each Buffer INDEPENDENTLY, so a UTF-8 sequence split across
   // two 64KB chunks is destroyed — each half decodes to U+FFFD. `plugins list
-  // --json` is already 138KB, past the first boundary; it survives today only
-  // because it happens to be pure ASCII. One non-ASCII character in any
-  // plugin's name or description makes JSON.parse fail, installedPluginVersion
-  // return null, and the version-skip silently stop working — which
-  // reintroduces the silent plugin DOWNGRADE that skip exists to prevent.
+  // --json` measured 152,786 chars against the real CLI on 2026-08-11, past the
+  // first boundary; it survives today only because that output happens to be
+  // pure ASCII (verified: zero code points above U+007F).
   it('decodes a character split across two chunks', async () => {
     const res = await runOpenclaw([scripts.split], { bin: node });
     expect(res.ok).toBe(true);
@@ -960,11 +958,11 @@ describe('runOpenclaw', () => {
     expect(res.stderr).toBe(expected);
   });
 
-  // The consequence on the one stream that is actually large enough to be
-  // chunked: `plugins list --json` is 138KB against the real CLI, past the
-  // first boundary, and survives today only by being pure ASCII. Note the
-  // damage is SILENT — U+FFFD is a legal JSON string character, so the
-  // document still parses and nothing raises; the fields just come back wrong.
+  // The consequence on the one stream actually large enough to be chunked.
+  // Note the damage is SILENT — U+FFFD is a legal JSON string character, so
+  // the document still parses and nothing raises; the fields just come back
+  // wrong. A corrupted id or version is what makes installedPluginVersion
+  // return null and the version skip stop working.
   it('reads a plugins list with non-ASCII fields back intact', async () => {
     const CHUNK = 65_536;
     const build = (pad) => JSON.stringify({
