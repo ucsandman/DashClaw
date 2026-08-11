@@ -16,6 +16,12 @@ interface Clause {
 
 const MAX_OPERAND = 80;
 
+/**
+ * The read-rule's reassurance. Named so it can be found and stripped from
+ * the aggregate warnings when it is not the whole story — see describeBash.
+ */
+const READ_ONLY_WARNING = 'Reads only, changes nothing.';
+
 /** Extracted values are bounded; the card renders them as data, not as prose. */
 function noun(value: string): string {
   const flat = value.replace(/\s+/g, ' ').trim();
@@ -50,12 +56,15 @@ function hasFlag(stage: ShellStage, ...names: string[]): boolean {
 }
 
 /**
- * `>` and `>>` survive tokenisation as ordinary operands (parse-shell.ts has
- * no notion of redirection). A stage that redirects writes a file and must
- * never be described by a read-only rule.
+ * parse-shell.ts has no notion of redirection, so `>`/`>>` survive
+ * tokenisation as ordinary operand text — usually glued to its target with
+ * no space (`>out.txt`, `>>/etc/passwd`), since splitting only happens on
+ * whitespace. Matching on containment, not equality, catches every spacing
+ * variant. A filename that legitimately contains '>' is vanishingly rare,
+ * and reading it as a write is the safe direction to be wrong in.
  */
 function hasRedirection(stage: ShellStage): boolean {
-  return stage.operands.some((o) => o === '>' || o === '>>');
+  return stage.operands.some((o) => o.includes('>'));
 }
 
 /** Returns null when the stage is not recognised. Null is a valid outcome. */
@@ -126,7 +135,7 @@ function describeStage(stage: ShellStage): Clause | null {
     // not read-only and we cannot cheaply prove otherwise. It falls through
     // to the unrecognised return below.
     if (hasRedirection(stage)) return null;
-    return { text: 'Reads information from your computer', warnings: ['Reads only, changes nothing.'], ruleId: 'bash.read' };
+    return { text: 'Reads information from your computer', warnings: [READ_ONLY_WARNING], ruleId: 'bash.read' };
   }
 
   return null;
@@ -193,16 +202,23 @@ export function describeBash(command: string, bashIntel?: BashIntel): PlainDescr
   const { clauses: known, complete } = describeStages(stages);
   if (known.length === 0) return unknownDescription('bash.unrecognised');
 
+  // A mixed pipeline is not calm even if its first stage is; only a single
+  // fully-recognised read stays on the calm rule id. Reused below: the
+  // read-only reassurance is honest only under this same condition.
+  const soleClause = known.length === 1 ? known[0] : undefined;
+
   const text = known.map((c) => c.text).join(', then ');
-  const warnings = [...new Set(known.flatMap((c) => c.warnings))];
+  const warnings = [...new Set(known.flatMap((c) => c.warnings))]
+    // "Reads only, changes nothing." is true of the whole command only when
+    // it IS the whole command. Next to another clause's warning it reads
+    // calmest-first on a pipeline that may not be calm at all — worse than
+    // no warning, because it is the one the operator reads first.
+    .filter((w) => soleClause !== undefined || w !== READ_ONLY_WARNING);
 
   if (!complete) {
     warnings.unshift("There is more in this command that I can't read. Check it below before approving.");
   }
 
-  // A mixed pipeline is not calm even if its first stage is; only a
-  // single fully-recognised read stays on the calm rule id.
-  const soleClause = known.length === 1 ? known[0] : undefined;
   const ruleId = complete && soleClause ? soleClause.ruleId : complete ? 'bash.sequence' : 'bash.partial';
 
   return {
