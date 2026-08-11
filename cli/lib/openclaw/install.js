@@ -2,7 +2,10 @@
 
 import { execFile } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { replaceManagedBlock, AGENTS_MANAGED_START, AGENTS_MANAGED_END } from '../codex/install.js';
+import { preflight } from '../claude/install.js';
 
 /**
  * Upsert KEY=value in .env content. Replaces an existing assignment in place so
@@ -192,4 +195,85 @@ function backupOnce(path) {
   if (existsSync(bak)) return bak;
   copyFileSync(path, bak);
   return bak;
+}
+
+export const OPENCLAW_PLUGIN_SPEC = '@dashclaw/openclaw-plugin';
+export const OPENCLAW_PLUGIN_VERSION = '1.6.2';
+
+/**
+ * `dashclaw install openclaw` orchestrator. Read-only until step 1 (preflight)
+ * passes — nothing is written and no openclaw subprocess runs until
+ * reachability and the API key are confirmed.
+ */
+export async function installOpenclaw({
+  baseUrl,
+  apiKey,
+  agentId = 'openclaw',
+  writeConfig = false,
+  openclawBinPath = null,
+  workspace = null,
+  pluginVersion = OPENCLAW_PLUGIN_VERSION,
+  verify = true,
+  envPath = join(homedir(), '.openclaw', '.env'),
+  env = process.env,
+  logger = console,
+  run = null,
+  preflightImpl = preflight,
+}) {
+  if (!baseUrl) throw new Error('baseUrl is required');
+  if (!apiKey) throw new Error('apiKey is required — pass --api-key or set DASHCLAW_API_KEY');
+
+  // 1. Read-only. Fail before touching anything.
+  await preflightImpl(baseUrl, apiKey);
+
+  const bin = openclawBin(env, openclawBinPath);
+  const exec = run || ((argv) => runOpenclaw(argv, { bin }));
+
+  // 2-3. Locate config.
+  const configPath = await resolveConfigPath({ run: exec });
+  logger.info(`OpenClaw config: ${configPath}`);
+
+  // 4. Plugin, then allowlist. `plugins enable` owns plugins.allow because
+  // config patch replaces arrays.
+  const spec = `${OPENCLAW_PLUGIN_SPEC}@${pluginVersion}`;
+  const installed = await exec(['plugins', 'install', spec]);
+  if (!installed.ok) throw new Error(`openclaw plugins install ${spec} failed: ${installed.stderr.trim()}`);
+  await exec(['plugins', 'enable', PLUGIN_ENTRY_KEY]);
+
+  // 5. One validated write.
+  const patch = buildPluginConfigPatch({ agentId, baseUrl, apiKey, writeConfig });
+  const patched = await exec(['config', 'patch', JSON.stringify(patch)]);
+  if (!patched.ok) throw new Error(`openclaw config patch failed: ${patched.stderr.trim()}`);
+
+  // 6. Secret to .env unless explicitly told otherwise.
+  if (!writeConfig) {
+    const current = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
+    writeFileSync(envPath, upsertEnvVar(current, 'DASHCLAW_API_KEY', apiKey));
+    logger.info(`Wrote DASHCLAW_API_KEY to ${envPath}`);
+  }
+
+  // 7. AGENTS.md in the RESOLVED workspace.
+  const ws = workspace || (await resolveWorkspace({ run: exec }));
+  const agentsMd = mergeAgentsMd({ agentsMdPath: join(ws, 'AGENTS.md'), baseUrl, agentId });
+  if (agentsMd.migrated) {
+    logger.info(`Replaced a codex-authored governance block (backup: ${agentsMd.backup})`);
+  }
+
+  // 8. Prove it. An install that looks fine while governance is dead is the
+  // worst outcome, so a failed doctor is loud.
+  let verified = null;
+  if (verify) {
+    const validated = await exec(['config', 'validate']);
+    const doctor = await exec(['plugins', 'doctor']);
+    verified = { config: validated.ok, plugins: doctor.ok };
+    if (!validated.ok || !doctor.ok) {
+      logger.warn(
+        'WARNING: install completed but verification failed — governance may not be enforcing.\n' +
+        `  config validate: ${validated.ok ? 'ok' : validated.stderr.trim()}\n` +
+        `  plugins doctor:  ${doctor.ok ? 'ok' : doctor.stderr.trim()}`,
+      );
+    }
+  }
+
+  return { configPath, envPath, agentsMd, migrated: agentsMd.migrated, verified };
 }

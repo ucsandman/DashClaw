@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { upsertEnvVar, buildAgentsMdBlock, isCodexAuthoredBlock, buildPluginConfigPatch, openclawBin, resolveConfigPath, resolveWorkspace, mergeAgentsMd } from '../../cli/lib/openclaw/install.js';
+import { upsertEnvVar, buildAgentsMdBlock, isCodexAuthoredBlock, buildPluginConfigPatch, openclawBin, resolveConfigPath, resolveWorkspace, mergeAgentsMd, installOpenclaw } from '../../cli/lib/openclaw/install.js';
 import { AGENTS_MANAGED_START, AGENTS_MANAGED_END } from '../../cli/lib/codex/install.js';
 
 describe('upsertEnvVar', () => {
@@ -214,5 +214,68 @@ describe('mergeAgentsMd', () => {
 
     mergeAgentsMd({ agentsMdPath: p, ...opts });
     expect(readFileSync(first.backup, 'utf8')).toBe(originalBackup);
+  });
+});
+
+function harness({ preflightThrows = false } = {}) {
+  const calls = [];
+  const run = async (argv) => {
+    calls.push(argv.join(' '));
+    if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: '/tmp/openclaw.json', stderr: '' };
+    if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
+    return { ok: true, stdout: '', stderr: '' };
+  };
+  const preflightImpl = async () => { if (preflightThrows) throw new Error('unreachable'); };
+  return { calls, run, preflightImpl };
+}
+
+let workspaceDir;
+beforeEach(() => { workspaceDir = mkdtempSync(join(tmpdir(), 'oc-ws-')); });
+
+describe('installOpenclaw', () => {
+  it('aborts before any write when preflight fails', async () => {
+    const h = harness({ preflightThrows: true });
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    await expect(installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: 'k', agentId: 'a',
+      envPath, run: h.run, preflightImpl: h.preflightImpl, logger: { info() {}, warn() {} },
+    })).rejects.toThrow('unreachable');
+    expect(existsSync(envPath)).toBe(false);
+    expect(h.calls).toHaveLength(0);
+  });
+
+  it('enables via plugins enable and never patches plugins.allow', async () => {
+    const h = harness();
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: 'k', agentId: 'forge-openclaw',
+      envPath, run: h.run, preflightImpl: h.preflightImpl, logger: { info() {}, warn() {} },
+    });
+    expect(h.calls.some((c) => c.startsWith('plugins enable'))).toBe(true);
+    const patchCall = h.calls.find((c) => c.startsWith('config patch'));
+    expect(patchCall).toBeDefined();
+    expect(patchCall).not.toContain('allow');
+  });
+
+  it('writes the key to .env, not into the config patch', async () => {
+    const h = harness();
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: 'super-secret', agentId: 'a',
+      envPath, run: h.run, preflightImpl: h.preflightImpl, logger: { info() {}, warn() {} },
+    });
+    expect(readFileSync(envPath, 'utf8')).toContain('DASHCLAW_API_KEY=super-secret');
+    expect(h.calls.find((c) => c.startsWith('config patch'))).not.toContain('super-secret');
+  });
+
+  it('writes AGENTS.md into the resolved workspace, not the cwd', async () => {
+    const h = harness();
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    const res = await installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: 'k', agentId: 'a',
+      envPath, run: h.run, preflightImpl: h.preflightImpl, logger: { info() {}, warn() {} },
+    });
+    expect(res.agentsMd.path).toBe(join(workspaceDir, 'AGENTS.md'));
+    expect(existsSync(res.agentsMd.path)).toBe(true);
   });
 });
