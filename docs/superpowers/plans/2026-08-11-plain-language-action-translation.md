@@ -214,9 +214,10 @@ In `app/lib/guard/types.ts`, replace the `intel` member (currently lines 42-47):
     green?: { observed_level?: string };
     tool?: { required_permission?: string };
     /**
-     * Emitted by hooks/dashclaw_agent_intel/bash_classifier.py via
-     * _enrich_bash. The classifier is the sole authority on risk — the
-     * plain-language module reads these and never recomputes them.
+     * Emitted by _enrich_bash in hooks/dashclaw_pretool.py, which delegates
+     * the classification itself to hooks/dashclaw_agent_intel/bash_classifier.py.
+     * The classifier is the sole authority on risk — the plain-language
+     * module reads these and never recomputes them.
      */
     bash?: {
       intent?: 'destructive' | 'write' | 'network' | 'read' | 'unknown';
