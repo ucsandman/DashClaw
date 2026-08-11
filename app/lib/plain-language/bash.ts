@@ -202,24 +202,28 @@ export function describeBash(command: string, bashIntel?: BashIntel): PlainDescr
   const { clauses: known, complete } = describeStages(stages);
   if (known.length === 0) return unknownDescription('bash.unrecognised');
 
-  // A mixed pipeline is not calm even if its first stage is; only a single
-  // fully-recognised read stays on the calm rule id. Reused below: the
-  // read-only reassurance is honest only under this same condition.
+  // A mixed OR incompletely-understood pipeline is never calm, even when the
+  // one stage we did recognise is a read — soleClause alone only means "one
+  // clause was recognised", not "the command was fully understood". This is
+  // the single shared condition for "safe to sound reassuring": hoisted into
+  // one named boolean and used for both the calm rule id and the read-only
+  // warning below so the two cannot drift apart from each other again.
   const soleClause = known.length === 1 ? known[0] : undefined;
+  const calmEligible = complete && soleClause !== undefined;
 
   const text = known.map((c) => c.text).join(', then ');
   const warnings = [...new Set(known.flatMap((c) => c.warnings))]
-    // "Reads only, changes nothing." is true of the whole command only when
-    // it IS the whole command. Next to another clause's warning it reads
-    // calmest-first on a pipeline that may not be calm at all — worse than
-    // no warning, because it is the one the operator reads first.
-    .filter((w) => soleClause !== undefined || w !== READ_ONLY_WARNING);
+    // "Reads only, changes nothing." is an unsupportable claim unless the
+    // whole command was understood and IS that one read — otherwise it is
+    // either reassurance about a stage we just admitted we can't read, or it
+    // reads calmest-first next to a warning from a more dangerous clause.
+    .filter((w) => calmEligible || w !== READ_ONLY_WARNING);
 
   if (!complete) {
     warnings.unshift("There is more in this command that I can't read. Check it below before approving.");
   }
 
-  const ruleId = complete && soleClause ? soleClause.ruleId : complete ? 'bash.sequence' : 'bash.partial';
+  const ruleId = calmEligible && soleClause ? soleClause.ruleId : complete ? 'bash.sequence' : 'bash.partial';
 
   return {
     headline: complete ? `${text}.` : `${text}. There is more here I can't read.`,
