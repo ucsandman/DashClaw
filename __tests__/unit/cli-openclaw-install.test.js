@@ -278,4 +278,22 @@ describe('installOpenclaw', () => {
     expect(res.agentsMd.path).toBe(join(workspaceDir, 'AGENTS.md'));
     expect(existsSync(res.agentsMd.path)).toBe(true);
   });
+
+  it('throws when plugins enable fails, before the config patch lands', async () => {
+    const calls = [];
+    const run = async (argv) => {
+      calls.push(argv.join(' '));
+      if (argv[0] === 'config' && argv[1] === 'file') return { ok: true, stdout: '/tmp/openclaw.json', stderr: '' };
+      if (argv[0] === 'config' && argv[1] === 'get') return { ok: true, stdout: JSON.stringify(workspaceDir), stderr: '' };
+      if (argv[0] === 'plugins' && argv[1] === 'enable') return { ok: false, stdout: '', stderr: 'enable boom' };
+      return { ok: true, stdout: '', stderr: '' };
+    };
+    const preflightImpl = async () => {};
+    const envPath = join(mkdtempSync(join(tmpdir(), 'oc-env-')), '.env');
+    await expect(installOpenclaw({
+      baseUrl: 'https://dc.example.com', apiKey: 'k', agentId: 'a',
+      envPath, run, preflightImpl, logger: { info() {}, warn() {} },
+    })).rejects.toThrow(/plugins enable/);
+    expect(calls.some((c) => c.startsWith('config patch'))).toBe(false);
+  });
 });

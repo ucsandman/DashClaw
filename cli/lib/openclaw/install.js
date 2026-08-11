@@ -238,7 +238,8 @@ export async function installOpenclaw({
   const spec = `${OPENCLAW_PLUGIN_SPEC}@${pluginVersion}`;
   const installed = await exec(['plugins', 'install', spec]);
   if (!installed.ok) throw new Error(`openclaw plugins install ${spec} failed: ${installed.stderr.trim()}`);
-  await exec(['plugins', 'enable', PLUGIN_ENTRY_KEY]);
+  const enabled = await exec(['plugins', 'enable', PLUGIN_ENTRY_KEY]);
+  if (!enabled.ok) throw new Error(`openclaw plugins enable ${PLUGIN_ENTRY_KEY} failed: ${enabled.stderr.trim()}`);
 
   // 5. One validated write.
   const patch = buildPluginConfigPatch({ agentId, baseUrl, apiKey, writeConfig });
