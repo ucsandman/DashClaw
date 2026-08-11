@@ -40,7 +40,7 @@ function fmtTheta(v) {
 // shared with /posture and /drift).
 function Sparkline({ points, className = 'text-secondary', height = 36, refLine = null }) {
   if (!points || points.length < 2) {
-    return <div className="h-9 text-[11px] text-disabled flex items-center">Not enough data yet</div>;
+    return <div className="h-9 text-[11px] text-tertiary flex items-center">Not enough data yet</div>;
   }
   const w = 220;
   const min = Math.min(...points, refLine ?? Infinity);

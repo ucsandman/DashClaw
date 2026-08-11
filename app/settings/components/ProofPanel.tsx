@@ -110,7 +110,7 @@ export function ProofPanel({ view, proofDownloadHref }: ProofPanelProps) {
       </div>
 
       <details className="mt-3">
-        <summary className="cursor-pointer text-xs text-disabled select-none">
+        <summary className="cursor-pointer text-xs text-tertiary select-none">
           Preview raw artifact
         </summary>
         <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg border border-border bg-surface-tertiary px-3 py-2 text-[10px] font-mono text-tertiary">
