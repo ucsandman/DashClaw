@@ -14,6 +14,57 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-10 — v5.17.2: two places we asked for a judgment and gave no way to say yes
+
+Wes found both of these by using his own instance, which is the only way
+these ever get found. Neither is a crash, neither fails a test, and neither
+would ever appear in CI. They are the failure mode this project exists to
+argue against: a control plane that *records* correctly and cannot be
+*operated*.
+
+The first: `/policies` shows a red banner naming every gating rule that an
+active allow-grant has quietly nullified — the "your rule reads active and
+enforces nothing" alarm. Under it, a link: **Review suppressed patterns →**.
+Wes clicked it and nothing happened. It was `<Link href="#suppressed">`, and
+a repo-wide grep for `id="suppressed"` returns zero matches. There was never
+anything to jump to. Worse, there could not have been: the grants it means
+render only in the ledger's Sentences lens, which the Table default never
+mounts, inside a collapsible section the operator may have closed — three
+independent reasons an anchor was the wrong tool. The fix drives the ledger
+instead of linking at it: open the section, switch the lens, scroll the
+group into view, and flag the rows whose policy ids appear in the banner's
+`suppressed_by`, so the specific grant is under the cursor with **Remove**
+beside it. Verified by driving the page headless in the worst case — section
+manually collapsed first — and asserting all four steps happen.
+
+The second is the one that stings, because the page already knew the rule.
+`/assumptions` tracks what an agent believed while it acted; an operator
+validates or invalidates each belief. Wes had 42 awaiting validation and the
+only button on the row said **Invalidate…**. `PATCH /api/assumptions/:id`
+has accepted `{validated: true}` since the route was written, and the
+right-click menu called it — so the capability was complete and the *positive
+verdict was invisible*. The page carries this comment, written when the
+negative one was fixed: "operator judgment = a visible control, not
+right-click-only." Somebody reached exactly the right conclusion and applied
+it to one of the two verdicts. Validate is now a button on every pending
+row, and the selection bar — which had checkboxes, a select-all, a
+select-all hotkey, and exactly one action, **Copy IDs** — gains a bulk
+Validate. Copy IDs is a control built for a terminal; it was the only thing
+a human could do to 42 selected beliefs.
+
+Bulk *invalidate* was deliberately left out. The API requires a reason, and
+a reason is judgment about one belief, not something to fan out over a
+selection.
+
+One thing this pass did not fix and should be named: `border-success/20` and
+its siblings compile to **nothing** in this repo — theme tokens are plain
+`var(--color-*)` strings without `<alpha-value>` under Tailwind 3.3, so any
+token class with an alpha modifier emits no CSS. Confirmed in the browser:
+the new button's computed border falls back to the default. The pattern is
+repo-wide (approvals, api-keys, approve), so this ship matched it rather
+than fixing one instance and creating an inconsistency. It wants its own
+sweep.
+
 ## 2026-08-10 — v5.17.1: the maintainer reads its own ledger and finds itself mislabeled
 
 Wes asked an open question — "this is your project, anything you want to do?"

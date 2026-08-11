@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Brain, CheckCircle2, XCircle, Clock, Copy,
+  Brain, CheckCircle2, XCircle, Clock, Copy, Check,
 } from 'lucide-react';
 import Link from 'next/link';
 import PageLayout from '../components/PageLayout';
@@ -13,6 +13,7 @@ import { ListSkeleton } from '../components/ui/Skeleton';
 import { CollapsibleSection } from '../components/ui/CollapsibleSection';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { deriveAssumptionStatus, ASSUMPTION_FILTER_OPTIONS as FILTER_OPTIONS } from '../lib/assumptions-status';
+import { bulkAction } from '../lib/bulkAction';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
 import { useListControls, type ListColumn } from '../lib/useListControls';
@@ -49,6 +50,11 @@ export default function AssumptionsPage() {
   const [invalidateReason, setInvalidateReason] = useState('');
   const [invalidateError, setInvalidateError] = useState<string | null>(null);
   const [invalidateBusy, setInvalidateBusy] = useState(false);
+  // Validate is the OTHER half of the same operator judgment. It lived only in
+  // the right-click menu, which is not a control a human can find — so the
+  // whole positive verdict was invisible while "Invalidate…" sat in the open.
+  const [validatingId, setValidatingId] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
 
   // Fetch the full (agent-scoped) set once; the route filters on integer
   // `validated`/`stale` columns and has no `status` param, so the four display
@@ -127,12 +133,59 @@ export default function AssumptionsPage() {
     }
   };
 
+  const handleValidate = async (assumptionId: string) => {
+    setValidatingId(assumptionId);
+    setRowError(null);
+    try {
+      const res = await fetch(`/api/assumptions/${assumptionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ validated: true }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Validate failed (${res.status})`);
+      }
+      await fetchAssumptions();
+    } catch (err) {
+      setRowError({ id: assumptionId, message: (err as Error).message });
+    } finally {
+      setValidatingId(null);
+    }
+  };
+
+  // Bulk validate only. Invalidating needs a reason per belief — that is a
+  // judgment you write, not one you fan out — so it stays a per-row control.
+  const handleBulkValidate = async () => {
+    // Call-time re-scope to visible rows, and never re-verdict a row that is
+    // already decided (the API 409s an invalidated one).
+    const eligible = new Map(
+      assumptionsControls.rows
+        .filter((a) => deriveAssumptionStatus(a) === 'pending')
+        .map((a) => [a.assumption_id || a.id, true]),
+    );
+    const ids = selection.selectedIds.filter((id) => eligible.has(id));
+    if (ids.length === 0) return;
+    await bulkAction(ids, (id) =>
+      fetch(`/api/assumptions/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ validated: true }),
+      }),
+    );
+    selection.clear();
+    await fetchAssumptions();
+  };
+
   const handleCopyIds = () => {
     if (selection.count === 0) return;
     if (typeof navigator !== 'undefined') navigator.clipboard?.writeText(selection.selectedIds.join('\n'));
   };
 
-  const BULK_ACTIONS = [{ id: 'copy-ids', label: 'Copy IDs', icon: Copy, onClick: handleCopyIds }];
+  const BULK_ACTIONS = [
+    { id: 'validate', label: 'Validate', icon: Check, onClick: handleBulkValidate },
+    { id: 'copy-ids', label: 'Copy IDs', icon: Copy, onClick: handleCopyIds },
+  ];
 
   // Tiles read the API's whole-table drift_summary (computed under the same
   // filters), falling back to counting fetched rows only when the summary is
@@ -284,12 +337,27 @@ export default function AssumptionsPage() {
                       </Badge>
                     )}
                     {status !== 'invalidated' && !armed && (
-                      <button
-                        onClick={() => { setInvalidatingId(entityId); setInvalidateReason(''); setInvalidateError(null); }}
-                        className="mt-1 text-xs text-tertiary transition-colors hover:text-error"
-                      >
-                        Invalidate…
-                      </button>
+                      <div className="mt-1 flex items-center gap-2">
+                        {status === 'pending' && (
+                          <button
+                            onClick={() => handleValidate(entityId)}
+                            disabled={validatingId === entityId}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-success/20 bg-success-subtle px-2.5 py-1 text-xs font-medium text-success transition-colors hover:bg-success/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Check size={12} aria-hidden="true" />
+                            {validatingId === entityId ? 'Validating…' : 'Validate'}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { setInvalidatingId(entityId); setInvalidateReason(''); setInvalidateError(null); }}
+                          className="text-xs text-tertiary transition-colors hover:text-error"
+                        >
+                          Invalidate…
+                        </button>
+                      </div>
+                    )}
+                    {rowError && rowError.id === entityId && (
+                      <p role="alert" className="mt-1 max-w-[220px] text-right text-xs text-error">{rowError.message}</p>
                     )}
                   </div>
                 </div>

@@ -13,6 +13,18 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.17.2] — 2026-08-10
+
+**Both halves of an operator's judgment get a button.** Two surfaces asked the human to decide something and then gave them no way to say yes — one because the control pointed at nothing, one because the positive verdict lived in a right-click menu. Both found by the maintainer using his own instance.
+
+### Fixed
+
+- **`/policies` — "Review suppressed patterns" now goes somewhere.** The inert-rule banner (F1) names every gating rule an active allow-grant nullifies, then offered `<Link href="#suppressed">`. Nothing in the app carried `id="suppressed"`, and the grants it means ("Never bother me about…") render only in the ledger's **Sentences** lens, which the Table default never mounts, inside a section the operator may have collapsed — so the click set a URL hash and did nothing visible. It is now a button that drives the ledger: force the section open, switch to the Sentences lens, scroll the grants group into view, and flag the exact rows whose ids appear in `suppressed_by`, so the grant that broke the rule is the one under the cursor with its **Remove** button in reach (`PostureHero.tsx` → `PolicyWorkbench.tsx` → `LedgerActions.revealSuppressed`).
+
+### Added
+
+- **`/assumptions` — Validate is a visible control, per row and in bulk.** `PATCH /api/assumptions/:id` has accepted `{validated: true}` since the route was written, and the right-click menu called it — but the page rendered only "Invalidate…". Facing 42 pending beliefs, an operator could reject any of them and confirm none unless they guessed that right-click did something. The page's own comment already said the rule ("operator judgment = a visible control, not right-click-only"); it had been applied to one verdict out of two. A green **Validate** button now sits on every pending row, and the selection bar — whose only action was **Copy IDs** — gains a bulk **Validate** that fans out one PATCH per selected pending row. Bulk *invalidate* is deliberately absent: the API requires a reason, and a reason is per-belief judgment, not something to fan out.
+
 ## [5.17.1] — 2026-08-10
 
 **The OAuth lane stops being recorded as a failed identity check.** Found in DashClaw's own live ledger: every decision made through the Claude consumer-app connector carried `verification_status: 'failed'` — the label that means an agent presented a cryptographic identity claim and it was rejected.

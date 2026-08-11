@@ -16,6 +16,8 @@ interface PostureHeroProps {
   summary: PolicySummary;
   friction: { interrupts_7d: number; est_seconds: number } | null;
   inboxCount: number;
+  /** Opens the ledger on the grants that nullified the inert rules. */
+  onReviewSuppressed: (grantIds: string[]) => void;
 }
 
 function pct(n: number, total: number): string {
@@ -28,7 +30,7 @@ function barHeight(n: number, max: number): string {
   return `${Math.max(6, Math.round((n / max) * 100))}%`;
 }
 
-export default function PostureHero({ summary, friction, inboxCount }: PostureHeroProps) {
+export default function PostureHero({ summary, friction, inboxCount, onReviewSuppressed }: PostureHeroProps) {
   const enf = summary.enforcement;
   const d = summary.decisions30d;
   const maxOutcome = Math.max(d.allow, d.warn, d.require_approval, d.block, 1);
@@ -67,9 +69,17 @@ export default function PostureHero({ summary, friction, inboxCount }: PostureHe
               </li>
             ))}
           </ul>
-          <Link href="#suppressed" className={styles.inertLink}>
+          {/* Not an anchor: the grants live in the ledger's Sentences lens,
+              which the Table default doesn't render, inside a section the
+              human may have collapsed. Nothing to link to — the ledger has to
+              be driven there. */}
+          <button
+            type="button"
+            className={styles.inertLink}
+            onClick={() => onReviewSuppressed([...new Set(inert.flatMap((p) => p.suppressed_by.map((g) => g.id)))])}
+          >
             Review suppressed patterns <ArrowRight size={12} aria-hidden="true" />
-          </Link>
+          </button>
         </div>
       )}
 

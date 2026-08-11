@@ -60,6 +60,12 @@ export interface LedgerActions {
   openGenerate: () => void;
   runTests: () => void;
   openProof: () => void;
+  /**
+   * Reveal the grants named by the inert-rule banner (F1): switch to the
+   * Sentences lens — the only one that renders "Never bother me about…" —
+   * scroll the group into view and flag the offending rows.
+   */
+  revealSuppressed: (grantIds: string[]) => void;
 }
 
 interface LedgerProps {
@@ -436,6 +442,10 @@ export default function Ledger({
 
   const searchRef = useRef<HTMLInputElement>(null);
   const highlightRef = useRef<HTMLTableRowElement>(null);
+  const grantsRef = useRef<HTMLDivElement>(null);
+  // Grant ids the inert-rule banner sent us to; flagged in the Sentences lens
+  // until the flash clears, so the human sees WHICH grant nullified their rule.
+  const [focusGrants, setFocusGrants] = useState<string[]>([]);
 
   const refetch = useCallback(async () => {
     try {
@@ -474,10 +484,27 @@ export default function Ledger({
   const openGenerate = useCallback(() => setShowGenerate(true), []);
   const runTests = useCallback(() => setShowTests(true), []);
   const openProof = useCallback(() => setShowProof(true), []);
+  const revealSuppressed = useCallback((grantIds: string[]) => {
+    setLens('sentences');
+    setFocusGrants(grantIds);
+  }, []);
 
   useEffect(() => {
-    registerActions?.({ openNewRule, openImport, openGenerate, runTests, openProof });
-  }, [registerActions, openNewRule, openImport, openGenerate, runTests, openProof]);
+    registerActions?.({ openNewRule, openImport, openGenerate, runTests, openProof, revealSuppressed });
+  }, [registerActions, openNewRule, openImport, openGenerate, runTests, openProof, revealSuppressed]);
+
+  // Scroll only once the lens switch has rendered the group. At click time it
+  // doesn't exist yet, and the whole ledger section may still be collapsed —
+  // a `hidden` ancestor makes scrollIntoView a silent no-op. The flag is a
+  // locator flash, not a permanent mark, so it clears itself.
+  useEffect(() => {
+    if (focusGrants.length === 0) return;
+    const raf = requestAnimationFrame(() =>
+      grantsRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
+    );
+    const clear = setTimeout(() => setFocusGrants([]), 6000);
+    return () => { cancelAnimationFrame(raf); clearTimeout(clear); };
+  }, [focusGrants]);
 
   // Prefill deep-link (?prefill=) — open the editor pre-populated, once.
   useEffect(() => {
@@ -916,7 +943,7 @@ export default function Ledger({
         </div>
       )}
       {contract.grants.length > 0 && (
-        <div className={styles.cgroup}>
+        <div className={styles.cgroup} ref={grantsRef}>
           <div className={styles.cgroupHead}>
             <span className={`${styles.gi} ${styles.giGrant}`}><Check size={14} aria-hidden="true" /></span>
             <h3>Never bother me about&hellip;</h3>
@@ -926,8 +953,9 @@ export default function Ledger({
             <div key={group.type}>
               {group.rows.map((r) => {
                 const t = formatTarget(r.target);
+                const flagged = r.policy_ids.some((id) => focusGrants.includes(id));
                 return (
-                  <div key={r.shape_key} className={styles.sentence}>
+                  <div key={r.shape_key} className={`${styles.sentence}${flagged ? ` ${styles.grantFlagged}` : ''}`}>
                     <span className={styles.bull} aria-hidden="true">&mdash;</span>
                     <span>
                       <Code>{r.actionType}</Code>{r.target ? <> &middot; <b>{t.display}</b></> : null}

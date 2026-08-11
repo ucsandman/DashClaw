@@ -126,7 +126,17 @@ export default function PolicyWorkbench() {
         </button>
       </div>
 
-      <PostureHero summary={summary} friction={contract?.friction ?? null} inboxCount={inboxCount} />
+      <PostureHero
+        summary={summary}
+        friction={contract?.friction ?? null}
+        inboxCount={inboxCount}
+        // Same shape as the top action row: force the (possibly collapsed)
+        // ledger section open, then call into Ledger via its registered ref.
+        onReviewSuppressed={(grantIds) => {
+          setForceLedgerOpen(true);
+          ledgerActions.current?.revealSuppressed(grantIds);
+        }}
+      />
 
       <TriageInbox onChanged={refresh} onCount={setInboxCount} />
 
