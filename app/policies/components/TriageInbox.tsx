@@ -56,6 +56,7 @@ import {
   ratifyProposal,
   dismissCalibrationProposal,
   undoCalibrationDecision,
+  CALIBRATION_RULE_LABEL,
   type CalibrationProposal,
 } from '../lib/calibrationClient';
 
@@ -206,6 +207,11 @@ function describe(item: InboxItem): Descriptor {
     case 'calibration': {
       const p = item.proposal;
       const evidence: ReactNode[] = [];
+      // The mining rule leads: one shape can mine under two rules at once, and
+      // those candidates match on name, count, risk band and tier. Without the
+      // rule the operator gets two identical rows and no way to tell them apart.
+      const ruleLabel = CALIBRATION_RULE_LABEL[p.rule];
+      if (ruleLabel) evidence.push(<>{ruleLabel}</>);
       if (p.count != null) evidence.push(<><b>{p.count}&times;</b> events</>);
       if (p.risk_min != null && p.risk_max != null) {
         evidence.push(

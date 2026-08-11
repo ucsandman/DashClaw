@@ -42,6 +42,21 @@ export interface CalibrationProposal {
   decision: CalibrationDecisionSummary | null;
 }
 
+/**
+ * Plain-English name for the rule that mined a candidate.
+ *
+ * One shape can mine under more than one rule at once — `rm -rf
+ * node_modules/.cache` scored 45 and approved 6x mines both over_scored_benign
+ * and repeated_approvals — and those candidates carry the same suggested_name,
+ * count, risk band and evidence_tier. `rule` is the only field that separates
+ * them, so any surface listing proposals must show it.
+ */
+export const CALIBRATION_RULE_LABEL: Record<CalibrationProposal['rule'], string> = {
+  over_scored_benign: 'scored high for benign evidence',
+  under_scored_danger: 'scored low for risky evidence',
+  repeated_approvals: 'you keep approving this',
+};
+
 export interface CalibrationProposalsPayload {
   window_days: number;
   inputs: {

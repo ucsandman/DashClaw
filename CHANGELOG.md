@@ -13,6 +13,10 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Fixed
+
+- **Two calibration proposals for one shape rendered as identical rows.** One shape can mine under more than one rule at the same time: `rm -rf node_modules/.cache` scored 45 and approved six times mines both `over_scored_benign` (the scorer over-rates a benign shape) and `repeated_approvals` (the human keeps approving it). Those are different findings that want different fixes, and `candidateId(rule, key)` correctly keys them apart — but the triage card rendered only the shape name, the event count and the risk band, all three of which match. Verified against the live route: the two candidates agreed on `suggested_name`, `count`, `risk_min/max` **and** `evidence_tier`, so `rule` was the only field separating them and it was the one field the card never showed. The operator got two visually identical rows, a "Dismiss all 2", and no way to tell which finding they were judging. The card now leads its evidence line with the rule in plain English. This is deliberately not a de-duplication: collapsing the rows would delete a real signal.
+
 ## [5.19.0] — 2026-08-11
 
 **Amber should mean look.** Two sentences on the approvals card were dressed as something they are not: a reassurance wore the warning colour, and the one sentence that matters most was printed twice.
