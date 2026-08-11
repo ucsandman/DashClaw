@@ -48,7 +48,8 @@ import {
   ratifyLooseningProposal,
   dismissLooseningProposal,
   undoLooseningDecision,
-  type LooseningProposal,
+  isPrecedent,
+  type AnyLooseningProposal,
 } from '../lib/looseningClient';
 import {
   fetchCalibrationProposals,
@@ -72,7 +73,7 @@ type InboxItem =
   | { kind: 'warn'; key: string; group: WarnGroup }
   | { kind: 'tuning'; key: string; proposal: TuningProposal }
   | { kind: 'tighten'; key: string; proposal: TighteningProposal }
-  | { kind: 'loosen'; key: string; proposal: LooseningProposal }
+  | { kind: 'loosen'; key: string; proposal: AnyLooseningProposal }
   | { kind: 'calibration'; key: string; proposal: CalibrationProposal };
 
 // Once a user acts, the resolution is the source of truth for that row — it
@@ -171,6 +172,24 @@ function describe(item: InboxItem): Descriptor {
     }
     case 'loosen': {
       const p = item.proposal;
+      // A precedent counts evidence per SHAPE (approvals, spread across days),
+      // not per policy, so it has no override rate to show. The day count is
+      // the load-bearing number: it is what separates a considered pattern
+      // from one frantic session, and the operator should see it.
+      if (isPrecedent(p)) {
+        return {
+          tagClass: styles.ktLoose,
+          Icon: ShieldMinus,
+          label: 'Loosen',
+          lead: p.title,
+          evidence: [
+            <>you approved <b>{p.evidence.approved}&times;</b></>,
+            <>across <b>{p.evidence.distinct_days}</b> days</>,
+            <>never denied</>,
+            <>expires in <b>{p.ttl_days}d</b></>,
+          ],
+        };
+      }
       const { approvals, override_rate } = p.evidence;
       const resolved = approvals.approved + approvals.denied;
       return {
@@ -215,7 +234,11 @@ function armedConsequence(item: InboxItem): string {
     case 'tighten':
       return `Creates a require-approval rule for ${item.proposal.action_type}`;
     case 'loosen':
-      return `Relaxes "${item.proposal.policy_name}" now`;
+      // The effect line must state the SCOPE, not just the act. A precedent
+      // creates standing authority, so say what it covers and for how long.
+      return isPrecedent(item.proposal)
+        ? `Creates a ${item.proposal.ttl_days}-day grant for this exact kind of action — nothing else`
+        : `Relaxes "${item.proposal.policy_name}" now`;
     case 'calibration':
       return 'Queues a golden vector for the maintainer to forge';
   }

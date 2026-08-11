@@ -13,15 +13,21 @@ import { clampInt } from '../../../lib/policy-tuning/engine';
 import {
   RELAX_RULE,
   DEACTIVATE_RULE,
+  PRECEDENT_RULE,
   deriveLooseningProposals,
+  derivePrecedentProposals,
   looseningProposalId,
+  precedentProposalId,
   policyEnvelope,
   LOOSENING_DEFAULTS,
   type LooseningRule,
 } from '../../../lib/posture/loosening';
+import { normalizeFlags, precedentEligible, PRECEDENT_TTL_DAYS } from '../../../lib/policy-shapes';
 import { getActivePolicies } from '../../../lib/repositories/guardrails.repository';
 import {
   getInterruptOutcomesByPolicyAction,
+  getPrecedentOutcomes,
+  createPrecedentGrant,
   getLooseningDecisions,
   upsertLooseningDecision,
   deleteLooseningDecision,
@@ -29,6 +35,7 @@ import {
   applyLooseningRelaxation,
   type LooseningDecisionRow,
 } from '../../../lib/repositories/loosening.repository';
+import { randomUUID } from 'crypto';
 
 const PROPOSAL_ID_RE = /^lp_[a-f0-9]{16}$/;
 const STATUSES = new Set(['pending', 'ratified', 'dismissed']);
@@ -85,17 +92,39 @@ export async function GET(request: Request) {
       );
     }
 
-    const [rows, policies, decisions] = await Promise.all([
+    const [rows, precedentRows, policies, decisions] = await Promise.all([
       getInterruptOutcomesByPolicyAction(sql, orgId, days, { includeSynthetic }),
+      getPrecedentOutcomes(sql, orgId, days, { includeSynthetic }),
       getActivePolicies(sql, orgId),
       getLooseningDecisions(sql, orgId),
     ]);
 
-    const derived = deriveLooseningProposals(rows, policies, {
-      windowDays: days,
-      minFired,
-      minResolved,
-    });
+    // A precedent already granted must stop being re-proposed: the evidence
+    // that earned it does not disappear, so without this the same card would
+    // reappear every page load until the grant expires.
+    const grantedKeys = new Set(
+      policies
+        .filter((p) => p.policy_type === 'allow_grant')
+        .map((p) => {
+          try {
+            const r = typeof p.rules === 'string' ? JSON.parse(p.rules) : p.rules;
+            const flags = normalizeFlags(r?.precedent_flags);
+            return flags && typeof r?.action_type === 'string'
+              ? precedentProposalId(r.action_type, flags)
+              : null;
+          } catch {
+            return null;
+          }
+        })
+        .filter((k): k is string => k !== null),
+    );
+
+    const derived = [
+      ...deriveLooseningProposals(rows, policies, { windowDays: days, minFired, minResolved }),
+      ...derivePrecedentProposals(precedentRows, { windowDays: days }).filter(
+        (p) => !grantedKeys.has(p.id),
+      ),
+    ];
     const decisionById = new Map(decisions.map((d) => [d.proposal_id, d]));
 
     const proposals = derived.map((p) => {
@@ -134,11 +163,34 @@ export async function GET(request: Request) {
 function validateSnapshot(
   proposalId: string,
   p: Record<string, unknown> | null | undefined,
-): { error: string } | { rule: LooseningRule; policyId: string; actionType: string | null } {
+):
+  | { error: string }
+  | { rule: LooseningRule; policyId: string; actionType: string | null; flags?: string[] } {
   if (!p || typeof p !== 'object') return { error: 'proposal snapshot is required' };
   const rule = p.rule;
+
+  // Precedent: no policy_id (it CREATES a grant), and the scope is the flag
+  // set. Two independent checks stop a crafted body from minting authority:
+  // the id must re-derive from (action_type, flags), and the pair must still
+  // be eligible NOW — so a body replayed after the allowlist narrowed fails.
+  if (rule === PRECEDENT_RULE) {
+    const actionType = p.action_type;
+    if (typeof actionType !== 'string' || !actionType || actionType.length > MAX_ACTION_TYPE_LENGTH) {
+      return { error: `proposal.action_type is required (1-${MAX_ACTION_TYPE_LENGTH} chars)` };
+    }
+    const flags = normalizeFlags(p.precedent_flags);
+    if (!flags) return { error: 'proposal.precedent_flags must be a non-empty string array' };
+    if (precedentProposalId(actionType, flags) !== proposalId) {
+      return { error: 'proposal_id does not match the snapshot (action_type, precedent_flags)' };
+    }
+    if (!precedentEligible(actionType, flags)) {
+      return { error: 'this shape is not eligible to become a precedent' };
+    }
+    return { rule, policyId: '', actionType, flags };
+  }
+
   if (rule !== RELAX_RULE && rule !== DEACTIVATE_RULE) {
-    return { error: `proposal.rule must be ${RELAX_RULE} or ${DEACTIVATE_RULE}` };
+    return { error: `proposal.rule must be ${RELAX_RULE}, ${DEACTIVATE_RULE} or ${PRECEDENT_RULE}` };
   }
   const policyId = p.policy_id;
   if (typeof policyId !== 'string' || !policyId || policyId.length > MAX_POLICY_ID_LENGTH) {
@@ -223,6 +275,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: validated.error }, { status: 400 });
     }
     const { rule, policyId, actionType } = validated;
+    const precedentFlags = 'flags' in validated ? validated.flags : undefined;
 
     let reason: string | null = null;
     if (action === 'dismiss') {
@@ -239,6 +292,60 @@ export async function POST(request: Request) {
     }
 
     let policy: Record<string, unknown> | null = null;
+    // Precedent ratify creates a NEW narrow grant rather than editing a policy,
+    // so it does not go through the getPolicyForLoosening path below.
+    if (action === 'ratify' && rule === PRECEDENT_RULE && actionType && precedentFlags) {
+      const grantId = `gp_${randomUUID().replace(/-/g, '').slice(0, 24)}`;
+      await createPrecedentGrant(sql, orgId, {
+        policyId: grantId,
+        name: `[Precedent] ${actionType} — ${precedentFlags.join(', ')}`,
+        actionType,
+        flags: precedentFlags,
+        ttlDays: PRECEDENT_TTL_DAYS,
+      });
+      await upsertLooseningDecision(sql, orgId, {
+        proposalId,
+        rule,
+        decision: 'ratified',
+        actionType,
+        policyId: grantId,
+        snapshot: { rule, action_type: actionType, precedent_flags: precedentFlags },
+        reason: null,
+        decidedBy: userId || null,
+      });
+      logActivity(
+        {
+          orgId,
+          actorId: userId,
+          action: 'loosening_proposal.ratified',
+          resourceType: 'loosening_proposal',
+          resourceId: proposalId,
+          details: {
+            rule,
+            action_type: actionType,
+            precedent_flags: precedentFlags,
+            grant_id: grantId,
+            expires_in_days: PRECEDENT_TTL_DAYS,
+          },
+          request,
+        },
+        sql,
+      );
+      void publishOrgEvent(EVENTS.POLICY_UPDATED, {
+        orgId,
+        policy: { id: grantId, policy_type: 'allow_grant' },
+        change_type: 'created',
+      });
+      return NextResponse.json({
+        ok: true,
+        proposal_id: proposalId,
+        action,
+        rule,
+        grant_id: grantId,
+        expires_in_days: PRECEDENT_TTL_DAYS,
+      });
+    }
+
     if (action === 'ratify') {
       const current = await getPolicyForLoosening(sql, orgId, policyId);
       if (!current) {

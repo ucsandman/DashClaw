@@ -11,10 +11,22 @@
 // or deactivate a policy whose interrupts are always overridden.
 
 import { createHash } from 'crypto';
+import {
+  normalizeFlags,
+  precedentKey,
+  precedentEligible,
+  PRECEDENT_TTL_DAYS,
+} from '../policy-shapes';
 
 export const RELAX_RULE = 'relax_policy_scope';
 export const DEACTIVATE_RULE = 'deactivate_policy';
-export type LooseningRule = typeof RELAX_RULE | typeof DEACTIVATE_RULE;
+/** Precedent: a shape the operator has personally waved through, repeatedly,
+ *  across days, becomes a narrow standing grant. See PRECEDENT_DEFAULTS. */
+export const PRECEDENT_RULE = 'precedent_grant';
+export type LooseningRule =
+  | typeof RELAX_RULE
+  | typeof DEACTIVATE_RULE
+  | typeof PRECEDENT_RULE;
 
 export const LOOSENING_DEFAULTS = {
   /** Override rate at or above which relaxation is proposed. Stricter than
@@ -287,4 +299,149 @@ export function deriveLooseningProposals(
         (a.evidence.approvals.approved + a.evidence.approvals.denied) ||
       a.id.localeCompare(b.id),
   );
+}
+
+// ── Precedent proposals ─────────────────────────────────────────────────────
+// The other two rules edit an existing policy. A precedent instead proposes a
+// NEW, narrow allow_grant for a shape — (action_type, exact server-computed
+// evidence flag set) — that the operator has personally approved again and
+// again. It is the tournament's winning design, and its safety comes almost
+// entirely from policy-shapes.ts: a closed eligibility allowlist, exact flag-set
+// equality, and a scope the governed agent cannot author.
+//
+// The gates below are deliberately stricter than the relax/deactivate bar. A
+// precedent creates standing authority rather than trimming existing authority,
+// so it needs repetition (minApprovals), persistence across sessions
+// (minDistinctDays — five approvals in one frantic hour is one decision, not
+// five), and an unblemished record (maxDenials: a single deny means the operator
+// does NOT always want this, and the shape stops being proposed).
+
+export const PRECEDENT_DEFAULTS = {
+  /** Distinct human approvals of the shape required before proposing. */
+  minApprovals: 5,
+  /** Distinct CALENDAR DAYS those approvals span. Stops one bad session
+   *  from minting standing authority. */
+  minDistinctDays: 2,
+  /** Any denial at all disqualifies the shape. */
+  maxDenials: 0,
+} as const;
+
+/** Raw per-(action_type, flag set) row from getPrecedentOutcomes. */
+export interface PrecedentOutcomeRow {
+  action_type: unknown;
+  flags: unknown; // jsonb array of strings
+  approved: unknown;
+  denied: unknown;
+  distinct_days: unknown;
+  example_decision_ids?: unknown;
+}
+
+export interface PrecedentProposal {
+  id: string;
+  rule: typeof PRECEDENT_RULE;
+  /** Always null: a precedent creates a grant, it does not edit a policy. */
+  policy_id: null;
+  policy_name: null;
+  policy_type: 'allow_grant';
+  action_type: string;
+  precedent_flags: string[];
+  precedent_key: string;
+  ttl_days: number;
+  title: string;
+  summary: string;
+  evidence: {
+    window_days: number;
+    approved: number;
+    denied: number;
+    distinct_days: number;
+    example_decision_ids: string[];
+  };
+}
+
+/** Content-stable id, same lp_ shape the route's PROPOSAL_ID_RE accepts. */
+export function precedentProposalId(actionType: string, flags: string[]): string {
+  return (
+    'lp_' +
+    createHash('sha256')
+      .update(`${PRECEDENT_RULE}\n${precedentKey(actionType, flags)}`)
+      .digest('hex')
+      .slice(0, 16)
+  );
+}
+
+export interface DerivePrecedentOptions {
+  windowDays: number;
+  minApprovals?: number;
+  minDistinctDays?: number;
+  maxDenials?: number;
+}
+
+/**
+ * Pure: mine adjudicated approvals for shapes that have earned a precedent.
+ *
+ * Every gate here is a REJECTION gate — a shape must clear eligibility, volume,
+ * spread and a clean record. Nothing in this function can widen what
+ * precedentEligible() allows; it can only decline to propose.
+ */
+export function derivePrecedentProposals(
+  rows: PrecedentOutcomeRow[],
+  opts: DerivePrecedentOptions,
+): PrecedentProposal[] {
+  const minApprovals = Math.max(1, opts.minApprovals ?? PRECEDENT_DEFAULTS.minApprovals);
+  const minDays = Math.max(1, opts.minDistinctDays ?? PRECEDENT_DEFAULTS.minDistinctDays);
+  const maxDenials = Math.max(0, opts.maxDenials ?? PRECEDENT_DEFAULTS.maxDenials);
+
+  const out: PrecedentProposal[] = [];
+
+  for (const row of rows) {
+    const actionType = typeof row.action_type === 'string' ? row.action_type : '';
+    if (!actionType) continue;
+
+    const flags = normalizeFlags(row.flags);
+    if (!flags) continue;
+
+    // THE gate. A shape outside the closed allowlist can never be proposed,
+    // however much evidence accumulates behind it.
+    if (!precedentEligible(actionType, flags)) continue;
+
+    const approved = Number(row.approved) || 0;
+    const denied = Number(row.denied) || 0;
+    const distinctDays = Number(row.distinct_days) || 0;
+
+    if (denied > maxDenials) continue;
+    if (approved < minApprovals) continue;
+    if (distinctDays < minDays) continue;
+
+    const exampleIds = Array.isArray(row.example_decision_ids)
+      ? row.example_decision_ids.map((v) => String(v ?? '')).filter(Boolean).slice(0, 5)
+      : [];
+
+    out.push({
+      id: precedentProposalId(actionType, flags),
+      rule: PRECEDENT_RULE,
+      policy_id: null,
+      policy_name: null,
+      policy_type: 'allow_grant',
+      action_type: actionType,
+      precedent_flags: flags,
+      precedent_key: precedentKey(actionType, flags),
+      ttl_days: PRECEDENT_TTL_DAYS,
+      title: 'Stop asking about: deleting regenerable build artifacts',
+      summary:
+        `You approved this ${approved}× across ${distinctDays} days. Never denied. ` +
+        `Covers recursive deletes of build output only — folders like dist, .next and ` +
+        `node_modules, anything inside them, and OS temp scratch. Never your home ` +
+        `directory, never secrets, never force pushes, never package installs. ` +
+        `Expires in ${PRECEDENT_TTL_DAYS} days.`,
+      evidence: {
+        window_days: opts.windowDays,
+        approved,
+        denied,
+        distinct_days: distinctDays,
+        example_decision_ids: exampleIds,
+      },
+    });
+  }
+
+  return out.sort((a, b) => b.evidence.approved - a.evidence.approved || a.id.localeCompare(b.id));
 }

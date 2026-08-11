@@ -14,6 +14,9 @@ import {
   RELAX_RULE,
   DEACTIVATE_RULE,
   LOOSENING_DEFAULTS,
+  PRECEDENT_RULE,
+  derivePrecedentProposals,
+  precedentProposalId,
   type InterruptOutcomeRow,
   type LooseningPolicyRow,
 } from '@/lib/posture/loosening';
@@ -204,5 +207,76 @@ describe('ownership + hygiene', () => {
     expect(policyEnvelope({ action_types: 'a.b' })).toBeNull();
     expect(policyEnvelope({ action_types: [] })).toBeNull();
     expect(policyEnvelope({ action_types: [1, '', 'a.b'] })).toEqual(['a.b']);
+  });
+});
+
+// ── Precedent proposals (tournament winner, 2026-08-11) ─────────────────────
+// A precedent creates STANDING authority instead of trimming existing
+// authority, so every test below is about a way it must refuse to fire.
+describe('derivePrecedentProposals', () => {
+  const ELIGIBLE_FLAGS = ['destructive', 'regenerable_artifact'];
+  const row = (over: Record<string, unknown> = {}) => ({
+    action_type: 'cleanup',
+    flags: ELIGIBLE_FLAGS,
+    approved: 5,
+    denied: 0,
+    distinct_days: 2,
+    example_decision_ids: ['gd_1', 'gd_2'],
+    ...over,
+  });
+  const derive = (r: Record<string, unknown>) =>
+    derivePrecedentProposals([r as never], { windowDays: 30 });
+
+  it('proposes when the shape is eligible and every gate is met', () => {
+    const [p] = derive(row());
+    expect(p).toBeDefined();
+    expect(p!.rule).toBe(PRECEDENT_RULE);
+    expect(p!.action_type).toBe('cleanup');
+    expect(p!.precedent_flags).toEqual(ELIGIBLE_FLAGS);
+    expect(p!.policy_id).toBeNull();
+    expect(p!.id).toMatch(/^lp_[a-f0-9]{16}$/);
+  });
+
+  it('the id is content-stable and order-independent', () => {
+    expect(precedentProposalId('cleanup', ['regenerable_artifact', 'destructive']))
+      .toBe(precedentProposalId('cleanup', ['destructive', 'regenerable_artifact']));
+  });
+
+  it('refuses a shape outside the closed allowlist, at ANY volume', () => {
+    expect(derive(row({ action_type: 'security', approved: 500, distinct_days: 90 }))).toEqual([]);
+    expect(derive(row({ flags: ['destructive'], approved: 500, distinct_days: 90 }))).toEqual([]);
+    expect(derive(row({ flags: ['package'], action_type: 'build', approved: 500 }))).toEqual([]);
+  });
+
+  it('refuses a shape carrying any NEVER_PRECEDENTED flag', () => {
+    expect(derive(row({ flags: [...ELIGIBLE_FLAGS, 'protected_target'] }))).toEqual([]);
+    expect(derive(row({ flags: [...ELIGIBLE_FLAGS, 'remote_exec'] }))).toEqual([]);
+  });
+
+  it('refuses on a single denial — one deny means the operator does not always want this', () => {
+    expect(derive(row({ denied: 1, approved: 50, distinct_days: 30 }))).toEqual([]);
+  });
+
+  it('refuses below the approval floor', () => {
+    expect(derive(row({ approved: 4 }))).toEqual([]);
+  });
+
+  it('refuses when all approvals land on one day (one decision, not five)', () => {
+    expect(derive(row({ approved: 50, distinct_days: 1 }))).toEqual([]);
+  });
+
+  it('refuses malformed flag payloads instead of guessing', () => {
+    expect(derive(row({ flags: null }))).toEqual([]);
+    expect(derive(row({ flags: [] }))).toEqual([]);
+    expect(derive(row({ flags: 'destructive' }))).toEqual([]);
+    expect(derive(row({ action_type: null }))).toEqual([]);
+  });
+
+  it('carries honest evidence and a bounded expiry', () => {
+    const [p] = derive(row({ approved: 7, distinct_days: 3 }));
+    expect(p!.evidence).toMatchObject({ approved: 7, denied: 0, distinct_days: 3, window_days: 30 });
+    expect(p!.ttl_days).toBe(14);
+    expect(p!.summary).toContain('7×');
+    expect(p!.summary).toContain('3 days');
   });
 });

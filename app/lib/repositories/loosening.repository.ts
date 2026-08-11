@@ -22,7 +22,7 @@ import {
   SYNTHETIC_PARAMS,
   syntheticExclusionSql,
 } from './policy-tuning.repository';
-import type { InterruptOutcomeRow } from '../posture/loosening';
+import type { InterruptOutcomeRow, PrecedentOutcomeRow } from '../posture/loosening';
 
 export interface LooseningDecisionRow {
   id: number;
@@ -101,6 +101,89 @@ export async function getInterruptOutcomesByPolicyAction(
     [orgId, days, opts.includeSynthetic === true, ...SYNTHETIC_PARAMS],
   );
   return rows as unknown as InterruptOutcomeRow[];
+}
+
+/**
+ * Adjudicated-approval evidence at (action_type, evidence flag set) grain —
+ * the precedent evidence. Sibling of getInterruptOutcomesByPolicyAction above
+ * and shares its predicates (NOT_DEGRADED, synthetic exclusion in SQL before
+ * aggregation, ::timestamptz because created_at is TEXT on fresh schemas).
+ *
+ * Two differences that matter:
+ *  - Grouped by the SERVER-computed evidence flags, not by policy. A precedent
+ *    is about a KIND of act, so it must survive the operator editing, renaming
+ *    or replacing whichever policy happened to interrupt it.
+ *  - Counts DISTINCT APPROVAL DAYS, because five approvals inside one frantic
+ *    hour is one decision repeated, not five independent judgments.
+ *
+ * The `context LIKE '{%'` guard is load-bearing: ::jsonb throws on a row whose
+ * context is null or non-JSON, which would take out the whole /policies page.
+ */
+export async function getPrecedentOutcomes(
+  sql: SqlTag,
+  orgId: string,
+  days: number,
+  opts: { includeSynthetic?: boolean } = {},
+): Promise<PrecedentOutcomeRow[]> {
+  const rows = await sql.query(
+    `SELECT gd.action_type AS action_type,
+            gd.context::jsonb->'evidence_flags' AS flags,
+            COUNT(*) FILTER (WHERE ar.approved_by IS NOT NULL)::int AS approved,
+            COUNT(*) FILTER (
+              WHERE ar.approved_by IS NULL
+                AND ar.reasoning LIKE '%[HITL Decision: DENY%'
+            )::int AS denied,
+            COUNT(DISTINCT (ar.approved_at::timestamptz)::date)
+              FILTER (WHERE ar.approved_by IS NOT NULL)::int AS distinct_days,
+            (array_agg(gd.id ORDER BY gd.created_at DESC))[1:5] AS example_decision_ids
+     FROM guard_decisions gd
+     LEFT JOIN action_records ar
+       ON ar.guard_decision_id = gd.id AND ar.org_id = $1
+     WHERE gd.org_id = $1
+       AND gd.decision = 'require_approval'
+       AND gd.created_at::timestamptz > NOW() - make_interval(days => $2::int)
+       AND gd.action_type IS NOT NULL
+       AND gd.context IS NOT NULL
+       AND gd.context LIKE '{%'
+       AND gd.context::jsonb ? 'evidence_flags'
+       AND jsonb_typeof(gd.context::jsonb->'evidence_flags') = 'array'
+       AND ${NOT_DEGRADED}
+       AND ${syntheticExclusionSql(3, 4, 5)}
+     GROUP BY gd.action_type, gd.context::jsonb->'evidence_flags'`,
+    [orgId, days, opts.includeSynthetic === true, ...SYNTHETIC_PARAMS],
+  );
+  return rows as unknown as PrecedentOutcomeRow[];
+}
+
+/**
+ * The precedent write: insert a narrow allow_grant scoped by the exact flag
+ * set. Deliberately NOT parameterised on anything client-sent — the caller
+ * passes values the SERVER re-derived from its own mined evidence.
+ *
+ * `precedent_flags` is what makes the grant narrow; `target_prefix` is
+ * intentionally ABSENT, because a target prefix is exactly the shape of
+ * over-broad grant that produced `security -> C:/Users/` (see pathPrefix in
+ * app/lib/policy-shapes.ts).
+ */
+export async function createPrecedentGrant(
+  sql: SqlTag,
+  orgId: string,
+  input: { policyId: string; name: string; actionType: string; flags: string[]; ttlDays: number },
+): Promise<void> {
+  const now = new Date();
+  const rules = JSON.stringify({
+    action_type: input.actionType,
+    precedent_flags: input.flags,
+    expires_at: new Date(now.getTime() + input.ttlDays * 86_400_000).toISOString(),
+    _grant: true,
+    _precedent: true,
+  });
+  await sql.query(
+    `INSERT INTO guard_policies (id, org_id, name, policy_type, rules, active, created_at, updated_at)
+     VALUES ($1, $2, $3, 'allow_grant', $4, 1, $5, $5)`,
+    [input.policyId, orgId, input.name, rules, now.toISOString()],
+  );
+  invalidateGuardPolicyCache(orgId);
 }
 
 /** All decision rows for the org, newest judgment first. */
