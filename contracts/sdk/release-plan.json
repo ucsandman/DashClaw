@@ -2,7 +2,7 @@
   "node": {
     "current_version": "5.17.2",
     "next_bump": "none",
-    "reason": "no Node SDK source change in 5.17.2 - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.2 so the registry stays aligned with the platform version.",
+    "reason": "no Node SDK source change in 5.17.2 (UI-only ship: /policies suppressed-patterns reveal, /assumptions Validate control) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.2 so the registry stays aligned with the platform version.",
     "domains": [
       "platform"
     ]
@@ -10,7 +10,7 @@
   "python": {
     "current_version": "5.17.2",
     "next_bump": "none",
-    "reason": "no Python SDK source change in 5.17.2 - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.2 so the registry stays aligned with the platform version.",
+    "reason": "no Python SDK source change in 5.17.2 (UI-only ship: /policies suppressed-patterns reveal, /assumptions Validate control) - version advances per the unified model; the tag-triggered release workflow (G7) republishes the unchanged content at 5.17.2 so the registry stays aligned with the platform version.",
     "domains": [
       "platform"
     ]
