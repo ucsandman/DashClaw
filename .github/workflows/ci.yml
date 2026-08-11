@@ -41,6 +41,14 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund --prefer-offline
 
+      # cli/ is a separate package with its own dependencies (tar, pg,
+      # embedded-postgres). The root install does not provide them, so any
+      # test that SPAWNS cli/bin/dashclaw.js — as the openclaw install wiring
+      # tests do — dies on ERR_MODULE_NOT_FOUND before reaching its assertion.
+      # End users are unaffected: `npm i -g @dashclaw/cli` installs these.
+      - name: Install CLI dependencies
+        run: npm ci --no-audit --no-fund --prefer-offline --prefix cli
+
       - name: Run lint
         run: npm run lint
 
