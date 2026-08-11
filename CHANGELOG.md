@@ -13,6 +13,15 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.17.5] — 2026-08-11
+
+**Both running and completed.** A decision that reported its outcome through the durable-finality endpoint stayed `running` in the ledger forever, so Decision Replay rendered a red **RUNNING** beside a green **Completed** badge on the same line. Reported by the maintainer reading a decision detail page.
+
+### Fixed
+
+- **The outcome POST never closed the lifecycle.** `action_records` carries two columns — `status` (lifecycle) and `outcome_status` (durable finality) — closed by two different paths, and the reconciliation only ran one way. A terminal `PATCH /api/actions/:id` implicitly advances `outcome_status`, but `POST /api/actions/:id/outcome` wrote only the `outcome_*` columns and left `status='running'`. `setActionOutcome` now closes the lifecycle in the same UPDATE (`completed`→`completed`, `partial`/`failed`→`failed`, `lost_confirmation`→`unknown`) and stamps `timestamp_end` through `COALESCE`, so a caller-supplied end time still wins. Only a still-open lifecycle (`running` / `pending` / NULL) flips: an already-terminal status is preserved, and `pending_approval` is left to the approvals expiry sweep. No new lifecycle value is introduced — all three targets were already written by the stale-outcome sweep.
+- **Nothing could heal an affected row.** Both of the sweep's UPDATEs gate on `outcome_status` (the primary on `'pending'`, the backfill on `'lost_confirmation'`), so a row that reported `completed` was unreachable by either and stuck at `running` permanently. It also counted as in-flight in the operations stats and tripped the doctor's "Zombie running actions" check, whose fix hint — opening `/decisions` triggers the reconciliation sweep — could never work for that row. The backfill now covers every terminal `outcome_status` and maps each to the same lifecycle value as the write path, so rows already stuck reconcile on the next sweep: cron, or the lazy trigger on the actions list. No migration.
+
 ## [5.17.4] — 2026-08-10
 
 **Checks that were not checking.** Three more instances of the 5.17.3 failure mode — something reporting OK while it silently wasn't working — found by going looking rather than waiting to be told.

@@ -158,6 +158,23 @@ The one-shot rule still applies: `outcome_status='pending'` gates the implicit s
 
 `cancelled` and `blocked` map to `failed` because both represent "the action did not successfully complete" from a retry-safety perspective. An agent re-trying after one of these states needs the same answer it would get for `failed`: yes, safe to retry; no, do not assume the underlying side effect happened.
 
+### Implicit lifecycle close on outcome report
+
+The mirror of the rule above, and for a long time the missing half of it. `setActionOutcome` (backing `POST /api/actions/:id/outcome`) also closes the lifecycle `status` column and stamps `timestamp_end`, so an agent that reports through the durable-finality surface does not leave a row claiming it is still running:
+
+| Reported `outcome_status` | Implicit lifecycle `status` |
+|---|---|
+| `completed` | `completed` |
+| `partial` | `failed` |
+| `failed` | `failed` |
+| `lost_confirmation` | `unknown` |
+
+`partial` maps to `failed` for the same "did not successfully complete" reason `cancelled` and `blocked` map to a `failed` outcome in the table above; the nuance stays visible because the outcome badge still reads *Partial*.
+
+Only a still-open lifecycle (`running`, `pending`, or NULL) is flipped — an already-terminal `status` wins, and `pending_approval` is left to the approvals expiry sweep. `timestamp_end` is set with `COALESCE`, so a caller-supplied end time is never overwritten.
+
+Without this, a row that reported a terminal outcome was **permanently** inconsistent: the Decision Replay page rendered `RUNNING` beside a green *Completed* badge, the action counted as in-flight in the operations stats, and neither sweep UPDATE could heal it because both gate on `outcome_status` still being `pending` (primary) or `lost_confirmation` (backfill). The sweep's backfill now covers every terminal `outcome_status`, so pre-existing stuck rows reconcile on the next sweep — cron, or the lazy trigger on the actions list.
+
 For each newly-marked row, the sweep emits a `signal.detected` realtime event of type `lost_confirmation`. Operators see it surface in `/mission-control` and `/operations` immediately, and webhook subscribers receive a payload.
 
 Default timeout: **15 minutes** post-creation. Per-org override via the `DASHCLAW_OUTCOME_TIMEOUT_MINUTES` key in `settings` (allow-listed in `app/lib/repositories/settings.repository.js`). The cron clamps the resolved value to `[1, 1440]` minutes.

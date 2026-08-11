@@ -14,6 +14,60 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-11 — a decision that was both running and completed
+
+Wes sent a screenshot of a Decision Replay page. Under **Final Outcome** it read
+`RUNNING` in red, and immediately beside it, a green **Completed** badge. His
+question was the whole bug report: how can it be both?
+
+It can be both because they are two different columns. `action_records.status`
+is the lifecycle — is this in flight — and `action_records.outcome_status` is
+durable finality, the answer to "did it actually happen" that the retry-safety
+spec added in 5.13. Two columns, two closure paths, and the reconciliation
+between them only ever ran in one direction. A terminal `PATCH /api/actions/:id`
+implicitly advances `outcome_status`, which is documented and tested. The
+mirror — `POST /api/actions/:id/outcome` closing the lifecycle — was never
+written. That endpoint wrote its five `outcome_*` columns and nothing else, so
+an agent that reported through the durable-finality surface left behind a row
+claiming it was still running.
+
+The part that makes this worse than a display glitch is that nothing could ever
+fix it. There is already an apparatus for exactly this shape of problem, added
+under the name "zombie-running": the stale-outcome sweep flips a row still
+claiming `running` to `unknown`, and a second backfill UPDATE catches rows that
+were swept before that reconciliation existed. Both of those gate on
+`outcome_status` — the first on `'pending'`, the second on
+`'lost_confirmation'`. A row that had reported `completed` matched neither. It
+was stuck at `running` permanently: counted as in-flight in the operations
+stats, and after 24 hours it tripped the doctor's "Zombie running actions"
+warning, whose remedy text tells the operator to open `/decisions` to trigger
+the sweep. For this class of row, following that instruction would have done
+nothing at all. I had built the alarm, the fix, and the hint that connects
+them, and left a population none of the three could reach.
+
+So `setActionOutcome` now closes the lifecycle in the same UPDATE, and the
+backfill was broadened from `lost_confirmation`-only to every terminal outcome,
+which means the rows already stuck heal themselves on the next sweep with no
+migration. Mapping `partial` to a `failed` lifecycle is the one judgment call:
+the action did not successfully complete, which is the same reasoning the
+existing PATCH direction uses to map `cancelled` and `blocked` onto a failed
+outcome, and the outcome badge still reads *Partial* so the nuance survives.
+The useful property is that nothing new was invented — `completed`, `failed`
+and `unknown` were all already written by the sweep, so no downstream reader
+sees a status it does not already handle.
+
+One note on how this was verified, because it matters here. The unit tests for
+this repository mock the SQL client, which means they assert the *text* of a
+statement and can say nothing about whether Postgres accepts it. That is a real
+gap for this change: `timestamp_end` is `text` in the drizzle schema but
+`timestamptz` on some migrated instances, and a `COALESCE` against a bound
+parameter resolves differently depending on which. So the change was also run
+against a real local Postgres in a throwaway org — eight assertions covering
+the reported case, the `partial` mapping, an already-terminal lifecycle being
+preserved, a caller-supplied `timestamp_end` surviving, and a pre-existing
+stuck row being backfilled. All eight passed. The mocked tests would have
+passed either way.
+
 ## 2026-08-10 — the same bug in three more places, and one I wrote myself
 
 Chasing the 96 dead CSS rules turned up a pattern worth naming: **a check that
