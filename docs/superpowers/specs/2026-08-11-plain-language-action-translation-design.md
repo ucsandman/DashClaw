@@ -165,11 +165,12 @@ Driven by `intel.file` (`sensitive_path`, `traversal_detected`, `outside_workspa
 
 | Case | Headline | Detail |
 |---|---|---|
-| Write, new file | Creates a new file in your project. | literal path |
-| Write, existing file | Replaces the entire contents of an existing file. | literal path |
+| Write | Creates or replaces a file in your project. | literal path |
 | Edit / MultiEdit | Changes an existing file. | literal path |
 | `sensitive_path` true | …plus: This file holds credentials or configuration. | literal path |
 | `outside_workspace` true | …plus: This file is outside your project folder. | literal path |
+
+`Write` does not split into "creates" and "replaces": `_enrich_file` never checks whether the target exists, so the distinction is not in the data. "Creates or replaces" is the honest phrasing rather than a claim we cannot support.
 
 ### MCP calls
 
