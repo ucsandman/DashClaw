@@ -23,8 +23,16 @@ export interface ShellStage {
 const SUBCOMMAND_BINARIES = new Set(['git', 'npm', 'npx', 'docker', 'kubectl', 'pnpm', 'yarn', 'cargo', 'pip']);
 
 /**
- * Split on |, && , || and ; while respecting single and double quotes and
- * backslash escapes.
+ * Split on |, && , ||, ;, and a line break while respecting single and double
+ * quotes and backslash escapes.
+ *
+ * A newline ends a command exactly the way a ';' does, and multi-line commands
+ * are routine for coding agents — without this, line 2 is silently absorbed
+ * into line 1's flags and operands and never described at all. A carriage
+ * return is treated the same, which also covers CRLF input. A tab is NOT a
+ * separator: in every shell a tab is a blank that separates words, not
+ * commands, so `rm -rf<TAB>build/` is one rm, and splitting it would drop the
+ * target from the sentence.
  */
 function splitStages(command: string): string[] {
   const out: string[] = [];
@@ -56,7 +64,7 @@ function splitStages(command: string): string[] {
       buf += ch;
       continue;
     }
-    if (ch === ';' || ch === '|' || ch === '&') {
+    if (ch === ';' || ch === '|' || ch === '&' || ch === '\n' || ch === '\r') {
       // Consume a doubled operator (&& or ||) as one separator.
       if ((ch === '&' || ch === '|') && command[i + 1] === ch) i += 1;
       // A single & backgrounds the preceding command, which ends it, so
