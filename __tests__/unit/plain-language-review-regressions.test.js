@@ -76,9 +76,13 @@ describe('B2: a quoted argument never becomes part of our prose', () => {
 });
 
 describe('B3: the headline is bounded no matter how long the chain is', () => {
-  // 120 stages, 1556 chars — under every existing cap, and enough to blow
+  // 120 stages, 1806 chars — under every existing cap, and enough to blow
   // both a Telegram message (4096) and a Discord embed description (4096).
-  const chain = Array.from({ length: 120 }, () => 'rm -rf b/').join(' && ');
+  // Each stage names a different folder on purpose: identical consecutive
+  // steps now collapse into one counted clause (see the repeated-step tests in
+  // plain-language-bash.test.js), and a chain that collapses would no longer
+  // exercise the length bound this block exists to pin.
+  const chain = Array.from({ length: 120 }, (_, i) => `rm -rf b${i}/`).join(' && ');
   const goal = `Bash: ${chain}`;
 
   it('never composes a headline longer than the cap', () => {

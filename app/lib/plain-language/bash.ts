@@ -451,6 +451,40 @@ function lowerFirst(text: string): string {
   return text ? `${text[0]?.toLowerCase() ?? ''}${text.slice(1)}` : text;
 }
 
+/**
+ * Collapse a run of identical consecutive clauses into one, counted.
+ *
+ * A chain of seven listings and greps composed "Reads information from your
+ * computer, then reads information from your computer, then …" — one sentence
+ * said seven times, which reads as a stutter and buries the step that is
+ * actually different (reported from the approvals queue, 2026-08-11). The run
+ * is stated once with how many times it happens instead.
+ *
+ * Only CONSECUTIVE clauses collapse, and only when the same rule produced the
+ * same sentence: in `ls; rm -rf build/; ls` the repetition IS the sequence, so
+ * both reads stay listed in order. Nothing is dropped and nothing is hidden —
+ * the count stands for every stage in the run, so joinClauses still reports
+ * only the steps the operator was genuinely not shown.
+ */
+function collapseRuns(clauses: Clause[]): Clause[] {
+  const runs: Array<{ clause: Clause; repeats: number }> = [];
+  for (const clause of clauses) {
+    const last = runs[runs.length - 1];
+    if (last && last.clause.ruleId === clause.ruleId && last.clause.text === clause.text) {
+      last.repeats += 1;
+      // Identical text from an identical rule carries identical warnings
+      // today. Merging rather than keeping the first means a future rule that
+      // varies them cannot lose one silently.
+      last.clause.warnings = [...new Set([...last.clause.warnings, ...clause.warnings])];
+      continue;
+    }
+    runs.push({ clause: { ...clause, warnings: [...clause.warnings] }, repeats: 1 });
+  }
+  return runs.map(({ clause, repeats }) =>
+    repeats > 1 ? { ...clause, text: `${clause.text} ${repeats} times` } : clause,
+  );
+}
+
 /** Room kept back for the ", and 120 more steps" tail. */
 const MORE_STEPS_RESERVE = 40;
 
@@ -491,8 +525,14 @@ export function describeBash(command: string, bashIntel?: BashIntel): PlainDescr
   const reversible: boolean | 'unknown' =
     typeof bashIntel?.reversible === 'boolean' ? bashIntel.reversible : 'unknown';
 
-  const { clauses: known, complete } = describeStages(stages);
-  if (known.length === 0) return unknownDescription('bash.unrecognised');
+  const { clauses: parsed, complete } = describeStages(stages);
+  if (parsed.length === 0) return unknownDescription('bash.unrecognised');
+
+  // Collapsed before anything counts clauses, so "one clause" below means
+  // "one thing this command does", not "one stage". `complete` is unaffected:
+  // it is decided by how many stages were understood, and a run is only
+  // collapsed once every stage in it has been.
+  const known = collapseRuns(parsed);
 
   // A mixed OR incompletely-understood pipeline is never calm, even when the
   // one stage we did recognise is a read: "one clause was recognised" is not

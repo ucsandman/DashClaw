@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { describeBash, hasRedirection } from '@/lib/plain-language/bash';
-import { applySafetyFloor } from '@/lib/plain-language/types';
+import { applySafetyFloor, MAX_HEADLINE } from '@/lib/plain-language/types';
 
 const destructive = { intent: 'destructive', reversible: false, risk_score: 85 };
 const read = { intent: 'read', reversible: true, risk_score: 5 };
@@ -292,5 +292,39 @@ describe('describeBash', () => {
     expect(out.headline).toContain(', then ');
     expect(out.warnings.join(' ')).toContain('Recycle Bin');
     expect(out.warnings.join(' ')).toContain("can't see what is inside");
+  });
+});
+
+// Reported from the approvals queue, 2026-08-11: a seven-command chain of
+// greps and listings read "Reads information from your computer, then reads
+// information from your computer, then …" — one sentence said seven times,
+// which buries the step that is actually different.
+describe('describeBash: a repeated step is said once, with its count', () => {
+  it('collapses a run of identical clauses instead of repeating the sentence', () => {
+    const out = describeBash('ls -la src; ls -la dist; ls -la docs', read);
+    expect(out.headline).toBe('Reads information from your computer 3 times.');
+    expect(out.headline).not.toContain(', then reads information');
+  });
+
+  it('still lists a repeat that a different step comes between', () => {
+    // Here the repetition IS the sequence, so collapsing it would misdescribe
+    // the order the operator is approving.
+    const out = describeBash('ls -la src; rm -rf build/; ls -la docs', destructive);
+    expect(out.headline.match(/eads information/g)).toHaveLength(2);
+    expect(out.headline).not.toContain('2 times');
+  });
+
+  it('keeps a long run inside the headline cap without dropping steps', () => {
+    const out = describeBash(Array.from({ length: 120 }, () => 'rm -rf b/').join(' && '), destructive);
+    expect(out.headline).toContain('120 times');
+    expect(out.headline.length).toBeLessThanOrEqual(MAX_HEADLINE);
+    // Every step is accounted for by the count, so there is no unlisted tail.
+    expect(out.headline).not.toMatch(/more steps/);
+  });
+
+  it('collapses only when the same rule produced the same sentence', () => {
+    const out = describeBash('ls -la src; rm -rf src', destructive);
+    expect(out.headline).toContain(', then ');
+    expect(out.headline).not.toContain('2 times');
   });
 });
