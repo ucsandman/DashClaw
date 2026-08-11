@@ -173,6 +173,7 @@ dashclaw install openclaw --api-key oc_live_...   # explicit key (or DASHCLAW_AP
 dashclaw install openclaw --write-config          # store the key in openclaw.json instead of .env
 dashclaw install openclaw --openclaw-bin <path>   # openclaw executable, if not on PATH
 dashclaw install openclaw --workspace <path>      # override the workspace resolved from config
+dashclaw install openclaw --plugin-version <v>    # pin a plugin version (default: 1.6.2)
 dashclaw install openclaw --no-verify             # skip the post-install config validate + plugins doctor check
 ```
 

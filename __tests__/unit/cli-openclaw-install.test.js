@@ -318,15 +318,26 @@ describe('cli wiring', () => {
   // via node:path instead avoids the global URL class entirely.
   const cliPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'cli', 'bin', 'dashclaw.js');
 
-  function runCli(argv) {
+  function runCli(argv, { home } = {}) {
     // Strip any DASHCLAW_* the host machine/operator may have set so the
-    // spawned process never touches a real saved config or key. Neither
-    // invocation below reaches an install regardless (see comment above),
-    // so this is defense in depth, not a requirement for either to pass.
+    // spawned process never touches a real saved config or key. Neither of
+    // the first two invocations below reaches an install regardless (see
+    // comment above), so this is defense in depth for those; the third
+    // invocation (`install openclaw`) does reach installOpenclaw's own
+    // guards, and this machine has a real ~/.dashclaw/config.json, so for
+    // that one it's load-bearing.
     const env = { ...process.env };
     delete env.DASHCLAW_BASE_URL;
     delete env.DASHCLAW_API_KEY;
     delete env.DASHCLAW_AGENT_ID;
+    // `home`: redirect os.homedir() (verified empirically — Node reads
+    // USERPROFILE on Windows and HOME elsewhere for this) so
+    // resolveConfig() finds no config.json and cannot hand installOpenclaw
+    // a real baseUrl/apiKey that would carry it past its own arg guards.
+    if (home) {
+      env.HOME = home;
+      env.USERPROFILE = home;
+    }
     return spawnSync(process.execPath, [cliPath, ...argv], {
       encoding: 'utf8',
       env,
@@ -345,5 +356,29 @@ describe('cli wiring', () => {
     const { status, stderr } = runCli(['install', 'bogus']);
     expect(status).toBe(1);
     expect(stderr).toContain('openclaw');
+  });
+
+  // Neither test above actually exercises `case 'openclaw':` — --help
+  // short-circuits in main() before cmdInstall() runs, and `bogus` only
+  // ever reaches the `default:` branch. This one proves the dispatch
+  // itself: `install openclaw` is spawned for real. That's safe —
+  // installOpenclaw (cli/lib/openclaw/install.js:223-224) throws on its own
+  // `if (!baseUrl)` / `if (!apiKey)` guards BEFORE the preflight network
+  // call at line 227, so nothing is written and no network call happens —
+  // AS LONG AS resolveConfig() can't hand it a real baseUrl/apiKey, which
+  // is what the `home` override in runCli is for.
+  it('install openclaw dispatches to the real handler, not the unknown-target fallback', () => {
+    const home = mkdtempSync(join(tmpdir(), 'oc-cli-home-'));
+    const { stderr } = runCli(['install', 'openclaw'], { home });
+    // This is the assertion that actually proves the dispatch: if
+    // `case 'openclaw':` were deleted, mistyped, or moved to the wrong
+    // branch, this is the string that would appear instead.
+    expect(stderr).not.toContain('Unknown install target');
+    // And this proves it actually reached installOpenclaw's own guards,
+    // not just "didn't say unknown target" for some unrelated reason.
+    // Deliberately not asserting which of the two guards fired (baseUrl
+    // vs apiKey) — that depends on whether main() supplies a default
+    // baseUrl, which isn't this test's concern.
+    expect(stderr).toMatch(/is required/);
   });
 });
