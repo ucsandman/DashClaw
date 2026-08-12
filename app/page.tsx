@@ -527,6 +527,20 @@ export default function LandingPage() {
               path), not from software running inside the agent&apos;s reach.
             </p>
 
+            <p className="mt-4 text-sm text-text-secondary leading-relaxed">
+              Governance can be narrowed as well as switched off, and that is
+              loud too.{' '}
+              <span className="font-mono text-xs">DASHCLAW_GOVERNED_CATEGORIES</span>{' '}
+              decides which tool categories reach the guard at all, so an
+              excluded category produces no row and its silence looks exactly
+              like a quiet agent. The hook declares what it is not governing,
+              and any gap raises a red <strong className="font-semibold text-text-primary">Governance
+              scope narrowed</strong> signal naming what stopped being watched.
+              Visibility, not enforcement: a client that narrows its own scope
+              can also lie about the declaration, which is why the boundary
+              above still matters.
+            </p>
+
             <p className="mt-4 text-sm text-text-tertiary">
               The full per-surface table and threat model live in the{' '}
               <a

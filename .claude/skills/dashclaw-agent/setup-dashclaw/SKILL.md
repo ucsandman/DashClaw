@@ -226,7 +226,7 @@ export DASHCLAW_API_KEY=your-api-key
 export DASHCLAW_AGENT_ID=claude-code
 export DASHCLAW_HOOK_MODE=observe    # Start with observe, switch to enforce later
 export DASHCLAW_RISK_THRESHOLD=60    # Default risk threshold
-export DASHCLAW_GOVERNED_CATEGORIES=all  # Comma-separated tool categories or "all"
+export DASHCLAW_GOVERNED_CATEGORIES=all  # Comma-separated tool categories or "all" (see below before narrowing)
 export DASHCLAW_PERMISSION_MODE=standard # standard | elevated | admin
 ```
 
@@ -266,18 +266,25 @@ Use `dashclaw approvals` in another terminal to approve in real-time.
 
 ### Graceful Degradation
 
-If DashClaw is unreachable (missing env vars, server down, network error), hooks exit 0 and allow tool execution. The hooks never break your development workflow.
+If the hook is **unconfigured** (no `DASHCLAW_BASE_URL`/`DASHCLAW_API_KEY`), it exits 0 and the tool runs ungoverned; half-configured warns on stderr and still exits 0. But a **server down or network error is not the same case**: in enforce mode the hook fails *closed* and blocks (exit 2), because an action that could not be governed must not proceed. Override with `DASHCLAW_GUARD_UNAVAILABLE_POLICY=warn|allow` (not recommended). Observe mode never blocks either way, and every outage is written to `~/.dashclaw/orphan-actions.jsonl` for backfill on recovery.
 
-### New Signal Types
+### Governed categories — narrowing the scope is visible
 
-Hooks v2 emit 4 additional signal types during guard evaluation:
+`DASHCLAW_GOVERNED_CATEGORIES` decides which tool categories call the guard at all. This is a **scope** knob, not a mode knob, and it is sharper than it looks: for a category it excludes, the hook exits **before** the network call, so those tool calls produce no decision row, no witness and no signal. Their absence from `/decisions` is indistinguishable from an agent that simply did nothing.
 
-- **`permission_escalation`** — triggered when the action requires elevated permissions
-- **`green_contract`** — triggered when test verification is required before execution
-- **`branch_freshness`** — triggered when the target branch is stale relative to its remote
-- **`recovery_recipe`** — returned with blocked decisions, providing actionable remediation steps
+Default governed set: `execution,orchestration,file_io,interactive,mcp`. `search` and `system` are ungoverned out of the box by design. Unknown tools that match no category fail safe to governed.
 
-Monitor these signals in the DashClaw dashboard or via the `/api/signals` endpoint.
+Since v5.20 the hook declares the categories it is *not* governing on the calls it does still make, and any category dropped below that default set raises the red **Governance scope narrowed** (`ungoverned_scope`) signal naming what is unwatched. A healthy default install declares nothing and raises nothing. This is a visibility guarantee, not an enforcement one — the variable lives on the agent's own machine — but it catches the case that actually happens: a misconfigured agent, or a typo that silently dropped a real category (`file-io` is not `file_io`).
+
+### Related policy types
+
+Hooks v2 enrichment feeds three guard **policy** types (these are policies you configure, not signals the dashboard emits):
+
+- **`permission_escalation`** — matches when the action requires elevated permissions
+- **`green_contract`** — requires a test-verification level before deploys
+- **`branch_freshness`** — matches deploys from a stale or diverged branch
+
+Blocked decisions may also carry a **recovery recipe**: actionable remediation steps returned alongside the verdict. Monitor the resulting risk signals in the dashboard or via `/api/signals`.
 
 ### Session Setup (Recommended)
 

@@ -9451,7 +9451,7 @@
     {
       "item": "DASHCLAW_GOVERNED_CATEGORIES",
       "kind": "hook",
-      "status": "experimental",
+      "status": "stable",
       "section": "Claude Code / Codex / Hermes Hooks (#hooks)",
       "liveVerified": false
     },

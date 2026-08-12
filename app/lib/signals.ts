@@ -453,7 +453,7 @@ export function buildGreenInsufficientSignals(greenDecisions: Row[] | null): Sig
 }
 
 /**
- * Compute all 19 risk signal types for an org.
+ * Compute all 17 risk signal types for an org.
  *
  * @param orgId
  * @param filterAgentId - optional agent filter

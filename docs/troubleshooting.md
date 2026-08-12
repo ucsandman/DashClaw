@@ -58,7 +58,15 @@ You skipped the outcome poll. Before retrying any approved action, `getActionOut
 3. Check the hook credentials in that same `.env` (`dashclaw install claude` writes them there; nothing secret lives in `settings.json`).
 4. Restart the Claude Code session — hook config is read at session start.
 
-Remember observe mode is the default: decisions **log** but nothing blocks until `DASHCLAW_HOOK_MODE=enforce`.
+Fresh installs default to **enforce**; if you installed with `--observe` or set `DASHCLAW_HOOK_MODE=observe`, decisions **log** but nothing blocks. Re-installs keep whichever mode you chose.
+
+### Some tool calls land in `/decisions` but whole categories are missing
+
+Bash runs, or file writes, or sub-agent spawns never appear at all, while other tools record normally. That is governance **scope**, not a broken hook: `DASHCLAW_GOVERNED_CATEGORIES` decides which categories call guard, and the hook exits before the network call for one it excludes — so those calls produce no row and no signal, and the ledger looks clean because nothing was recorded, not because nothing happened.
+
+Check that variable in `~/.dashclaw/claude-hooks/.env` (and the machine env, which shadows it). Remove it to restore the default scope, or set it to `all`. A **typo silently drops a real category** — `file-io` is not `file_io`, and the misspelled name is simply never governed.
+
+Since v5.20 you do not have to catch this by hand: the hook declares the categories it is not governing on the calls it does still make, and any category dropped below the default (`execution,orchestration,file_io,interactive,mcp`) raises the red **Governance scope narrowed** signal on `/approvals`, naming what is unwatched. `search` and `system` are ungoverned out of the box by design and never raise it.
 
 ### MCP tools missing from the host
 

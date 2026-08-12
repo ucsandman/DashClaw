@@ -173,7 +173,9 @@ Auth chain: middleware strips client-sent `x-org-id`/`x-org-role`/`x-user-id` â†
 }
 ```
 
-**17 signal types:** agent_silent, autonomy_spike, high_impact_low_oversight, repeated_failures, stale_loop, assumption_drift, drift_alert, stale_assumption, stale_running_action, approval_backlog, integration_mismatch, session_stalled, branch_stale, mcp_degraded, green_insufficient, approval_flood, coverage_drop
+**17 signal types** (`computeSignals` in `app/lib/signals.ts` is authoritative): agent_silent, autonomy_spike, high_impact_low_oversight, repeated_failures, assumption_drift, stale_assumption, stale_running_action, approval_backlog, integration_mismatch, session_stalled, branch_stale, observe_mode, ungoverned_scope, mcp_degraded, executed_despite_block, green_insufficient, approval_flood
+
+Three of those are the **enforcement-visibility** set â€” they answer "is governance actually running?" rather than "is the agent behaving?", and all three are red: `observe_mode` (verdicts logged but not enforced), `executed_despite_block` (a gated action ran anyway, witnessed by PostToolUse), and `ungoverned_scope` (whole tool categories the hook is not governing, so their calls never reach the ledger at all and their absence reads as a quiet agent). See `docs/architecture/enforcement-boundary.md`.
 
 ---
 

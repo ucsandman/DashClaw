@@ -36,6 +36,7 @@ As of this verification (2026-08-09), generated API inventory reports **131 rout
 - **Action ledger**: durable `action_records` rows with status, risk, reasoning, assumptions, costs, tokens, and trace data.
 - **Terminal outcomes**: one-shot action outcome finality through `GET/POST /api/actions/:actionId/outcome`.
 - **Operational signals**: stale actions, lost confirmations, assumption drift, degraded integrations, and policy-relevant alerts.
+- **Enforcement visibility**: the three red signals that answer "is governance actually running?" rather than "is the agent behaving?" — `observe_mode` (verdicts logged, nothing enforced), `executed_despite_block` (a gated action ran anyway, witnessed by PostToolUse), and `ungoverned_scope` (tool categories the hook is not governing at all, whose calls never reach the ledger, so their absence would otherwise read as a quiet agent). Contract: `docs/architecture/enforcement-boundary.md`.
 - **Evidence**: replayable action detail, traces, graphs, artifacts, and evidence bundles.
 
 ### DashClaw does not own

@@ -4,9 +4,9 @@
     "archiveNote": "UNREACHABLE at runtime, independent of auth/middleware. Next.js App Router treats any path segment starting with an underscore as a private folder (https://nextjs.org/docs/app/building-your-application/routing/colocation#private-folders) and excludes it from route generation entirely. So app/api/_archive/**/route.js files never become live endpoints — a request to /api/_archive/anything 404s before middleware.js or next.config.js are even consulted for that path. Confirmed by reading next.config.js (no rewrites() or redirects() entry references '_archive') and middleware.js in full (zero string matches for '_archive'; its matcher config only lists '/api/:path*' plus specific pages, and none of the demo-mode dispatch tables, PUBLIC_ROUTES, or hosted-public-path checks mention _archive). scripts/lib/route-sql-guard.mjs explicitly skips the '_archive' directory when walking route files, confirming the team already treats it as inert/excluded tooling-side. Net effect: these 48 archived route files are dead code from a routing standpoint — the handlers themselves are syntactically intact and mostly still reference live schema tables (verified goals, milestones, ideas, contacts, interactions, agent_messages, message_threads, shared_docs, context_points, context_entries, calendar_events, snippets, user_observations/preferences/moods/approaches, notification_preferences, workflows, executions, scheduled_jobs, agent_pairings, agent_identities, content, health_snapshots, entities, topics, and feedback all still exist in schema/schema.js), but none of that matters because the folder is never mounted as a route. Un-archiving (renaming _archive -> something routable) would make most of them functional again since they read live tables.",
     "counts": {
       "total": 433,
-      "stable": 304,
+      "stable": 305,
       "beta": 25,
-      "experimental": 103,
+      "experimental": 102,
       "archived": 0,
       "deprecated": 1
     }
@@ -6561,11 +6561,11 @@
           "id": "hook-dashclaw-governed-categories",
           "name": "DASHCLAW_GOVERNED_CATEGORIES",
           "kind": "hook",
-          "status": "experimental",
-          "statusEvidence": "raw status: documented-not-traced",
+          "status": "stable",
+          "statusEvidence": "raw status: verified",
           "interface": "DASHCLAW_GOVERNED_CATEGORIES",
-          "purpose": "Comma-separated tool categories the hook governs (execution,orchestration,file_io,interactive,mcp per .env.example default).",
-          "gotchas": "listed in .env.example L235 but not traced into dashclaw_agent_intel classify_tool in this pass"
+          "purpose": "Comma-separated tool categories the hook governs, or \"all\" (default execution,orchestration,file_io,interactive,mcp). Read by _governed_categories() in dashclaw_agent_intel/tool_recognizer.py and enforced by _is_governed(); search and system are ungoverned by default, and an unknown tool matching no category fails safe to governed.",
+          "gotchas": "This is a SCOPE knob, not a mode knob. For an excluded category the hook exits before the network call, so those tool calls produce no decision row, no witness and no signal — their absence from /decisions is indistinguishable from an agent that did nothing. Since v5.20 the hook declares the categories it is not governing (measured against the DEFAULT set, so a healthy install declares nothing) and any gap raises the red ungoverned_scope \"Governance scope narrowed\" signal. Visibility, not enforcement: the variable lives on the agent's own machine. A typo silently drops a real category — file-io is not file_io."
         },
         {
           "id": "hook-dashclaw-subagent-identity",

@@ -77,7 +77,9 @@ Systematic diagnostics for common DashClaw errors, signal anomalies, and configu
 
 ## Signal Debugging
 
-DashClaw computes 18 signal types (`computeSignals` in `app/lib/signals.ts`). The eight most common in agent integrations are below; if signals are firing unexpectedly:
+DashClaw computes 17 signal types (`computeSignals` in `app/lib/signals.ts`). The eight most common in agent integrations are below; if signals are firing unexpectedly:
+
+> **`ungoverned_scope` ("Governance scope narrowed") is the one to check first when the ledger looks too clean.** It fires when `DASHCLAW_GOVERNED_CATEGORIES` drops a category below the default set, which means the hook exits before the guard call for that category — those tool calls produce no row at all, so an empty ledger looks the same as a well-behaved agent. Remove the variable or set it to `all`, and check it for typos; a misspelled category is simply never governed. `search` and `system` are ungoverned by default and never raise it.
 
 ### 1. Autonomy Spikes
 **Trigger:** >10 ungoverned actions/hour

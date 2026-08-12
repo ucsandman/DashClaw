@@ -13,6 +13,14 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Documentation
+
+- **The v5.20.0 scope-narrowing guarantee now exists outside the ADR.** `ungoverned_scope` shipped documented only in `docs/architecture/enforcement-boundary.md`, `hooks/README.md` and `.env.example` — none of which an operator reads before they hit the symptom. It is now on the surfaces where the question actually gets asked: the README's observe-mode "loud, never silent" paragraph, the landing page's enforcement-boundary section, `PROJECT_DETAILS.md` (as the third member of the enforcement-visibility set), and a new `docs/troubleshooting.md` entry keyed to the real symptom — *some* tool calls land in `/decisions` while whole categories are missing.
+- **Signal-type counts were wrong in three places and none agreed.** `computeSignals` claimed 19, the troubleshoot skill claimed 18, and the agent skill's API reference listed 17 names of which three (`stale_loop`, `drift_alert`, `coverage_drop`) are not signal types at all while three real ones (`observe_mode`, `executed_despite_block`, `ungoverned_scope`) were missing. The live count is **17**; all three now say so and the enumeration matches `app/lib/signals.ts`.
+- **`DASHCLAW_GOVERNED_CATEGORIES` was published as `experimental` / "documented-not-traced"** in the platform guide, which stopped being true when v5.20.0 wired it into `ungoverned_default_categories()`. Promoted to `stable`/verified in both `public/guides/platform-guide-data.json` and `docs/platform-guide-coverage.json` (guide status counts adjusted 304→305 stable, 103→102 experimental), with the scope-vs-mode distinction and the typo failure mode recorded as gotchas.
+
+Three neighbouring statements were wrong and are corrected in the same pass: `hooks/README.md` credited the feature to v5.19 (it shipped in v5.20); `docs/troubleshooting.md` still said observe mode is the default (fresh installs have defaulted to **enforce** since v5.2.0 / CLI 0.9.0); and the setup skill said hooks "exit 0 and allow tool execution" when DashClaw is unreachable, which is only true for an *unconfigured* hook — a server or network failure in enforce mode fails **closed** per `DASHCLAW_GUARD_UNAVAILABLE_POLICY=block`. That same skill filed `permission_escalation`, `green_contract` and `branch_freshness` under "New Signal Types"; they are guard **policy** types.
+
 ## [5.20.0] — 2026-08-11
 
 A whole-codebase adversarial review — eight parallel finders, then an independent
