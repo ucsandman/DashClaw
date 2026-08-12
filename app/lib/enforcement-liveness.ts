@@ -18,9 +18,31 @@ export const ENFORCEMENT_LIVENESS_STALE_MS = 24 * 60 * 60 * 1000;
 export interface EnforcementLivenessRunLike {
   verdict: string;
   finished_at: string | Date;
+  /** Which seam reported (drizzle/0072). Absent on pre-0072 rows. */
+  runtime?: string;
 }
 
 export type EnforcementLivenessState = 'holding' | 'stale' | 'broken';
+
+/** Worst-first. A fleet is only as live as its least-live seam. */
+const STATE_SEVERITY: Record<EnforcementLivenessState, number> = {
+  broken: 2,
+  stale: 1,
+  holding: 0,
+};
+
+/** One seam's verdict, plus when it last spoke. */
+export interface EnforcementLivenessSeam {
+  runtime: string;
+  state: EnforcementLivenessState;
+  finishedAt: string | null;
+}
+
+export interface FleetEnforcementLiveness {
+  /** Rollup across every seam that has reported inside the retention window. */
+  state: EnforcementLivenessState;
+  seams: EnforcementLivenessSeam[];
+}
 
 /**
  * Pure: derive the fleet's enforcement-liveness state from the latest probe
@@ -41,4 +63,37 @@ export function deriveEnforcementLivenessState(
     : Date.parse(latest.finished_at);
   if (!Number.isFinite(finishedMs) || now - finishedMs > ENFORCEMENT_LIVENESS_STALE_MS) return 'stale';
   return latest.verdict === 'held' ? 'holding' : 'broken';
+}
+
+/**
+ * Pure: roll every seam's latest run up into one fleet verdict (drizzle/0072).
+ *
+ * WHY THIS EXISTS: the org verdict used to be the single newest row across all
+ * seams. Claude Code and Codex both install the probe and both report
+ * `source = 'session-start'`, so whichever ran last spoke for the whole fleet —
+ * a Codex seam that had stopped enforcing rendered 'holding' behind a healthy
+ * Claude Code run 10 minutes old. That is the probe's own failure mode turned
+ * inward, so the rollup takes the WORST seam, never the newest.
+ *
+ * A seam is "known" once it has reported inside the retention window; it then
+ * stays expected, so going quiet reads as 'stale' rather than disappearing.
+ * No seams at all is 'stale' — no signal is not a claim of health.
+ */
+export function deriveFleetEnforcementLiveness(
+  latestPerRuntime: EnforcementLivenessRunLike[],
+  now: number = Date.now(),
+): FleetEnforcementLiveness {
+  const seams = latestPerRuntime.map((run) => ({
+    runtime: run.runtime || 'unknown',
+    state: deriveEnforcementLivenessState(run, now),
+    finishedAt: run.finished_at instanceof Date ? run.finished_at.toISOString() : run.finished_at ?? null,
+  }));
+  seams.sort((a, b) => (
+    STATE_SEVERITY[b.state] - STATE_SEVERITY[a.state] || a.runtime.localeCompare(b.runtime)
+  ));
+  const state = seams.reduce<EnforcementLivenessState>(
+    (worst, s) => (STATE_SEVERITY[s.state] > STATE_SEVERITY[worst] ? s.state : worst),
+    seams.length ? 'holding' : 'stale',
+  );
+  return { state, seams };
 }

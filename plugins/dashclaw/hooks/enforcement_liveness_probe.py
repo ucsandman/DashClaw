@@ -340,6 +340,13 @@ def main():
     parser.add_argument("--settings", action="append", default=None,
                         help="settings.json path(s) to inspect (default: project + global .claude/settings.json)")
     parser.add_argument("--source", default="manual", help="run source label (manual|session-start|ci)")
+    # WHICH SEAM this probe drove, as distinct from --source (WHY it ran).
+    # Claude Code and Codex both wire the probe with --source session-start, so
+    # before this flag the two seams were indistinguishable server-side and the
+    # newest run spoke for the whole fleet — a dead Codex seam rendered green
+    # behind a healthy Claude Code run. See drizzle/0072.
+    parser.add_argument("--runtime", default="unknown",
+                        help="which seam this probe drove (claude-code|codex|...)")
     parser.add_argument("--witness-dir", default=None, help="probe-owned directory for the witness file")
     parser.add_argument("--max-wait", type=float, default=90.0,
                         help="probe wait budget for the hook process, seconds")
@@ -489,6 +496,7 @@ def main():
 
     run = {
         "source": args.source,
+        "runtime": args.runtime,
         "verdict": verdict,
         "detail": detail,
         "hook": {k: v for k, v in hook_report.items() if v is not None},

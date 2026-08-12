@@ -4,7 +4,10 @@ import type { SqlTag } from '../types/db';
 export {
   ENFORCEMENT_LIVENESS_STALE_MS,
   deriveEnforcementLivenessState,
+  deriveFleetEnforcementLiveness,
   type EnforcementLivenessState,
+  type EnforcementLivenessSeam,
+  type FleetEnforcementLiveness,
 } from '../enforcement-liveness';
 
 /**
@@ -46,6 +49,8 @@ export interface EnforcementLivenessRun {
   id: string;
   org_id: string;
   source: string;
+  /** Which seam reported: 'claude-code' | 'codex' | 'unknown' (drizzle/0072). */
+  runtime: string;
   verdict: 'held' | 'executed' | 'unprovable';
   detail: string;
   hook: EnforcementLivenessHook;
@@ -59,6 +64,7 @@ export interface EnforcementLivenessRun {
 
 export interface EnforcementLivenessRunInput {
   source: string;
+  runtime: string;
   verdict: 'held' | 'executed' | 'unprovable';
   detail: string;
   hook: EnforcementLivenessHook;
@@ -82,8 +88,8 @@ export async function insertEnforcementLivenessRun(
   const id = `elr_${randomUUID()}`;
   await sql`
     INSERT INTO enforcement_liveness_runs
-      (id, org_id, source, verdict, detail, hook, witness, decision, checks, started_at, finished_at)
-    VALUES (${id}, ${orgId}, ${run.source}, ${run.verdict}, ${run.detail}, ${JSON.stringify(run.hook)},
+      (id, org_id, source, runtime, verdict, detail, hook, witness, decision, checks, started_at, finished_at)
+    VALUES (${id}, ${orgId}, ${run.source}, ${run.runtime}, ${run.verdict}, ${run.detail}, ${JSON.stringify(run.hook)},
       ${JSON.stringify(run.witness)}, ${run.decision}, ${JSON.stringify(run.checks)}, ${run.startedAt}, ${run.finishedAt})
   `;
   await sql`
@@ -98,13 +104,35 @@ export async function getLatestEnforcementLivenessRunForOrg(
   orgId: string,
 ): Promise<EnforcementLivenessRun | null> {
   const rows = await sql`
-    SELECT id, org_id, source, verdict, detail, hook, witness, decision, checks, started_at, finished_at, created_at
+    SELECT id, org_id, source, runtime, verdict, detail, hook, witness, decision, checks, started_at, finished_at, created_at
     FROM enforcement_liveness_runs
     WHERE org_id = ${orgId}
     ORDER BY created_at DESC
     LIMIT 1
   `;
   return (rows[0] as EnforcementLivenessRun | undefined) ?? null;
+}
+
+/**
+ * The latest run for EACH seam (drizzle/0072) — the read the fleet rollup needs.
+ *
+ * `getLatestEnforcementLivenessRunForOrg` above returns the single newest row
+ * across all seams, which is exactly what let a healthy Claude Code run mask a
+ * dead Codex one. Prefer this for any "is enforcement still on?" question; the
+ * single-row read remains only for showing the most recent probe's own detail.
+ */
+export async function listLatestEnforcementLivenessRunPerRuntime(
+  sql: SqlTag,
+  orgId: string,
+): Promise<EnforcementLivenessRun[]> {
+  const rows = await sql`
+    SELECT DISTINCT ON (runtime)
+      id, org_id, source, runtime, verdict, detail, hook, witness, decision, checks, started_at, finished_at, created_at
+    FROM enforcement_liveness_runs
+    WHERE org_id = ${orgId}
+    ORDER BY runtime, created_at DESC
+  `;
+  return rows as unknown as EnforcementLivenessRun[];
 }
 
 export async function listEnforcementLivenessRunsForOrg(

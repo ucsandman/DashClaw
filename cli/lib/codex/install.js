@@ -269,10 +269,13 @@ export function buildConfigTomlBlock({
     // liveness probe (v8.2): `--source session-start` throttles it to once/12h
     // and detaches, so session start is never delayed. No --agent-id — the
     // probe forces its own synthetic identity internally.
+    // `--runtime codex` names WHICH SEAM reported (drizzle/0072). Claude Code
+    // wires this same probe with the same --source, so without it a dead codex
+    // seam rendered green behind a healthy Claude Code run.
     '[[hooks.SessionStart]]',
     '[[hooks.SessionStart.hooks]]',
     'type = "command"',
-    `command = ${tomlString(`${py} ${sessionStart} --source session-start`)}`,
+    `command = ${tomlString(`${py} ${sessionStart} --source session-start --runtime codex`)}`,
     MANAGED_END,
   ];
 

@@ -4,11 +4,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeRequest } from '../helpers.js';
 
-const { mockSql, mockGetOrgId, mockInsert, mockList } = vi.hoisted(() => ({
+const { mockSql, mockGetOrgId, mockInsert, mockList, mockListPerRuntime } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockGetOrgId: vi.fn(),
   mockInsert: vi.fn(),
   mockList: vi.fn(),
+  mockListPerRuntime: vi.fn(async () => []),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
@@ -16,6 +17,7 @@ vi.mock('@/lib/org.js', () => ({ getOrgId: mockGetOrgId }));
 vi.mock('@/lib/repositories/enforcement-liveness.repository.js', () => ({
   insertEnforcementLivenessRun: mockInsert,
   listEnforcementLivenessRunsForOrg: mockList,
+  listLatestEnforcementLivenessRunPerRuntime: mockListPerRuntime,
 }));
 vi.mock('@/lib/apiErrors.js', () => ({
   apiErrorResponse: (error, label) => new Response(JSON.stringify({ error: error.message, label }), {
@@ -139,7 +141,9 @@ describe('POST /api/enforcement-liveness', () => {
 
 describe('GET /api/enforcement-liveness', () => {
   it('returns the latest run by default (limit 1) with derived state', async () => {
-    mockList.mockResolvedValue([{ id: 'elr_1', verdict: 'held', finished_at: new Date().toISOString() }]);
+    const held = { id: 'elr_1', runtime: 'claude-code', verdict: 'held', finished_at: new Date().toISOString() };
+    mockList.mockResolvedValue([held]);
+    mockListPerRuntime.mockResolvedValue([held]);
     const res = await GET(makeRequest('http://localhost/api/enforcement-liveness'));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -151,8 +155,26 @@ describe('GET /api/enforcement-liveness', () => {
 
   it('reports stale when no runs exist', async () => {
     mockList.mockResolvedValue([]);
+    mockListPerRuntime.mockResolvedValue([]);
     const res = await GET(makeRequest('http://localhost/api/enforcement-liveness'));
     expect((await res.json()).state).toBe('stale');
+  });
+
+  // drizzle/0072: `state` is the FLEET rollup, not the newest row. Before the
+  // per-seam read this returned 'holding' with a dead codex seam in the table.
+  it('state reflects the WORST seam, and every seam is named', async () => {
+    const now = new Date().toISOString();
+    const healthy = { id: 'elr_cc', runtime: 'claude-code', verdict: 'held', finished_at: now };
+    const dead = { id: 'elr_cx', runtime: 'codex', verdict: 'executed', finished_at: now };
+    mockList.mockResolvedValue([healthy]);
+    mockListPerRuntime.mockResolvedValue([healthy, dead]);
+
+    const body = await (await GET(makeRequest('http://localhost/api/enforcement-liveness'))).json();
+
+    expect(body.state).toBe('broken');
+    expect(body.seams).toHaveLength(2);
+    expect(body.seams.find((s) => s.runtime === 'codex').state).toBe('broken');
+    expect(body.seams.find((s) => s.runtime === 'claude-code').state).toBe('holding');
   });
 
   it('caps limit at 20', async () => {

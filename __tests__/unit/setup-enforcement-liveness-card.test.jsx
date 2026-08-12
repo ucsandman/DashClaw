@@ -8,12 +8,12 @@ import { render, screen, cleanup } from '@testing-library/react';
  * same as the live-host canary card it sits next to).
  */
 const {
-  mockGetReadinessReport, mockProjectReadinessReport, mockGetLatestRun, mockDeriveState, mockHeaders,
+  mockGetReadinessReport, mockProjectReadinessReport, mockGetLatestRun, mockListPerRuntime, mockHeaders,
 } = vi.hoisted(() => ({
   mockGetReadinessReport: vi.fn(),
   mockProjectReadinessReport: vi.fn(),
   mockGetLatestRun: vi.fn(),
-  mockDeriveState: vi.fn(),
+  mockListPerRuntime: vi.fn(),
   mockHeaders: vi.fn(),
 }));
 
@@ -22,11 +22,18 @@ vi.mock('@/lib/readiness.mjs', () => ({
   projectReadinessReport: mockProjectReadinessReport,
 }));
 
-vi.mock('@/lib/repositories/enforcement-liveness.repository', () => ({
-  getLatestEnforcementLivenessRunForOrg: mockGetLatestRun,
-  deriveEnforcementLivenessState: mockDeriveState,
-  ENFORCEMENT_LIVENESS_STALE_MS: 24 * 60 * 60 * 1000,
-}));
+// The DB reads are mocked; the rollup is NOT. Using the real
+// deriveFleetEnforcementLiveness is the point of these tests — a stubbed
+// derivation is exactly what let the seam-masking bug ship green.
+vi.mock('@/lib/repositories/enforcement-liveness.repository', async () => {
+  const real = await vi.importActual('../../app/lib/enforcement-liveness.ts');
+  return {
+    getLatestEnforcementLivenessRunForOrg: mockGetLatestRun,
+    listLatestEnforcementLivenessRunPerRuntime: mockListPerRuntime,
+    deriveFleetEnforcementLiveness: real.deriveFleetEnforcementLiveness,
+    ENFORCEMENT_LIVENESS_STALE_MS: 24 * 60 * 60 * 1000,
+  };
+});
 
 vi.mock('next/headers', () => ({
   headers: mockHeaders,
@@ -56,6 +63,7 @@ function baseRun(overrides = {}) {
     id: 'elr_1',
     org_id: 'org_default',
     source: 'liveness-probe',
+    runtime: 'claude-code',
     verdict: 'held',
     detail: 'Held as expected.',
     hook: { installed: true, mode: 'block', timeout_seconds: 5, effective_timer_ms: 5000, overflowed: false, cancelled: false },
@@ -69,6 +77,15 @@ function baseRun(overrides = {}) {
   };
 }
 
+// The fleet badge in the card header, as distinct from the per-check "pass"
+// rows inside it — asserting on the card's whole textContent cannot tell those
+// apart, and the difference is the entire point of the masking test below.
+function fleetBadgeText() {
+  const card = document.getElementById('enforcement-liveness');
+  const header = card?.querySelector('h2')?.closest('div')?.parentElement;
+  return header?.querySelector('span')?.textContent?.trim() ?? null;
+}
+
 describe('/setup enforcement-liveness card (v8.2)', () => {
   beforeEach(() => {
     mockHeaders.mockResolvedValue(new Map([['cookie', '']]));
@@ -78,20 +95,20 @@ describe('/setup enforcement-liveness card (v8.2)', () => {
 
   it('renders holding: pass style + relative-time headline', async () => {
     mockGetLatestRun.mockResolvedValue(baseRun());
-    mockDeriveState.mockReturnValue('holding');
+    mockListPerRuntime.mockResolvedValue([baseRun()]);
 
     const ui = await SetupPage();
     render(ui);
 
     expect(screen.getByText(/enforcement liveness/i)).toBeTruthy();
     expect(screen.getByText(/enforcement held the probe action/i)).toBeTruthy();
-    const card = document.getElementById('enforcement-liveness');
-    expect(card?.textContent).toContain('pass');
+    expect(fleetBadgeText()).toBe('pass');
   });
 
   it('renders stale: warn style + the exact probe command', async () => {
-    mockGetLatestRun.mockResolvedValue(baseRun());
-    mockDeriveState.mockReturnValue('stale');
+    const old = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    mockGetLatestRun.mockResolvedValue(baseRun({ finished_at: old }));
+    mockListPerRuntime.mockResolvedValue([baseRun({ finished_at: old })]);
 
     const ui = await SetupPage();
     render(ui);
@@ -101,11 +118,12 @@ describe('/setup enforcement-liveness card (v8.2)', () => {
   });
 
   it('renders broken: fail style + the run detail as the headline', async () => {
-    mockGetLatestRun.mockResolvedValue(baseRun({
+    const broken = baseRun({
       verdict: 'executed',
       detail: 'The held action executed against the live database.',
-    }));
-    mockDeriveState.mockReturnValue('broken');
+    });
+    mockGetLatestRun.mockResolvedValue(broken);
+    mockListPerRuntime.mockResolvedValue([broken]);
 
     const ui = await SetupPage();
     render(ui);
@@ -113,8 +131,53 @@ describe('/setup enforcement-liveness card (v8.2)', () => {
     expect(screen.getByText(/the held action executed against the live database/i)).toBeTruthy();
   });
 
+  // THE REGRESSION. Before drizzle/0072 the card derived from the newest run
+  // across all seams, so this exact pair rendered 'pass' while Codex sat dead.
+  it('a healthy claude-code seam can no longer mask a broken codex seam', async () => {
+    const healthy = baseRun({ id: 'elr_cc', runtime: 'claude-code', verdict: 'held' });
+    const dead = baseRun({
+      id: 'elr_cx',
+      runtime: 'codex',
+      verdict: 'executed',
+      detail: 'The held action executed on the codex seam.',
+    });
+    // Newest overall is the HEALTHY one — the masking condition exactly.
+    mockGetLatestRun.mockResolvedValue(healthy);
+    mockListPerRuntime.mockResolvedValue([healthy, dead]);
+
+    const ui = await SetupPage();
+    render(ui);
+
+    // The FLEET badge flips to fail even though the newest run held.
+    expect(fleetBadgeText()).toBe('fail');
+    // ...and the dead seam is NAMED, not just counted.
+    const card = document.getElementById('enforcement-liveness');
+    expect(card?.textContent).toContain('codex');
+    expect(card?.textContent).toContain('claude-code');
+  });
+
+  it('lists every reporting seam with its own state', async () => {
+    const healthy = baseRun({ id: 'elr_cc', runtime: 'claude-code' });
+    const quiet = baseRun({
+      id: 'elr_cx',
+      runtime: 'codex',
+      finished_at: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+    });
+    mockGetLatestRun.mockResolvedValue(healthy);
+    mockListPerRuntime.mockResolvedValue([healthy, quiet]);
+
+    const ui = await SetupPage();
+    render(ui);
+
+    const card = document.getElementById('enforcement-liveness');
+    expect(card?.textContent).toContain('Seams reporting (2)');
+    // Worst seam wins the fleet badge: one stale seam makes the fleet stale.
+    expect(card?.textContent).toContain('stale');
+  });
+
   it('never crashes /setup when the repository read fails (table not migrated yet)', async () => {
     mockGetLatestRun.mockRejectedValue(new Error('relation "enforcement_liveness_runs" does not exist'));
+    mockListPerRuntime.mockRejectedValue(new Error('relation "enforcement_liveness_runs" does not exist'));
 
     const ui = await SetupPage();
     render(ui);
@@ -125,6 +188,7 @@ describe('/setup enforcement-liveness card (v8.2)', () => {
 
   it('renders a "no probe run yet" skip state without crashing', async () => {
     mockGetLatestRun.mockResolvedValue(null);
+    mockListPerRuntime.mockResolvedValue([]);
 
     const ui = await SetupPage();
     render(ui);

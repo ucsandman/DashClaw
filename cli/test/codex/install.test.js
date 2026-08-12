@@ -113,7 +113,9 @@ describe('buildConfigTomlBlock', () => {
     assert.match(built, /\[\[hooks\.SessionStart\]\]\n\[\[hooks\.SessionStart\.hooks\]\]/);
     // The probe is wired with --source session-start (throttled + detached) and
     // NOT --agent-id — it forces its own synthetic identity internally.
-    assert.match(built, /command = ".*enforcement_liveness_probe\.py --source session-start"/);
+    // --runtime codex names WHICH SEAM reported (drizzle/0072), so a dead codex
+    // seam can no longer render green behind a healthy Claude Code run.
+    assert.match(built, /command = ".*enforcement_liveness_probe\.py --source session-start --runtime codex"/);
     assert.doesNotMatch(built, /dashclaw_session_digest\.py/);
   });
 

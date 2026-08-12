@@ -5,10 +5,11 @@ import { NextResponse } from 'next/server';
 import { getSql } from '../../lib/db';
 import { getOrgId } from '../../lib/org';
 import { apiErrorResponse } from '../../lib/apiErrors';
-import { deriveEnforcementLivenessState, ENFORCEMENT_LIVENESS_STALE_MS } from '../../lib/enforcement-liveness';
+import { deriveFleetEnforcementLiveness, ENFORCEMENT_LIVENESS_STALE_MS } from '../../lib/enforcement-liveness';
 import {
   insertEnforcementLivenessRun,
   listEnforcementLivenessRunsForOrg,
+  listLatestEnforcementLivenessRunPerRuntime,
   type EnforcementLivenessCheck,
   type EnforcementLivenessHook,
   type EnforcementLivenessWitness,
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== 'object') return invalid('body', 'expected a JSON object');
 
-    const { source, verdict, detail, hook, witness, decision, checks, startedAt, finishedAt } =
+    const { source, runtime, verdict, detail, hook, witness, decision, checks, startedAt, finishedAt } =
       body as Record<string, unknown>;
 
     if (verdict !== 'held' && verdict !== 'executed' && verdict !== 'unprovable') {
@@ -59,6 +60,13 @@ export async function POST(request: Request) {
     }
     if (source !== undefined && !isShortString(source)) {
       return invalid('source', `expected a string of 1..${MAX_SHORT} chars`);
+    }
+    // Which seam reported (drizzle/0072). Kept OPEN rather than an enum: new
+    // runtimes get parity before this route does, and rejecting an unrecognised
+    // seam would silently drop its liveness verdict — the one signal we most
+    // need from a runtime nobody has wired up yet.
+    if (runtime !== undefined && !isShortString(runtime)) {
+      return invalid('runtime', `expected a string of 1..${MAX_SHORT} chars`);
     }
     if (!isLongString(detail)) return invalid('detail', `expected a string of 1..${MAX_LONG} chars`);
     if (decision !== undefined && decision !== null && (typeof decision !== 'string' || decision.length > MAX_SHORT)) {
@@ -142,6 +150,7 @@ export async function POST(request: Request) {
 
     const { id } = await insertEnforcementLivenessRun(sql, orgId, {
       source: (source as string | undefined) ?? 'manual',
+      runtime: (runtime as string | undefined) ?? 'unknown',
       verdict,
       detail,
       hook: cleanHook,
@@ -166,9 +175,21 @@ export async function GET(request: Request) {
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > 20) {
       return invalid('limit', 'expected an integer between 1 and 20');
     }
-    const runs = await listEnforcementLivenessRunsForOrg(sql, orgId, parsed);
-    const state = deriveEnforcementLivenessState(runs[0] ?? null);
-    return NextResponse.json({ runs, stale_after_ms: ENFORCEMENT_LIVENESS_STALE_MS, state });
+    const [runs, perSeam] = await Promise.all([
+      listEnforcementLivenessRunsForOrg(sql, orgId, parsed),
+      listLatestEnforcementLivenessRunPerRuntime(sql, orgId),
+    ]);
+    // `state` is now the FLEET rollup (worst seam wins), not the newest row.
+    // Before drizzle/0072 it was the newest row across all seams, so a dead
+    // Codex seam reported healthy behind a fresh Claude Code run. `seams`
+    // carries the per-runtime breakdown so a consumer can name the dead one.
+    const fleet = deriveFleetEnforcementLiveness(perSeam);
+    return NextResponse.json({
+      runs,
+      stale_after_ms: ENFORCEMENT_LIVENESS_STALE_MS,
+      state: fleet.state,
+      seams: fleet.seams,
+    });
   } catch (error) {
     return apiErrorResponse(error, 'ENFORCEMENT LIVENESS GET');
   }

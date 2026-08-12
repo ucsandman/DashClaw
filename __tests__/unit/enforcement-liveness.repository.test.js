@@ -10,9 +10,11 @@ import {
   insertEnforcementLivenessRun,
   getLatestEnforcementLivenessRunForOrg,
   listEnforcementLivenessRunsForOrg,
+  listLatestEnforcementLivenessRunPerRuntime,
 } from '../../app/lib/repositories/enforcement-liveness.repository.ts';
 import {
   deriveEnforcementLivenessState,
+  deriveFleetEnforcementLiveness,
   ENFORCEMENT_LIVENESS_STALE_MS,
 } from '../../app/lib/enforcement-liveness.ts';
 
@@ -22,11 +24,12 @@ function makeSqlMock() {
   const sql = vi.fn((strings, ...values) => {
     const text = strings.join(' ');
     if (text.includes('INSERT INTO enforcement_liveness_runs')) {
-      const [id, orgId, source, verdict, detail, hook, witness, decision, checks, startedAt, finishedAt] = values;
+      const [id, orgId, source, runtime, verdict, detail, hook, witness, decision, checks, startedAt, finishedAt] = values;
       rows.push({
         id,
         org_id: orgId,
         source,
+        runtime,
         verdict,
         detail,
         hook: JSON.parse(hook),
@@ -45,6 +48,15 @@ function makeSqlMock() {
     }
     if (text.includes('SELECT') && text.includes('FROM enforcement_liveness_runs')) {
       const sorted = [...rows].sort((a, b) => b.created_at.localeCompare(a.created_at));
+      // DISTINCT ON (runtime): newest row per seam, one row each.
+      if (text.includes('DISTINCT ON (runtime)')) {
+        const [orgId] = values;
+        const newestPerRuntime = new Map();
+        for (const r of sorted.filter((x) => x.org_id === orgId)) {
+          if (!newestPerRuntime.has(r.runtime)) newestPerRuntime.set(r.runtime, r);
+        }
+        return Promise.resolve([...newestPerRuntime.values()]);
+      }
       if (text.includes('WHERE org_id =')) {
         const [orgId, maybeLimit] = values;
         const scoped = sorted.filter((r) => r.org_id === orgId);
@@ -61,6 +73,7 @@ function makeSqlMock() {
 
 const RUN = {
   source: 'manual',
+  runtime: 'claude-code',
   verdict: 'held',
   detail: 'probe action was blocked by require_approval',
   hook: { installed: true, timeout_seconds: 30, mode: 'enforced' },
@@ -112,6 +125,24 @@ describe('enforcement-liveness repository (v8.2)', () => {
     expect(runs).toHaveLength(1);
     expect(runs[0].verdict).toBe('held');
   });
+
+  it('listLatestEnforcementLivenessRunPerRuntime returns one newest row per seam', async () => {
+    // codex reports broken FIRST, then claude-code reports healthy. The
+    // single-row read returns only the healthy claude-code run; this one must
+    // still surface the broken codex seam (drizzle/0072).
+    await insertEnforcementLivenessRun(sql, 'org_default', { ...RUN, runtime: 'codex', verdict: 'executed' });
+    await insertEnforcementLivenessRun(sql, 'org_default', { ...RUN, runtime: 'claude-code', verdict: 'held' });
+    await insertEnforcementLivenessRun(sql, 'org_other', { ...RUN, runtime: 'codex', verdict: 'held' });
+
+    expect((await getLatestEnforcementLivenessRunForOrg(sql, 'org_default')).runtime).toBe('claude-code');
+
+    const perSeam = await listLatestEnforcementLivenessRunPerRuntime(sql, 'org_default');
+    expect(perSeam).toHaveLength(2);
+    expect(perSeam.find((r) => r.runtime === 'codex').verdict).toBe('executed');
+    expect(perSeam.find((r) => r.runtime === 'claude-code').verdict).toBe('held');
+    // Never leaks another tenant's seams.
+    expect(perSeam.every((r) => r.org_id === 'org_default')).toBe(true);
+  });
 });
 
 describe('deriveEnforcementLivenessState (v8.2)', () => {
@@ -150,5 +181,70 @@ describe('deriveEnforcementLivenessState (v8.2)', () => {
       finished_at: new Date(NOW - ENFORCEMENT_LIVENESS_STALE_MS).toISOString(),
     };
     expect(deriveEnforcementLivenessState(run, NOW)).toBe('holding');
+  });
+});
+
+describe('deriveFleetEnforcementLiveness (drizzle/0072)', () => {
+  const NOW = Date.parse('2026-07-06T12:00:00.000Z');
+  const fresh = (runtime, verdict) => ({
+    runtime,
+    verdict,
+    finished_at: new Date(NOW - 60 * 1000).toISOString(),
+  });
+  const old = (runtime, verdict) => ({
+    runtime,
+    verdict,
+    finished_at: new Date(NOW - ENFORCEMENT_LIVENESS_STALE_MS - 1000).toISOString(),
+  });
+
+  // The bug this column exists to kill: both seams report
+  // `source: session-start`, so the newest-row derivation returned 'holding'
+  // for the org while codex sat dead.
+  it('a fresh healthy seam does NOT mask a fresh broken seam', () => {
+    const fleet = deriveFleetEnforcementLiveness(
+      [fresh('claude-code', 'held'), fresh('codex', 'executed')],
+      NOW,
+    );
+    expect(fleet.state).toBe('broken');
+    expect(fleet.seams.find((s) => s.runtime === 'codex').state).toBe('broken');
+    expect(fleet.seams.find((s) => s.runtime === 'claude-code').state).toBe('holding');
+  });
+
+  it('a fresh healthy seam does NOT mask a seam that went quiet', () => {
+    const fleet = deriveFleetEnforcementLiveness(
+      [fresh('claude-code', 'held'), old('codex', 'held')],
+      NOW,
+    );
+    expect(fleet.state).toBe('stale');
+  });
+
+  it('is holding only when EVERY seam is holding', () => {
+    const fleet = deriveFleetEnforcementLiveness(
+      [fresh('claude-code', 'held'), fresh('codex', 'held')],
+      NOW,
+    );
+    expect(fleet.state).toBe('holding');
+    expect(fleet.seams).toHaveLength(2);
+  });
+
+  it('no seams at all is stale, never holding — no signal is not a health claim', () => {
+    expect(deriveFleetEnforcementLiveness([], NOW).state).toBe('stale');
+  });
+
+  it('sorts worst seam first so the operator reads the problem before the noise', () => {
+    const fleet = deriveFleetEnforcementLiveness(
+      [fresh('claude-code', 'held'), old('hermes', 'held'), fresh('codex', 'executed')],
+      NOW,
+    );
+    expect(fleet.seams.map((s) => s.runtime)).toEqual(['codex', 'hermes', 'claude-code']);
+  });
+
+  it('labels a pre-0072 row with no runtime as "unknown" rather than dropping it', () => {
+    const fleet = deriveFleetEnforcementLiveness(
+      [{ verdict: 'held', finished_at: new Date(NOW - 60 * 1000).toISOString() }],
+      NOW,
+    );
+    expect(fleet.seams[0].runtime).toBe('unknown');
+    expect(fleet.state).toBe('holding');
   });
 });

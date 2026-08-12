@@ -1757,6 +1757,12 @@ export const enforcementLivenessRuns = pgTable('enforcement_liveness_runs', {
   id: text('id').primaryKey(),
   orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   source: text('source').notNull().default('manual'),
+  // WHICH SEAM reported (drizzle/0072). Distinct from `source`, which is the
+  // trigger reason (manual|session-start|ci). Both the Claude Code and Codex
+  // installers wire the probe with `--source session-start`, so without this
+  // the two seams were indistinguishable and the newest row spoke for the whole
+  // fleet — a dead Codex seam rendered green behind a healthy Claude Code run.
+  runtime: text('runtime').notNull().default('unknown'),
   verdict: text('verdict').notNull(),
   detail: text('detail').notNull(),
   hook: jsonb('hook').notNull(),
@@ -1768,6 +1774,7 @@ export const enforcementLivenessRuns = pgTable('enforcement_liveness_runs', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   orgCreatedIdx: index('idx_enforcement_liveness_runs_org_created').on(t.orgId, t.createdAt),
+  orgRuntimeCreatedIdx: index('idx_enforcement_liveness_runs_org_runtime_created').on(t.orgId, t.runtime, t.createdAt),
 }));
 
 // @domain governance

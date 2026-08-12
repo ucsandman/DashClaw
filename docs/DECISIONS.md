@@ -1,5 +1,41 @@
 # Decision log
 
+## 2026-08-12 — Enforcement liveness is per-seam, and the fleet verdict is the WORST seam
+
+**Decision.** `enforcement_liveness_runs` gains a `runtime` column (drizzle/0072).
+The org's liveness verdict is now `deriveFleetEnforcementLiveness`, a rollup over
+the latest run of EACH seam, taking the worst state. `deriveEnforcementLivenessState`
+stays as the per-seam primitive.
+
+**Context.** The verdict was `ORDER BY created_at DESC LIMIT 1` — the newest run
+across every seam. Claude Code and Codex both install the probe and both pass
+`--source session-start` (`source` is the TRIGGER REASON: manual|session-start|ci,
+never the runtime), so the two seams were indistinguishable in the data. A dead
+Codex seam rendered `holding` for up to 24h behind a healthy Claude Code run.
+That is the probe's own failure mode — enforcement renders green while not
+enforcing — reproduced one level up, in the thing built to detect it.
+
+**Alternatives rejected.**
+- *Reuse `source` as the runtime.* It already means something else, and both
+  installers emit the same value; overloading it would keep the seams merged.
+- *Enum-validate `runtime` at the route.* Rejected: new runtimes reach parity
+  before this route does, and rejecting an unrecognised seam would drop the one
+  signal we most need from a runtime nobody has wired up yet. Column is open text.
+- *Backfill existing rows to `claude-code`.* Rejected: those rows genuinely do not
+  record their seam. Guessing manufactures the false confidence this removes.
+  They default to `'unknown'` and surface as an `unknown` seam.
+
+**Result.** Fleet is `holding` only when every reporting seam is holding; a seam
+that goes quiet past the 24h window makes the fleet `stale`; no seams at all is
+`stale`, never `holding`. `/setup` lists every seam with its own state, worst
+first. Coverage today is 2 of 7 advertised runtimes (Claude Code, Codex) — the
+other five never install a probe, which is a coverage gap this change makes
+visible rather than one it closes.
+
+**Reusable lesson.** A health rollup that takes the NEWEST sample instead of the
+WORST dimension will mask failures the moment it has more than one dimension.
+Any "is X still on?" indicator over N sources needs min-severity semantics and a
+per-source breakdown, or it is an availability lie waiting for a second source.
 
 ---
 

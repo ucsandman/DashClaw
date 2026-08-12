@@ -105,8 +105,11 @@ The honest framing, everywhere the product speaks:
 - **The hook seam is a seatbelt, not a cage.** It reliably stops the accident
   class — the destructive command a capable-but-fallible model emits mid-run —
   and it makes tampering *visible*: the tampering write is itself a governed,
-  recorded action, and the enforcement liveness probe reports the seam dead
-  on its next run. It does not stop a determined adversary executing at the
+  recorded action, and the enforcement liveness probe reports that seam dead
+  on its next run. Each runtime reports its own seam (`runtime` on
+  `enforcement_liveness_runs`, drizzle/0072) and the fleet verdict is the
+  **worst** seam, so disabling one runtime's hook cannot hide behind another
+  runtime still reporting healthy. It does not stop a determined adversary executing at the
   same privilege, because no control that lives inside the process it governs
   can.
 - **Software can raise the cost of self-disable; it cannot remove the

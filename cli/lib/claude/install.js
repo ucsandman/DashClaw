@@ -209,7 +209,15 @@ const HOOK_EVENTS = {
   // event is skipped when the script is absent from the hooks dir (older hosted
   // bundles). The probe reads --source via parse_known_args, so the appended
   // --agent-id is harmless.
-  SessionStart: { script: 'enforcement_liveness_probe.py', timeout: 10, args: ['--source', 'session-start'], optional: true },
+  // --runtime names WHICH SEAM this is (drizzle/0072). Codex wires the same
+  // probe with the same --source session-start, so without it both seams landed
+  // as one indistinguishable stream and the newest run spoke for the fleet.
+  SessionStart: {
+    script: 'enforcement_liveness_probe.py',
+    timeout: 10,
+    args: ['--source', 'session-start', '--runtime', 'claude-code'],
+    optional: true,
+  },
 };
 
 export function isManagedHookEntry(entry) {

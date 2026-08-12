@@ -15,7 +15,8 @@ import {
 import { LIVE_CANARY_STALE_MS } from '../lib/posture/findings';
 import {
   getLatestEnforcementLivenessRunForOrg,
-  deriveEnforcementLivenessState,
+  listLatestEnforcementLivenessRunPerRuntime,
+  deriveFleetEnforcementLiveness,
   type EnforcementLivenessRun,
 } from '../lib/repositories/enforcement-liveness.repository';
 import {
@@ -203,13 +204,26 @@ async function readLiveCanary(): Promise<{ run: LiveCanaryRun | null; error: boo
 // hook seam and records whether it actually executed. Same public-page org
 // rule as the live canary: only the operator's own runs, never another
 // tenant's on a shared host.
-async function readEnforcementLiveness(): Promise<{ run: EnforcementLivenessRun | null; error: boolean }> {
+// `run` is the newest probe overall (its detail/checks are what the card
+// expands). `perSeam` is the latest run for EACH seam, which is what the
+// badge derives from — the newest run alone let a healthy Claude Code probe
+// mask a dead Codex one (drizzle/0072).
+async function readEnforcementLiveness(): Promise<{
+  run: EnforcementLivenessRun | null;
+  perSeam: EnforcementLivenessRun[];
+  error: boolean;
+}> {
   try {
     const sql = getSql();
-    return { run: await getLatestEnforcementLivenessRunForOrg(sql, canaryDisplayOrgId()), error: false };
+    const orgId = canaryDisplayOrgId();
+    const [run, perSeam] = await Promise.all([
+      getLatestEnforcementLivenessRunForOrg(sql, orgId),
+      listLatestEnforcementLivenessRunPerRuntime(sql, orgId),
+    ]);
+    return { run, perSeam, error: false };
   } catch (err) {
     console.error('[Setup] enforcement-liveness read failed:', err);
-    return { run: null, error: true };
+    return { run: null, perSeam: [], error: true };
   }
 }
 
@@ -352,8 +366,14 @@ export default async function SetupPage() {
   // "stale" for the badge (we cannot prove enforcement held), but rendered
   // with its own message so it's never confused with an actually-stale probe.
   const livenessRun = enforcementLiveness.run;
+  // The badge derives from EVERY seam, not the newest run: Claude Code and
+  // Codex both report `source: session-start`, so the newest-row derivation
+  // rendered 'holding' while a Codex seam sat dead (drizzle/0072). Worst seam
+  // wins, and each one is named in the breakdown below.
   // eslint-disable-next-line react-hooks/purity -- server component: liveness is evaluated per request, same shared derivation the API route calls with Date.now()
-  const livenessState = deriveEnforcementLivenessState(livenessRun, Date.now());
+  const livenessFleet = deriveFleetEnforcementLiveness(enforcementLiveness.perSeam, Date.now());
+  const livenessState = livenessFleet.state;
+  const livenessSeams = livenessFleet.seams;
   const livenessStatus = enforcementLiveness.error
     ? 'warn'
     : !livenessRun
@@ -622,6 +642,36 @@ export default async function SetupPage() {
                         Enforcement held the probe action {relativeAgo(livenessRun.finished_at)} ago.
                       </p>
                     )}
+                    {/* Per-seam breakdown (drizzle/0072). The badge above is the
+                        WORST seam; this names which one, so a dead Codex seam can
+                        never hide behind a healthy Claude Code run. */}
+                    {livenessSeams.length > 0 ? (
+                      <div className="mb-3">
+                        <div className="mb-1.5 text-xs font-medium text-secondary">
+                          Seams reporting ({livenessSeams.length})
+                        </div>
+                        <ul className="grid gap-1.5">
+                          {livenessSeams.map((seam) => (
+                            <li
+                              key={seam.runtime}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-primary/40 px-3 py-2 text-xs"
+                            >
+                              <code className="text-primary">{seam.runtime}</code>
+                              <span className="text-tertiary">
+                                {seam.finishedAt ? `last held ${relativeAgo(seam.finishedAt)} ago` : 'never reported'}
+                              </span>
+                              <span
+                                className={`font-semibold uppercase tracking-wide ${
+                                  checkTone(seam.state === 'holding' ? 'pass' : seam.state === 'stale' ? 'warn' : 'fail')
+                                }`}
+                              >
+                                {seam.state}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                     <div className="mb-3 grid gap-2 text-xs text-secondary sm:grid-cols-2">
                       <div className="rounded-xl border border-white/10 bg-primary/40 p-3">
                         <div className="text-tertiary">Verdict</div>

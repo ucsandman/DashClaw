@@ -118,7 +118,10 @@ describe('installClaude', () => {
     // SessionStart enforcement-liveness probe wired (repo bundle ships it).
     const session = settings.hooks.SessionStart.find(isManagedHookEntry);
     assert.ok(session, 'managed SessionStart probe entry present');
-    assert.match(session.hooks[0].command, /enforcement_liveness_probe\.py" --agent-id "my-agent" --source session-start$/);
+    // --runtime claude-code names WHICH SEAM reported (drizzle/0072): codex
+    // wires the same probe with the same --source, so without it both seams
+    // landed as one stream and the newest run spoke for the whole fleet.
+    assert.match(session.hooks[0].command, /enforcement_liveness_probe\.py" --agent-id "my-agent" --source session-start --runtime claude-code$/);
   });
 
   it('fresh install writes enforce + 120s timeout; --observe opts back to observe', async () => {
@@ -327,7 +330,7 @@ describe('buildHookEntries / buildHookEnv', () => {
     fs.writeFileSync(path.join(probeDir, 'enforcement_liveness_probe.py'), '# probe');
     const withProbe = buildHookEntries(probeDir, 'python3', 'my-claude');
     assert.ok(withProbe.SessionStart, 'SessionStart entry present when the probe script exists');
-    assert.match(withProbe.SessionStart[0].hooks[0].command, / --agent-id "my-claude" --source session-start$/);
+    assert.match(withProbe.SessionStart[0].hooks[0].command, / --agent-id "my-claude" --source session-start --runtime claude-code$/);
     assert.equal(withProbe.SessionStart[0].hooks[0].timeout, 10);
     // mergeClaudeSettings recognizes the probe entry as managed.
     assert.ok(isManagedHookEntry(withProbe.SessionStart[0]));

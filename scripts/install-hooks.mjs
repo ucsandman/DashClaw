@@ -178,7 +178,7 @@ export function hookBlocks(python = 'python') {
         hooks: [
           {
             type: 'command',
-            command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/enforcement_liveness_probe.py" --source session-start`,
+            command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/enforcement_liveness_probe.py" --source session-start --runtime claude-code`,
             timeout: 10,
           },
         ],
