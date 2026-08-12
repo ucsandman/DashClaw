@@ -14,6 +14,65 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-12 — the button that was already built
+
+The owner sent a screenshot of his own approval queue: twelve pending items,
+the same `Edit` to the same scratchpad `build.mjs` sitting in it twice, both at
+risk 65, both flagged "this file is outside your project folder." His note was
+one line — the approval queue is where the "stop bugging me" button should be.
+
+He was right, and the interesting part is that the engine for it had been
+finished for weeks. `allow_grant` already existed, already matched on a shape
+coordinate system, already rejected unscoped grants (the F1 finding), already
+expired, and already refused to clear a rule marked `ungrantable`. The
+`/policies` triage inbox could already mint one. What did not exist was any way
+for a human to reach that from the card doing the interrupting. Same failure as
+v5.17.2: capability exists, human surface doesn't. The fix was a button, not an
+engine.
+
+Two things I got wrong before the code, both caught by reading rather than
+assuming.
+
+His mental model was "stop asking about this folder." I nearly built that.
+`targetPrefixOf` shortens hostnames only, and its comment records why:
+collapsing a filesystem path to its first segments turned
+`C:/Users/sandm/Documents` into `C:/Users/` and authorized a whole user
+profile — the grant from the 2026-08-11 entry above, three sections down this
+page. So the scope is the exact target and the panel says "covers this exact
+target only" out loud. It means a different file in the same folder still
+interrupts. That is the honest cost and I would rather pay it than reopen that.
+
+The second one I nearly shipped as a documented limitation. I wrote the spec
+with a risk-70 ceiling on the *button* and noted, in a "known gap" section,
+that `applyAllowGrants` has no ceiling of its own — so a grant minted at risk 65
+would clear the gate for a matching act at 95 for its whole lease. I argued the
+fix cost more than the feature was worth. The owner read it and said fold it in.
+He was right about that too: shipping a governance feature next to a written
+admission that it doesn't govern is not a tradeoff, it's a bug with a paragraph
+in front of it.
+
+So grants now carry `max_risk`, and a grant *without* one defaults to 70 rather
+than unlimited. That last part tightens grants that already exist on every
+install, which is a real behavior change and is why the CHANGELOG entry leads
+with **Changed** and not **Added**. Net governance strength goes up in a release
+whose headline feature is "ask me less."
+
+Not verified: the click flow against a live database. The local Postgres was
+down, the demo host is read-only for approvals by design, and signing into the
+live local instance needs a password I will not go looking for. What I did
+verify is the rendering — of seventeen pending cards, the seven scoring below 70
+show the button and the ten at or above it show "needs a human every time",
+matching their scores exactly — plus thirty-four tests that drive the real
+components and the real route. The gap is narrow and it is stated rather than
+papered over.
+
+CI then caught two things no local gate runs: the platform guide's captured
+examples were stale at the old version after the bump, and the new route was
+missing from the guide dataset entirely. Both were mine to fix and are fixed.
+
+Shipped as v5.21.0. apiRoutes 132 → 133, recorded in THESIS.md and the surface
+budget in the same commit, as the brake requires.
+
 ## 2026-08-11 — what the operator actually approves
 
 Reading the owner's LIVE instance changed this work twice.
