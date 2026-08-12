@@ -41,10 +41,34 @@ vi.mock('@/lib/repositories/settings.repository.js', () => ({
   getSettings: mockGetSettings,
   upsertSetting: mockUpsertSetting,
 }));
+// insertOrRevivePolicy lives in the repository (shared with the approval-card
+// grant route). The primitives stay individually mocked so every assertion in
+// this file keeps asserting against the three real call sites; the delegating
+// wrapper below only preserves their ORDER. The genuine collision/revive logic
+// is covered directly in guardrails-insert-or-revive.test.ts.
 vi.mock('@/lib/repositories/guardrails.repository.js', () => ({
   insertPolicy: mockInsertPolicy,
   findPolicyByName: mockFindPolicyByName,
   reactivateModePolicy: mockReactivateModePolicy,
+  insertOrRevivePolicy: async (
+    sql: unknown,
+    orgId: string,
+    data: { id: string; name: string; policyType: string; rules: string },
+  ) => {
+    try {
+      return await mockInsertPolicy(sql, orgId, data);
+    } catch (err) {
+      const e = err as { code?: string; message?: string };
+      if (!(e.code === '23505' || e.message?.includes('guard_policies_org_name_unique'))) throw err;
+      const existing = await mockFindPolicyByName(sql, orgId, data.name);
+      const existingId = existing?.[0]?.id;
+      if (!existingId) throw err;
+      return mockReactivateModePolicy(sql, orgId, existingId, {
+        policyType: data.policyType,
+        rules: data.rules,
+      });
+    }
+  },
 }));
 
 import { GET } from '@/api/policies/review/route.js';
@@ -257,6 +281,9 @@ describe('POST /api/policies/review/verdict', () => {
     // F1: every grant is born with an expiry — grants are leases, not law.
     expect(typeof rules.expires_at).toBe('string');
     expect(new Date(rules.expires_at).getTime()).toBeGreaterThan(Date.now());
+    // Every grant is also born with a risk ceiling. Without it this verdict
+    // would authorize the shape at ANY score for the whole TTL.
+    expect(rules.max_risk).toBe(70);
   });
 
   it('always_allow with target_prefix includes prefix in rules', async () => {

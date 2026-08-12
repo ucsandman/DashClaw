@@ -45,10 +45,10 @@
     ]
   },
   "summary": {
-    "total_routes": 132,
+    "total_routes": 133,
     "stable_routes": 42,
     "beta_routes": 18,
-    "experimental_routes": 72
+    "experimental_routes": 73
   },
   "routes": [
     {
@@ -200,6 +200,15 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/approvals/[actionId]/route.ts"
+    },
+    {
+      "path": "/api/approvals/{actionId}/grant",
+      "methods": [
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/approvals/[actionId]/grant/route.ts"
     },
     {
       "path": "/api/artifacts",

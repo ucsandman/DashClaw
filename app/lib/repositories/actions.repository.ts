@@ -2438,3 +2438,79 @@ export async function listPendingApprovalIdsByActionTypes(
   );
   return (rows as Array<{ action_id: string }>).map((r) => r.action_id);
 }
+
+export interface PendingApprovalForGrant {
+  action_id: string;
+  action_type: string;
+  risk_score: number;
+  context: string | null;
+}
+
+/**
+ * One action with everything the grant route needs to decide whether it may be
+ * granted away: status, the risk score for the ceiling, the context the shape
+ * is derived from, and the guard decision whose matched_policies carry the
+ * ungrantable check. getActionSummary returns none of the last three.
+ */
+export async function getActionForGrant(
+  sql: SqlClient,
+  orgId: string,
+  actionId: string,
+): Promise<{ action_id: string; action_type: string; status: string; risk_score: number; context: string | null; guard_decision_id: string | null } | null> {
+  const rows = await sql`
+    SELECT action_id, action_type, status, risk_score, context, guard_decision_id
+    FROM action_records
+    WHERE action_id = ${actionId} AND org_id = ${orgId}
+    LIMIT 1
+  `;
+  const r = rows[0] as Record<string, unknown> | undefined;
+  if (!r) return null;
+  return {
+    action_id: String(r.action_id),
+    action_type: String(r.action_type ?? ''),
+    status: String(r.status ?? ''),
+    risk_score: Number(r.risk_score) || 0,
+    context: r.context == null ? null : String(r.context),
+    guard_decision_id: r.guard_decision_id == null ? null : String(r.guard_decision_id),
+  };
+}
+
+/**
+ * Pending approvals of one action_type, carrying the fields a grant needs to
+ * decide coverage: the context (target + write_paths) and the risk score.
+ *
+ * Only action_type is filtered in SQL. Shape and ceiling matching happen in JS
+ * through the SAME predicates the guard uses (grantMatches / grantCoversRisk),
+ * so the queue can never claim to release something enforcement would have
+ * re-interrupted a moment later. Re-implementing prefix semantics as a LIKE
+ * here is exactly how the two would drift apart.
+ *
+ * Overdue rows are excluded on the same predicate as
+ * listPendingApprovalIdsByActionTypes: a sweep must never "approve" an approval
+ * whose client already stopped waiting (roadmap v2.3).
+ */
+export async function listPendingApprovalsForGrant(
+  sql: SqlClient,
+  orgId: string,
+  actionType: string,
+  limit = 200,
+): Promise<PendingApprovalForGrant[]> {
+  if (!actionType) return [];
+  const rows = await sql.query(
+    `SELECT action_id, action_type, risk_score, context
+     FROM action_records
+     WHERE org_id = $1 AND status = 'pending_approval'
+       AND action_type = $2
+       AND (approval_expires_at >= NOW()
+            OR (approval_expires_at IS NULL AND created_at >= NOW() - interval '24 hours'))
+     ORDER BY created_at ASC
+     LIMIT $3`,
+    [orgId, actionType, Math.min(Math.max(1, limit), 200)],
+  );
+  return (rows as Array<Record<string, unknown>>).map((r) => ({
+    action_id: String(r.action_id),
+    action_type: String(r.action_type),
+    risk_score: Number(r.risk_score) || 0,
+    context: r.context == null ? null : String(r.context),
+  }));
+}

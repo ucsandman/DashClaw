@@ -382,3 +382,35 @@ export async function reactivateModePolicy(
   invalidateGuardPolicyCache(orgId);
   return result[0] ?? null;
 }
+
+/**
+ * Insert a rule, or — when the org already has a policy with this exact name
+ * (commonly an inactive one left behind by an earlier grant or bulk cleanup) —
+ * revive it in place with the fresh rules. Without this, the click dead-ends:
+ * the old rule is inactive so warns keep firing and the group stays in the
+ * inbox, but every re-grant 409s on guard_policies_org_name_unique.
+ *
+ * Shared by both grant-minting surfaces (the /policies review verdict and the
+ * approval-card grant route) so a re-grant behaves identically from either.
+ */
+export async function insertOrRevivePolicy(
+  sql: SqlTag,
+  orgId: string,
+  data: { id: string; name: string; policyType: string; rules: string },
+): Promise<Record<string, unknown> | null> {
+  try {
+    return await insertPolicy(sql, orgId, data);
+  } catch (err) {
+    const e = err as { code?: string; message?: string };
+    const isNameCollision =
+      e.code === '23505' || e.message?.includes('guard_policies_org_name_unique');
+    if (!isNameCollision) throw err;
+    const existing = await findPolicyByName(sql, orgId, data.name);
+    const existingId = existing[0]?.id as string | undefined;
+    if (!existingId) throw err;
+    return reactivateModePolicy(sql, orgId, existingId, {
+      policyType: data.policyType,
+      rules: data.rules,
+    });
+  }
+}

@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `132`
+- Total routes: `133`
 - Stable routes: `42`
 - Beta routes: `18`
-- Experimental routes: `72`
+- Experimental routes: `73`
 
 ## Routes
 
@@ -38,6 +38,7 @@ doc-type: architecture
 | `/api/approvals/bulk` | `POST` | `experimental` | `(default)` | `app/api/approvals/bulk/route.ts` |
 | `/api/approvals/floods` | `GET` | `experimental` | `(default)` | `app/api/approvals/floods/route.ts` |
 | `/api/approvals/{actionId}` | `POST` | `experimental` | `(default)` | `app/api/approvals/[actionId]/route.ts` |
+| `/api/approvals/{actionId}/grant` | `POST` | `experimental` | `(default)` | `app/api/approvals/[actionId]/grant/route.ts` |
 | `/api/artifacts` | `GET, POST` | `experimental` | `(default)` | `app/api/artifacts/route.ts` |
 | `/api/artifacts/evidence-bundle` | `POST` | `experimental` | `(default)` | `app/api/artifacts/evidence-bundle/route.ts` |
 | `/api/artifacts/{artifactId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/artifacts/[artifactId]/route.ts` |
