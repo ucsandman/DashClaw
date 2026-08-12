@@ -10,7 +10,7 @@ import { EVENTS, publishOrgEvent } from '../events';
 import { getActBindingMode } from '../act-binding';
 import { computeActContentHash } from '../act-content-hash';
 import { getJtiReplayMode } from '../replay-protection';
-import { grantMatches, grantIsExpired } from '../policy-shapes';
+import { grantMatches, grantIsExpired, grantCoversRisk, grantMaxRisk } from '../policy-shapes';
 import { DECISION_SEVERITY, sevOf } from './internal';
 import type { GuardSql, GuardEvalContext, PolicyRow, PolicyRules, PolicyResult, Preliminary, GuardDecisionInsert } from './types';
 import { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, isKnownPolicyType } from './policy';
@@ -294,7 +294,12 @@ async function runLocalPolicies(
  * allow_grant post-pass: a matching grant downgrades warn / require_approval
  * to allow. It can NEVER override block — blocks are absolute.
  */
-function applyAllowGrants(policies: PolicyRow[], context: GuardEvalContext, acc: GuardAccumulator): void {
+function applyAllowGrants(
+  policies: PolicyRow[],
+  context: GuardEvalContext,
+  acc: GuardAccumulator,
+  riskScore: number,
+): void {
   // Final fix-wave IMPORTANT 2 (2026-07-27) / Locked Decision 5
   // (RFC containment-verdicts): "promote click grants exactly one" — an
   // operator-configured allow_grant policy must never be able to authorize a
@@ -329,6 +334,22 @@ function applyAllowGrants(policies: PolicyRow[], context: GuardEvalContext, acc:
     // lifecycle state surfaced on /policies, not a misconfiguration.
     if (grantIsExpired(rules, policy.created_at)) continue;
     if (grantMatches(rules as { action_type?: unknown; target_prefix?: unknown }, context)) {
+      // Risk ceiling. Without it a grant minted on a routine act keeps clearing
+      // the approval gate for a matching act at ANY score for its whole TTL —
+      // a grant on one scratchpad file would downgrade a risk-95 act against
+      // that same file. The operator surface only offers "don't ask again"
+      // below RISK_HIGH_MIN; this is what makes that promise true.
+      //
+      // `continue`, not `return`: a narrower grant later in the list must still
+      // get its chance to match.
+      //
+      // The skip is announced. A silent one reads as "my grant stopped working"
+      // with nothing in the decision record to explain why.
+      const ceilingRules = rules as { max_risk?: unknown };
+      if (!grantCoversRisk(ceilingRules, riskScore)) {
+        acc.warnings.push(`${policy.name}: grant does not cover risk ${riskScore} (ceiling ${grantMaxRisk(ceilingRules)})`);
+        continue;
+      }
       acc.warnings.push(`${policy.name}: grant downgraded ${acc.highestDecision} to allow`);
       acc.matchedPolicies.push(policy.id);
       acc.highestDecision = 'allow';
@@ -1114,7 +1135,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     // grants never touch — so a downgrade decided here is final. The operator-
     // approval pass runs after policy grants: it only fires when the decision
     // is still require_approval.
-    applyAllowGrants(policies, context, liveAcc);
+    applyAllowGrants(policies, context, liveAcc, adjustedRiskScore);
     // Before the CONSUMING grant passes below: when a pause is live there is
     // nothing to consume, and burning an operator's single-use approval for a
     // call that was going to proceed anyway would strand a real approval.

@@ -55,6 +55,67 @@ describe('warn_action_type evaluator', () => {
   });
 });
 
+describe('allow_grant risk ceiling', () => {
+  beforeEach(() => __resetGuardCaches());
+
+  // The evaluated score is max(server, client), so a client-declared score is
+  // enough to drive the ceiling without hand-building a high-risk context.
+  const at = (risk: number) => ({ ...CTX, risk_score: risk });
+  const grantRows = (grant: Record<string, unknown>) => rows([
+    { policy_type: 'require_approval', rules: { action_types: ['api'] } },
+    { policy_type: 'allow_grant', name: 'Scratch grant', rules: { action_type: 'api', target_prefix: 'api.stripe.com', ...grant } },
+  ]);
+
+  it('downgrades below the ceiling', async () => {
+    const sql = createSqlMock({ taggedResponses: [grantRows({})] });
+    const res = await evaluateGuard(freshOrg(), at(69), sql);
+    expect(res.decision).toBe('allow');
+  });
+
+  it('does NOT downgrade at the ceiling', async () => {
+    const sql = createSqlMock({ taggedResponses: [grantRows({})] });
+    const res = await evaluateGuard(freshOrg(), at(70), sql);
+    expect(res.decision).toBe('require_approval');
+  });
+
+  it('does NOT downgrade above the ceiling', async () => {
+    const sql = createSqlMock({ taggedResponses: [grantRows({})] });
+    const res = await evaluateGuard(freshOrg(), at(90), sql);
+    expect(res.decision).toBe('require_approval');
+  });
+
+  // A silent skip reads to the operator as "my grant stopped working".
+  it('explains itself when it declines', async () => {
+    const sql = createSqlMock({ taggedResponses: [grantRows({})] });
+    const res = await evaluateGuard(freshOrg(), at(90), sql);
+    expect((res.warnings || []).join(' ')).toMatch(/Scratch grant: grant does not cover risk 90 \(ceiling 70\)/);
+  });
+
+  it('honors an explicit lower ceiling', async () => {
+    const sql = createSqlMock({ taggedResponses: [grantRows({ max_risk: 30 })] });
+    const res = await evaluateGuard(freshOrg(), at(45), sql);
+    expect(res.decision).toBe('require_approval');
+  });
+
+  it('honors an explicit higher ceiling', async () => {
+    const sql = createSqlMock({ taggedResponses: [grantRows({ max_risk: 95 })] });
+    const res = await evaluateGuard(freshOrg(), at(90), sql);
+    expect(res.decision).toBe('allow');
+  });
+
+  // A grant the ceiling rejects must not consume the pass: a narrower grant
+  // further down the list still gets its chance.
+  it('a ceiling-rejected grant does not block a later matching one', async () => {
+    const sql = createSqlMock({ taggedResponses: [rows([
+      { policy_type: 'require_approval', rules: { action_types: ['api'] } },
+      { policy_type: 'allow_grant', name: 'Tight', rules: { action_type: 'api', target_prefix: 'api.stripe.com', max_risk: 10 } },
+      { policy_type: 'allow_grant', name: 'Loose', rules: { action_type: 'api', target_prefix: 'api.stripe.com', max_risk: 95 } },
+    ])] });
+    const res = await evaluateGuard(freshOrg(), at(50), sql);
+    expect(res.decision).toBe('allow');
+  });
+});
+
 describe('allow_grant post-pass', () => {
   beforeEach(() => __resetGuardCaches());
 
