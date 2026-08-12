@@ -38,8 +38,16 @@ hooks:
 
   # 4. Session-start cache warm — pre-fetches policy state so the first
   #    pre_llm_call injection has fresh data without a network round-trip.
+  #    The second entry is the enforcement-liveness probe (v8.2): it proves
+  #    the pre_tool_call seam above actually HOLDS a synthetic action, and
+  #    files the verdict under `--runtime hermes` so this seam is scored on
+  #    its own rather than inheriting another runtime's green (drizzle/0072).
+  #    `--source session-start` throttles it to once/12h and detaches, so
+  #    session start is never delayed.
   on_session_start:
     - command: "python ${DASHCLAW_REPO}/.hermes/hooks/dashclaw_on_session_start_hermes.py"
+      timeout: 10
+    - command: "python ${DASHCLAW_REPO}/hooks/enforcement_liveness_probe.py --source session-start --runtime hermes"
       timeout: 10
 
   # 5. Tool-result redaction — strips API keys, JWTs, and private keys from

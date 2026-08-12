@@ -1,5 +1,51 @@
 # Decision log
 
+## 2026-08-12 — A `runtime` label is only true if the probe reads that runtime's config
+
+**Decision.** The liveness probe resolves its config path FROM `--runtime`, parses
+each harness's own format (Claude Code `.json`, codex `.toml`, Hermes `.yaml`), and
+reads that harness's own veto signal. `HARNESS_SPECS` holds everything that differs
+between seams, so a new runtime is a table entry rather than a probe variant. Only
+harnesses with a MECHANICAL seam get a probe at all.
+
+**Context.** The per-seam work below gave each run a `runtime`, which fixed the
+rollup but not the fidelity. The probe still parsed JSON only and still defaulted to
+`.claude/settings.json` for every runtime — so the codex-wired run read the Claude
+Code settings file, ran the Claude Code hook, and filed the result as
+`runtime = codex`. Where Claude Code was installed it reported a green borrowed
+from another runtime; where it was not it reported `unprovable`. Neither answer was
+about codex. Coverage was not two seams, it was one seam under two names. The
+label made the merged data *look* separated, which is worse than the merge it
+replaced: the rollup below trusts each seam to speak for itself.
+
+**Alternatives rejected.**
+- *Derive the config path from `--settings` alone.* Kept as an override and passed
+  by the codex installer, but not sufficient: a manual `--runtime codex` run with
+  no `--settings` would silently fall back to the Claude Code seam again. The
+  default has to be wrong-proof, not just the installed path.
+- *Emulate the int32 timer overflow on every harness.* Rejected. That contract was
+  observed on the Claude Code harness during v4.72.1 and nowhere else. Applying it
+  to codex could render a LIVE seam `executed` on a large-but-legal timeout —
+  inventing a failure from an unverified contract. `OVERFLOW_HARNESSES` gates it.
+- *Read exit codes on every harness.* Rejected, and this one fails silently in the
+  dangerous direction: Hermes shell hooks always exit 0 and answer on stdout
+  (`{"decision": "block"}`), so an exit-code reading would score every successful
+  Hermes block as a proceed and render a WORKING seam broken.
+- *Swallow an unreadable config.* Rejected. A missing TOML/YAML parser reporting
+  "no hook installed" is the same false green in miniature; those are now reported.
+
+**Result.** Probed seams are Claude Code, codex, and Hermes — the harnesses the
+enforcement-boundary ADR lists as **mechanical**. The remaining advertised surfaces
+are not a coverage gap to close: MCP, the Node and Python SDKs, and REST are
+**cooperative** by that same ADR (guard returns a decision; the caller chooses to
+honour it), so there is no seam to hold and a probe there would verdict nothing.
+MCP does expose a session-start equivalent (`server.oninitialized`) and both SDKs
+expose session methods, but a lifecycle to hang a probe on is not an enforcement
+seam to prove. OpenClaw is mechanical (`before_tool_call` hard veto) and IS
+probeable, but its seam is in-process TypeScript with no subprocess and no config
+file, so it needs an in-plugin driver rather than this script — tracked, not done
+here. The honest denominator is 4 probeable seams, not 7 runtimes.
+
 ## 2026-08-12 — Generated artifacts are staged on SOURCE-staged, not on "this run wrote it"
 
 **Decision.** The pre-commit `stage-artifacts` step no longer `git add`s the

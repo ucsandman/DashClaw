@@ -109,6 +109,38 @@ class TestFindPretoolEntries(unittest.TestCase):
             self.assertEqual(entries[0]["timeout_seconds"], 3600)
             self.assertEqual(entries[0]["settings_path"], path)
 
+    def test_parses_the_hermes_yaml_seam(self):
+        # Hermes is FLATTER than the other two: the command sits on the
+        # matcher entry itself (hooks.pre_tool_call[]), not in a second
+        # array under it, and the event key is snake_case.
+        with TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "config.yaml")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(
+                    "hooks:\n"
+                    "  pre_tool_call:\n"
+                    '    - matcher: "^(Bash|Edit|Write)$"\n'
+                    '      command: "python /repo/.hermes/hooks/dashclaw_pretool_hermes.py"\n'
+                    "      timeout: 60\n"
+                    "  on_session_start:\n"
+                    '    - command: "python /repo/hooks/enforcement_liveness_probe.py"\n'
+                )
+            entries, problems = find_pretool_entries([path])
+            self.assertEqual(problems, [])
+            self.assertEqual(len(entries), 1)
+            self.assertEqual(entries[0]["harness"], "hermes")
+            self.assertEqual(entries[0]["timeout_seconds"], 60)
+
+    def test_hermes_ignores_the_claude_code_event_key(self):
+        # A YAML file carrying a PreToolUse key must not be read as a hermes
+        # seam: the event names are not interchangeable.
+        with TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "config.yaml")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write('hooks:\n  PreToolUse:\n    - command: "python dashclaw_pretool.py"\n')
+            entries, _ = find_pretool_entries([path])
+            self.assertEqual(entries, [])
+
     def test_codex_timeout_never_emulates_the_claude_code_overflow(self):
         # The int32 timer overflow was observed on the Claude Code harness and
         # nowhere else. Asserting it for codex would render a live seam
@@ -129,6 +161,12 @@ class TestDefaultSettingsPaths(unittest.TestCase):
         self.assertTrue(paths[0].endswith("config.toml"))
         self.assertNotIn(".claude", paths[0])
 
+    def test_hermes_resolves_to_its_own_config_yaml(self):
+        with mock.patch.dict(os.environ, {"HERMES_HOME": os.path.join("C:", "hm")}):
+            paths = default_settings_paths("/proj", "hermes")
+        self.assertEqual(len(paths), 1)
+        self.assertTrue(paths[0].endswith("config.yaml"))
+
     def test_claude_code_and_unknown_keep_the_settings_json_pair(self):
         for runtime in ("claude-code", "unknown"):
             paths = default_settings_paths("/proj", runtime)
@@ -143,6 +181,13 @@ class TestDefaultSettingsPaths(unittest.TestCase):
 STUB_EXIT_2 = "import sys; sys.stdin.read(); sys.stderr.write('[DashClaw] Blocked by policy: probe\\n'); sys.exit(2)"
 STUB_EXIT_0 = "import sys; sys.stdin.read(); sys.exit(0)"
 STUB_OBSERVE = "import sys; sys.stdin.read(); sys.stderr.write('[DashClaw] [observe] Would block: probe\\n'); sys.exit(0)"
+# Hermes adapters answer on stdout and ALWAYS exit 0 — see
+# .hermes/hooks/dashclaw_common.py (emit_block / emit_noop).
+STUB_HERMES_BLOCK = (
+    "import sys; sys.stdin.read(); "
+    "sys.stdout.write('{\"decision\": \"block\", \"reason\": \"Blocked by DashClaw policy\"}'); sys.exit(0)"
+)
+STUB_HERMES_ALLOW = "import sys; sys.stdin.read(); sys.stdout.write('{}'); sys.exit(0)"
 
 
 class _StubApi(BaseHTTPRequestHandler):
@@ -225,6 +270,24 @@ class ProbeE2E(unittest.TestCase):
             )
         return config
 
+    def _write_hermes_fixture(self, tmp, stub_code):
+        """The hermes seam: flat matcher entries under `pre_tool_call`, the
+        shape scripts/install-hermes-plugin.* append to ~/.hermes/config.yaml."""
+        stub = os.path.join(tmp, "stub_hook.py")
+        with open(stub, "w", encoding="utf-8") as f:
+            f.write(stub_code + "\n")
+        config = os.path.join(tmp, "config.yaml")
+        command = '"%s" "%s" dashclaw_pretool_hermes.py' % (sys.executable, stub)
+        with open(config, "w", encoding="utf-8") as f:
+            f.write(
+                "hooks:\n"
+                "  pre_tool_call:\n"
+                "    - matcher: \"^(Bash|Edit|Write|MultiEdit)$\"\n"
+                "      command: %s\n"
+                "      timeout: 60\n" % json.dumps(command)
+            )
+        return config
+
     def _run_probe(self, settings, tmp, extra_env=None, runtime=None):
         env = {**os.environ, "DASHCLAW_DISABLE_DOTENV": "1",
                "DASHCLAW_BASE_URL": self.base_url, "DASHCLAW_API_KEY": "test-key"}
@@ -282,6 +345,32 @@ class ProbeE2E(unittest.TestCase):
             self.assertEqual(run["verdict"], "held")
             self.assertEqual(run["hook"]["settings_path"], config)
             self.assertEqual(run["hook"]["exit_code"], 2)
+
+    def test_hermes_stdout_veto_is_read_as_held(self):
+        """THE hermes acceptance test. Its adapter exits 0 whether it blocked
+        or not and answers on stdout, so an exit-code reading would score this
+        exact run as `executed` — reporting a WORKING seam as broken."""
+        with TemporaryDirectory() as tmp:
+            config = self._write_hermes_fixture(tmp, STUB_HERMES_BLOCK)
+            proc = self._run_probe(config, tmp, runtime="hermes")
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            run = _StubApi.reports[0]
+            self.assertEqual(run["runtime"], "hermes")
+            self.assertEqual(run["verdict"], "held")
+            self.assertFalse(run["witness"]["executed"])
+            # Exit code 0 AND held — the pairing that proves the per-harness
+            # signal is in use rather than the exit-2 default.
+            self.assertEqual(run["hook"]["exit_code"], 0)
+
+    def test_hermes_allow_response_executes_the_witness(self):
+        with TemporaryDirectory() as tmp:
+            config = self._write_hermes_fixture(tmp, STUB_HERMES_ALLOW)
+            proc = self._run_probe(config, tmp, runtime="hermes")
+            self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+            run = _StubApi.reports[0]
+            self.assertEqual(run["runtime"], "hermes")
+            self.assertTrue(run["witness"]["executed"])
+            self.assertIn(run["verdict"], ("executed", "unprovable"))
 
     def test_codex_runtime_never_falls_back_to_the_claude_code_seam(self):
         """The regression guard. With no codex config present the verdict is

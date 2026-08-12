@@ -181,6 +181,18 @@ The Stop hook also auto-closes any action still in `status='running'` at turn en
 
 To keep session start instant, the SessionStart entry point throttles itself to at most once per 12h (a marker file under `~/.dashclaw/liveness-probe/`) and runs the actual probe in a DETACHED child — session start is never delayed or broken by it. It reads the same configuration as the other hooks (`DASHCLAW_BASE_URL`/`DASHCLAW_URL`, `DASHCLAW_API_KEY`). Set `DASHCLAW_LIVENESS_PROBE_DISABLED=1` to turn it off without uninstalling. The installer wires it automatically (per-project and `--global --governance`). Run it manually any time with `python hooks/enforcement_liveness_probe.py` (or `npm run liveness:probe`).
 
+**One probe, three seams.** `--runtime` names WHICH seam a run drove, and it also chooses which config the probe reads — each harness declares its hooks in its own file and its own format, so a run can only ever answer for its own runtime:
+
+| `--runtime` | config read | a veto looks like |
+|---|---|---|
+| `claude-code` (default) | `<project>/.claude/settings.json`, then `~/.claude/settings.json` | hook exits 2 |
+| `codex` | `$CODEX_HOME/config.toml` (default `~/.codex`) | hook exits 2 |
+| `hermes` | `$HERMES_HOME/config.yaml` (default `~/.hermes`) | hook exits 0 and writes `{"decision": "block"}` to stdout |
+
+`--settings <path>` overrides the config resolution (the codex installer passes it explicitly). A config file that exists but cannot be parsed — including a missing `tomllib`/PyYAML — is reported in the verdict detail rather than being read as "no hook installed", because a silent "nothing installed" is the same false green the probe exists to catch. The int32 timer-overflow emulation (the v4.72.1 failure) applies to `claude-code` only: it was never observed on the other harnesses, and asserting it there could render a live seam broken.
+
+Runtimes with no row above are not oversights. MCP, the Node and Python SDKs, and REST are **cooperative** surfaces per [the enforcement boundary ADR](../docs/architecture/enforcement-boundary.md) — guard returns a decision and the caller chooses to honour it — so there is no seam to hold and nothing for a probe to verdict.
+
 ## Common setup failures
 
 - **Plugin installed but nothing is governed.** `claude plugin install dashclaw` ships MCP tools + skills **only** — not these hooks (they're Python files needing Python on PATH, so they're intentionally not bundled). Install the governance hooks separately: `node scripts/install-hooks.mjs` (per-project) or `--global --governance` (user-level, fires everywhere). "Install the plugin" ≠ "install governance."

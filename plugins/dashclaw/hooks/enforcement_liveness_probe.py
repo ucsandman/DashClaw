@@ -132,12 +132,53 @@ DEFAULT_HOOK_TIMEOUT_SECONDS = 600  # harness default when the field is absent
 PROBE_AGENT_ID = "smoke-liveness-probe"  # `smoke-` = synthetic, excluded everywhere
 APPROVAL_WAIT_SECONDS = "8"  # bounds the hook's approval poll for the probe run
 
-# Which harness owns a config file, keyed by its extension: Claude Code writes
-# .claude/settings.json, codex writes ~/.codex/config.toml. Both decode to the
-# same {"hooks": {"PreToolUse": [{"hooks": [...]}]}} nesting, so only the
-# parser differs — codex's `[[hooks.PreToolUse]]` + `[[hooks.PreToolUse.hooks]]`
-# produce exactly the shape the JSON path already walks.
-HARNESS_BY_CONFIG_SUFFIX = {".json": "claude-code", ".toml": "codex"}
+# How each harness declares its PreToolUse-equivalent hook, and how it says
+# "held". Everything that differs BETWEEN seams lives here so the probe body
+# stays one implementation rather than a per-runtime variant:
+#
+#   suffix   the config file's extension, which is also how a path maps back
+#            to its harness (.json Claude Code, .toml codex, .yaml/.yml Hermes)
+#   event    the key under `hooks` holding the pre-tool entries
+#   nested   True when command entries sit in a second array under a matcher
+#            group (`hooks.PreToolUse[].hooks[]`); Hermes puts the command on
+#            the matcher entry itself (`hooks.pre_tool_call[]`)
+#   held_by  how a veto is signalled — see run_seam. Getting this wrong does
+#            not fail loudly, it silently scores every held action as
+#            proceeded, i.e. renders a WORKING seam broken.
+#   install  what to tell an operator whose seam is not installed
+HARNESS_SPECS = {
+    "claude-code": {
+        "suffixes": (".json",),
+        "event": "PreToolUse",
+        "nested": True,
+        "held_by": "exit-2",
+        "install": "dashclaw install claude",
+    },
+    "codex": {
+        "suffixes": (".toml",),
+        "event": "PreToolUse",
+        "nested": True,
+        "held_by": "exit-2",
+        "install": "dashclaw install codex",
+    },
+    "hermes": {
+        "suffixes": (".yaml", ".yml"),
+        "event": "pre_tool_call",
+        "nested": False,
+        # Hermes shell hooks ALWAYS exit 0 and answer on stdout:
+        # {"decision": "block"} is the veto (.hermes/hooks/dashclaw_common.py
+        # emit_block). Reading exit codes on this seam would score every
+        # successful block as a proceed.
+        "held_by": "stdout-decision-block",
+        "install": "scripts/install-hermes-plugin.ps1 (or .sh)",
+    },
+}
+
+HARNESS_BY_CONFIG_SUFFIX = {
+    suffix: harness
+    for harness, spec in HARNESS_SPECS.items()
+    for suffix in spec["suffixes"]
+}
 
 # The int32 timer overflow (clause 2 of the harness contract above) was
 # verified against the CLAUDE CODE harness during v4.72.1 and nowhere else.
@@ -147,9 +188,10 @@ HARNESS_BY_CONFIG_SUFFIX = {".json": "claude-code", ".toml": "codex"}
 # cancellation. Add a harness here only once its timer arithmetic is observed.
 OVERFLOW_HARNESSES = {"claude-code"}
 
-# `dashclaw install <target>` for each runtime, for the actionable detail on a
-# runtime whose seam is not installed at all.
-INSTALL_TARGET_BY_RUNTIME = {"claude-code": "claude", "codex": "codex"}
+def install_hint(runtime):
+    """What to tell an operator whose seam is not installed at all."""
+    spec = HARNESS_SPECS.get(runtime)
+    return spec["install"] if spec else HARNESS_SPECS["claude-code"]["install"]
 
 
 def utc_now():
@@ -200,10 +242,23 @@ def load_hook_config(path):
                     % (path, sys.version_info[0], sys.version_info[1]))
             with open(path, "rb") as f:
                 return tomllib.load(f), harness, None
+        if suffix in (".yaml", ".yml"):
+            # PyYAML is not a probe dependency; Hermes itself needs it to read
+            # this very file, so it is normally present in the interpreter the
+            # Hermes hook runs under. When it is not, say so rather than
+            # reporting "nothing installed".
+            try:
+                import yaml
+            except ImportError:
+                return None, harness, (
+                    "%s exists but cannot be read: PyYAML is not installed in this "
+                    "interpreter, so the hermes seam cannot be probed" % path)
+            with open(path, encoding="utf-8") as f:
+                return yaml.safe_load(f) or {}, harness, None
         with open(path, encoding="utf-8") as f:
             return json.load(f), harness, None
     except (OSError, ValueError) as exc:
-        # ValueError covers both JSONDecodeError and TOMLDecodeError.
+        # ValueError covers JSONDecodeError, TOMLDecodeError and YAMLError.
         return None, harness, "%s could not be parsed: %s" % (path, exc)
 
 
@@ -220,9 +275,20 @@ def find_pretool_entries(settings_paths):
             problems.append(problem)
         if config is None:
             continue
-        for matcher_group in (config.get("hooks") or {}).get("PreToolUse", []) or []:
-            for hook in matcher_group.get("hooks", []) or []:
+        spec = HARNESS_SPECS[harness]
+        groups = (config.get("hooks") or {}).get(spec["event"], []) or []
+        for group in groups:
+            if not isinstance(group, dict):
+                continue
+            # Claude Code / codex nest command entries under a matcher group;
+            # Hermes puts the command on the matcher entry itself.
+            hooks = (group.get("hooks") or []) if spec["nested"] else [group]
+            for hook in hooks:
+                if not isinstance(hook, dict):
+                    continue
                 command = hook.get("command") or ""
+                # Matches dashclaw_pretool.py and Hermes's
+                # dashclaw_pretool_hermes.py adapter alike.
                 if "dashclaw_pretool" not in command:
                     continue
                 seconds, ms, overflowed = effective_hook_timer(hook.get("timeout"), harness)
@@ -241,6 +307,12 @@ def codex_home():
     return os.environ.get("CODEX_HOME") or os.path.join(os.path.expanduser("~"), ".codex")
 
 
+def hermes_home():
+    # Matches scripts/install-hermes-plugin.{sh,ps1}, which append the hooks
+    # block to $HERMES_HOME/config.yaml (default ~/.hermes).
+    return os.environ.get("HERMES_HOME") or os.path.join(os.path.expanduser("~"), ".hermes")
+
+
 def default_settings_paths(project_root, runtime="unknown"):
     """The config files to inspect when --settings is not given.
 
@@ -255,6 +327,8 @@ def default_settings_paths(project_root, runtime="unknown"):
     home = os.path.expanduser("~")
     if runtime == "codex":
         return [os.path.join(codex_home(), "config.toml")]
+    if runtime == "hermes":
+        return [os.path.join(hermes_home(), "config.yaml")]
     return [
         os.path.join(project_root, ".claude", "settings.json"),
         os.path.join(home, ".claude", "settings.json"),
@@ -339,9 +413,28 @@ def run_seam(entry, payload, project_root, max_wait_seconds):
                 "stderr": "spawn failed: %s" % exc}
 
     stderr = proc.stderr.decode("utf-8", "replace")
-    if proc.returncode == 2:
-        return {"outcome": "held", "exit_code": 2, "cancelled": False, "stderr": stderr}
+    if seam_held(entry, proc):
+        return {"outcome": "held", "exit_code": proc.returncode, "cancelled": False, "stderr": stderr}
     return {"outcome": "proceed", "exit_code": proc.returncode, "cancelled": False, "stderr": stderr}
+
+
+def seam_held(entry, proc):
+    """Did this harness's hook VETO the probe action?
+
+    The signal is per-harness and is the one thing a new seam must get right.
+    Claude Code and codex read the exit code (2 blocks). Hermes shell hooks
+    always exit 0 and answer on stdout, so reading exit codes there would score
+    every successful block as a proceed — the probe would render a healthy seam
+    broken, which is the mirror image of the failure it exists to catch.
+    """
+    held_by = HARNESS_SPECS.get(entry.get("harness"), {}).get("held_by", "exit-2")
+    if held_by == "stdout-decision-block":
+        try:
+            response = json.loads(proc.stdout.decode("utf-8", "replace") or "{}")
+        except ValueError:
+            return False  # unparseable response is not a veto — Hermes proceeds
+        return isinstance(response, dict) and response.get("decision") == "block"
+    return proc.returncode == 2
 
 
 def api_request(method, path, body=None, timeout=10):
@@ -509,10 +602,9 @@ def main():
 
     if not entries:
         verdict = "unprovable"
-        target = INSTALL_TARGET_BY_RUNTIME.get(args.runtime, "claude")
         detail = ("No DashClaw PreToolUse hook found in %s — real tool calls on the %s seam run ungoverned. "
-                  "Install: dashclaw install %s.%s"
-                  % (", ".join(settings_paths), args.runtime, target,
+                  "Install: %s.%s"
+                  % (", ".join(settings_paths), args.runtime, install_hint(args.runtime),
                      " " + " ".join(config_problems) if config_problems else ""))
     else:
         payload = build_payload(witness_path, run_id)
