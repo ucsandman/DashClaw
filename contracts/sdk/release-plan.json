@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.20.0",
+    "current_version": "5.21.0",
     "next_bump": "none",
-    "reason": "5.20.0 published to npm. NOTE for future ships: sdk/ source did NOT change this release - the 2026-08-11 adversarial-review sweep touched platform, hooks and CLI only - so the unified-version model would have held npm at 5.19.0. It did not, because pushing the v5.20.0 tag fires release.yml, whose publish-npm job publishes whatever version the manifests carry and only skips versions ALREADY on the registry. The tag automation is therefore unconditional: any tagged release republishes both SDKs. Decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.21.0 published to npm. sdk/ source did NOT change this release - v5.21.0 is the \"Allow, don't ask again\" approval-card grant route plus the allow_grant max_risk enforcement ceiling, both platform-side. The unified-version model advances the number anyway. The SDK is republished regardless because pushing the v5.21.0 tag fires release.yml, whose publish-npm job publishes whatever version the manifests carry and only skips versions ALREADY on the registry. The tag automation is unconditional: any tagged release republishes both SDKs. Decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.20.0",
+    "current_version": "5.21.0",
     "next_bump": "none",
-    "reason": "5.20.0 published to PyPI. NOTE for future ships: sdk-python/ source did NOT change this release - the 2026-08-11 adversarial-review sweep touched platform, hooks and CLI only - so the unified-version model would have held PyPI at 5.19.0. It did not, because pushing the v5.20.0 tag fires release.yml, whose publish-pypi job publishes whatever version the manifests carry and only skips versions ALREADY on the registry. The tag automation is therefore unconditional: any tagged release republishes both SDKs. Decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.21.0 published to PyPI. sdk-python/ source did NOT change this release - v5.21.0 is the \"Allow, don't ask again\" approval-card grant route plus the allow_grant max_risk enforcement ceiling, both platform-side. The unified-version model advances the number anyway. The SDK is republished regardless because pushing the v5.21.0 tag fires release.yml, whose publish-pypi job publishes whatever version the manifests carry and only skips versions ALREADY on the registry. The tag automation is unconditional: any tagged release republishes both SDKs. Decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.20.0 lands the 2026-08-11 whole-codebase adversarial review: eight parallel finders, an independent default-refuted skeptic per finding, 24 confirmed defects fixed. Headline is the evidence classifier - a newline instead of &&, or quotes around the binary name, dropped a catastrophic command's grade from 100 to 35/30 and erased every flag - plus idempotent replay that served a prior allow to a different act. Adds the third enforcement-visibility guarantee (ungoverned_scope: a client narrowing DASHCLAW_GOVERNED_CATEGORIES is no longer invisible to the server) and `dashclaw backfill`, the reader for the orphan-actions file the hook has always promised would be reconciled. Both SDKs were republished at 5.20.0 by the tag-triggered release.yml even though neither SDK's source changed; the CLI went to 0.11.0 separately because it DID change (backfill) and its job only publishes when cli/package.json is ahead of the registry.",
+  "reason": "5.21.0 lands the 2026-08-11 whole-codebase adversarial review: eight parallel finders, an independent default-refuted skeptic per finding, 24 confirmed defects fixed. Headline is the evidence classifier - a newline instead of &&, or quotes around the binary name, dropped a catastrophic command's grade from 100 to 35/30 and erased every flag - plus idempotent replay that served a prior allow to a different act. Adds the third enforcement-visibility guarantee (ungoverned_scope: a client narrowing DASHCLAW_GOVERNED_CATEGORIES is no longer invisible to the server) and `dashclaw backfill`, the reader for the orphan-actions file the hook has always promised would be reconciled. Both SDKs were republished at 5.21.0 by the tag-triggered release.yml even though neither SDK's source changed; the CLI went to 0.11.0 separately because it DID change (backfill) and its job only publishes when cli/package.json is ahead of the registry.",
   "domains": [
     "platform"
   ]

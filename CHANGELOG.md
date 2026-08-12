@@ -13,6 +13,8 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.21.0] — 2026-08-12
+
 ### Changed
 
 - **`allow_grant` policies now have a risk ceiling, and it applies to grants that already exist.** Until now a matching grant downgraded `require_approval` to `allow` at *any* risk score, so a grant minted on a routine act kept clearing the approval gate for a matching act at score 95 for the rest of its lease. Grants are now stamped `max_risk: 70` at creation by both minting surfaces, and `applyAllowGrants` skips a grant the action exceeds — announcing the skip in the decision warnings rather than going quiet, so an operator never sees a grant "stop working" with no explanation. **A grant with no `max_risk` now defaults to 70, not unlimited**, which tightens every grant created before this release: an action scoring 70 or above that a grant previously covered will interrupt a human again. That is the intended direction, and the exposure is bounded — grants stay target-scoped and every legacy one ages out within 30 days of its `created_at`. Blocks remain absolute, and a rule marked `ungrantable` is still never cleared by a grant.
