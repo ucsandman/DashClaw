@@ -95,7 +95,7 @@ const SUPPORT_SURFACES = [
   {
     icon: Inbox,
     title: 'Approvals inbox',
-    desc: 'The one primary human surface: what your agent just tried, what is frozen and waiting on you, two buttons per item — plus whole-plan review cards with per-step approve/deny. Every item leads with a plain-English sentence for what the command actually does and flags what cannot be undone, with the exact command always shown underneath. Resolve from a browser, the CLI, a phone, Telegram, or Discord.',
+    desc: 'The one primary human surface: what your agent just tried, what is frozen and waiting on you, and per item — allow, deny, or stop being asked about that exact target — plus whole-plan review cards with per-step approve/deny. Every item leads with a plain-English sentence for what the command actually does and flags what cannot be undone, with the exact command always shown underneath. Resolve from a browser, the CLI, a phone, Telegram, or Discord.',
     href: '/approvals',
   },
   {

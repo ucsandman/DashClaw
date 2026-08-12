@@ -55,6 +55,7 @@ A 10-second capability scan before the dense sections:
 - **Fail-closed intercept.** A blocked tool call never runs. The hook cancels it before execution (exit 2 at the seam).
 - **One-click remote approval.** Resolve from the `/approvals` inbox, the CLI, a phone PWA, Telegram, or Discord. No presence required.
 - **Approvals in plain English.** Every pending item leads with one sentence for what the command actually does, flags what cannot be undone, and warns when a file holds credentials. When no rule reads the command with confidence, it says so instead of guessing. The exact command is always shown underneath.
+- **"Allow, don't ask again."** The same interruption twice is a bug in your rules, not a decision. One click approves the action, writes a target-scoped grant with a lease you pick, and releases every waiting approval that grant covers. Scope is the exact target, never a folder. Above risk 70 the option is withheld and says so. Active grants sit at the top of the inbox with a countdown and a Revoke button.
 - **Tamper-evident audit.** Every decision lands in a signed, replayable ledger, and anyone can verify a receipt without an API key (Ed25519, key published via JWKS).
 - **Calibrated interruptions.** Your approve/deny verdicts tune how often it interrupts, with a proven cap on false interruptions instead of a guessed threshold.
 - **Proof enforcement is still on.** A liveness probe drives a synthetic held action through the real hook path and verdicts by whether it actually executed. Stale never renders green.
@@ -234,7 +235,7 @@ Every instance also serves Streamable HTTP MCP at `/api/mcp`. For Claude Desktop
 
 **SDKs.** `npm install dashclaw` (Node 18+) or `pip install dashclaw` (Python 3.7+). The **39-method canonical Node surface** covers guard, record, assumptions, approvals, durable-execution finality, security scanning, sessions and the action graph, pairing, risk signals, policy simulation, plan authorization, delegation constraints, containment verdicts, and team tasks. The **Python SDK exposes 59 methods**, plus CrewAI and AutoGen integrations.
 
-**REST.** Every primitive is HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](docs/openapi/critical-stable.openapi.json); the full inventory (**132 routes**: 42 stable, 18 beta, 72 experimental) is in [`docs/api-inventory.md`](docs/api-inventory.md). Webhooks: `decision.created`, `action.created`, `lost_confirmation`, configurable per org.
+**REST.** Every primitive is HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](docs/openapi/critical-stable.openapi.json); the full inventory (**133 routes**: 42 stable, 18 beta, 73 experimental) is in [`docs/api-inventory.md`](docs/api-inventory.md). Webhooks: `decision.created`, `action.created`, `lost_confirmation`, configurable per org.
 
 </details>
 
@@ -244,7 +245,7 @@ Control before execution, not observability after it. Seven points, each falsifi
 
 1. **Every risky action is evaluated against active policies before it runs.** Policies are declarative. The builder ships with ten pre-built safety switches (Deploy Gate, Risk Threshold, Rate Limiter, Evidence Required, Protected Path, Subagent Constraint, and others across 16 guard policy types), an AI generator, and YAML import.
 2. **The default pack is catastrophe-only.** Seeded automatically for every new self-hosted org, it interrupts for the irreversible class: it blocks mass-destructive filesystem, git, and database actions outright, and holds writes to secret files (`.env`, `*.pem`, `*.key`, `secrets/**`) for one-click approval. A warn-only rate limit nets runaways; everything else runs. This is a documented lesson, not a preference. See below.
-3. **Sensitive actions require human approval, and the approval is one click.** Approvals route to `/approvals`, the CLI, the mobile PWA at `/approve`, Telegram, or Discord. When one policy blows its interruption budget, per-action pings collapse into one flood banner with bulk-resolve. Pending approvals are never auto-resolved.
+3. **Sensitive actions require human approval, and the approval is one click.** Approvals route to `/approvals`, the CLI, the mobile PWA at `/approve`, Telegram, or Discord. When one policy blows its interruption budget, per-action pings collapse into one flood banner with bulk-resolve. A repeat interruption can be retired at the card with "Allow, don't ask again", which writes a target-scoped, expiring, revocable grant rather than silencing anything. Pending approvals are never auto-resolved.
 4. **Every decision is recorded and outcomes are durable.** A five-state finality machine plus a lost-confirmation sweep guarantee no silent double-execute on retry. Spec below and in [`docs/architecture/durable-execution-finality.md`](docs/architecture/durable-execution-finality.md).
 5. **Interruption precision is calibrated, not guessed.** A distribution-free controller ([`/calibration`](docs/architecture/governance-core-theory.md), default off) turns your approve/deny verdicts into a proven false-interruption bound. Shadow-first, tighten-only; loosening always routes through human-ratified proposals.
 6. **Enforcement proves it is still on.** A liveness probe drives a synthetic held action through the real hook seam and verdicts by whether it executed, never by reading the ledger. Because once it did not, and nothing noticed. Stale never renders green.
@@ -289,7 +290,7 @@ Approved actions carry a terminal outcome separate from their lifecycle status. 
 
 | Surface | What it is | Setup |
 |---|---|---|
-| Dashboard (`/approvals`) | The primary inbox: what your agent tried, what waits on you, two buttons per item, each led by a plain-English sentence for what the command does. | None |
+| Dashboard (`/approvals`) | The primary inbox: what your agent tried, what waits on you, and per item — allow, deny, or stop being asked about that exact target — each led by a plain-English sentence for what the command does. | None |
 | CLI (`@dashclaw/cli`) | Terminal inbox: `dashclaw approvals`, `dashclaw approve <id>`. | `npm i -g @dashclaw/cli` |
 | Mobile PWA (`/approve`) | Phone-first allow/deny with risk score and policy. Add to home screen. | None |
 | Telegram | Inline Approve/Reject in an admin chat. | [telegram-setup.md](docs/telegram-setup.md) |
@@ -318,7 +319,7 @@ Approved actions carry a terminal outcome separate from their lifecycle status. 
 
 Stated plainly, because a security tool that oversells itself is a liability:
 
-- **Young and fast-moving.** First commit February 2026; releases land near-daily. The API surface is tiered for exactly this reason: 42 stable routes pinned in the [OpenAPI contract](docs/openapi/critical-stable.openapi.json), 18 beta, 72 experimental. Build against stable; experimental can change without notice.
+- **Young and fast-moving.** First commit February 2026; releases land near-daily. The API surface is tiered for exactly this reason: 42 stable routes pinned in the [OpenAPI contract](docs/openapi/critical-stable.openapi.json), 18 beta, 73 experimental. Build against stable; experimental can change without notice.
 - **Proven by dogfood, not by scale.** The core loop runs continuously against the maintainer's own agent fleet and a CI policy-smoke harness that live-proves the public claims on every push. External production deployments are early. Treat this as young infrastructure that takes correctness seriously, not a battle-tested incumbent.
 - **AI-maintained, human-governed, in public.** Day-to-day maintenance is done by an AI agent under the human-held charter in [MAINTAINER.md](MAINTAINER.md), whose five invariants (above) the maintainer cannot change. Every decision is on the record in the [maintainer log](docs/maintainer-log.md).
 

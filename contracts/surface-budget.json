@@ -2,9 +2,9 @@
   "_note": "Anti-regrowth surface budget. See THESIS.md, section 'The anti-regrowth brake'. Each ceiling is the exact live count of a governed surface at v5.0.0. The gate (scripts/check-surface-budget.mjs, npm run surface:check) fails the build when any live count exceeds its ceiling. Raising a ceiling requires amending THESIS.md (anti-regrowth section) AND this file in the same commit with a written reason. Sprawl is a deliberate, recorded act, not a drift.",
   "ceilings": {
     "apiRoutes": {
-      "ceiling": 132,
+      "ceiling": 133,
       "source": "app/api/**/route.{js,ts,tsx} (must export ≥1 HTTP method, matching discoverApiRoutes())",
-      "reason": "2026-08-12: 131 -> 132. +1 for /api/approval-pause - the bounded, self-expiring approval pause. Settings-key state (no table), rides the guard's existing category-general read, and exists to give approval fatigue an exit that is NOT 'turn every policy off' (MAINTAINER.md records that happening for 18 days in June 2026). (Prior: 2026-08-09 130 -> 131 widget pulse; 127 -> 130 billing; 125 -> 127 claim + invites.)"
+      "reason": "2026-08-12: 132 -> 133. +1 for /api/approvals/[actionId]/grant - 'Allow, don't ask again' on the approval card. Reuses the existing allow_grant type, shape system, F1 unscoped-grant rejection and ungrantable gate; mints no new policy type and no table. Approves nothing itself (returns release_ids for the existing per-item approval route), so there stays exactly one approval path. Ships WITH a tightening: allow_grant gains a max_risk ceiling defaulting to 70, closing the any-risk downgrade hole. Prior: 2026-08-12 131 -> 132 /api/approval-pause, the bounded self-expiring pause that gives approval fatigue an exit other than 'turn every policy off'; 2026-08-09 130 -> 131 widget pulse; 127 -> 130 billing; 125 -> 127 claim + invites."
     },
     "appPages": {
       "ceiling": 53,

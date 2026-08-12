@@ -24,7 +24,7 @@ Generated inventories remain authoritative for generated facts:
 | SDK parity by domain | `docs/sdk-parity.md` |
 | Durable execution finality spec | `docs/architecture/durable-execution-finality.md` |
 
-As of this verification (2026-08-09), generated API inventory reports **132 routes**: **42 stable**, **18 beta**, **72 experimental**.
+As of this verification (2026-08-09), generated API inventory reports **133 routes**: **42 stable**, **18 beta**, **73 experimental**.
 
 ## Product boundary
 
@@ -50,7 +50,7 @@ As of this verification (2026-08-09), generated API inventory reports **132 rout
 
 | Surface | Path | Purpose |
 |:---|:---|:---|
-| Approvals inbox | `/approvals` | The one primary human surface: what your agent just tried, what is frozen and waiting on you, two buttons per item. Every pending item leads with a plain-English sentence for what the command does (`app/lib/plain-language/`), an irreversibility band when the classifier reports the act cannot be undone, and the exact command underneath; an unreadable command renders an honest "not translated" card rather than a guess. Multi-select inline + bulk approve/deny over a capped, SSE-live event stream; a flood banner collapses approval storms with pause-rule and bulk-resolve controls, and pending approvals are never auto-resolved. |
+| Approvals inbox | `/approvals` | The one primary human surface: what your agent just tried, what is frozen and waiting on you, and per item — allow, deny, or "don't ask again". That third button approves the action, mints a target-scoped `allow_grant` on a lease you pick (default 24h), and releases the pending approvals the grant covers; it is withheld at or above risk 70, where a grant could not apply anyway, and every live grant is listed above the queue with a countdown and a Revoke button. Every pending item leads with a plain-English sentence for what the command does (`app/lib/plain-language/`), an irreversibility band when the classifier reports the act cannot be undone, and the exact command underneath; an unreadable command renders an honest "not translated" card rather than a guess. Multi-select inline + bulk approve/deny over a capped, SSE-live event stream; a flood banner collapses approval storms with pause-rule and bulk-resolve controls, and pending approvals are never auto-resolved. |
 | Decisions | `/decisions` | Visual ledger of governed actions with risk composition, matched policies, approver, outcome status, and replay links. |
 | Replay | `/replay/[actionId]` | Action-level evidence view for a single governed decision. |
 | Policies | `/policies` | Interruption-contract cockpit: a plain-English contract of when agents interrupt you (grants, shields as "Add protection"), a review feed of silently-recorded warns with Fine / Always allow / Tighten verdicts, plus policy generation, simulation, calibration review, and import/proof surfaces. |
@@ -78,6 +78,7 @@ These routes define the minimum DashClaw category. They are stable or runtime-cr
 | `/api/actions/:actionId/graph` | Execution graph | Nodes and edges around an action, assumptions, and trace data. |
 | `/api/actions/:actionId/containment` | Operator promote/discard verdict on a contained action | `POST { verdict: 'promote' \| 'discard' }` (operator-authenticated, mirrors approvals auth). Promote creates a governed `containment_promote` action that merges the staged worktree diff. Backs the `allow_contained` guard verdict — see `docs/architecture/runtime-api.md`. |
 | `/api/approvals/:actionId` | Human approval decision | Also reachable via legacy rewrite `/api/actions/:id/approve`. |
+| `/api/approvals/:actionId/grant` | Mint a scoped `allow_grant` from an approval card | `POST { ttl_hours: 1 \| 24 \| 168 \| 720 }`. Derives the shape server-side, enforces the risk-70 ceiling, the unscoped-grant rejection and the `ungrantable` gate, then returns `release_ids` — the pending approvals the grant covers. Approves nothing itself; the caller releases those ids over `/api/approvals/:actionId` so there is one approval path. |
 | `/api/assumptions` | Reasoning integrity records | Assumption tracking linked to actions. |
 | `/api/signals` | Runtime/anomaly signals | Signal listing and detection outputs. |
 | `/api/policies` | Policy CRUD | Guard policy management across all 16 policy types, from `non_fabrication` to `role_constraint` (per-role authority bundles, v5.17.0). |

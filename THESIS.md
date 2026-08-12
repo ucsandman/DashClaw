@@ -476,6 +476,28 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   raised by an `ungrantable` rule, so the control plane still interrupts.
   No new table — the state is one settings key riding the guard's existing
   category-general read, so the hot path costs no extra query.
+- **2026-08-12 — Active API routes 132 → 133
+  (`/api/approvals/[actionId]/grant`).** "Allow, don't ask again" on the
+  approval card. It earns a surface for the same reason the approval pause
+  above does, one step earlier: the repeat interruption is what drives an
+  operator to turn governance off, and until now the only cure for it lived on
+  `/policies` — a different page from the one being interrupted. The
+  `allow_grant` engine already existed and was already hardened; what did not
+  exist was a way for a human to reach it from the card that is bothering
+  them.
+  It stays inside the thesis loop rather than widening it. The route mints
+  nothing new: same `allow_grant` policy type, same shape coordinate system,
+  same F1 unscoped-grant rejection, same `ungrantable` gate, same lease. It
+  approves nothing either — it returns the ids its grant covers and the client
+  releases them over the existing per-item approval route, so there is exactly
+  one approval path carrying one audit, webhook and calibration chain.
+  It also closes a hole rather than opening one. `allow_grant` had no risk
+  ceiling, so any grant cleared `require_approval` at any score for its whole
+  lease. Grants are now born with `max_risk: 70`, a missing ceiling reads as
+  70 rather than unlimited, and the card withholds the button above that line
+  instead of selling an authorization the guard would refuse. Net governance
+  strength goes up, not down.
+  No new table, no new policy type, no SDK or MCP change.
 
 ## Version story
 

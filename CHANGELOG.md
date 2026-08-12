@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Changed
+
+- **`allow_grant` policies now have a risk ceiling, and it applies to grants that already exist.** Until now a matching grant downgraded `require_approval` to `allow` at *any* risk score, so a grant minted on a routine act kept clearing the approval gate for a matching act at score 95 for the rest of its lease. Grants are now stamped `max_risk: 70` at creation by both minting surfaces, and `applyAllowGrants` skips a grant the action exceeds — announcing the skip in the decision warnings rather than going quiet, so an operator never sees a grant "stop working" with no explanation. **A grant with no `max_risk` now defaults to 70, not unlimited**, which tightens every grant created before this release: an action scoring 70 or above that a grant previously covered will interrupt a human again. That is the intended direction, and the exposure is bounded — grants stay target-scoped and every legacy one ages out within 30 days of its `created_at`. Blocks remain absolute, and a rule marked `ungrantable` is still never cleared by a grant.
+
+### Added
+
+- **"Allow, don't ask again" on the approval queue.** Every pending card below risk 70 gets a third button. It approves the action, writes a target-scoped grant with a lease you choose (1h / 24h / 7d / 30d, default 24h), and releases the pending approvals that same grant covers — the confirm button names the number before you click it (`Allow all 2`). Scope is the exact target the server derives, never a folder: prefix-widening on file paths is a bug this codebase already fixed once, and the panel says so in plain words. At or above risk 70 the button is replaced by "needs a human every time", which is honest rather than decorative — a grant minted there could not cover the action anyway.
+- **An undo surface for those mutes.** Active grants are listed at the top of `/approvals` — "3 things you told me to stop asking about" — each with a live countdown and a one-click **Revoke**. A mute you can create in one click but need a different page to undo is not a finished feature.
+- `POST /api/approvals/[actionId]/grant` mints the grant and reports the pending approvals it covers. It deliberately does not approve anything: the caller fans those ids out over the existing per-item approval route, the way bulk approve already does, so there is one audit / webhook / calibration chain instead of a second copy that would drift.
+
 ### Documentation
 
 - **The v5.20.0 scope-narrowing guarantee now exists outside the ADR.** `ungoverned_scope` shipped documented only in `docs/architecture/enforcement-boundary.md`, `hooks/README.md` and `.env.example` — none of which an operator reads before they hit the symptom. It is now on the surfaces where the question actually gets asked: the README's observe-mode "loud, never silent" paragraph, the landing page's enforcement-boundary section, `PROJECT_DETAILS.md` (as the third member of the enforcement-visibility set), and a new `docs/troubleshooting.md` entry keyed to the real symptom — *some* tool calls land in `/decisions` while whole categories are missing.
