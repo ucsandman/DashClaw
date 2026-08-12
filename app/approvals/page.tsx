@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   AlertTriangle, ShieldAlert, Check, X, Clock, User, Zap,
-  RefreshCw, Info, Ban, Hourglass, AppWindow,
+  RefreshCw, Info, Ban, Hourglass, AppWindow, BellOff,
 } from 'lucide-react';
 import { IRREVERSIBLE_TEXT } from '../lib/plain-language/types';
 import PageLayout from '../components/PageLayout';
@@ -27,6 +27,10 @@ import { EntityLink } from '../components/context-menu/EntityLink';
 import ApprovalFloodBanner from '../components/ApprovalFloodBanner';
 import ApprovalPauseBanner from '../components/ApprovalPauseBanner';
 import ObserveModeBanner from '../components/ObserveModeBanner';
+import { RISK_HIGH_MIN } from '../lib/riskThresholds';
+import { extractDecisionShape, grantCoversRisk, grantMatches, GRANT_DEFAULT_MAX_RISK } from '../lib/policy-shapes';
+import DontAskAgainPanel from './_components/DontAskAgainPanel';
+import ActiveGrantsStrip, { type GrantRow } from './_components/ActiveGrantsStrip';
 import PlanReviewCard from './_components/PlanReviewCard';
 import LivePlansSection from './_components/LivePlansSection';
 import ContainmentSection from './_components/ContainmentSection';
@@ -97,6 +101,11 @@ export default function ApprovalsPage() {
   // failure must never look like a clean sweep on the hero surface — the
   // single-item path already alerts on failure (handleDecision below).
   const [bulkFailure, setBulkFailure] = useState<{ verb: string; ok: number; failed: number } | null>(null);
+  // "Don't ask again": which card has its scope panel open, the chosen lease,
+  // and the live grants shown in the revoke strip.
+  const [grantingId, setGrantingId] = useState<string | null>(null);
+  const [grantTtl, setGrantTtl] = useState(24);
+  const [grants, setGrants] = useState<GrantRow[]>([]);
   const { isAdmin, settled: sessionSettled } = useEffectiveRole();
 
   const fetchPending = useCallback(async (opts?: { silent?: boolean }) => {
@@ -187,17 +196,37 @@ export default function ApprovalsPage() {
     } catch { /* additive surface; the actions inbox must not break on this */ }
   }, [agentId]);
 
+  // Active grants for the revoke strip. GET /api/policies already returns the
+  // whole set, so this needs no new route — filter to live allow_grants here.
+  const fetchGrants = useCallback(async () => {
+    try {
+      const res = await fetch('/api/policies', { cache: 'no-store' });
+      if (!res.ok) return;
+      const json = await res.json();
+      const rows: GrantRow[] = (json.policies || json || [])
+        .filter((p: { policy_type?: string; active?: unknown }) =>
+          p.policy_type === 'allow_grant' && (p.active === 1 || p.active === true));
+      setGrants(rows);
+    } catch (error) {
+      // The strip just stays as-is; the queue below is the load-bearing part.
+      console.warn('Failed to fetch grants:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchPending();
     fetchPendingPlans();
     fetchAwaitingContainment();
+    // Grants are not polled: they only change when someone on this page mints
+    // or revokes one, and both paths refetch explicitly.
+    fetchGrants();
     const interval = setInterval(() => {
       fetchPending({ silent: true });
       fetchPendingPlans();
       fetchAwaitingContainment();
     }, 10000); // Fallback poll
     return () => clearInterval(interval);
-  }, [fetchPending, fetchPendingPlans, fetchAwaitingContainment]);
+  }, [fetchPending, fetchPendingPlans, fetchAwaitingContainment, fetchGrants]);
 
   // Realtime: clear instantly when an approval is resolved anywhere (another
   // channel, /approve) rather than waiting up to 10s for the poll.
@@ -212,6 +241,68 @@ export default function ApprovalsPage() {
       fetchAwaitingContainment();
     }
   });
+
+  /**
+   * Approve this action, write the grant, release everything it covers.
+   *
+   * The release fans out over the SAME per-item approval route bulk approve
+   * uses, so each released action keeps its full audit / webhook / calibration
+   * chain. The server's release_ids is authoritative — the count shown in the
+   * panel before confirming is only a client-side preview.
+   */
+  const handleGrant = async (actionId: string) => {
+    try {
+      setProcessingId(actionId);
+      setBulkFailure(null);
+      const res = await fetch(`/api/approvals/${actionId}/grant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ttl_hours: grantTtl }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to create the grant');
+
+      const ids: string[] = json.release_ids?.length ? json.release_ids : [actionId];
+      const { ok, failed } = await bulkAction(ids, (id) =>
+        fetch(`/api/approvals/${id}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ decision: 'allow' }),
+        })
+      );
+      if (failed.length > 0) setBulkFailure({ verb: 'approve', ok: ok.length, failed: failed.length });
+      setGrantingId(null);
+      await fetchPending();
+      await fetchGrants();
+    } catch (err: any) {
+      alert(`Couldn't stop the interruptions: ${err.message}`);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  /**
+   * Preview of how many pending approvals a grant on this action would cover,
+   * computed from the already-loaded list with the SAME predicates the guard
+   * uses. The server recomputes it authoritatively on confirm; this exists so
+   * the confirm button can name the blast radius BEFORE the click.
+   */
+  const grantMatchCount = (action: any): number => {
+    const shape = extractDecisionShape({ action_type: action.action_type, context: action.context });
+    if (!shape.target_prefix) return 1;
+    const rules = {
+      action_type: shape.action_type,
+      target_prefix: shape.target_prefix,
+      max_risk: GRANT_DEFAULT_MAX_RISK,
+    };
+    return pendingActions.filter((a) => {
+      if (a.action_id === action.action_id) return true;
+      if (!grantCoversRisk(rules, Number(a.risk_score) || 0)) return false;
+      let ctx: Record<string, unknown> = {};
+      try { ctx = JSON.parse(a.context || '{}'); } catch { ctx = {}; }
+      return grantMatches(rules, { ...ctx, action_type: a.action_type });
+    }).length;
+  };
 
   const handleDecision = async (actionId: string, decision: string) => {
     try {
@@ -409,6 +500,11 @@ export default function ApprovalsPage() {
           canDecide={canDecide}
           onResolvedAction={() => { fetchAwaitingContainment(); fetchPending({ silent: true }); }}
         />
+
+        {/* Undo surface for "don't ask again". It sits above the queue, on the
+            same page the grant was created from — a mute you can make in one
+            click but need /policies to undo is not a finished feature. */}
+        {isAdmin && <ActiveGrantsStrip grants={grants} onRevokedAction={fetchGrants} />}
 
         <CollapsibleSection
           id="approvals.pending"
@@ -622,6 +718,23 @@ export default function ApprovalsPage() {
                         >
                           <Check size={16} /> Allow
                         </button>
+                        {/* Risk ceiling. Above RISK_HIGH_MIN there is no button
+                            to press — a grant minted here could not cover such
+                            an action anyway (applyAllowGrants refuses it), so
+                            offering one would be a promise the guard breaks. */}
+                        {action.risk_score < RISK_HIGH_MIN ? (
+                          <button
+                            onClick={() => setGrantingId(grantingId === action.action_id ? null : action.action_id)}
+                            disabled={!canDecide || isProcessing}
+                            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-border bg-surface-tertiary px-4 py-2.5 text-sm font-semibold text-secondary transition-colors hover:border-success/40 hover:text-success focus:border-success/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <BellOff size={16} /> Don&apos;t ask again
+                          </button>
+                        ) : (
+                          <div className="flex-1 rounded-lg border border-border/60 px-3 py-2 text-center text-[11px] leading-snug text-tertiary">
+                            Needs a human every time
+                          </div>
+                        )}
                         <button
                           onClick={() => handleDecision(action.action_id, 'deny')}
                           disabled={!canDecide || isProcessing}
@@ -631,6 +744,19 @@ export default function ApprovalsPage() {
                         </button>
                       </div>
                     </div>
+
+                    {grantingId === action.action_id && (
+                      <DontAskAgainPanel
+                        actionType={action.action_type}
+                        targetLabel={extractDecisionShape({ action_type: action.action_type, context: action.context }).target_prefix || 'no target'}
+                        ttlHours={grantTtl}
+                        onTtlChange={setGrantTtl}
+                        onConfirm={() => handleGrant(action.action_id)}
+                        onCancel={() => setGrantingId(null)}
+                        matchCount={grantMatchCount(action)}
+                        busy={isProcessing}
+                      />
+                    )}
                   </CardContent>
                 </Card>
               );
