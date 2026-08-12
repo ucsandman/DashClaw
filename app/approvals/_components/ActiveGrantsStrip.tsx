@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BellOff } from 'lucide-react';
+import { BellOff, ChevronDown, ChevronRight } from 'lucide-react';
 import { grantExpiresAt } from '../../lib/policy-shapes';
 
 /**
@@ -13,7 +13,14 @@ import { grantExpiresAt } from '../../lib/policy-shapes';
  *
  * Renders nothing when there are no live grants, so the hero surface stays
  * clean for the common case.
+ *
+ * Grants accumulate one click at a time and never self-trim, so past a handful
+ * the full list buries the pending queue this page exists for. Above
+ * COMPACT_AT the strip collapses to its one-line count and the list opens on
+ * demand, inside a bounded scroll box.
  */
+
+const COMPACT_AT = 3;
 
 export interface GrantRow {
   id: string;
@@ -50,6 +57,7 @@ export default function ActiveGrantsStrip({
   onRevokedAction: () => void;
 }) {
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
   // Clock in state, not Date.now() during render: render stays pure (the
   // react-hooks/purity rule), and the countdowns tick on their own instead of
   // freezing until something else re-renders the page.
@@ -87,33 +95,52 @@ export default function ActiveGrantsStrip({
     }
   };
 
+  const collapsible = live.length > COMPACT_AT;
+  const showList = !collapsible || open;
+  const label = `${live.length} ${live.length === 1 ? 'thing' : 'things'} you told me to stop asking about`;
+
   return (
     <div className="mb-6 rounded-lg border border-border bg-surface-secondary p-4">
-      <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
-        <BellOff size={11} />
-        {live.length} {live.length === 1 ? 'thing' : 'things'} you told me to stop asking about
-      </div>
-      <ul className="space-y-1.5">
-        {live.map((g) => {
-          const rules = parseRules(g.rules);
-          const exp = grantExpiresAt(rules, g.created_at);
-          return (
-            <li key={g.id} className="flex items-center gap-3 text-xs">
-              <code className="min-w-0 flex-1 truncate font-mono text-secondary" title={`${rules.action_type} → ${rules.target_prefix}`}>
-                {rules.action_type} → {rules.target_prefix}
-              </code>
-              <span className="shrink-0 tabular-nums text-tertiary">{remaining(exp, now)}</span>
-              <button
-                onClick={() => revoke(g.id)}
-                disabled={revoking === g.id}
-                className="shrink-0 rounded border border-border px-2 py-1 font-medium text-secondary transition-colors hover:border-error/40 hover:text-error focus:outline-none disabled:opacity-50"
-              >
-                {revoking === g.id ? 'Revoking…' : 'Revoke'}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className={`flex w-full items-center gap-2 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary transition-colors hover:text-secondary ${open ? 'mb-3' : ''}`}
+        >
+          <BellOff size={11} />
+          <span className="min-w-0 flex-1 truncate">{label}</span>
+          {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        </button>
+      ) : (
+        <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+          <BellOff size={11} />
+          {label}
+        </div>
+      )}
+      {showList && (
+        <ul className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
+          {live.map((g) => {
+            const rules = parseRules(g.rules);
+            const exp = grantExpiresAt(rules, g.created_at);
+            return (
+              <li key={g.id} className="flex items-center gap-3 text-xs">
+                <code className="min-w-0 flex-1 truncate font-mono text-secondary" title={`${rules.action_type} → ${rules.target_prefix}`}>
+                  {rules.action_type} → {rules.target_prefix}
+                </code>
+                <span className="shrink-0 tabular-nums text-tertiary">{remaining(exp, now)}</span>
+                <button
+                  onClick={() => revoke(g.id)}
+                  disabled={revoking === g.id}
+                  className="shrink-0 rounded border border-border px-2 py-1 font-medium text-secondary transition-colors hover:border-error/40 hover:text-error focus:outline-none disabled:opacity-50"
+                >
+                  {revoking === g.id ? 'Revoking…' : 'Revoke'}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

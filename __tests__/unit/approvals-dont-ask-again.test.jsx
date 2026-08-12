@@ -275,4 +275,27 @@ describe('active grants strip', () => {
       expect(patch.body).toEqual({ id: 'gp_1', active: false });
     });
   });
+
+  // Grants accumulate and never self-trim; past a handful the full list buried
+  // the pending queue the page exists for.
+  it('collapses to the count once there are more than three', async () => {
+    const many = Array.from({ length: 8 }, (_, i) => grant({ id: `gp_${i}`, rules: JSON.stringify({
+      action_type: 'apply',
+      target_prefix: `${SCRATCH}/${i}`,
+      expires_at: new Date(Date.now() + 23 * 3600_000).toISOString(),
+    }) }));
+    global.fetch = makeFetch({ policies: many });
+    await renderPage();
+    await waitFor(() => expect(screen.getByText(/8 things you told me to stop asking about/i)).toBeTruthy());
+    expect(screen.queryByRole('button', { name: /revoke/i })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /8 things you told me to stop asking about/i }));
+    expect(screen.getAllByRole('button', { name: /revoke/i })).toHaveLength(8);
+  });
+
+  it('keeps a short list open', async () => {
+    global.fetch = makeFetch({ policies: [grant(), grant({ id: 'gp_2' })] });
+    await renderPage();
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /revoke/i })).toHaveLength(2));
+  });
 });
