@@ -220,6 +220,11 @@ export function buildConfigTomlBlock({
   mcpServerPath,
   hooksDir,
   agentId = 'codex',
+  // The config file this block is being written into. Passed to the liveness
+  // probe as --settings so it drives THIS seam: the probe's own default used
+  // to resolve to .claude/settings.json for every runtime, so a codex-wired
+  // run reported the Claude Code hook's health under `runtime = codex`.
+  configPath = null,
 }) {
   const py = pythonCommand();
   const pre = join(hooksDir, 'dashclaw_pretool.py');
@@ -272,10 +277,17 @@ export function buildConfigTomlBlock({
     // `--runtime codex` names WHICH SEAM reported (drizzle/0072). Claude Code
     // wires this same probe with the same --source, so without it a dead codex
     // seam rendered green behind a healthy Claude Code run.
+    // `--settings <this file>` makes the label true: the probe parses this
+    // TOML block and drives the PreToolUse entry above. Naming the label
+    // without pointing the probe at the seam is the same false green one
+    // level down.
     '[[hooks.SessionStart]]',
     '[[hooks.SessionStart.hooks]]',
     'type = "command"',
-    `command = ${tomlString(`${py} ${sessionStart} --source session-start --runtime codex`)}`,
+    `command = ${tomlString(
+      `${py} ${sessionStart} --source session-start --runtime codex` +
+        (configPath ? ` --settings ${configPath}` : ''),
+    )}`,
     MANAGED_END,
   ];
 
@@ -401,7 +413,7 @@ export function mergeConfigToml({
   dashclawCliPath = null,
 }) {
   const before = existsSync(configPath) ? readFileSync(configPath, 'utf8') : '';
-  const tablesBlock = buildConfigTomlBlock({ mcpServerPath, hooksDir, agentId });
+  const tablesBlock = buildConfigTomlBlock({ mcpServerPath, hooksDir, agentId, configPath });
   const rootBlock = buildRootKeysBlock({
     approvalPolicy,
     includeNotify,

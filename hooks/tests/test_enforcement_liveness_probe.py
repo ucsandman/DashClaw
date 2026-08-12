@@ -23,7 +23,11 @@ PROBE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("DASHCLAW_DISABLE_DOTENV", "1")
-from enforcement_liveness_probe import effective_hook_timer, find_pretool_entries  # noqa: E402
+from enforcement_liveness_probe import (  # noqa: E402
+    default_settings_paths,
+    effective_hook_timer,
+    find_pretool_entries,
+)
 
 
 class TestEffectiveHookTimer(unittest.TestCase):
@@ -62,17 +66,74 @@ class TestFindPretoolEntries(unittest.TestCase):
                         {"type": "command", "command": "node some_other_hook.cjs"},
                     ]},
                 ]}}, f)
-            entries = find_pretool_entries([path])
+            entries, problems = find_pretool_entries([path])
             self.assertEqual(len(entries), 1)
             self.assertEqual(entries[0]["timeout_seconds"], 3660)
+            self.assertEqual(entries[0]["harness"], "claude-code")
             self.assertFalse(entries[0]["overflowed"])
+            self.assertEqual(problems, [])
 
-    def test_missing_and_malformed_files_are_skipped(self):
+    def test_missing_file_is_silent_but_malformed_one_is_reported(self):
+        # An absent config is an ordinary "not installed". A config that EXISTS
+        # and cannot be parsed is a reason the seam could not be probed, and
+        # swallowing it renders the same false "nothing installed" green.
         with TemporaryDirectory() as tmp:
             bad = os.path.join(tmp, "bad.json")
             with open(bad, "w", encoding="utf-8") as f:
                 f.write("{not json")
-            self.assertEqual(find_pretool_entries([bad, os.path.join(tmp, "absent.json")]), [])
+            entries, problems = find_pretool_entries([bad, os.path.join(tmp, "absent.json")])
+            self.assertEqual(entries, [])
+            self.assertEqual(len(problems), 1)
+            self.assertIn("bad.json", problems[0])
+
+    def test_parses_the_codex_toml_seam(self):
+        # The exact block `dashclaw install codex` writes into
+        # ~/.codex/config.toml. `[[hooks.PreToolUse]]` +
+        # `[[hooks.PreToolUse.hooks]]` decode to the same nesting the JSON
+        # path walks, so only the parser differs.
+        with TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "config.toml")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(
+                    '[[hooks.PreToolUse]]\n'
+                    'matcher = "Bash|Edit|Write|MultiEdit"\n'
+                    '[[hooks.PreToolUse.hooks]]\n'
+                    'type = "command"\n'
+                    'command = "python /h/dashclaw_pretool.py --agent-id codex"\n'
+                    'timeout = 3600\n'
+                )
+            entries, problems = find_pretool_entries([path])
+            self.assertEqual(problems, [])
+            self.assertEqual(len(entries), 1)
+            self.assertEqual(entries[0]["harness"], "codex")
+            self.assertEqual(entries[0]["timeout_seconds"], 3600)
+            self.assertEqual(entries[0]["settings_path"], path)
+
+    def test_codex_timeout_never_emulates_the_claude_code_overflow(self):
+        # The int32 timer overflow was observed on the Claude Code harness and
+        # nowhere else. Asserting it for codex would render a live seam
+        # `executed` on a large-but-legal timeout — a false RED invented from
+        # an unverified contract.
+        self.assertTrue(effective_hook_timer(3_600_000, "claude-code")[2])
+        self.assertFalse(effective_hook_timer(3_600_000, "codex")[2])
+
+
+class TestDefaultSettingsPaths(unittest.TestCase):
+    def test_codex_resolves_to_its_own_config_not_claude_code(self):
+        # The regression this fixes: every runtime resolved to
+        # .claude/settings.json, so the codex-wired run drove the Claude Code
+        # seam and filed the verdict as `runtime = codex`.
+        with mock.patch.dict(os.environ, {"CODEX_HOME": os.path.join("C:", "cx")}):
+            paths = default_settings_paths("/proj", "codex")
+        self.assertEqual(len(paths), 1)
+        self.assertTrue(paths[0].endswith("config.toml"))
+        self.assertNotIn(".claude", paths[0])
+
+    def test_claude_code_and_unknown_keep_the_settings_json_pair(self):
+        for runtime in ("claude-code", "unknown"):
+            paths = default_settings_paths("/proj", runtime)
+            self.assertEqual(len(paths), 2, runtime)
+            self.assertTrue(all(p.endswith("settings.json") for p in paths), runtime)
 
 
 # ---------------------------------------------------------------------------
@@ -145,17 +206,38 @@ class ProbeE2E(unittest.TestCase):
         # make it a real no-op arg by having the stub ignore argv.
         return settings
 
-    def _run_probe(self, settings, tmp, extra_env=None):
+    def _write_codex_fixture(self, tmp, stub_code, timeout):
+        """The codex seam: the same stub hook declared in TOML, the shape
+        `dashclaw install codex` writes into ~/.codex/config.toml."""
+        stub = os.path.join(tmp, "stub_hook.py")
+        with open(stub, "w", encoding="utf-8") as f:
+            f.write(stub_code + "\n")
+        config = os.path.join(tmp, "config.toml")
+        command = '"%s" "%s" dashclaw_pretool.py' % (sys.executable, stub)
+        with open(config, "w", encoding="utf-8") as f:
+            f.write(
+                '[[hooks.PreToolUse]]\n'
+                'matcher = "Bash|Edit|Write|MultiEdit"\n'
+                '[[hooks.PreToolUse.hooks]]\n'
+                'type = "command"\n'
+                'command = %s\n'
+                'timeout = %d\n' % (json.dumps(command), timeout)
+            )
+        return config
+
+    def _run_probe(self, settings, tmp, extra_env=None, runtime=None):
         env = {**os.environ, "DASHCLAW_DISABLE_DOTENV": "1",
                "DASHCLAW_BASE_URL": self.base_url, "DASHCLAW_API_KEY": "test-key"}
         for k in ("DASHCLAW_URL", "DASHCLAW_HOOK_MODE", "DASHCLAW_LIVENESS_PROBE_DISABLED"):
             env.pop(k, None)
         env.update(extra_env or {})
-        return subprocess.run(
-            [sys.executable, PROBE, "--settings", settings,
-             "--witness-dir", os.path.join(tmp, "witness"), "--source", "ci", "--max-wait", "30"],
-            capture_output=True, env=env, timeout=60, text=True,
-        )
+        argv = [sys.executable, PROBE,
+                "--witness-dir", os.path.join(tmp, "witness"), "--source", "ci", "--max-wait", "30"]
+        if settings is not None:
+            argv += ["--settings", settings]
+        if runtime is not None:
+            argv += ["--runtime", runtime]
+        return subprocess.run(argv, capture_output=True, env=env, timeout=60, text=True)
 
     def test_seeded_v4721_timeout_yields_executed(self):
         """THE regression test: the exact v4.72.1 config (timeout 3600000)
@@ -186,6 +268,47 @@ class ProbeE2E(unittest.TestCase):
             self.assertEqual(run["verdict"], "held")
             self.assertFalse(run["witness"]["executed"])
             self.assertEqual(run["hook"]["exit_code"], 2)
+
+    def test_codex_toml_seam_is_driven_end_to_end(self):
+        """The codex seam reports on ITS OWN config. Before this the probe
+        parsed JSON only, so a `--runtime codex` run drove whatever was in
+        .claude/settings.json and filed the verdict under the codex name."""
+        with TemporaryDirectory() as tmp:
+            config = self._write_codex_fixture(tmp, STUB_EXIT_2, timeout=3600)
+            proc = self._run_probe(config, tmp, runtime="codex")
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            run = _StubApi.reports[0]
+            self.assertEqual(run["runtime"], "codex")
+            self.assertEqual(run["verdict"], "held")
+            self.assertEqual(run["hook"]["settings_path"], config)
+            self.assertEqual(run["hook"]["exit_code"], 2)
+
+    def test_codex_runtime_never_falls_back_to_the_claude_code_seam(self):
+        """The regression guard. With no codex config present the verdict is
+        `unprovable` naming config.toml — NOT a green borrowed from a healthy
+        Claude Code hook that happens to be installed on the same machine."""
+        with TemporaryDirectory() as tmp:
+            # A healthy Claude Code seam exists in this project root. It must
+            # not be able to answer for codex.
+            claude_dir = os.path.join(tmp, "proj", ".claude")
+            os.makedirs(claude_dir)
+            self._write_fixture(tmp, STUB_EXIT_2, timeout=3660)
+            with open(os.path.join(claude_dir, "settings.json"), "w", encoding="utf-8") as f:
+                json.dump({"hooks": {"PreToolUse": [{"matcher": ".*", "hooks": [
+                    {"type": "command",
+                     "command": '"%s" "%s" dashclaw_pretool.py' % (sys.executable, os.path.join(tmp, "stub_hook.py")),
+                     "timeout": 3660},
+                ]}]}}, f)
+            proc = self._run_probe(None, tmp, runtime="codex", extra_env={
+                "CODEX_HOME": os.path.join(tmp, "empty-codex-home"),
+                "CLAUDE_PROJECT_DIR": os.path.join(tmp, "proj"),
+            })
+            self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+            run = _StubApi.reports[0]
+            self.assertEqual(run["runtime"], "codex")
+            self.assertEqual(run["verdict"], "unprovable")
+            self.assertIn("config.toml", run["detail"])
+            self.assertIn("dashclaw install codex", run["detail"])
 
     def test_allow_decision_yields_unprovable(self):
         _StubApi.latest_action = {"id": "act_1", "status": "running"}

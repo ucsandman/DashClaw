@@ -9,8 +9,14 @@ the action executed — never by reading the decision ledger, because the ledger
 is exactly what kept lying in v4.72.1 (a hook timeout misconfig cancelled the
 pretool hook; guard rows kept flowing while every block failed open).
 
+Which seam a run drives is chosen by `--runtime`: each harness declares its
+hooks in its own config file (Claude Code `.claude/settings.json`, codex
+`~/.codex/config.toml`), and the probe reads only the one belonging to the
+runtime it is reporting as. `--settings` overrides that resolution.
+
 Harness emulation contract (each clause verified against the real Claude Code
-harness during the v4.72.1 incident, 2026-07-06):
+harness during the v4.72.1 incident, 2026-07-06; the timer-overflow clause is
+NOT assumed to hold for other harnesses — see OVERFLOW_HARNESSES):
   1. The hook `timeout` field in settings.json is SECONDS (default 600).
   2. The harness arms a timer of timeout*1000 ms; a value whose ms product
      exceeds 2^31-1 overflows the timer, which fires immediately and cancels
@@ -67,6 +73,18 @@ import urllib.request
 import uuid
 from datetime import datetime, timezone
 
+# Codex declares its hooks in TOML, Claude Code in JSON. tomllib is stdlib from
+# 3.11; older interpreters need the tomli backport. A missing parser is
+# reported as a config problem rather than swallowed — silently finding no
+# codex seam would render the same false green this probe exists to catch.
+try:
+    import tomllib
+except ImportError:  # pragma: no cover - only on Python <= 3.10
+    try:
+        import tomli as tomllib
+    except ImportError:
+        tomllib = None
+
 # Same .env loading contract as the hooks (values already in the environment
 # win; DASHCLAW_DISABLE_DOTENV skips the walk for test isolation).
 
@@ -114,18 +132,39 @@ DEFAULT_HOOK_TIMEOUT_SECONDS = 600  # harness default when the field is absent
 PROBE_AGENT_ID = "smoke-liveness-probe"  # `smoke-` = synthetic, excluded everywhere
 APPROVAL_WAIT_SECONDS = "8"  # bounds the hook's approval poll for the probe run
 
+# Which harness owns a config file, keyed by its extension: Claude Code writes
+# .claude/settings.json, codex writes ~/.codex/config.toml. Both decode to the
+# same {"hooks": {"PreToolUse": [{"hooks": [...]}]}} nesting, so only the
+# parser differs — codex's `[[hooks.PreToolUse]]` + `[[hooks.PreToolUse.hooks]]`
+# produce exactly the shape the JSON path already walks.
+HARNESS_BY_CONFIG_SUFFIX = {".json": "claude-code", ".toml": "codex"}
+
+# The int32 timer overflow (clause 2 of the harness contract above) was
+# verified against the CLAUDE CODE harness during v4.72.1 and nowhere else.
+# Emulating it for codex would invent a cancellation we have never observed
+# and could render a live codex seam `executed` on a large-but-legal timeout,
+# so codex entries are probed with the timeout they declare and no emulated
+# cancellation. Add a harness here only once its timer arithmetic is observed.
+OVERFLOW_HARNESSES = {"claude-code"}
+
+# `dashclaw install <target>` for each runtime, for the actionable detail on a
+# runtime whose seam is not installed at all.
+INSTALL_TARGET_BY_RUNTIME = {"claude-code": "claude", "codex": "codex"}
+
 
 def utc_now():
     return datetime.now(timezone.utc).isoformat()
 
 
-def effective_hook_timer(timeout_value):
-    """Reproduce the harness's timer arithmetic for a settings.json `timeout`.
+def effective_hook_timer(timeout_value, harness="claude-code"):
+    """Reproduce the harness's timer arithmetic for a config `timeout`.
 
     Returns (timeout_seconds, effective_timer_ms, overflowed). `timeout` is
     read as SECONDS; non-numeric/absent values fall back to the harness
     default. A ms product past INT32_MAX overflows the harness timer, which
-    fires immediately and cancels the hook — the v4.72.1 hole.
+    fires immediately and cancels the hook — the v4.72.1 hole — but only on a
+    harness whose timer arithmetic we have actually observed doing that
+    (OVERFLOW_HARNESSES).
     """
     try:
         seconds = float(timeout_value)
@@ -134,39 +173,88 @@ def effective_hook_timer(timeout_value):
     except (TypeError, ValueError):
         seconds = DEFAULT_HOOK_TIMEOUT_SECONDS
     ms = seconds * 1000
-    overflowed = ms > INT32_MAX_MS
+    overflowed = ms > INT32_MAX_MS and harness in OVERFLOW_HARNESSES
     return seconds, ms, overflowed
 
 
+def load_hook_config(path):
+    """Parse one harness config file into the common hooks shape.
+
+    Returns (config, harness, problem). `config` is None when nothing could be
+    read. `problem` is a reason worth SURFACING — a config that exists but
+    cannot be parsed, or a TOML config with no available parser — and is None
+    when the file is simply absent, which is an ordinary "not installed".
+    """
+    suffix = os.path.splitext(path)[1].lower()
+    harness = HARNESS_BY_CONFIG_SUFFIX.get(suffix)
+    if harness is None:
+        return None, None, "%s: unrecognised harness config type" % path
+    if not os.path.exists(path):
+        return None, harness, None
+    try:
+        if suffix == ".toml":
+            if tomllib is None:
+                return None, harness, (
+                    "%s exists but cannot be read: Python %d.%d has no tomllib (3.11+) "
+                    "and the tomli backport is not installed, so the codex seam cannot be probed"
+                    % (path, sys.version_info[0], sys.version_info[1]))
+            with open(path, "rb") as f:
+                return tomllib.load(f), harness, None
+        with open(path, encoding="utf-8") as f:
+            return json.load(f), harness, None
+    except (OSError, ValueError) as exc:
+        # ValueError covers both JSONDecodeError and TOMLDecodeError.
+        return None, harness, "%s could not be parsed: %s" % (path, exc)
+
+
 def find_pretool_entries(settings_paths):
-    """Collect every DashClaw PreToolUse hook entry from the given settings
-    files. Returns a list of {settings_path, command, timeout_seconds,
-    effective_timer_ms, overflowed}."""
+    """Collect every DashClaw PreToolUse hook entry from the given config
+    files. Returns (entries, problems): entries are
+    {settings_path, harness, command, timeout_seconds, effective_timer_ms,
+    overflowed}; problems are readable reasons a config could not be read."""
     entries = []
+    problems = []
     for path in settings_paths:
-        try:
-            with open(path, encoding="utf-8") as f:
-                settings = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
+        config, harness, problem = load_hook_config(path)
+        if problem:
+            problems.append(problem)
+        if config is None:
             continue
-        for matcher_group in (settings.get("hooks") or {}).get("PreToolUse", []) or []:
+        for matcher_group in (config.get("hooks") or {}).get("PreToolUse", []) or []:
             for hook in matcher_group.get("hooks", []) or []:
                 command = hook.get("command") or ""
                 if "dashclaw_pretool" not in command:
                     continue
-                seconds, ms, overflowed = effective_hook_timer(hook.get("timeout"))
+                seconds, ms, overflowed = effective_hook_timer(hook.get("timeout"), harness)
                 entries.append({
                     "settings_path": path,
+                    "harness": harness,
                     "command": command,
                     "timeout_seconds": seconds,
                     "effective_timer_ms": ms,
                     "overflowed": overflowed,
                 })
-    return entries
+    return entries, problems
 
 
-def default_settings_paths(project_root):
+def codex_home():
+    return os.environ.get("CODEX_HOME") or os.path.join(os.path.expanduser("~"), ".codex")
+
+
+def default_settings_paths(project_root, runtime="unknown"):
+    """The config files to inspect when --settings is not given.
+
+    Keyed on --runtime, because each harness declares its hooks in its OWN
+    file and probing the wrong one is exactly the mislabel --runtime exists to
+    stop. Before this, EVERY run resolved to .claude/settings.json — including
+    the one codex wires with `--runtime codex`, which has never had a JSON
+    settings file. So the codex row reported the CLAUDE CODE seam's health
+    under the codex name, or `unprovable` where Claude Code was absent: the
+    drizzle/0072 failure reproduced one level down, inside the fix for it.
+    """
     home = os.path.expanduser("~")
+    if runtime == "codex":
+        return [os.path.join(codex_home(), "config.toml")]
     return [
         os.path.join(project_root, ".claude", "settings.json"),
         os.path.join(home, ".claude", "settings.json"),
@@ -338,7 +426,8 @@ def _throttle_and_detach_session_start():
 def main():
     parser = argparse.ArgumentParser(description="DashClaw enforcement-liveness probe")
     parser.add_argument("--settings", action="append", default=None,
-                        help="settings.json path(s) to inspect (default: project + global .claude/settings.json)")
+                        help="harness config path(s) to inspect, .json or .toml "
+                             "(default: derived from --runtime)")
     parser.add_argument("--source", default="manual", help="run source label (manual|session-start|ci)")
     # WHICH SEAM this probe drove, as distinct from --source (WHY it ran).
     # Claude Code and Codex both wire the probe with --source session-start, so
@@ -376,16 +465,21 @@ def main():
     witness_path = os.path.join(witness_dir, ".env")
 
     checks = []
-    settings_paths = args.settings or default_settings_paths(project_root)
-    entries = find_pretool_entries(settings_paths)
+    settings_paths = args.settings or default_settings_paths(project_root, args.runtime)
+    entries, config_problems = find_pretool_entries(settings_paths)
 
     checks.append({
         "id": "config-discovery",
-        "title": "DashClaw PreToolUse hook installed",
+        # Naming the config file in the title is what makes a per-seam verdict
+        # auditable: the reader can see WHICH harness config this run drove,
+        # not just which --runtime label it was filed under.
+        "title": "DashClaw PreToolUse hook installed (%s)" % args.runtime,
         "status": "pass" if entries else "fail",
         "detail": ("%d entr%s in %s" % (len(entries), "y" if len(entries) == 1 else "ies",
                    ", ".join(sorted({e["settings_path"] for e in entries}))))
-                  if entries else "no dashclaw_pretool entry in: %s" % ", ".join(settings_paths),
+                  if entries else "no dashclaw_pretool entry in: %s%s" % (
+                      ", ".join(settings_paths),
+                      "; " + "; ".join(config_problems) if config_problems else ""),
     })
     for entry in entries:
         checks.append({
@@ -415,7 +509,11 @@ def main():
 
     if not entries:
         verdict = "unprovable"
-        detail = "No DashClaw PreToolUse hook found — real tool calls in this project run ungoverned. Install: dashclaw install claude."
+        target = INSTALL_TARGET_BY_RUNTIME.get(args.runtime, "claude")
+        detail = ("No DashClaw PreToolUse hook found in %s — real tool calls on the %s seam run ungoverned. "
+                  "Install: dashclaw install %s.%s"
+                  % (", ".join(settings_paths), args.runtime, target,
+                     " " + " ".join(config_problems) if config_problems else ""))
     else:
         payload = build_payload(witness_path, run_id)
         results = []
