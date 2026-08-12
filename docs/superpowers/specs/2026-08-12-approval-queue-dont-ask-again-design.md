@@ -38,7 +38,9 @@ The enforcement primitive is built and hardened. This is the
 `/approvals`. Sending the human to a different page to stop the interrupt fails
 the zero-terminal / one-click test in `HUMAN-EXPERIENCE.md`.
 
-`evaluate.ts` is not modified by this work.
+`evaluate.ts` gets exactly one change: `applyAllowGrants()` takes the
+already-computed risk score and honors a grant's `max_risk` ceiling (§8). No new
+lookup, no phase reordering.
 
 ## Design
 
@@ -128,33 +130,75 @@ The already-pending queue is swept on confirm.
   "resolved by grant" record that hides the individual actions.
 - The sweep never touches actions gated by an `ungrantable` policy, even when
   the shape matches.
-- The sweep **does** release matching actions above the risk ceiling. This looks
-  inconsistent with §4 and is deliberate; see "Known gap" below.
+- The sweep never releases an action at or above the grant's `max_risk`. This is
+  the same predicate enforcement uses (§8), so the queue and the guard agree.
 
-## Known gap — the risk ceiling is a UI gate, not an enforcement gate
+## 8. Enforcement ceiling — `rules.max_risk`
 
-`applyAllowGrants()` downgrades a matching `require_approval` to `allow`
-regardless of risk score. It has no risk ceiling and this spec does not add one.
+The UI ceiling in §4 decides which cards offer the button. On its own that
+authorizes nothing, because `applyAllowGrants()` downgrades a matching
+`require_approval` to `allow` regardless of risk score. A grant created at
+risk 65 would auto-allow a **risk 90** action of the same shape for its whole
+lifetime. This spec closes that.
 
-So a grant a human creates at risk 65 will auto-allow a **risk 90** action of the
-same shape for the life of the grant. The 70 ceiling only decides which cards
-offer the button; it does not constrain what the resulting grant authorizes.
+### Rule shape
 
-This is stated rather than hidden because the honest options both cost more than
-this feature is worth on its own:
+Every new grant is stamped with `rules.max_risk`, from **both** creating
+surfaces — the new approval-card route and the existing `/policies` review
+verdict route. The value is `RISK_HIGH_MIN` (70). There is no slider: the card
+only offers the button below 70, so "this grant covers routine-risk actions of
+this shape, not high-risk ones" is the only meaning it can have.
 
-- Stamp `max_risk` into the grant rules and teach `applyAllowGrants()` to respect
-  it. Correct, but modifies `evaluate.ts` — the hot path this spec deliberately
-  does not touch — and changes the meaning of every existing grant, including the
-  ones `/policies` TriageInbox has already created.
-- Drop the UI ceiling entirely, since it does not enforce anything. Cheaper and
-  more honest, but puts "never ask again" next to a risk 92 card.
+```json
+{
+  "action_type": "apply",
+  "target_prefix": "C:\\Users\\…\\scratchpad\\build.mjs",
+  "expires_at": "2026-08-13T15:22:41.000Z",
+  "max_risk": 70,
+  "_grant": true
+}
+```
 
-Decision for this spec: keep the UI ceiling, ship the gap documented. The
-enforcement ceiling is a follow-up RFC against `evaluate.ts`, scoped to cover
-grants created by both surfaces at once. Until then, the mitigation is real but
-weak: grants are target-scoped to one exact file or host, and expire in 24h by
-default.
+### Enforcement
+
+`applyAllowGrants()` gains the already-computed `adjustedRiskScore` as a
+parameter. It is in scope at the call site (`evaluate.ts` line ~1117), so no
+phase reordering and no extra lookup — this stays off the hot path's critical
+work.
+
+A grant whose ceiling the action exceeds is skipped, and the skip is recorded:
+
+```
+<policy name>: grant does not cover risk 90 (ceiling 70)
+```
+
+The warning matters. A silent skip would read to the operator as "my grant
+stopped working" with nothing in the decision record to explain it.
+
+### Legacy grants — a deliberate behavior change
+
+A grant with no `max_risk` (every grant created before this change, including
+those from `/policies` TriageInbox) defaults to `RISK_HIGH_MIN`. Missing means
+70, not unlimited.
+
+This **tightens** existing grants: one that previously covered a risk 90 action
+now stops at 70, and that action interrupts a human again. That is the safe
+direction and the correct one for a governance runtime, but it is a real change
+in behavior for existing installs, not a no-op. It ships in the CHANGELOG under
+a behavior-change heading, and the reasoning is:
+
+- The alternative — defaulting missing to unlimited — leaves the exact hole this
+  section exists to close, and leaves it open indefinitely, since nothing ever
+  rewrites an old grant's rules.
+- The blast radius is bounded by the two properties grants already had: they are
+  target-scoped, and they expire. Every legacy grant ages out within
+  `GRANT_DEFAULT_TTL_DAYS` (30) of its `created_at` regardless.
+- Failing toward "ask the human" is the product's whole thesis.
+
+Precedent grants (`rules.precedent_flags`) go through the same ceiling. A
+precedent is an ordinary `allow_grant` with a different scoping mechanism, and
+nothing about server-authored evidence flags argues for exemption from a risk
+bound.
 
 ### 6. Revoke surface
 
@@ -208,10 +252,20 @@ Revoke reuses the existing policy deactivate path rather than adding a route.
 
 ## Testing
 
-- **Unit** — risk ceiling at exactly 69 / 70 / 71; `ungrantable` refusal;
-  unscoped shape rejection; TTL written to `rules.expires_at` for each menu value.
+- **Unit (UI gate)** — risk ceiling at exactly 69 / 70 / 71; `ungrantable`
+  refusal; unscoped shape rejection; TTL written to `rules.expires_at` for each
+  menu value; `max_risk` stamped by both creating surfaces.
+- **Unit (enforcement)** — `applyAllowGrants` honors `max_risk`: a matching grant
+  downgrades at risk 69, does not at 70 or 90, and pushes the explanatory
+  warning when it declines. A grant with **no** `max_risk` behaves as 70.
+  A precedent grant obeys the same ceiling. Blocks stay absolute at every risk.
 - **Unit** — sweep selects matching pending actions and excludes above-ceiling
-  and `ungrantable`-gated ones.
+  and `ungrantable`-gated ones, using the same predicate as enforcement.
+- **Regression** — existing `allow_grant` tests that assert a downgrade at a risk
+  score ≥ 70 will now fail by design. Each one is re-read and re-pointed, not
+  bulk-edited: a test that meant "grants downgrade" keeps its intent at a lower
+  score; a test that meant "grants downgrade *anything*" is the bug this closes
+  and gets inverted.
 - **Route** — the four documented response codes.
 - **Component** — button hidden above the ceiling; preview count matches the
   server count for a fixture queue.
@@ -226,8 +280,9 @@ Revoke reuses the existing policy deactivate path rather than adding a route.
 - Duplicate collapsing in the queue.
 - Pausing the underlying rule from the card. The root-cause fix stays on
   `/policies`; this feature treats the symptom on purpose.
-- Any change to `app/lib/guard/evaluate.ts` or the flood/interrupt-budget logic
-  in `app/lib/approval-flood.ts`.
+- Any change to the flood / interrupt-budget logic in `app/lib/approval-flood.ts`.
+- Any `evaluate.ts` change beyond the `max_risk` ceiling in §8.
+- An operator-adjustable ceiling. `RISK_HIGH_MIN` is the one number.
 
 ## Relationship to approval flood
 
