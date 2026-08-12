@@ -357,6 +357,54 @@ function hasRelevantStagedFiles() {
   return stagedFiles().some(isSourceChange);
 }
 
+// Every artifact this script owns, derived from the consts above so the list
+// can't drift from what actually gets written.
+function bundleArtifactPaths() {
+  return [
+    GOVERNANCE_SKILL_ZIP,
+    GOVERNANCE_SKILL_MANIFEST,
+    PLUGIN_BUNDLE_ZIP,
+    PLUGIN_BUNDLE_MANIFEST,
+    HOOKS_BUNDLE_ZIP,
+    HOOKS_BUNDLE_MANIFEST,
+    PLUGIN_GOVERNANCE_SKILL_DIR,
+    ...PLUGIN_HOOK_SCRIPTS.map((script) => join(PLUGIN_HOOKS_DIR, script)),
+    join(PLUGIN_HOOKS_DIR, 'dashclaw_agent_intel'),
+  ].map((path) => relative(REPO_ROOT, path).replace(/\\/g, '/'));
+}
+
+// Stage the artifacts, but ONLY in --if-staged (pre-commit) mode and only
+// once we know a bundle SOURCE is staged in this commit.
+//
+// The predicate is deliberately "is this artifact's source part of this
+// commit", NOT "did this process just rewrite the file". Those differ, and the
+// difference is the whole bug:
+//
+//   - Staging on "I wrote it" reintroduces commit 1eaff4c5 (stale zips on
+//     origin): a human who runs `npm run bundles:refresh` by hand leaves the
+//     artifacts correct-but-unstaged, so the hook's own refresh is a no-op,
+//     writes nothing, stages nothing, and the commit ships the old zip.
+//   - Staging unconditionally is what this replaced: dirty artifacts from a
+//     hand-run got swept into whichever unrelated commit happened to run
+//     first.
+//
+// Source-staged is right for both. `git add` on a file identical to HEAD is a
+// no-op, so the coarse list never manufactures a diff.
+function stageBundleArtifacts() {
+  const paths = bundleArtifactPaths().filter((path) => existsSync(resolve(REPO_ROOT, path)));
+  if (paths.length === 0) return;
+
+  const result = spawnSync('git', ['add', '--', ...paths], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    stdio: 'inherit',
+  });
+  if (result.status !== 0) {
+    throw new Error(`git add failed for bundle artifacts (exit ${result.status})`);
+  }
+  log(`staged ${paths.length} bundle artifact path(s)`);
+}
+
 async function main() {
   const ifStaged = process.argv.includes('--if-staged');
   if (ifStaged && !hasRelevantStagedFiles()) {
@@ -420,6 +468,12 @@ async function main() {
   // runs (otherwise every `pytest` invocation would trigger a zip rebuild).
   if (existsSync(HOOKS_BUNDLE_DIR)) {
     refreshBundleZip(HOOKS_BUNDLE_DIR, HOOKS_BUNDLE_ZIP, HOOKS_BUNDLE_MANIFEST, BUNDLE_EXCLUDE_RE);
+  }
+
+  // Pre-commit only. A manual `npm run bundles:refresh` must never touch the
+  // index — the human decides what goes in their commit.
+  if (ifStaged) {
+    stageBundleArtifacts();
   }
 
   log('refresh complete');

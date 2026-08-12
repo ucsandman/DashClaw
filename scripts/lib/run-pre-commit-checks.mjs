@@ -50,34 +50,26 @@ const STEPS = [
   {
     id: 'stage-artifacts',
     label: 'Stage generated artifacts',
+    // ONLY the artifacts regenerated unconditionally above (generate-api-
+    // inventory / generate-openapi). Those two steps always run, so whatever
+    // is on disk now is correct for this commit and staging it can't sweep in
+    // an unrelated edit.
+    //
+    // The bundle zips and plugin mirrors used to be listed here too. They are
+    // NOT regenerated unconditionally — `refresh-bundles.mjs --if-staged`
+    // skips entirely when no bundle source is staged — so a flat `git add`
+    // swept hand-run-dirty zips into whichever commit ran first, regardless of
+    // what that commit touched. Their staging now lives inside
+    // refresh-bundles.mjs, gated on a bundle source actually being staged,
+    // which keeps commit 1eaff4c5 (stale zips on origin) fixed. See
+    // stageBundleArtifacts() there for why "source staged" beats "I wrote it".
     command: [
       'git',
       'add',
+      '--',
       'docs/api-inventory.json',
       'docs/api-inventory.md',
       'docs/openapi/critical-stable.openapi.json',
-      // Bundle zips regenerated from sources but previously NOT auto-staged —
-      // meaning every commit that touched hooks/, plugins/dashclaw/, or
-      // governance source files left the zip stale on origin (caught in
-      // 2026-05-15 audit, see commit 1eaff4c5).
-      'public/downloads/dashclaw-claude-code-hooks.zip',
-      'public/downloads/dashclaw-claude-code-hooks.zip.manifest',
-      'public/downloads/dashclaw-governance.zip',
-      'public/downloads/dashclaw-governance.zip.manifest',
-      'public/downloads/dashclaw-governance-plugin.zip',
-      'public/downloads/dashclaw-governance-plugin.zip.manifest',
-      'plugins/dashclaw/skills/dashclaw-governance',
-      // Plugin hook mirrors (PLUGIN_HOOK_SCRIPTS outputs + the agent_intel
-      // module) — regenerated from canonical hooks/ on every refresh but
-      // previously NOT auto-staged, so every hooks/ commit left the plugin
-      // mirrors for a follow-up sync commit (e.g. ccac301e; recurred in the
-      // organ-3 run). Scripts are listed individually so the AUTHORED
-      // plugins/dashclaw/hooks/hooks.json is never swept in.
-      'plugins/dashclaw/hooks/dashclaw_pretool.py',
-      'plugins/dashclaw/hooks/dashclaw_posttool.py',
-      'plugins/dashclaw/hooks/dashclaw_stop.py',
-      'plugins/dashclaw/hooks/enforcement_liveness_probe.py',
-      'plugins/dashclaw/hooks/dashclaw_agent_intel',
     ],
     failHook: true,
   },

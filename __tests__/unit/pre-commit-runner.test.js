@@ -20,23 +20,16 @@ describe('runPreCommitChecks', () => {
     expect(execImpl.mock.calls[4][1]).toContain('scripts/check-doc-counts.mjs');
     expect(execImpl.mock.calls[4][1]).toContain('--write');
     expect(execImpl.mock.calls[4][1]).toContain('--staged-only');
+    // Only the unconditionally-regenerated docs artifacts. Bundle zips and
+    // plugin mirrors are staged by refresh-bundles.mjs itself, gated on a
+    // bundle source being staged — a flat `git add` here swept hand-run-dirty
+    // zips into unrelated commits.
     expect(execImpl.mock.calls[5][1]).toEqual([
       'add',
+      '--',
       'docs/api-inventory.json',
       'docs/api-inventory.md',
       'docs/openapi/critical-stable.openapi.json',
-      'public/downloads/dashclaw-claude-code-hooks.zip',
-      'public/downloads/dashclaw-claude-code-hooks.zip.manifest',
-      'public/downloads/dashclaw-governance.zip',
-      'public/downloads/dashclaw-governance.zip.manifest',
-      'public/downloads/dashclaw-governance-plugin.zip',
-      'public/downloads/dashclaw-governance-plugin.zip.manifest',
-      'plugins/dashclaw/skills/dashclaw-governance',
-      'plugins/dashclaw/hooks/dashclaw_pretool.py',
-      'plugins/dashclaw/hooks/dashclaw_posttool.py',
-      'plugins/dashclaw/hooks/dashclaw_stop.py',
-      'plugins/dashclaw/hooks/enforcement_liveness_probe.py',
-      'plugins/dashclaw/hooks/dashclaw_agent_intel',
     ]);
     expect(execImpl.mock.calls[6][1]).toContain('scripts/check-version-hardcodes.mjs');
     expect(execImpl.mock.calls[7][1]).toContain('scripts/check-version-sync.mjs');
