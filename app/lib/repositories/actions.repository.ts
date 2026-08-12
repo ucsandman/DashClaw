@@ -2400,7 +2400,7 @@ export async function listPendingApprovalIdsByPolicy(
   const rows = await sql.query(
     `SELECT ar.action_id FROM action_records ar
      JOIN guard_decisions gd
-       ON gd.guard_decision_id = ar.guard_decision_id AND gd.org_id = ar.org_id
+       ON gd.id = ar.guard_decision_id AND gd.org_id = ar.org_id
      WHERE ar.org_id = $1 AND ar.status = 'pending_approval'
        AND ar.created_at::timestamptz >= $3::timestamptz
        AND (ar.approval_expires_at >= NOW()
