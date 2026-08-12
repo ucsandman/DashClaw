@@ -1,5 +1,41 @@
 # Decision log
 
+## 2026-08-12 — Generated artifacts are staged on SOURCE-staged, not on "this run wrote it"
+
+**Decision.** The pre-commit `stage-artifacts` step no longer `git add`s the
+bundle zips and plugin mirrors. That staging moved into `refresh-bundles.mjs`
+(`stageBundleArtifacts()`), runs only under `--if-staged`, and is gated on the
+same `hasRelevantStagedFiles()` predicate that already decides whether to
+refresh at all. `stage-artifacts` keeps only the two artifacts regenerated
+unconditionally on every hook run (api-inventory, openapi).
+
+**Context.** `stage-artifacts` ran a flat `git add` over ~15 paths on every
+commit regardless of what that commit touched, while the generator feeding
+those paths correctly skipped when no bundle source was staged. The staging
+step did not honour the generator's decision, so artifacts left dirty by a
+manual `npm run bundles:refresh` were absorbed by whichever commit ran first.
+Hit 2026-08-12: a docs-only commit silently swallowed the liveness probe
+mirror and both zips.
+
+**Alternatives rejected.**
+- *Stage only what this hook run rewrote.* The obvious fix, and it reintroduces
+  commit `1eaff4c5` (stale zips on origin). A dev who pre-runs the refresh by
+  hand leaves the artifacts correct-but-unstaged, so the hook's own refresh is
+  a no-op that writes nothing and would stage nothing — shipping the old zip.
+  "I wrote it" and "it belongs in this commit" are different predicates.
+- *Leave it and rely on discipline* (commit the owning change first, check
+  `git show --stat`). Rejected: it had already failed once, and the failure is
+  silent at the moment it matters.
+- *Per-artifact source mapping* (hooks/ → hooks zip only). Rejected as
+  unnecessary: the plugin bundle embeds the mirrored skill, so the groups are
+  not independent, and `git add` on a file identical to HEAD stages nothing —
+  the coarse list cannot manufacture a diff.
+
+**Result.** An unrelated commit no longer sweeps dirty artifacts; a commit that
+does touch bundle sources still stages the mirrors and zips even when the
+refresh rewrites nothing. A manual `bundles:refresh` never touches the index.
+Verified against the real script on both cases before landing (`9e9bb09a`).
+
 ## 2026-08-12 — Enforcement liveness is per-seam, and the fleet verdict is the WORST seam
 
 **Decision.** `enforcement_liveness_runs` gains a `runtime` column (drizzle/0072).
