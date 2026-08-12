@@ -22,6 +22,7 @@
 import { definePluginEntry, } from 'openclaw/plugin-sdk/plugin-entry';
 import { DashClaw, } from 'dashclaw';
 import { maybeAutoPair } from './auto-pairing.js';
+import { runLivenessProbe, shouldProbeNow, PROBE_AGENT_ID } from './liveness-probe.js';
 /**
  * Resolve the DashClaw URL from (in order of precedence):
  *   1. `config.dashclawUrl`                    (canonical plugin-config key)
@@ -281,7 +282,9 @@ function classifyToolCall(toolName, params, config) {
     const classified = TOOL_CLASSIFIERS
         .map((classify) => classify(toolName, params, defaultRisk))
         .find((result) => result !== null);
-    return classified ?? classifyDefaultTool(toolName, params, defaultRisk);
+    const base = classified ?? classifyDefaultTool(toolName, params, defaultRisk);
+    const act = buildGuardAct(toolName, params);
+    return act ? { ...base, act } : base;
 }
 const WRITE_TOOLS = new Set(['write', 'edit', 'apply_patch']);
 const REVIEW_TOOLS = new Set([
@@ -292,6 +295,29 @@ const REVIEW_TOOLS = new Set([
     'memory_get',
     'image',
 ]);
+/**
+ * Translate OpenClaw tool params into the narrow evidence-first guard wire
+ * contract. Do not truncate evidence: a lost suffix could hide the risk. If a
+ * value exceeds the server contract, omit it and retain the normal classified
+ * request. File content is intentionally excluded, since a path is sufficient
+ * for protected/sensitive-path policies and content may itself be sensitive.
+ */
+function buildGuardAct(toolName, params) {
+    if (toolName === 'bash' || toolName === 'exec') {
+        const command = params?.command;
+        if (typeof command === 'string' && command.length > 0 && command.length <= 8192) {
+            return { kind: 'shell', command };
+        }
+        return undefined;
+    }
+    if (WRITE_TOOLS.has(toolName)) {
+        const path = params?.file_path ?? params?.path;
+        if (typeof path === 'string' && path.length > 0 && path.length <= 1024) {
+            return { kind: 'file', file: { path } };
+        }
+    }
+    return undefined;
+}
 const TOOL_CLASSIFIERS = [
     classifyShellTool,
     classifyWriteTool,
@@ -356,6 +382,37 @@ function registerRunCleanup(api, config) {
 }
 function registerOutcomeRecorder(api, config) {
     api.on('after_tool_call', async (event, _ctx) => handleAfterToolCall(event, config));
+}
+/**
+ * Enforcement-liveness probe on `session_start` (v8.2; per-seam since
+ * drizzle/0072). Proves the `before_tool_call` veto above actually HOLDS a
+ * synthetic action, and files the verdict under `runtime: openclaw` so this
+ * seam is scored on its own instead of inheriting another runtime's green.
+ *
+ * Fire-and-forget, like maybeAutoPair: session start is never delayed or
+ * failed by it. Self-throttled to once per 12h.
+ *
+ * It drives handleBeforeToolCall — the REAL handler, not a copy — under a
+ * synthetic identity. `smoke-` prefixed agents are excluded from every
+ * aggregate, and the identity swap is orthogonal to the enforcement mechanics
+ * being probed, so it costs no seam fidelity while keeping the probe's guard
+ * rows out of the operator's real numbers.
+ */
+function registerLivenessProbe(api, config) {
+    api.on('session_start', async (_event, _ctx) => {
+        if (!config.dashclawUrl || !config.dashclawApiKey)
+            return;
+        if (!shouldProbeNow())
+            return;
+        const probeConfig = { ...config, agentId: PROBE_AGENT_ID };
+        void runLivenessProbe({
+            dashclawUrl: config.dashclawUrl,
+            dashclawApiKey: config.dashclawApiKey,
+            driveSeam: (event) => handleBeforeToolCall(event, probeConfig),
+        }).catch((err) => {
+            console.warn(`[dashclaw-governance] liveness probe failed: ${errorMessage(err) || 'unknown'}`);
+        });
+    });
 }
 async function handleBeforeToolCall(event, config) {
     const { toolName, params, toolCallId, runId } = event;
@@ -426,6 +483,7 @@ async function guardClassifiedAction(client, classification, config) {
                 declared_goal: classification.declaredGoal,
                 reversible: classification.reversible,
                 systems_touched: classification.systemsTouched,
+                ...(classification.act ? { act: classification.act } : {}),
             }),
         };
     }
@@ -474,6 +532,7 @@ async function createGovernanceAction(ctx) {
             risk_score: riskScore,
             reversible,
             systems_touched: systemsTouched,
+            ...(ctx.classification.act ? { act: ctx.classification.act } : {}),
             metadata: { openclaw_tool_name: ctx.toolName },
         });
         return {
@@ -692,6 +751,7 @@ const pluginEntry = definePluginEntry({
         registerTokenAttribution(api, config);
         registerRunCleanup(api, config);
         registerOutcomeRecorder(api, config);
+        registerLivenessProbe(api, config);
     },
 });
 export default pluginEntry;

@@ -29,19 +29,24 @@ export default function ApprovalPauseBanner({ onResumed }: { onResumed?: () => v
   const [pause, setPause] = useState<PauseState | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (isCancelled?: () => boolean) => {
     try {
       const res = await fetch('/api/approval-pause', { cache: 'no-store' });
       if (!res.ok) return; // best-effort surface — stay hidden on failure
       const json = await res.json();
+      if (isCancelled?.()) return;
       setPause(json.pause ?? null);
     } catch { /* best-effort surface — stay hidden on fetch failure */ }
   }, []);
 
   useEffect(() => {
-    load();
-    const t = setInterval(load, 30_000);
-    return () => clearInterval(t);
+    // Same cancellation contract as ObserveModeBanner next door: never set
+    // state after unmount.
+    let cancelled = false;
+    const isCancelled = () => cancelled;
+    load(isCancelled);
+    const t = setInterval(() => load(isCancelled), 30_000);
+    return () => { cancelled = true; clearInterval(t); };
   }, [load]);
 
   const resume = useCallback(async () => {

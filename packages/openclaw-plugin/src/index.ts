@@ -30,6 +30,7 @@ import {
   type GuardDecision,
 } from 'dashclaw';
 import { maybeAutoPair } from './auto-pairing.js';
+import { runLivenessProbe, shouldProbeNow, PROBE_AGENT_ID } from './liveness-probe.js';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -614,6 +615,38 @@ function registerOutcomeRecorder(api: OpenClawPluginApi, config: PluginConfig): 
   );
 }
 
+/**
+ * Enforcement-liveness probe on `session_start` (v8.2; per-seam since
+ * drizzle/0072). Proves the `before_tool_call` veto above actually HOLDS a
+ * synthetic action, and files the verdict under `runtime: openclaw` so this
+ * seam is scored on its own instead of inheriting another runtime's green.
+ *
+ * Fire-and-forget, like maybeAutoPair: session start is never delayed or
+ * failed by it. Self-throttled to once per 12h.
+ *
+ * It drives handleBeforeToolCall — the REAL handler, not a copy — under a
+ * synthetic identity. `smoke-` prefixed agents are excluded from every
+ * aggregate, and the identity swap is orthogonal to the enforcement mechanics
+ * being probed, so it costs no seam fidelity while keeping the probe's guard
+ * rows out of the operator's real numbers.
+ */
+function registerLivenessProbe(api: OpenClawPluginApi, config: PluginConfig): void {
+  api.on('session_start', async (_event, _ctx) => {
+    if (!config.dashclawUrl || !config.dashclawApiKey) return;
+    if (!shouldProbeNow()) return;
+    const probeConfig: PluginConfig = { ...config, agentId: PROBE_AGENT_ID };
+    void runLivenessProbe({
+      dashclawUrl: config.dashclawUrl,
+      dashclawApiKey: config.dashclawApiKey,
+      driveSeam: (event) => handleBeforeToolCall(event as ToolCallEvent, probeConfig),
+    }).catch((err) => {
+      console.warn(
+        `[dashclaw-governance] liveness probe failed: ${errorMessage(err) || 'unknown'}`
+      );
+    });
+  });
+}
+
 async function handleBeforeToolCall(
   event: ToolCallEvent,
   config: PluginConfig,
@@ -1046,6 +1079,7 @@ const pluginEntry: ReturnType<typeof definePluginEntry> = definePluginEntry({
     registerRunCleanup(api, config);
 
     registerOutcomeRecorder(api, config);
+    registerLivenessProbe(api, config);
   },
 });
 

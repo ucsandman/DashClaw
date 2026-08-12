@@ -40,26 +40,32 @@ export default function ApprovalPausePanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (isCancelled?: () => boolean) => {
     try {
       const res = await fetch('/api/approval-pause', { cache: 'no-store' });
       if (!res.ok) throw new Error(`Could not read the approval pause (HTTP ${res.status})`);
       const data = await res.json();
-      setPause(data.pause);
+      if (isCancelled?.()) return;
+      setPause(data.pause ?? null);
       setWindows(data.window_hours ?? []);
       setError(null);
     } catch (err) {
+      if (isCancelled?.()) return;
       setError((err as Error).message);
     }
   }, []);
 
   useEffect(() => {
-    load();
+    // Same cancellation contract as ObserveModeBanner: never set state after
+    // unmount, so a slow response cannot land on a torn-down tree.
+    let cancelled = false;
+    const isCancelled = () => cancelled;
+    load(isCancelled);
     // Coarse on purpose (principle 3, calm under pressure): a pause measured
     // in hours does not need a per-second countdown, and a ticking clock on an
     // operational surface reads as an alarm board.
-    const t = setInterval(load, 30_000);
-    return () => clearInterval(t);
+    const t = setInterval(() => load(isCancelled), 30_000);
+    return () => { cancelled = true; clearInterval(t); };
   }, [load]);
 
   const mutate = useCallback(async (method: 'POST' | 'DELETE', hours?: number) => {

@@ -146,6 +146,11 @@ describe('@dashclaw/openclaw-plugin', () => {
       'llm_output',
       'agent_end',
       'after_tool_call',
+      // Enforcement-liveness probe (v8.2). Registered last and read-only from
+      // the gateway's point of view: it drives before_tool_call above with a
+      // synthetic action to prove the veto still holds, under a `smoke-`
+      // agent id that every aggregate excludes.
+      'session_start',
     ]);
   });
 
