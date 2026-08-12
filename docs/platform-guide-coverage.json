@@ -1,7 +1,7 @@
 {
   "generatedAt": "2026-07-06",
   "note": "Maps every inventoried surface item to the /guides/platform section documenting it. liveVerified=true means the exact interface was exercised against a running instance during capture; everything else is documented from source code reads.",
-  "total": 1438,
+  "total": 1439,
   "liveVerified": 36,
   "codeOnly": 1402,
   "items": [
@@ -1064,6 +1064,13 @@
     },
     {
       "item": "POST /api/approvals/{actionId}",
+      "kind": "api",
+      "status": "experimental",
+      "section": "Approvals (#api-approvals)",
+      "liveVerified": false
+    },
+    {
+      "item": "POST /api/approvals/{actionId}/grant",
       "kind": "api",
       "status": "experimental",
       "section": "Approvals (#api-approvals)",
@@ -9939,21 +9946,21 @@
       "liveVerified": false
     },
     {
-      "item": "DashClaw plugin — Claude Code manifest",
+      "item": "DashClaw plugin \u2014 Claude Code manifest",
       "kind": "plugin",
       "status": "stable",
       "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
       "liveVerified": false
     },
     {
-      "item": "DashClaw plugin — Codex manifest",
+      "item": "DashClaw plugin \u2014 Codex manifest",
       "kind": "plugin",
       "status": "stable",
       "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
       "liveVerified": false
     },
     {
-      "item": "DashClaw plugin — Hermes Agent manifest",
+      "item": "DashClaw plugin \u2014 Hermes Agent manifest",
       "kind": "plugin",
       "status": "beta",
       "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
@@ -9967,14 +9974,14 @@
       "liveVerified": false
     },
     {
-      "item": "MCP config — Claude Code (.mcp-claude.json)",
+      "item": "MCP config \u2014 Claude Code (.mcp-claude.json)",
       "kind": "plugin",
       "status": "stable",
       "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
       "liveVerified": false
     },
     {
-      "item": "MCP config — Codex + Hermes (.mcp.json)",
+      "item": "MCP config \u2014 Codex + Hermes (.mcp.json)",
       "kind": "plugin",
       "status": "stable",
       "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
