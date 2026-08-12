@@ -107,6 +107,21 @@ dashclaw halt off                                 # resume normal guard evaluati
 
 The halt is absolute at the decision layer (propagates across instances in ~3 s); whether a blocked action is mechanically stopped depends on the surface — see `docs/architecture/enforcement-boundary.md` in the repo.
 
+### `dashclaw backfill`
+
+Reconciles the actions that ran while the guard was unreachable.
+
+When the guard cannot be reached, the hooks write each ungoverned action to `~/.dashclaw/orphan-actions.jsonl` and tell you it is "logged for backfill on guard recovery". This is the command that makes good on that: it reads the file, posts each record to the instance, and closes the audit gap.
+
+```bash
+dashclaw backfill                       # reconcile ~/.dashclaw/orphan-actions.jsonl
+dashclaw backfill --file ./orphans.jsonl  # reconcile a specific file
+```
+
+It is safe to re-run. Each record carries a stable idempotency key derived from its own content, so a record that already landed is reported as `already recorded` rather than duplicated. Only lines that actually posted are removed — malformed records and failed posts stay in the file for the next run, and the rewrite is write-then-rename so a crash mid-write cannot truncate the file and lose records that never made it. The summary reports found / posted / replayed / skipped / failed / remaining, and the command exits non-zero whenever anything is left in the file — failed or skipped — so a scripted recovery cannot mistake a partial reconciliation for a complete one.
+
+The file lives on the machine the agent ran on, which is why this is a terminal command and not a dashboard button — nothing server-side can reach it.
+
 ### `dashclaw contained list|diff|apply`
 
 Terminal client for Containment Verdicts (RFC 2026-07-06): an agent's provably file-scoped change is staged in an isolated git worktree instead of applied directly, and an operator reviews the diff before it merges.
