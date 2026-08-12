@@ -18,8 +18,12 @@ export {
   invalidateGuardRiskTemplateCache,
   invalidateGuardSettingsCache,
   getOrgHaltState,
+  getActiveApprovalPause,
+  approvalPauseIsActive,
+  APPROVAL_PAUSE_KEY,
   __resetGuardCaches,
 } from './guard/caches';
+export type { ApprovalPauseState } from './guard/caches';
 export { persistGuardDecision } from './guard/persistence';
 export { evaluateGuard } from './guard/evaluate';
 export type { PromptInjectionShieldStatus } from './guard/evaluate';

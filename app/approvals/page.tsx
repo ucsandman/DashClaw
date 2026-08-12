@@ -25,6 +25,7 @@ import { BulkActionBar } from '../components/selection/BulkActionBar';
 import { bulkAction } from '../lib/bulkAction';
 import { EntityLink } from '../components/context-menu/EntityLink';
 import ApprovalFloodBanner from '../components/ApprovalFloodBanner';
+import ApprovalPauseBanner from '../components/ApprovalPauseBanner';
 import ObserveModeBanner from '../components/ObserveModeBanner';
 import PlanReviewCard from './_components/PlanReviewCard';
 import LivePlansSection from './_components/LivePlansSection';
@@ -356,6 +357,10 @@ export default function ApprovalsPage() {
       <div className="mx-auto max-w-5xl">
         {/* F0: an approval queue whose gates don't stop anything must say so. */}
         <ObserveModeBanner />
+        {/* Same class of honesty as the observe banner above: while a pause is
+            live, an empty inbox means "not being asked", not "nothing needed
+            you". Refetches the queue on resume so the two agree immediately. */}
+        <ApprovalPauseBanner onResumed={() => fetchPending({ silent: true })} />
         <ApprovalFloodBanner onResolved={() => fetchPending({ silent: true })} />
         {isDemo && (
           <Banner icon={Info} tone="neutral" title="Demo Mode">

@@ -461,6 +461,21 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   support), never a governance capability. Not a revival of the culled
   MON-01 counter or Pro-tier framing: no live counter, no trigger metric,
   fixed prices instead.
+- **2026-08-12 — Active API routes 131 → 132 (`/api/approval-pause`).** The
+  bounded, self-expiring approval pause: while it is live a
+  `require_approval` verdict proceeds instead of waiting for a human. It
+  earns a surface because the alternative is the one MAINTAINER.md already
+  records — "all org policies were turned off for 18 days in June 2026
+  because of friction". An operator who cannot get relief takes it by
+  deleting their policy set, and gets no expiry, no banner, and no record.
+  This route is that act made bounded (1/4/8/24h windows only), reversible
+  (policy rows are never touched, so expiry restores the exact prior
+  posture), loud (banners on `/policies` and `/approvals`), and honest (the
+  decision is stamped "proceeded under an operator pause", never
+  "approved"). It cannot downgrade a `block`, and it cannot clear a verdict
+  raised by an `ungrantable` rule, so the control plane still interrupts.
+  No new table — the state is one settings key riding the guard's existing
+  category-general read, so the hot path costs no extra query.
 
 ## Version story
 

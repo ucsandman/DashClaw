@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `131`
+- Total routes: `132`
 - Stable routes: `42`
 - Beta routes: `18`
-- Experimental routes: `71`
+- Experimental routes: `72`
 
 ## Routes
 
@@ -34,6 +34,7 @@ doc-type: architecture
 | `/api/admin/trigger-outcome-sweep` | `POST` | `experimental` | `(default)` | `app/api/admin/trigger-outcome-sweep/route.ts` |
 | `/api/agents` | `GET` | `experimental` | `/api/agents` | `app/api/agents/route.ts` |
 | `/api/agents/fanouts` | `GET` | `experimental` | `/api/agents` | `app/api/agents/fanouts/route.ts` |
+| `/api/approval-pause` | `DELETE, GET, POST` | `experimental` | `(default)` | `app/api/approval-pause/route.ts` |
 | `/api/approvals/bulk` | `POST` | `experimental` | `(default)` | `app/api/approvals/bulk/route.ts` |
 | `/api/approvals/floods` | `GET` | `experimental` | `(default)` | `app/api/approvals/floods/route.ts` |
 | `/api/approvals/{actionId}` | `POST` | `experimental` | `(default)` | `app/api/approvals/[actionId]/route.ts` |

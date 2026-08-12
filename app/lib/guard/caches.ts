@@ -43,6 +43,26 @@ const calibrationStateCache = new Map<string, { state: CalibrationState | null; 
 const HALT_CACHE_TTL_MS = 3_000;
 const orgHaltCache = new Map<string, { halt: OrgHaltState | null; expires: number }>();
 
+/**
+ * Operator-set approval pause: while `until` is in the future, require_approval
+ * verdicts proceed instead of queueing for a human (see applyApprovalPause in
+ * evaluate.ts for what it deliberately does NOT cover). Shares the halt cache's
+ * 3s TTL rather than the 30s settings TTL, for the same reason: RESUMING
+ * governance is a safety action and must not lag a warm instance by half a
+ * minute. It rides the settings read halt already forces, so it costs no extra
+ * round trip.
+ */
+export const APPROVAL_PAUSE_KEY = 'DASHCLAW_APPROVAL_PAUSE';
+export interface ApprovalPauseState {
+  /** ISO timestamp. The pause is inert once this passes — expiry is evaluated
+   *  on every read, so a stale cache entry can never extend it. */
+  until: string;
+  actor?: string | null;
+  reason?: string | null;
+  at?: string | null;
+}
+const approvalPauseCache = new Map<string, { pause: ApprovalPauseState | null; expires: number }>();
+
 // Bound cache growth: nothing removed these maps between the targeted
 // invalidate* calls below and __resetGuardCaches() (test-only), so an org
 // evaluated once and never touched again left an entry resident for the
@@ -86,11 +106,13 @@ export function invalidateGuardSettingsCache(orgId?: string): void {
   if (orgId) {
     predictiveSettingsCache.delete(orgId);
     orgHaltCache.delete(orgId);
+    approvalPauseCache.delete(orgId);
     calibrationSettingsCache.delete(orgId);
     calibrationStateCache.delete(orgId);
   } else {
     predictiveSettingsCache.clear();
     orgHaltCache.clear();
+    approvalPauseCache.clear();
     calibrationSettingsCache.clear();
     calibrationStateCache.clear();
   }
@@ -128,12 +150,35 @@ export async function getOrgHaltState(sql: GuardSql, orgId: string): Promise<Org
   return (await loadGeneralSettings(sql, orgId)).halt;
 }
 
+/**
+ * The org's approval pause, or null when none is set OR the set one has
+ * expired. Expiry is decided here, on every read, against `until` — so a
+ * forgotten pause turns itself off without a cron, a reaper, or a write, and
+ * a warm cache entry can never keep an expired pause alive.
+ */
+export async function getActiveApprovalPause(sql: GuardSql, orgId: string): Promise<ApprovalPauseState | null> {
+  const hit = approvalPauseCache.get(orgId);
+  const pause = hit && hit.expires > Date.now()
+    ? hit.pause
+    : (await loadGeneralSettings(sql, orgId)).approvalPause;
+  return approvalPauseIsActive(pause) ? pause : null;
+}
+
+/** Shared by the guard pass, the API route and the UI, so "is it on?" is
+ *  answered the same way everywhere. */
+export function approvalPauseIsActive(pause: ApprovalPauseState | null | undefined): pause is ApprovalPauseState {
+  if (!pause || typeof pause.until !== 'string') return false;
+  const until = Date.parse(pause.until);
+  return Number.isFinite(until) && until > Date.now();
+}
+
 /** Test-only: clear all guard hot-path caches. */
 export function __resetGuardCaches(): void {
   policyCache.clear();
   predictiveSettingsCache.clear();
   riskTemplateCache.clear();
   orgHaltCache.clear();
+  approvalPauseCache.clear();
   calibrationSettingsCache.clear();
   calibrationStateCache.clear();
 }
@@ -207,14 +252,18 @@ export async function loadApplicablePolicies(sql: GuardSql, orgId: string, curre
 // settings table is read at most once per org per TTL window. (The org kill
 // switch deliberately does NOT ride this entry — it has its own 3s cache in
 // getOrgHaltState so a halt reaches every warm instance fast.)
-function parseHaltSetting(value: unknown): OrgHaltState | null {
+function parseJsonSetting<T>(value: unknown): T | null {
   if (typeof value !== 'string' || !value) return null;
   try {
     const parsed = JSON.parse(value);
-    return parsed && typeof parsed === 'object' ? (parsed as OrgHaltState) : null;
+    return parsed && typeof parsed === 'object' ? (parsed as T) : null;
   } catch {
     return null;
   }
+}
+
+function parseHaltSetting(value: unknown): OrgHaltState | null {
+  return parseJsonSetting<OrgHaltState>(value);
 }
 
 // ONE settings read fills the predictive (30s), halt (3s) AND calibration
@@ -222,7 +271,7 @@ function parseHaltSetting(value: unknown): OrgHaltState | null {
 // halt lag at ~3s; each halt refresh re-fills the other entries too (fresher
 // than their TTL requires, never staler). Cold evaluations still cost exactly
 // one settings query — the guard-hotpath round-trip budget counts on it.
-async function loadGeneralSettings(sql: GuardSql, orgId: string): Promise<{ enabled: boolean; threshold: number; halt: OrgHaltState | null }> {
+async function loadGeneralSettings(sql: GuardSql, orgId: string): Promise<{ enabled: boolean; threshold: number; halt: OrgHaltState | null; approvalPause: ApprovalPauseState | null }> {
   const { getSettings } = await import('../repositories/settings.repository');
   const riskSettings = await getSettings(sql, orgId, { category: 'general' });
   const settingsList = riskSettings as Array<Record<string, unknown>>;
@@ -233,16 +282,21 @@ async function loadGeneralSettings(sql: GuardSql, orgId: string): Promise<{ enab
     expires: now + GUARD_CACHE_TTL_MS,
   };
   const halt = parseHaltSetting(settingsList.find((s) => s.key === 'DASHCLAW_ORG_HALT')?.value);
+  const approvalPause = parseJsonSetting<ApprovalPauseState>(
+    settingsList.find((s) => s.key === APPROVAL_PAUSE_KEY)?.value,
+  );
   predictiveSettingsCache.set(orgId, predictive);
   pruneCache(predictiveSettingsCache, now);
   orgHaltCache.set(orgId, { halt, expires: now + HALT_CACHE_TTL_MS });
   pruneCache(orgHaltCache, now);
+  approvalPauseCache.set(orgId, { pause: approvalPause, expires: now + HALT_CACHE_TTL_MS });
+  pruneCache(approvalPauseCache, now);
   calibrationSettingsCache.set(orgId, {
     settings: parseCalibrationSettings(settingsList as Array<{ key?: unknown; value?: unknown }>),
     expires: now + GUARD_CACHE_TTL_MS,
   });
   pruneCache(calibrationSettingsCache, now);
-  return { enabled: predictive.enabled, threshold: predictive.threshold, halt };
+  return { enabled: predictive.enabled, threshold: predictive.threshold, halt, approvalPause };
 }
 
 async function getCalibrationSettings(sql: GuardSql, orgId: string): Promise<CalibrationSettings> {

@@ -45,10 +45,10 @@
     ]
   },
   "summary": {
-    "total_routes": 131,
+    "total_routes": 132,
     "stable_routes": 42,
     "beta_routes": 18,
-    "experimental_routes": 71
+    "experimental_routes": 72
   },
   "routes": [
     {
@@ -162,6 +162,17 @@
       "maturity": "experimental",
       "matched_prefix": "/api/agents",
       "file": "app/api/agents/fanouts/route.ts"
+    },
+    {
+      "path": "/api/approval-pause",
+      "methods": [
+        "DELETE",
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/approval-pause/route.ts"
     },
     {
       "path": "/api/approvals/bulk",

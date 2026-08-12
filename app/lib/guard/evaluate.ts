@@ -14,7 +14,7 @@ import { grantMatches, grantIsExpired } from '../policy-shapes';
 import { DECISION_SEVERITY, sevOf } from './internal';
 import type { GuardSql, GuardEvalContext, PolicyRow, PolicyRules, PolicyResult, Preliminary, GuardDecisionInsert } from './types';
 import { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, isKnownPolicyType } from './policy';
-import { getOrgHaltState, loadApplicablePolicies, getPredictiveSettings, getCalibrationRuntime } from './caches';
+import { getOrgHaltState, getActiveApprovalPause, loadApplicablePolicies, getPredictiveSettings, getCalibrationRuntime } from './caches';
 import { assessCalibration, CALIBRATION_POLICY_ID } from './calibration';
 import type { CalibrationAssessment } from './calibration';
 import { serverRiskTerms, computeEffectiveRisk, computeRiskAssessment } from './risk';
@@ -335,6 +335,63 @@ function applyAllowGrants(policies: PolicyRow[], context: GuardEvalContext, acc:
       acc.reasons.length = 0; // gating reasons no longer apply
       return;
     }
+  }
+}
+
+/**
+ * Approval-pause post-pass: while an operator-set pause is live, a
+ * require_approval verdict proceeds instead of queueing for a human.
+ *
+ * Why this exists at all. Approval fatigue is the documented cause of
+ * governance being switched off wholesale here — MAINTAINER.md records "all
+ * org policies were turned off for 18 days in June 2026 because of friction",
+ * and the product metric it names is precision of interruption. A bounded,
+ * self-expiring, loudly-rendered pause is the harm-reduction form of the thing
+ * operators do anyway: they get relief without deleting their policy set, and
+ * the posture restores itself instead of depending on anyone remembering.
+ *
+ * Four things it deliberately does NOT do:
+ *  - It never touches `block`. Blocks are absolute (MAINTAINER.md §1), so this
+ *    pass returns early on anything that is not exactly require_approval.
+ *  - It never clears a verdict raised by an `ungrantable` rule (F1), so
+ *    control-plane and catastrophe interruptions still reach a human. Opening
+ *    those would make the pause a wider hole than the whole grant pile.
+ *  - It never edits a policy row. Configuration is untouched, so expiry
+ *    restores the exact prior posture with nothing to reconcile.
+ *  - It never claims a human approved anything. The downgrade is stamped onto
+ *    the decision (matched policy + warning) so the ledger reads "proceeded
+ *    under an operator pause", not "approved" — the same honesty contract
+ *    observe mode carries.
+ *
+ * Read-only, so it also runs under `simulate`: a preflight preview must show
+ * the posture the real call would meet. It runs BEFORE the consuming grant
+ * passes so a pause never burns an operator's single-use approval.
+ */
+async function applyApprovalPause(deps: GuardPhaseDeps, acc: GuardAccumulator): Promise<void> {
+  if (acc.highestDecision !== 'require_approval') return;
+  const ungrantable = acc.gatingPolicies.find((g) => g.ungrantable);
+  if (ungrantable) {
+    acc.warnings.push(
+      `${ungrantable.name}: marked ungrantable — the approval pause cannot clear this verdict`
+    );
+    return;
+  }
+  try {
+    const pause = await getActiveApprovalPause(deps.sql, deps.orgId);
+    if (!pause) return;
+    acc.warnings.push(
+      `Approval pause active until ${pause.until}${pause.actor ? ` (set by ${pause.actor})` : ''} — ` +
+      'require_approval proceeded WITHOUT human review. No human approved this action.'
+    );
+    acc.matchedPolicies.push('builtin:approval_pause');
+    acc.highestDecision = 'allow';
+    // Same forensic move as the grant passes: the gating reasons stop deciding
+    // but stay visible, so the row still says WHY this would have interrupted.
+    acc.warnings.push(...acc.reasons.map((r) => `paused past: ${r}`));
+    acc.reasons.length = 0;
+  } catch (err) {
+    // Fail closed: an unreadable pause leaves require_approval standing.
+    console.warn('[Guard] approval-pause lookup failed:', (err as Error).message);
   }
 }
 
@@ -1058,6 +1115,12 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     // approval pass runs after policy grants: it only fires when the decision
     // is still require_approval.
     applyAllowGrants(policies, context, liveAcc);
+    // Before the CONSUMING grant passes below: when a pause is live there is
+    // nothing to consume, and burning an operator's single-use approval for a
+    // call that was going to proceed anyway would strand a real approval.
+    // Read-only, so it runs under simulate too — a preflight preview has to
+    // show the posture the real call would meet.
+    await timed('approval-pause', () => applyApprovalPause(deps, liveAcc));
     if (!options.simulate) {
       // W2: an evaluation the deadline already abandoned has its result
       // discarded (the deadline branch below returns a degraded decision

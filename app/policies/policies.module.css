@@ -724,6 +724,67 @@
   .inboxItem { flex-wrap: wrap; }
 }
 
+/* ---------- approval pause ----------
+   Warning tone, not error. The error tone next door (.inertBanner) is for the
+   product LYING to you — a rule that reads active while enforcing nothing.
+   This state is operator-chosen, bounded, counted down on screen and says so
+   in words, so it is a loud honest posture rather than a false one. It still
+   gets a full banner: an unenforced posture nobody can see is the failure
+   mode this product exists to prevent. */
+.pausePanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+.pauseOffHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+.pauseActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pauseHint {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+.pauseBannerOn {
+  border-color: var(--color-warning);
+  background: var(--color-warning-subtle);
+  padding: 14px 16px;
+  margin-top: 12px;
+}
+.pauseHeadOn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-warning);
+  font-size: 14px;
+  font-weight: 600;
+}
+.pauseBody {
+  margin: 8px 0 12px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 72ch;
+}
+.pauseError {
+  margin: 8px 0 0;
+  color: var(--color-error);
+  font-size: 12px;
+}
+.spin { animation: pauseSpin 0.9s linear infinite; }
+@keyframes pauseSpin { to { transform: rotate(360deg); } }
+
 @media (prefers-reduced-motion: reduce) {
   .btn, .toggle, .toggle::after, .miniToggle::after, .chip, .card, .shield, .chev { transition: none; }
+  .spin { animation: none; }
 }

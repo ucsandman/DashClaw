@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Clock, ArrowRight, ShieldOff } from 'lucide-react';
 import type { PolicySummary } from '../lib/modesClient';
+import ApprovalPausePanel from './ApprovalPausePanel';
 import styles from '../policies.module.css';
 
 /**
@@ -156,6 +157,11 @@ export default function PostureHero({ summary, friction, inboxCount, onReviewSup
           <span>No interruptions in the last 7 days. Your policy set is governing quietly.</span>
         )}
       </div>
+
+      {/* Directly under the friction sentence: that sentence is where the
+          operator reads what this policy set has cost them in attention, so the
+          relief valve belongs against it rather than buried in settings. */}
+      <ApprovalPausePanel />
     </>
   );
 }

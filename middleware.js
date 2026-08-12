@@ -968,7 +968,22 @@ async function resolveDemoState(request) {
 // ── Demo sandbox: /api/* dispatch ───────────────────────────────────────────
 
 // Allow simulated actions, assumptions, and guard checks in demo mode.
+// The approval pause is operable in demo: its demo state is module-scope and
+// gates nothing real, and a pause the visitor cannot turn back OFF would
+// demonstrate the opposite of the property that makes the feature safe. DELETE
+// is exempt for that reason, not just POST.
+//
+// /api/halt is deliberately NOT listed. Its POST branch is unreachable behind
+// this same write-block, which reads as an oversight given the handler's
+// "fully clickable in the demo" comment — but that behaviour is pinned by a
+// characterization test (middleware.test.js, "QUIRK: POST /api/halt hits the
+// write-block BEFORE the halt handler"), so it is a recorded decision to leave
+// alone, not a stray bug. Exempting it would also let one anonymous visitor
+// halt the shared demo org for everyone on that instance.
 function isDemoSimulationRequest(pathname, method) {
+  if (pathname === '/api/approval-pause') {
+    return method === 'POST' || method === 'DELETE';
+  }
   const simulationPath =
     pathname === '/api/guard' ||
     pathname === '/api/actions' ||
@@ -1188,6 +1203,49 @@ async function handleDemoHaltRoute({ request, method }) {
   return demoJson(request, { halt: demoHaltState });
 }
 
+// Demo approval pause: same module-scope shape as the kill switch above, so
+// the pause control on /policies and its banner on /approvals are fully
+// clickable in the demo (pausing gates nothing real; state resets on cold
+// start). Mirrors /api/approval-pause's { pause, window_hours } shape,
+// including the self-expiry — the demo should demonstrate that the pause wears
+// off, since that is the property that makes it safe.
+const DEMO_PAUSE_WINDOW_HOURS = [1, 4, 8, 24];
+const DEMO_NOT_PAUSED = { active: false, until: null, actor: null, reason: null, at: null, remaining_seconds: 0 };
+let demoPauseUntil = null;
+function demoPauseView() {
+  const remainingMs = demoPauseUntil ? Date.parse(demoPauseUntil) - Date.now() : 0;
+  if (!demoPauseUntil || !(remainingMs > 0)) return DEMO_NOT_PAUSED;
+  return {
+    active: true,
+    until: demoPauseUntil,
+    actor: 'demo-operator',
+    reason: null,
+    at: null,
+    remaining_seconds: Math.round(remainingMs / 1000),
+  };
+}
+async function handleDemoApprovalPauseRoute({ request, method }) {
+  if (method === 'POST') {
+    try {
+      const bodyText = await request.text();
+      const body = bodyText ? JSON.parse(bodyText) : {};
+      const hours = Number(body.hours);
+      if (!DEMO_PAUSE_WINDOW_HOURS.includes(hours)) {
+        return demoJson(request, { error: `hours must be one of ${DEMO_PAUSE_WINDOW_HOURS.join(', ')}` }, 400);
+      }
+      demoPauseUntil = new Date(Date.now() + hours * 3600000).toISOString();
+      return demoJson(request, { ok: true, pause: demoPauseView() });
+    } catch (e) {
+      return demoJson(request, { error: `Invalid request body: ${e.message}` }, 400);
+    }
+  }
+  if (method === 'DELETE') {
+    demoPauseUntil = null;
+    return demoJson(request, { ok: true, pause: DEMO_NOT_PAUSED });
+  }
+  return demoJson(request, { pause: demoPauseView(), window_hours: DEMO_PAUSE_WINDOW_HOURS });
+}
+
 function handleDemoWebhookDeliveries({ request, fixtures, segments }) {
   const webhookId = segments[2];
   return demoJson(request, demoWebhookDeliveries(fixtures, webhookId));
@@ -1331,6 +1389,7 @@ const DEMO_API_ROUTES = [
   // Guard + messaging + team + activity
   ['/api/guard', handleDemoGuardRoute],
   ['/api/halt', handleDemoHaltRoute],
+  ['/api/approval-pause', handleDemoApprovalPauseRoute],
   ['/api/content', demoFixtureUrlRoute(demoContent)],
   ['/api/activity', demoFixtureUrlRoute(demoActivity)],
   ['/api/webhooks', demoFixtureRoute(demoWebhooks)],
