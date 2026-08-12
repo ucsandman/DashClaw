@@ -11,7 +11,11 @@ import {
   normalizeFlags,
   PRECEDENT_ELIGIBLE,
   NEVER_PRECEDENTED,
+  grantMaxRisk,
+  grantCoversRisk,
+  GRANT_DEFAULT_MAX_RISK,
 } from '@/lib/policy-shapes';
+import { RISK_HIGH_MIN } from '@/lib/riskThresholds';
 
 describe('normalizeTarget', () => {
   it('reduces a URL to its host', () => {
@@ -325,5 +329,46 @@ describe('extractDecisionShape', () => {
       context: JSON.stringify({ write_paths: ['sdk/lib/index.ts'] }),
     });
     expect(s.target_prefix).toBeNull();
+  });
+});
+
+describe('grant risk ceiling', () => {
+  it('defaults a grant with no max_risk to RISK_HIGH_MIN', () => {
+    expect(GRANT_DEFAULT_MAX_RISK).toBe(RISK_HIGH_MIN);
+    expect(grantMaxRisk({})).toBe(RISK_HIGH_MIN);
+  });
+
+  it('honors an explicit max_risk', () => {
+    expect(grantMaxRisk({ max_risk: 40 })).toBe(40);
+    expect(grantMaxRisk({ max_risk: 0 })).toBe(0);
+  });
+
+  // A garbage ceiling must not read as "no ceiling" — it falls back to the
+  // default, never to unlimited.
+  it('ignores a non-numeric or out-of-range max_risk', () => {
+    expect(grantMaxRisk({ max_risk: 'high' })).toBe(RISK_HIGH_MIN);
+    expect(grantMaxRisk({ max_risk: -5 })).toBe(RISK_HIGH_MIN);
+    expect(grantMaxRisk({ max_risk: 500 })).toBe(RISK_HIGH_MIN);
+    expect(grantMaxRisk({ max_risk: null })).toBe(RISK_HIGH_MIN);
+  });
+
+  it('covers below the ceiling and stops at it', () => {
+    expect(grantCoversRisk({}, 69)).toBe(true);
+    expect(grantCoversRisk({}, 70)).toBe(false);
+    expect(grantCoversRisk({}, 90)).toBe(false);
+  });
+
+  it('honors an explicit lower ceiling', () => {
+    expect(grantCoversRisk({ max_risk: 30 }, 29)).toBe(true);
+    expect(grantCoversRisk({ max_risk: 30 }, 30)).toBe(false);
+  });
+
+  // A zero ceiling is a legitimate "covers nothing" and must not fall back.
+  it('treats max_risk 0 as covering nothing', () => {
+    expect(grantCoversRisk({ max_risk: 0 }, 0)).toBe(false);
+  });
+
+  it('treats a missing risk score as 0', () => {
+    expect(grantCoversRisk({}, null as unknown as number)).toBe(true);
   });
 });

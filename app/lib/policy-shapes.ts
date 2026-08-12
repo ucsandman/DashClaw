@@ -3,6 +3,8 @@
 // review-feed grouping. A shape is (action_type, normalized target prefix):
 // URLs normalize to their host; file paths group by their first two segments.
 
+import { RISK_HIGH_MIN } from './riskThresholds';
+
 export interface ActionShape {
   action_type: string;
   target_prefix: string | null;
@@ -107,6 +109,43 @@ interface GrantContext {
  *  explicit rules.expires_at at creation; legacy grants age out from their
  *  row's created_at. */
 export const GRANT_DEFAULT_TTL_DAYS = 30;
+
+/**
+ * Default risk ceiling for a grant with no explicit rules.max_risk.
+ *
+ * Missing means RISK_HIGH_MIN, NOT unlimited. Without this, a grant minted at
+ * risk 20 keeps downgrading require_approval for a matching action at ANY
+ * score for the rest of its TTL — a grant on one scratchpad file would clear
+ * the approval gate on a risk-95 act against that same file. Defaulting to
+ * unlimited would also leave that hole open indefinitely for grants created
+ * before the ceiling existed, since nothing ever rewrites an old grant's rules.
+ *
+ * This TIGHTENS existing grants. Intended and safe direction, and bounded:
+ * grants are target-scoped, and every legacy one ages out within
+ * GRANT_DEFAULT_TTL_DAYS of its created_at.
+ */
+export const GRANT_DEFAULT_MAX_RISK = RISK_HIGH_MIN;
+
+/**
+ * A grant's risk ceiling. Anything not a sane 0-100 number falls back.
+ *
+ * Absent is checked BEFORE coercion: Number(null) and Number('') are both 0,
+ * and 0 is a legitimate ceiling meaning "covers nothing". Coercing first would
+ * silently turn a missing field into the strictest possible grant, which reads
+ * to an operator as "my grant stopped working" for no visible reason.
+ */
+export function grantMaxRisk(rules: { max_risk?: unknown }): number {
+  const raw = rules?.max_risk;
+  if (raw === null || raw === undefined || raw === '') return GRANT_DEFAULT_MAX_RISK;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0 || n > 100) return GRANT_DEFAULT_MAX_RISK;
+  return n;
+}
+
+/** Does this grant reach an action scored `riskScore`? Ceiling is exclusive. */
+export function grantCoversRisk(rules: { max_risk?: unknown }, riskScore: number): boolean {
+  return (Number(riskScore) || 0) < grantMaxRisk(rules);
+}
 
 /**
  * When this grant stops applying. rules.expires_at (ISO string, stamped at
