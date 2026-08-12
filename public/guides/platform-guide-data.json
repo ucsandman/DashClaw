@@ -3,10 +3,10 @@
     "generatedAt": "2026-08-12",
     "archiveNote": "UNREACHABLE at runtime, independent of auth/middleware. Next.js App Router treats any path segment starting with an underscore as a private folder (https://nextjs.org/docs/app/building-your-application/routing/colocation#private-folders) and excludes it from route generation entirely. So app/api/_archive/**/route.js files never become live endpoints — a request to /api/_archive/anything 404s before middleware.js or next.config.js are even consulted for that path. Confirmed by reading next.config.js (no rewrites() or redirects() entry references '_archive') and middleware.js in full (zero string matches for '_archive'; its matcher config only lists '/api/:path*' plus specific pages, and none of the demo-mode dispatch tables, PUBLIC_ROUTES, or hosted-public-path checks mention _archive). scripts/lib/route-sql-guard.mjs explicitly skips the '_archive' directory when walking route files, confirming the team already treats it as inert/excluded tooling-side. Net effect: these 48 archived route files are dead code from a routing standpoint — the handlers themselves are syntactically intact and mostly still reference live schema tables (verified goals, milestones, ideas, contacts, interactions, agent_messages, message_threads, shared_docs, context_points, context_entries, calendar_events, snippets, user_observations/preferences/moods/approaches, notification_preferences, workflows, executions, scheduled_jobs, agent_pairings, agent_identities, content, health_snapshots, entities, topics, and feedback all still exist in schema/schema.js), but none of that matters because the folder is never mounted as a route. Un-archiving (renaming _archive -> something routable) would make most of them functional again since they read live tables.",
     "counts": {
-      "total": 433,
+      "total": 436,
       "stable": 305,
       "beta": 25,
-      "experimental": 102,
+      "experimental": 105,
       "archived": 0,
       "deprecated": 1
     }
@@ -2372,6 +2372,57 @@
           "errors": "403 if not admin; 400 if halted is not a boolean; standard apiErrorResponse on failure",
           "gotchas": "Invalidates the guard settings cache eagerly (invalidateGuardSettingsCache) so the switch takes effect immediately rather than after the ~30s guard cache TTL; writes an activity_logs audit row (org.halted / org.resumed); actor uses real user id, falling back to 'admin'.",
           "file": "app/api/halt/route.ts"
+        }
+      ]
+    },
+    {
+      "id": "api-approval-pause",
+      "kind": "api",
+      "segment": "approval-pause",
+      "title": "Approval Pause",
+      "items": [
+        {
+          "id": "get-api-approval-pause",
+          "name": "GET /api/approval-pause",
+          "kind": "api",
+          "status": "experimental",
+          "interface": "GET /api/approval-pause",
+          "purpose": "Reports whether the org is currently skipping approval prompts, and the windows an admin may choose.",
+          "auth": "any org member (read). Deliberately not admin-gated: everyone reading /approvals needs to know whether that inbox is the whole picture.",
+          "response": "{ pause: { active, until, actor, reason, at, remaining_seconds }, window_hours: [1,4,8,24] }",
+          "errors": "standard apiErrorResponse on failure",
+          "gotchas": "Expiry is decided on READ against the stored absolute `until`, so an elapsed pause reports inactive with no write, cron or reaper involved.",
+          "file": "app/api/approval-pause/route.ts"
+        },
+        {
+          "id": "post-api-approval-pause",
+          "name": "POST /api/approval-pause",
+          "kind": "api",
+          "status": "experimental",
+          "interface": "POST /api/approval-pause",
+          "purpose": "Starts (or extends) the approval pause. While it is live, a require_approval verdict proceeds instead of waiting for a human — blocks are untouched and an `ungrantable` gate still interrupts.",
+          "auth": "admin (getOrgRole === 'admin')",
+          "inputs": {
+            "body.hours": "number, required, one of 1 | 4 | 8 | 24",
+            "body.reason": "optional string, truncated to 1000 chars"
+          },
+          "response": "{ ok: true, pause: { active, until, actor, reason, at, remaining_seconds } }",
+          "errors": "403 if not admin; 400 if hours is not one of the allowed windows; standard apiErrorResponse on failure",
+          "gotchas": "Windows are an allowlist, not a free number: an unbounded pause is the June 2026 'all policies off for 18 days' outage with a nicer label. Stores an absolute deadline in a JSON settings row under DASHCLAW_APPROVAL_PAUSE, category 'general' (so the guard hot path reads it on its existing category-general query), and invalidates the guard settings cache eagerly. Policy rows are never modified, so expiry restores the exact prior posture. Writes an activity_logs row (org.approvals_paused).",
+          "file": "app/api/approval-pause/route.ts"
+        },
+        {
+          "id": "delete-api-approval-pause",
+          "name": "DELETE /api/approval-pause",
+          "kind": "api",
+          "status": "experimental",
+          "interface": "DELETE /api/approval-pause",
+          "purpose": "Resumes asking for approvals immediately.",
+          "auth": "admin (getOrgRole === 'admin')",
+          "response": "{ ok: true, pause: { active: false, ... } }",
+          "errors": "403 if not admin; standard apiErrorResponse on failure",
+          "gotchas": "Idempotent — clearing an absent or already-expired pause succeeds. Writes an expired marker rather than deleting the row, so the activity log keeps who resumed. Invalidates the guard settings cache eagerly because resuming governance is a safety action and must not lag a warm instance. Writes an activity_logs row (org.approvals_resumed).",
+          "file": "app/api/approval-pause/route.ts"
         }
       ]
     },
