@@ -11,7 +11,8 @@
  * landing pages, and nothing reconciles them. They get fixed by hand, late. So
  * does the "last-verified" date on living docs. This is the missing gate.
  *
- *   Counts → ERROR on drift (exit 1 under --strict; wired into CI).
+ *   Counts → ERROR on drift (exit 1 under --strict; wired into CI), or DERIVED
+ *            in place under --write.
  *   Dates  → WARN only (heuristic: a freshness stamp older than the file's last
  *            commit means the doc changed but the stamp didn't advance).
  *
@@ -19,25 +20,97 @@
  * lines, "shipped on X", scratch files) — it only looks at the designated
  * freshness-stamp lines below.
  *
+ * WHY --write EXISTS: detecting drift still left a human retyping ~40 numbers
+ * across 20 files, late, after CI rejected the push. --write closes that loop —
+ * the numbers are derived from source, so there is nothing left to hand-maintain
+ * and nothing for the gate to catch. The gate stays as the CI backstop.
+ *
+ * Deliberately NOT auto-written:
+ *   • MCP tool ENUMERATIONS (membership lists + group taxonomy). Rewriting a
+ *     bulleted group list is prose surgery, not a number swap — the taxonomy is
+ *     editorial, so drift there stays a human decision.
+ *   • Freshness DATE stamps. Auto-advancing `last-verified` would assert a human
+ *     verified something they did not. Those stay warn-only, on purpose.
+ *
  * Usage:
  *   node scripts/check-doc-counts.mjs            # report only (always exit 0)
  *   node scripts/check-doc-counts.mjs --strict   # exit 1 if any count drifts (CI)
+ *   node scripts/check-doc-counts.mjs --write    # derive drifted counts in place
+ *   node scripts/check-doc-counts.mjs --write --staged-only
+ *                                                # pre-commit: rewrite + re-stage
+ *                                                # ONLY files already in the commit
  *
  * Extending: add a row to COUNT_CHECKS (counts) or DATE_CHECKS (stamps). Each
  * count source of truth is computed once in sources() so docs cite a derived
  * number, never a remembered one. Surfaces intentionally NOT yet covered are
  * listed in UNCOVERED so this script never silently claims total coverage.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const STRICT = process.argv.includes('--strict');
+// --write turns this from a gate into a generator: every drifted count is
+// rewritten from its source of truth instead of reported for a human to retype.
+const WRITE = process.argv.includes('--write');
+// Pre-commit mode. Only rewrite files ALREADY staged for this commit, and
+// re-stage exactly those. Without it, fixing a stale count in README.md would
+// sweep the developer's unrelated unstaged edits to README.md into the commit.
+const STAGED_ONLY = process.argv.includes('--staged-only');
 
 const read = (rel) => readFileSync(resolve(ROOT, rel), 'utf8');
 const countMatches = (rel, re) => (read(rel).match(re) || []).length;
+
+// Working copy of every doc a count check touches. Several checks target the
+// same file (README.md carries eight), so each rewrite must land on the text
+// the previous rewrite produced, never a stale re-read from disk.
+const texts = new Map();
+const getText = (rel) => {
+  if (!texts.has(rel)) texts.set(rel, read(rel));
+  return texts.get(rel);
+};
+const changedFiles = new Set();
+
+const STAGED = STAGED_ONLY ? stagedFileSet() : null;
+function stagedFileSet() {
+  try {
+    const out = execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: ROOT, encoding: 'utf8' });
+    return new Set(out.split('\n').map((s) => s.trim()).filter(Boolean));
+  } catch {
+    return new Set(); // not a repo / no index — --staged-only then writes nothing
+  }
+}
+
+/** The same pattern with `d`, so exec() reports per-capture-group offsets. */
+const withIndices = (re) => (re.flags.includes('d') ? re : new RegExp(re.source, `${re.flags}d`));
+
+/**
+ * Replace each drifted capture group with its source-of-truth value and leave
+ * every other byte of the match alone. Groups are spliced last-to-first so the
+ * earlier offsets stay valid as the string length changes.
+ *
+ * A word-spelled count stays word-spelled ("seven" -> "eight"), so --write
+ * never rewrites a doc's prose style; anything past the WORDS table falls back
+ * to digits.
+ */
+function rewriteGroups(text, m, expected, wordForm) {
+  let out = text;
+  for (let i = expected.length; i >= 1; i--) {
+    const span = m.indices?.[i];
+    if (!span) continue;
+    const [start, end] = span;
+    const original = text.slice(start, end);
+    const want = expected[i - 1];
+    const replacement = wordForm && !/^\d+$/.test(original) && want < WORDS.length
+      ? WORDS[want]
+      : String(want);
+    if (original === replacement) continue;
+    out = `${out.slice(0, start)}${replacement}${out.slice(end)}`;
+  }
+  return out;
+}
 
 const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',
   'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
@@ -214,29 +287,54 @@ const warnings = [];
 // --strict for the same reason a drifted count is.
 const deadGuards = [];
 const oks = [];
+// Counts --write derived from source-of-truth this run. Not errors: the doc now
+// says the right number, so there is nothing left for a human to fix.
+const fixed = [];
 
 if (!S.sdk) deadGuards.push('count-sdk-methods.mjs did not return counts — every SDK method check was skipped this run.');
 
 for (const c of COUNT_CHECKS) {
   let text;
   try {
-    text = read(c.file);
+    text = getText(c.file);
   } catch {
     if (c.optional) warnings.push(`${c.file}: not present — '${c.label}' skipped (optional, generated locally).`);
     else deadGuards.push(`${c.file}: file not found — '${c.label}' never ran.`);
     continue;
   }
-  const m = c.re.exec(text);
+  const m = withIndices(c.re).exec(text);
   if (!m) {
     deadGuards.push(`${c.file}: '${c.label}' pattern matched nothing — the doc was reworded and this count is now unguarded. Update the pattern (or drop the check if the string is gone for good).`);
     continue;
   }
   const got = m.slice(1, c.expected.length + 1).map((t) => (c.word ? toNum(t) : Number(t)));
   const mismatch = got.some((g, i) => g !== c.expected[i]);
-  if (mismatch) {
-    errors.push(`${c.file}: ${c.label} says [${got.join(', ')}] but source-of-truth is [${c.expected.join(', ')}]`);
-  } else {
+  if (!mismatch) {
     oks.push(`${c.file}: ${c.label} = [${c.expected.join(', ')}]`);
+    continue;
+  }
+  // Drifted. Derive it if we're allowed to touch this file; otherwise report.
+  if (WRITE && (!STAGED_ONLY || STAGED.has(c.file))) {
+    texts.set(c.file, rewriteGroups(text, m, c.expected, c.word));
+    changedFiles.add(c.file);
+    fixed.push(`${c.file}: ${c.label} [${got.join(', ')}] -> [${c.expected.join(', ')}]`);
+  } else {
+    const hint = WRITE && STAGED_ONLY ? ' (not staged for this commit — run `npm run doc:counts:fix`)' : '';
+    errors.push(`${c.file}: ${c.label} says [${got.join(', ')}] but source-of-truth is [${c.expected.join(', ')}]${hint}`);
+  }
+}
+
+// ---- flush rewrites ----
+// Written before the enumeration checks below read the same files, so their
+// verdicts describe the text that will actually be committed.
+if (changedFiles.size) {
+  for (const f of changedFiles) writeFileSync(resolve(ROOT, f), texts.get(f));
+  if (STAGED_ONLY) {
+    try {
+      execFileSync('git', ['add', '--', ...changedFiles], { cwd: ROOT, stdio: 'ignore' });
+    } catch {
+      warnings.push(`rewrote ${changedFiles.size} file(s) but could not re-stage them — \`git add\` them before committing.`);
+    }
   }
 }
 
@@ -275,7 +373,7 @@ const groupCounts = [];
 for (const e of ENUMERATIONS) {
   let text;
   try {
-    text = read(e.file);
+    text = getText(e.file);
   } catch {
     deadGuards.push(`${e.file}: file not found — '${e.label}' never ran.`);
     continue;
@@ -310,7 +408,7 @@ for (const e of ENUMERATIONS) {
 }
 // Group count has no machine source (taxonomy is editorial), but every surface
 // that states one must state the SAME one.
-const docsPage = read('app/docs/page.tsx');
+const docsPage = getText('app/docs/page.tsx');
 const docsGroups = /\d+ governance tools across (\d+) groups/.exec(docsPage);
 if (docsGroups) groupCounts.push({ file: 'app/docs/page.tsx', groups: Number(docsGroups[1]) });
 const distinct = [...new Set(groupCounts.map((g) => g.groups))];
@@ -321,8 +419,9 @@ if (distinct.length > 1) {
 }
 
 // ---- report ----
-console.log('doc-counts: reconciling hardcoded counts + freshness dates against source-of-truth\n');
+console.log(`doc-counts: ${WRITE ? 'deriving' : 'reconciling'} hardcoded counts + freshness dates against source-of-truth\n`);
 for (const o of oks) console.log(`  ok   ${o}`);
+for (const f of fixed) console.log(`  FIX  ${f}`);
 for (const w of warnings) console.log(`  warn ${w}`);
 for (const g of deadGuards) console.error(`  DEAD  ${g}`);
 for (const e of errors) console.error(`  DRIFT ${e}`);
@@ -330,9 +429,14 @@ for (const e of errors) console.error(`  DRIFT ${e}`);
 console.log(`\n  (not yet gated, sweep by hand: ${UNCOVERED.length} surfaces — see UNCOVERED in this script)`);
 
 if (errors.length === 0 && deadGuards.length === 0) {
-  console.log('\ndoc-counts: all gated counts match source-of-truth.');
+  if (fixed.length) {
+    console.log(`\ndoc-counts: derived ${fixed.length} count(s) into ${changedFiles.size} file(s) from source-of-truth.`);
+  } else {
+    console.log('\ndoc-counts: all gated counts match source-of-truth.');
+  }
   process.exit(0);
 }
+if (fixed.length) console.log(`\ndoc-counts: derived ${fixed.length} count(s) into ${changedFiles.size} file(s) from source-of-truth.`);
 
 if (errors.length) console.error(`\ndoc-counts: ${errors.length} count(s) drifted from source-of-truth.`);
 if (deadGuards.length) console.error(`doc-counts: ${deadGuards.length} check(s) never ran — those counts are unguarded.`);

@@ -7,17 +7,20 @@ describe('runPreCommitChecks', () => {
     const result = runPreCommitChecks({ execImpl });
 
     expect(result.success).toBe(true);
-    expect(result.steps).toHaveLength(8);
+    expect(result.steps).toHaveLength(9);
     expect(result.steps.every((s) => s.success)).toBe(true);
 
     // Verify the correct commands were invoked in order
-    expect(execImpl).toHaveBeenCalledTimes(8);
+    expect(execImpl).toHaveBeenCalledTimes(9);
     expect(execImpl.mock.calls[0][1]).toContain('scripts/precommit-lint-typecheck.mjs');
     expect(execImpl.mock.calls[1][1]).toContain('scripts/generate-api-inventory.mjs');
     expect(execImpl.mock.calls[2][1]).toContain('scripts/generate-openapi.mjs');
     expect(execImpl.mock.calls[3][1]).toContain('scripts/refresh-bundles.mjs');
     expect(execImpl.mock.calls[3][1]).toContain('--if-staged');
-    expect(execImpl.mock.calls[4][1]).toEqual([
+    expect(execImpl.mock.calls[4][1]).toContain('scripts/check-doc-counts.mjs');
+    expect(execImpl.mock.calls[4][1]).toContain('--write');
+    expect(execImpl.mock.calls[4][1]).toContain('--staged-only');
+    expect(execImpl.mock.calls[5][1]).toEqual([
       'add',
       'docs/api-inventory.json',
       'docs/api-inventory.md',
@@ -35,9 +38,27 @@ describe('runPreCommitChecks', () => {
       'plugins/dashclaw/hooks/enforcement_liveness_probe.py',
       'plugins/dashclaw/hooks/dashclaw_agent_intel',
     ]);
-    expect(execImpl.mock.calls[5][1]).toContain('scripts/check-version-hardcodes.mjs');
-    expect(execImpl.mock.calls[6][1]).toContain('scripts/check-version-sync.mjs');
-    expect(execImpl.mock.calls[7][1]).toContain('--mode=warn');
+    expect(execImpl.mock.calls[6][1]).toContain('scripts/check-version-hardcodes.mjs');
+    expect(execImpl.mock.calls[7][1]).toContain('scripts/check-version-sync.mjs');
+    expect(execImpl.mock.calls[8][1]).toContain('--mode=warn');
+  });
+
+  it('derives doc counts before staging, and a doc-counts failure never blocks the commit', () => {
+    const execImpl = vi.fn().mockImplementation((cmd, args) => {
+      if (args?.some((a) => a.includes('check-doc-counts'))) {
+        throw new Error('doc-counts: 1 check(s) never ran');
+      }
+    });
+
+    const result = runPreCommitChecks({ execImpl });
+
+    // warn-only: CI's `--strict` run is the authoritative gate, so a reworded
+    // doc must not stop a local commit.
+    expect(result.success).toBe(true);
+    const step = result.steps.find((s) => s.id === 'doc-counts-derive');
+    expect(step.success).toBe(false);
+    // ...and the run continued through staging rather than breaking early.
+    expect(result.steps.find((s) => s.id === 'stage-artifacts').success).toBe(true);
   });
 
   it('succeeds when contracts check warns but does not fail the hook', () => {
@@ -50,7 +71,7 @@ describe('runPreCommitChecks', () => {
     const result = runPreCommitChecks({ execImpl });
 
     expect(result.success).toBe(true);
-    expect(result.steps).toHaveLength(8);
+    expect(result.steps).toHaveLength(9);
 
     const contractsStep = result.steps.find((s) => s.id === 'contracts-check');
     expect(contractsStep.success).toBe(false);

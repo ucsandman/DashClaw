@@ -31,6 +31,23 @@ const STEPS = [
     failHook: true,
   },
   {
+    // Derive the drift-prone counts (route totals, MCP tool/resource counts,
+    // SDK method counts) from source-of-truth instead of leaving ~40 numbers
+    // across 20 files for a human to retype after CI rejects the push. Runs
+    // AFTER generate-api-inventory because it reads docs/api-inventory.json.
+    //
+    // --staged-only keeps it to files already in this commit and re-stages
+    // exactly those, so it can never sweep an unrelated unstaged edit to
+    // README.md into the commit. A drifted count in an unstaged file is
+    // reported, never written. warn-only here: `--strict` in CI stays the
+    // authoritative gate, and a reworded doc (DEAD guard) must not block a
+    // local commit.
+    id: 'doc-counts-derive',
+    label: 'Derive doc counts from source-of-truth',
+    command: [process.execPath, 'scripts/check-doc-counts.mjs', '--write', '--staged-only'],
+    failHook: false,
+  },
+  {
     id: 'stage-artifacts',
     label: 'Stage generated artifacts',
     command: [
