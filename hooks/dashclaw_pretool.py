@@ -122,6 +122,7 @@ from dashclaw_agent_intel.written_paths_ledger import (
     lookup_written_path,
 )
 from dashclaw_agent_intel.file_scanner import is_placeholder_path
+from dashclaw_agent_intel.tool_recognizer import ungoverned_default_categories
 from dashclaw_agent_intel.http_client import request_with_retry, env_retries
 
 # ---------------------------------------------------------------------------
@@ -1712,6 +1713,16 @@ def _build_guard_context(tool_name, tool_info, enrichment, tool_input):
         # dashboard can show that an agent's blocks are not actually enforced.
         "enforcement_mode": HOOK_MODE,
     }
+    # Governance SCOPE, the sibling blind spot to enforcement_mode. A category
+    # this hook is not governing never reaches the server at all — main() exits
+    # before the network call — so silence is indistinguishable from "that agent
+    # did nothing". Declaring the gap on the calls we DO make is the only way
+    # the operator ever finds out that Bash or file writes are running
+    # unwatched. Omitted entirely at the default posture, so a healthy install
+    # adds no bytes and raises no signal.
+    ungoverned = ungoverned_default_categories()
+    if ungoverned:
+        context["ungoverned_categories"] = ungoverned
     # Forward the resolved target path (file tools, bash redirects) so a
     # protected_path guard policy can match it. Omitted when there is no path.
     if enrichment.get("target"):

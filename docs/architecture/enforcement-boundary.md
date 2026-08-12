@@ -63,6 +63,31 @@ Two mechanisms close the class (`drizzle/0066`):
 A logged verdict is never evidence of enforcement; only a witnessed
 non-execution (or the stamp's absence alongside PostToolUse coverage) is.
 
+### The third gap: scope (2026-08-11 adversarial review)
+
+Both mechanisms above assume the guard was *called*. Neither asks what happens
+when it is not. `DASHCLAW_GOVERNED_CATEGORIES` narrows governance on the agent's
+own machine, and the hook exits before the network call for a category it
+excludes — so those tool calls produce no row, no witness and no signal. Where
+observe mode makes a wrong verdict *visible*, category narrowing made whole
+classes of action *absent*, and absence renders identically to "that agent did
+nothing." An operator could watch a green ledger while shell commands and file
+writes ran unwatched.
+
+3. **Scope is declared.** The hook reports the categories it is NOT governing
+   (measured against the default set, so a healthy install reports nothing) on
+   the calls it does still make. Any gap drives the red `ungoverned_scope`
+   signal, which names the unwatched categories in operator language and carries
+   the env-var fix.
+
+This is a **visibility** guarantee, not an enforcement one, and the distinction
+matters: the variable lives on the agent's machine, so a client that narrows its
+scope can also lie about the declaration. It closes the case that actually
+occurs — an honest agent misconfigured, or a typo silently dropping a real
+category — and it is strictly better than the previous state, where narrowing
+was undetectable by construction. The tamper case remains the privilege
+boundary's problem, below.
+
 ## The privilege boundary: mechanical is not tamper-proof (F3, 2026-08-06)
 
 Every **Mechanical** row above shares one more property that copy must never

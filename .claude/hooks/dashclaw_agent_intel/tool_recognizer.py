@@ -311,6 +311,30 @@ def _governed_categories() -> frozenset[str]:
     return requested
 
 
+def ungoverned_default_categories() -> list[str]:
+    """Categories governed by DEFAULT that this process is NOT governing.
+
+    DASHCLAW_GOVERNED_CATEGORIES narrows governance on the operator's own
+    machine, and main() exits before any network call for a category it
+    excludes — so the server never learns those tool calls happened. Unlike
+    DASHCLAW_HOOK_MODE=observe, which is visible server-side through the
+    enforcement_mode field on every decision, category narrowing produced no
+    row, no witness and no signal: the dashboard read green while Bash and file
+    writes ran ungoverned (adversarial review 2026-08-11).
+
+    The hook reports this list on the calls it DOES make, so the narrowing is at
+    least visible. That is a visibility fix, not an enforcement one — a client
+    that narrows its scope can also lie about it. It catches the case that
+    actually happens: an honest agent misconfigured, or a typo in the env var
+    that silently dropped a real category.
+
+    Measured against the DEFAULT set, not the full one: `search` and `system`
+    are ungoverned out of the box by design, and reporting those would light up
+    every healthy install permanently.
+    """
+    return sorted(_DEFAULT_GOVERNED_CATEGORIES - _governed_categories())
+
+
 def _is_governed(category: str) -> bool:
     """Determine whether *category* is governed."""
     governed = _governed_categories()

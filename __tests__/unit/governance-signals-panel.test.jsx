@@ -74,6 +74,33 @@ describe('GovernanceSignalsPanel', () => {
     await waitFor(() => expect(screen.getAllByTestId('signal-row')).toHaveLength(2));
   });
 
+  // Governance-scope visibility (adversarial review 2026-08-11). The whole
+  // point of the signal is that a human SEES it, so pin the group header on the
+  // TYPE_LABELS entry — without it the panel falls back to the raw type string
+  // and the operator reads "ungoverned scope" with no idea what to do.
+  it('renders a narrowed-scope signal with a human group label and its remedy', async () => {
+    global.fetch = stubSignalsFetch([
+      {
+        type: 'ungoverned_scope',
+        severity: 'red',
+        label: 'Governance scope narrowed: claude-code',
+        detail: 'This agent is not governing shell commands, file reads and writes.',
+        help: 'Remove DASHCLAW_GOVERNED_CATEGORIES from this agent\'s hook env to restore the default scope, or set it to "all".',
+        agent_id: 'claude-code',
+        detected_at: '2026-08-11T10:00:00Z',
+      },
+    ]);
+
+    render(<GovernanceSignalsPanel initialSeverity={null} />);
+    await waitFor(() => expect(screen.getAllByTestId('signal-row')).toHaveLength(1));
+
+    expect(screen.getByText('Governance scope narrowed')).toBeTruthy();
+    expect(screen.getByText(/not governing shell commands/)).toBeTruthy();
+    expect(screen.getByText(/DASHCLAW_GOVERNED_CATEGORIES/)).toBeTruthy();
+    // It counts as Critical, not Elevated.
+    expect(screen.getByTestId('signal-severity-chips').textContent).toContain('Critical 1');
+  });
+
   it('dismiss removes the row and POSTs the occurrence key to /api/signals', async () => {
     render(<GovernanceSignalsPanel initialSeverity="red" />);
     await waitFor(() => expect(screen.getAllByTestId('signal-row')).toHaveLength(2));

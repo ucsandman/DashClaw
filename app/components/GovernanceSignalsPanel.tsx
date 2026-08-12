@@ -43,6 +43,7 @@ const TYPE_LABELS: Record<string, string> = {
   session_stalled: 'Stalled sessions',
   branch_stale: 'Stale branches',
   observe_mode: 'Hooks in observe mode',
+  ungoverned_scope: 'Governance scope narrowed',
   mcp_degraded: 'MCP servers degraded',
   green_insufficient: 'Insufficient test verification',
   executed_despite_block: 'Executed despite enforcement',

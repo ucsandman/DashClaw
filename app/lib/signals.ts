@@ -313,6 +313,69 @@ export function buildObserveModeSignals(recentDecisions: Row[] | null): Signal[]
   return signals;
 }
 
+// An operator does not think in tool-classifier categories. Naming the thing
+// that is actually unwatched is the difference between a signal they can act on
+// and a string they have to go look up.
+const CATEGORY_IN_PLAIN_ENGLISH: Record<string, string> = {
+  execution: 'shell commands',
+  file_io: 'file reads and writes',
+  orchestration: 'subagent and task spawns',
+  mcp: 'MCP tool calls',
+  interactive: 'prompts to the user',
+  search: 'searches',
+  system: 'system queries',
+  unknown: 'unrecognized tools',
+};
+
+/**
+ * Governance SCOPE narrowed below the default (adversarial review 2026-08-11).
+ *
+ * DASHCLAW_GOVERNED_CATEGORIES lets the agent's own machine decide which tool
+ * categories call the guard at all, and the hook exits before the network call
+ * for a category it excludes. So unlike observe mode — which is visible on
+ * every decision through enforcement_mode — narrowing produced NO row, no
+ * witness and no signal. The dashboard read green while shell commands and file
+ * writes ran ungoverned. The hook now declares the gap on the calls it does
+ * make; this turns that declaration into something the operator sees.
+ *
+ * Red, on the same reasoning as observe_mode: an ungoverned category is a
+ * standing "this is not watched" posture, not a transient degradation.
+ *
+ * Rides the same 1h recent-decisions batch as branch_stale/observe_mode, so it
+ * costs no extra query.
+ */
+export function buildUngovernedScopeSignals(recentDecisions: Row[] | null): Signal[] {
+  const signals: Signal[] = [];
+  const seenAgents = new Set();
+  for (const dec of recentDecisions || []) {
+    if (!dec.agent_id || seenAgents.has(dec.agent_id)) continue;
+    try {
+      const ctx = typeof dec.context === 'string' ? JSON.parse(dec.context) : dec.context;
+      const raw = (ctx as { ungoverned_categories?: unknown } | null)?.ungoverned_categories;
+      if (!Array.isArray(raw) || raw.length === 0) continue;
+      const cats = raw.filter((c): c is string => typeof c === 'string' && c.length > 0);
+      if (!cats.length) continue;
+      // Only mark the agent seen once we know it HAS a gap — otherwise the
+      // first clean decision would suppress a later narrowed one for the
+      // same agent within the window.
+      seenAgents.add(dec.agent_id);
+      const plain = cats.map((c) => CATEGORY_IN_PLAIN_ENGLISH[c] || c);
+      signals.push({
+        type: 'ungoverned_scope',
+        severity: 'red',
+        label: `Governance scope narrowed: ${dec.agent_id}`,
+        detail: `This agent is not governing ${plain.join(', ')}. Those tool calls never reach the guard, so they are absent from /decisions entirely — the ledger looks clean because nothing was recorded, not because nothing happened.`,
+        help: `Remove DASHCLAW_GOVERNED_CATEGORIES from this agent's hook env to restore the default scope, or set it to "all". A typo in that variable silently drops a real category — check it for misspellings.`,
+        agent_id: dec.agent_id as string,
+        detected_at: (dec.created_at as string) || null,
+      });
+    } catch (e) {
+      console.warn(`[signals] ungoverned_scope: failed to parse context for decision ${dec.id}:`, (e as Error)?.message || e);
+    }
+  }
+  return signals;
+}
+
 /**
  * Executed-despite witnesses (F0, governance gap audit 2026-08-05): action
  * rows where PostToolUse recorded that a block / require_approval verdict did
@@ -611,6 +674,13 @@ export async function computeSignals(
     signals.push(...buildObserveModeSignals(recentDecisions));
   } catch (e) {
     console.warn('[signals] observe_mode category failed:', (e as Error)?.message || e);
+  }
+
+  // Same batch again: the scope half of the enforcement-visibility pair.
+  try {
+    signals.push(...buildUngovernedScopeSignals(recentDecisions));
+  } catch (e) {
+    console.warn('[signals] ungoverned_scope category failed:', (e as Error)?.message || e);
   }
 
   try {
