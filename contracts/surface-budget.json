@@ -31,9 +31,9 @@
       "reason": "2026-07-27: +2 (resolve_containment, list_contained) — snake_case parity for the containment-verdicts convenience wrappers."
     },
     "cliCommands": {
-      "ceiling": 14,
+      "ceiling": 15,
       "source": "cli/bin/dashclaw.js COMMAND_HANDLERS (flag aliases excluded)",
-      "reason": "2026-07-27: +1 (contained) — Containment Verdicts (governed-autonomy RFC 2026-07-06, feature 3): `dashclaw contained list|diff|apply`, the terminal client for the promote/discard-to-merge lifecycle."
+      "reason": "2026-08-11: +1 (backfill) — the hook has always written ungoverned actions to ~/.dashclaw/orphan-actions.jsonl and told the operator they were 'logged for backfill on guard recovery', but nothing in the repo ever read that file. `dashclaw backfill` is the reader that makes the promise true; without it the audit gap the hook claims to close stays open forever. 2026-07-27: +1 (contained) — Containment Verdicts (governed-autonomy RFC 2026-07-06, feature 3): `dashclaw contained list|diff|apply`, the terminal client for the promote/discard-to-merge lifecycle."
     },
     "guardPolicyTypes": {
       "ceiling": 16,

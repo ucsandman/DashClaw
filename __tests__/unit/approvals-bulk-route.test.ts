@@ -14,7 +14,7 @@ const { mockListIds, mockBulkRecord, mockClear, mockRole, mockGetPolicy, mockSwe
 vi.mock('../../app/lib/org', () => ({ getOrgId: () => 'org1', getOrgRole: mockRole, getUserId: mockUserId }));
 vi.mock('../../app/lib/db', () => ({ getSql: () => ({}) }));
 vi.mock('../../app/lib/repositories/actions.repository', () => ({
-  listPendingApprovalIdsByActionTypes: mockListIds,
+  listPendingApprovalIdsByPolicy: mockListIds,
   recordBulkApprovals: mockBulkRecord,
   sweepExpiredApprovals: mockSweep,
   listActionApprovalFacts: mockApprovalFacts,
@@ -66,9 +66,29 @@ describe('POST /api/approvals/bulk', () => {
     mockGetPolicy.mockResolvedValue(null as unknown as { id: string; name: string; policy_type: string; rules: string });
     expect((await POST(req({ decision: 'allow', filter: { policy_id: 'gp_x' } }))).status).toBe(404);
   });
-  it('400s on protected_path policies', async () => {
+  // Matching runs through the guard decision that held each approval, not
+  // through the policy's declared action_types — so a policy shape that can
+  // never declare one resolves like any other. Both of these used to 400, which
+  // meant the approval-flood banner's only button could not clear the flood it
+  // was raised for (field report 2026-08-11).
+  it('resolves protected_path policies (rules carry paths, never action_types)', async () => {
     mockGetPolicy.mockResolvedValue({ id: 'gp_p', name: 'p', policy_type: 'protected_path', rules: JSON.stringify({ paths: ['/etc/**'] }) });
-    expect((await POST(req({ decision: 'allow', filter: { policy_id: 'gp_p' } }))).status).toBe(400);
+    const res = await POST(req({ decision: 'allow', filter: { policy_id: 'gp_p' } }));
+    expect(res.status).toBe(200);
+    expect(mockListIds).toHaveBeenCalled();
+    expect(mockBulkRecord).toHaveBeenCalled();
+  });
+  it('resolves rate_limit policies, which have no action_type at all', async () => {
+    mockGetPolicy.mockResolvedValue({ id: 'gp_burst', name: '[Claude Code Mode] Warn on action bursts', policy_type: 'rate_limit', rules: JSON.stringify({ max_actions: 14, window_minutes: 15 }) });
+    const res = await POST(req({ decision: 'allow', filter: { policy_id: 'gp_burst' } }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ resolved: 2 });
+  });
+  it('matches by the policy id that caused the interrupt, not by action_type', async () => {
+    await POST(req({ decision: 'allow', filter: { policy_id: 'gp_a' } }));
+    // (sql, orgId, policyId, sinceIso, limit)
+    const args = mockListIds.mock.calls[0] as unknown as unknown[];
+    expect(args[2]).toBe('gp_a');
   });
   it('resolves each matching pending action via recordBulkApprovals (one call, org scoped)', async () => {
     const res = await POST(req({ decision: 'allow', filter: { policy_id: 'gp_a' } }));

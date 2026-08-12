@@ -191,6 +191,27 @@ function isProtectedRootTarget(target: string): boolean {
 // substitute, double-quoted `$(…)`/backticks do.
 const GIT_MESSAGE_VERB_RE = /^\s*git\s+(?:(?:-c\s+\S+|-C\s+\S+|--\S+(?:=\S+)?)\s+)*(?:commit|tag|stash|notes)\b/i;
 
+// Prefixes that are transparent to the command word: env assignments, launcher
+// wrappers and their flags. `sudo -u root "rm" -rf /` puts the quoted command
+// word two tokens in, so "first token of the segment" is too narrow a test.
+const TRANSPARENT_PREFIX_RE =
+  /^(?:[a-z_]\w*=\S*|sudo|env|nohup|nice|ionice|time|timeout|command|builtin|-\S*|\d+(?:\.\d+)?[smhd]?)$/i;
+
+/**
+ * True when the next token starts in COMMAND-WORD position for its segment —
+ * everything before it in the segment is whitespace, an env assignment, or a
+ * launcher wrapper. Reads the skeleton built so far, in which argument quotes
+ * are already blanked, so its token boundaries are the executable ones.
+ */
+function isCommandWordPosition(skeletonSoFar: string): boolean {
+  const tail = skeletonSoFar.split(/[|&;\n\r(]/).pop() ?? '';
+  const tokens = tail.split(/\s+/).filter(Boolean);
+  // A tail not ending in whitespace means the quote CONTINUES the last token
+  // (`r"m" -rf /`), so that token is the one being formed — not a predecessor.
+  const preceding = /\s$/.test(tail) || !tail ? tokens : tokens.slice(0, -1);
+  return preceding.every((t) => TRANSPARENT_PREFIX_RE.test(t));
+}
+
 /**
  * Executable skeleton of a shell command: the content of quoted string literals
  * is blanked to spaces (it is data, not code) while command substitution
@@ -199,6 +220,11 @@ const GIT_MESSAGE_VERB_RE = /^\s*git\s+(?:(?:-c\s+\S+|-C\s+\S+|--\S+(?:=\S+)?)\s
  * are blanked entirely (no substitution happens inside them). Used only to
  * decide the inert-git-message exemption — never to replace the pattern checks
  * themselves, which still run against the original command.
+ *
+ * One exception (2026-08-11 adversarial review): a quoted span in COMMAND-WORD
+ * position is code, not data. `"rm" -rf /` is legal shell and still deletes the
+ * filesystem, but blanking it left `-rf /` behind, no pattern family matched,
+ * and the segment fell through to other/30. Only ARGUMENTS are inert.
  */
 function codeSkeleton(command: string): string {
   let out = '';
@@ -229,7 +255,16 @@ function codeSkeleton(command: string): string {
       out += ' ';
       continue;
     }
-    if (ch === '"' || ch === "'") { quote = ch; out += ' '; continue; }
+    if (ch === '"' || ch === "'") {
+      if (isCommandWordPosition(out)) {
+        const close = command.indexOf(ch, i + 1);
+        const end = close === -1 ? command.length : close;
+        out += ` ${command.slice(i + 1, end)}${close === -1 ? '' : ' '}`;
+        i = end;
+        continue;
+      }
+      quote = ch; out += ' '; continue;
+    }
     out += ch;
   }
   return out;
@@ -240,8 +275,12 @@ function isInertGitMessageCommand(command: string): boolean {
   if (!GIT_MESSAGE_VERB_RE.test(skel)) return false;
   // Any surviving shell operator or substitution in the executable skeleton
   // means a second command could run — disqualify and let normal scanning grade
-  // it (the rm/curl segment or the substitution payload).
-  return !/[|&;]|\$\(|`/.test(skel);
+  // it (the rm/curl segment or the substitution payload). A NEWLINE is such an
+  // operator and was missing here: the pretool hook forwards multi-line Bash
+  // verbatim, so `git commit -m "wip"\nrm -rf ~` graded git_message/35
+  // (2026-08-11 adversarial review). Testing the SKELETON is what keeps a
+  // multi-line commit MESSAGE inert — its newlines are blanked with the quote.
+  return !/[|&;\n\r]|\$\(|`/.test(skel);
 }
 
 /**
@@ -255,7 +294,9 @@ function isInertGitMessageCommand(command: string): boolean {
  * split already stripped operators; the substitution guard is what matters.
  */
 function isInertGitMessageSegment(seg: string): boolean {
-  if (/\$\(|`/.test(seg)) return false;
+  // Newline is in the guard as well as the splitter: if a later edit narrows the
+  // split, a segment carrying `\n<destructive>` must not be exempted silently.
+  if (/[\n\r]|\$\(|`/.test(seg)) return false;
   return GIT_MESSAGE_VERB_RE.test(seg);
 }
 
@@ -424,8 +465,14 @@ function classifyShell(command: string): EvidenceClassification {
       reversible_hint: false, flags: ['destructive', 'interpreter_destructive'],
     };
   }
-  // Chain-split on &&, ;, ||, | and classify the highest-risk segment.
-  const segments = command.split(/&&|\|\||;|\|/).map((p) => p.trim()).filter(Boolean);
+  // Chain-split on &&, ;, ||, | and newline, classifying the highest-risk
+  // segment. A newline separates sequential commands exactly as `;` does and
+  // the hook forwards multi-line Bash verbatim, so leaving it out meant only
+  // the first line of a multi-line command was ever graded (2026-08-11
+  // adversarial review). Matches split_chain_texts in
+  // hooks/dashclaw_agent_intel/command_parser.py, which added "\n" in the
+  // round-2 evasion audit; `\r` covers CRLF.
+  const segments = command.split(/&&|\|\||;|\||[\n\r]/).map((p) => p.trim()).filter(Boolean);
   const parts = segments.length ? segments : [command];
   return parts.map((p) => classifyShellSegment(p, rawScan)).reduce((a, b) => (evidenceTotal(b) >= evidenceTotal(a) ? b : a));
 }

@@ -28,6 +28,7 @@ import styles from '../policies.module.css';
 import ApprovalFloodBanner from '../../components/ApprovalFloodBanner';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { shapeIsGrantable } from '../../lib/policy-shapes';
 import { fetchReview, postVerdict, type WarnGroup } from '../lib/contractClient';
 import {
   fetchProposals,
@@ -297,6 +298,10 @@ function InboxRow({
   const d = describe(item);
   const primary = PRIMARY[item.kind];
   const leadLabel = typeof d.lead === 'string' ? d.lead : d.label;
+  // A warn group is grantable only when its shape carries a target. Most Bash
+  // groups don't: the hook forwards `target` only for a shell redirection or a
+  // script-then-execute hit, so the common case reaches this row unscoped.
+  const grantable = item.kind !== 'warn' || shapeIsGrantable(item.group.shape.target_prefix);
 
   // ----- resolved: show the landed/dismissed strip + Undo -----
   let acts: ReactNode;
@@ -396,8 +401,10 @@ function InboxRow({
       </>
     );
   } else if (item.kind === 'warn') {
-    // Three verbs kept compact via a split button: Always allow (primary),
-    // with a caret menu for Mark fine / Tighten.
+    // Three verbs kept compact via a split button: the primary, with a caret
+    // menu for the rest. WHICH verb leads depends on whether the shape can be
+    // granted at all — an unscoped shape has no target to grant, and offering
+    // "Always allow" on one is offering a guaranteed 400 (see grantable above).
     acts = (
       <div
         className={styles.splitBtn}
@@ -412,12 +419,12 @@ function InboxRow({
         <button
           type="button"
           disabled={busy}
-          onClick={() => onWarnPrimary(item, 'always_allow')}
-          aria-label={`Always allow ${leadLabel}`}
+          onClick={() => (grantable ? onWarnPrimary(item, 'always_allow') : onFine(item))}
+          aria-label={`${grantable ? 'Always allow' : 'Mark fine'} ${leadLabel}`}
           className={`${styles.btn} ${styles.btnSm} ${styles.btnSuccess}`}
         >
           <Check size={13} aria-hidden="true" />
-          Always allow
+          {grantable ? 'Always allow' : 'Mark fine'}
         </button>
         <button
           type="button"
@@ -432,17 +439,19 @@ function InboxRow({
         </button>
         {menuOpen && (
           <div className={styles.splitBtnMenu} role="menu">
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                onFine(item);
-              }}
-            >
-              <Check size={13} aria-hidden="true" />
-              Mark fine
-            </button>
+            {grantable && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onFine(item);
+                }}
+              >
+                <Check size={13} aria-hidden="true" />
+                Mark fine
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"
@@ -504,6 +513,15 @@ function InboxRow({
             ))}
           </div>
           {expansion}
+          {item.kind === 'warn' && !grantable && !resolution && (
+            <div className={styles.rowNote}>
+              No target scope:{' '}
+              {code(item.group.shape.action_type)}{' '}
+              actions here name no file or host. An &ldquo;always allow&rdquo; would cover every{' '}
+              {item.group.shape.action_type} action and switch off any approval rule for it.{' '}
+              <b>Mark fine</b> hides this until it happens again; <b>Tighten</b> makes it ask first.
+            </div>
+          )}
           {error && <div className={styles.rowError}>{error}</div>}
         </div>
         <div className={styles.inboxActs}>{acts}</div>

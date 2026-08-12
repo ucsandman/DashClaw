@@ -143,7 +143,12 @@ const FIELD_TYPE_VALIDATORS = {
     return null;
   },
   number: (key, value, rule) => {
-    if (typeof value !== 'number') return `${key} must be a number`;
+    // `{"cost_estimate": 1e400}` is legal JSON number syntax that JSON.parse
+    // resolves to Infinity; typeof Infinity === 'number' so the bare typeof
+    // check let it through with no min/max applying (min:0 also passes on
+    // +Infinity). Number.isFinite rejects Infinity, -Infinity, and NaN, same
+    // guard the sibling `integer` validator gets for free from Number.isInteger.
+    if (typeof value !== 'number' || !Number.isFinite(value)) return `${key} must be a number`;
     if (rule.min !== undefined && value < rule.min) return `${key} must be >= ${rule.min}`;
     if (rule.max !== undefined && value > rule.max) return `${key} must be <= ${rule.max}`;
     return null;

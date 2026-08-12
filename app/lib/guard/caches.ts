@@ -43,6 +43,29 @@ const calibrationStateCache = new Map<string, { state: CalibrationState | null; 
 const HALT_CACHE_TTL_MS = 3_000;
 const orgHaltCache = new Map<string, { halt: OrgHaltState | null; expires: number }>();
 
+// Bound cache growth: nothing removed these maps between the targeted
+// invalidate* calls below and __resetGuardCaches() (test-only), so an org
+// evaluated once and never touched again left an entry resident for the
+// process lifetime — six per org across the maps below. Mirrors
+// middleware.js's pruneApiKeyCache: only does work once a map exceeds the
+// cap (cheap on every .set() otherwise), drops expired entries first, then
+// oldest-by-insertion-order if still over.
+export const GUARD_CACHE_MAX_ENTRIES = 5_000;
+function pruneCache<V extends { expires: number }>(cache: Map<string, V>, now: number): void {
+  if (cache.size <= GUARD_CACHE_MAX_ENTRIES) return;
+  for (const [k, v] of cache.entries()) {
+    if (v.expires <= now) cache.delete(k);
+  }
+  if (cache.size > GUARD_CACHE_MAX_ENTRIES) {
+    let toDelete = cache.size - GUARD_CACHE_MAX_ENTRIES;
+    for (const key of cache.keys()) {
+      cache.delete(key);
+      toDelete--;
+      if (toDelete <= 0) break;
+    }
+  }
+}
+
 /** Called by policy mutation paths so a changed policy takes effect immediately. */
 export function invalidateGuardPolicyCache(orgId?: string): void {
   if (orgId) policyCache.delete(orgId);
@@ -131,7 +154,9 @@ export async function loadOrgRiskTemplates(sql: GuardSql, orgId: string): Promis
   } catch (err) {
     console.warn('[Guard] risk_templates load failed (continuing without templates):', (err as Error).message);
   }
-  riskTemplateCache.set(orgId, { rows, expires: Date.now() + GUARD_CACHE_TTL_MS });
+  const now = Date.now();
+  riskTemplateCache.set(orgId, { rows, expires: now + GUARD_CACHE_TTL_MS });
+  pruneCache(riskTemplateCache, now);
   return rows;
 }
 
@@ -147,7 +172,9 @@ async function loadOrgPolicies(sql: GuardSql, orgId: string): Promise<PolicyRow[
     FROM guard_policies
     WHERE org_id = ${orgId} AND active = 1
   ` as PolicyRow[];
-  policyCache.set(orgId, { rows: allPolicies, expires: Date.now() + GUARD_CACHE_TTL_MS });
+  const now = Date.now();
+  policyCache.set(orgId, { rows: allPolicies, expires: now + GUARD_CACHE_TTL_MS });
+  pruneCache(policyCache, now);
   return allPolicies;
 }
 
@@ -207,11 +234,14 @@ async function loadGeneralSettings(sql: GuardSql, orgId: string): Promise<{ enab
   };
   const halt = parseHaltSetting(settingsList.find((s) => s.key === 'DASHCLAW_ORG_HALT')?.value);
   predictiveSettingsCache.set(orgId, predictive);
+  pruneCache(predictiveSettingsCache, now);
   orgHaltCache.set(orgId, { halt, expires: now + HALT_CACHE_TTL_MS });
+  pruneCache(orgHaltCache, now);
   calibrationSettingsCache.set(orgId, {
     settings: parseCalibrationSettings(settingsList as Array<{ key?: unknown; value?: unknown }>),
     expires: now + GUARD_CACHE_TTL_MS,
   });
+  pruneCache(calibrationSettingsCache, now);
   return { enabled: predictive.enabled, threshold: predictive.threshold, halt };
 }
 
@@ -247,11 +277,15 @@ export async function getCalibrationRuntime(
       import('./calibration'),
     ]);
     const state = (await getCalibrationState(sql, orgId)) ?? freshCalibrationState();
-    calibrationStateCache.set(orgId, { state, expires: Date.now() + GUARD_CACHE_TTL_MS });
+    const now = Date.now();
+    calibrationStateCache.set(orgId, { state, expires: now + GUARD_CACHE_TTL_MS });
+    pruneCache(calibrationStateCache, now);
     return { settings, state };
   } catch (err) {
     console.warn('[Guard] calibration state load failed (continuing without):', (err as Error).message);
-    calibrationStateCache.set(orgId, { state: null, expires: Date.now() + GUARD_CACHE_TTL_MS });
+    const now = Date.now();
+    calibrationStateCache.set(orgId, { state: null, expires: now + GUARD_CACHE_TTL_MS });
+    pruneCache(calibrationStateCache, now);
     return null;
   }
 }

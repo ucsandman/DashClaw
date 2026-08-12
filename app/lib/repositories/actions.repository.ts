@@ -2224,9 +2224,38 @@ export async function getActionStats(
  * Fetch historical actions for policy simulation.
  */
 /**
+ * A Neon HTTP driver batches its three delete statements into one atomic
+ * `.transaction()` call so a mid-sequence failure can't tear the audit trail
+ * (children gone, action_records rows still present and visible to a
+ * concurrent reader). The local/self-host `postgres`-package driver
+ * (app/lib/db.ts) exposes no such primitive on the `SqlClient` surface this
+ * repository is written against, so it's detected at call time and, when
+ * absent, falls back to the original sequential order — which is already
+ * children-first/parent-last, so a partial failure there leaves a
+ * child-less parent (recoverable by re-running the same filter/id list)
+ * rather than an orphaned child.
+ */
+type TxnQuery = {
+  (strings: TemplateStringsArray, ...values: unknown[]): Promise<Row[]>;
+  query: (text: string, params?: unknown[]) => Promise<Row[]>;
+};
+type TransactableSql = SqlClient & {
+  transaction?: (fn: (txn: TxnQuery) => Array<Promise<Row[]>>) => Promise<Row[][]>;
+};
+
+/**
  * Delete actions by a list of specific action IDs, including related loops and assumptions.
  */
 export async function deleteActionsByIds(sql: SqlClient, orgId: string, idList: string[]): Promise<Row[]> {
+  const txSql = sql as TransactableSql;
+  if (typeof txSql.transaction === 'function') {
+    const results = await txSql.transaction((txn) => [
+      txn`DELETE FROM open_loops WHERE action_id = ANY(${idList}) AND org_id = ${orgId}`,
+      txn`DELETE FROM assumptions WHERE action_id = ANY(${idList}) AND org_id = ${orgId}`,
+      txn`DELETE FROM action_records WHERE action_id = ANY(${idList}) AND org_id = ${orgId} RETURNING action_id`,
+    ]);
+    return results[2] ?? [];
+  }
   await sql`DELETE FROM open_loops WHERE action_id = ANY(${idList}) AND org_id = ${orgId}`;
   await sql`DELETE FROM assumptions WHERE action_id = ANY(${idList}) AND org_id = ${orgId}`;
   return sql`DELETE FROM action_records WHERE action_id = ANY(${idList}) AND org_id = ${orgId} RETURNING action_id`;
@@ -2299,6 +2328,15 @@ export async function listActionIdsByFilter(
  */
 export async function deleteActionsByFilter(sql: SqlClient, orgId: string, filter: ActionDeleteFilter): Promise<Row[]> {
   const { where, params } = buildActionFilterWhere(orgId, filter);
+  const txSql = sql as TransactableSql;
+  if (typeof txSql.transaction === 'function') {
+    const results = await txSql.transaction((txn) => [
+      txn.query(`DELETE FROM open_loops WHERE org_id = $1 AND action_id IN (SELECT action_id FROM action_records ${where})`, params),
+      txn.query(`DELETE FROM assumptions WHERE org_id = $1 AND action_id IN (SELECT action_id FROM action_records ${where})`, params),
+      txn.query(`DELETE FROM action_records ${where} RETURNING action_id`, params),
+    ]);
+    return results[2] ?? [];
+  }
   await sql.query(
     `DELETE FROM open_loops WHERE org_id = $1 AND action_id IN (SELECT action_id FROM action_records ${where})`,
     params
@@ -2334,6 +2372,48 @@ export async function listActionsForSimulation(
 }
 
 /** Pending-approval action ids matching a set of action_types since a cutoff (bulk flood resolution). */
+/**
+ * Pending approvals THIS policy actually caused, resolved through the guard
+ * decision that held them (action_records.guard_decision_id ->
+ * guard_decisions.matched_policies).
+ *
+ * Replaces matching by the policy's declared action_types, which was wrong in
+ * both directions. Too narrow: a policy whose rules carry no action_types at
+ * all — rate_limit, protected_path — yielded an empty set, so the approval-flood
+ * banner's "Approve all" was a guaranteed 400 and the operator had no way to
+ * clear the flood the banner existed to clear (field report 2026-08-11,
+ * "[Claude Code Mode] Warn on action bursts"). Too broad: for a policy that DID
+ * declare `action_types: ['api']`, it resolved every pending `api` approval in
+ * the window — including ones a DIFFERENT policy was holding.
+ *
+ * matched_policies is JSON-array text; a plain quoted-substring test avoids a
+ * ::jsonb cast that would throw on any legacy row holding non-JSON.
+ */
+export async function listPendingApprovalIdsByPolicy(
+  sql: SqlClient,
+  orgId: string,
+  policyId: string,
+  sinceIso: string,
+  limit = 500,
+): Promise<string[]> {
+  if (!policyId) return [];
+  const rows = await sql.query(
+    `SELECT ar.action_id FROM action_records ar
+     JOIN guard_decisions gd
+       ON gd.guard_decision_id = ar.guard_decision_id AND gd.org_id = ar.org_id
+     WHERE ar.org_id = $1 AND ar.status = 'pending_approval'
+       AND ar.created_at::timestamptz >= $3::timestamptz
+       AND (ar.approval_expires_at >= NOW()
+            OR (ar.approval_expires_at IS NULL AND ar.created_at >= NOW() - interval '24 hours'))
+       AND gd.matched_policies IS NOT NULL
+       AND position('"' || $2 || '"' in gd.matched_policies) > 0
+     ORDER BY ar.created_at ASC
+     LIMIT $4`,
+    [orgId, policyId, sinceIso, Math.min(Math.max(1, limit), 500)],
+  );
+  return (rows as Array<{ action_id: string }>).map((r) => r.action_id);
+}
+
 export async function listPendingApprovalIdsByActionTypes(
   sql: SqlClient,
   orgId: string,

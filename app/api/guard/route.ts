@@ -21,6 +21,7 @@ import { EVENTS, publishOrgEvent } from '../../lib/events';
 import { resolveAgentIdentity } from '../../lib/guard-identity';
 import { buildContainmentRef } from '../../lib/guard/containment';
 import { getAssumptionAlerts } from '../../lib/assumption-notify';
+import { digestJson } from '../../lib/integrity/canonicalize';
 
 type GuardSql = ReturnType<typeof getSql>;
 type GuardData = Record<string, unknown> & { agent_id?: string; agent_name?: string; declared_goal?: string; verification_status?: string };
@@ -101,10 +102,16 @@ async function recordRunningAction(
       timestamp_start: new Date().toISOString(),
       riskScore: result.risk_score ?? null,
     });
-    after(() => {
-      void publishOrgEvent(EVENTS.ACTION_CREATED, { orgId, action: blockedAction });
-      void fireActionAlert('blocked', blockedAction as Record<string, unknown>, sql, orgId);
-    });
+    // after() keeps the invocation alive only until the value the callback
+    // RETURNS settles: the earlier `void` on both calls made this callback
+    // return undefined, so it resolved instantly and Vercel froze the function
+    // mid-flight — the operator's "your agent was blocked" Discord alert
+    // (settings read + decrypt + outbound POST) was dropped, which is the
+    // exact failure after() is here to prevent (see the record path below).
+    after(() => Promise.allSettled([
+      publishOrgEvent(EVENTS.ACTION_CREATED, { orgId, action: blockedAction }),
+      fireActionAlert('blocked', blockedAction as Record<string, unknown>, sql, orgId),
+    ]));
     return { recorded: true, action_id: blocked_action_id };
   }
 
@@ -139,12 +146,12 @@ async function recordRunningAction(
   // decision stream, hosted-trial action count). after() — not a bare
   // fire-and-forget promise — because on Vercel the function can freeze the
   // moment the response returns, dropping the increment.
-  after(() => {
-    void publishOrgEvent(EVENTS.ACTION_CREATED, { orgId, action: createdAction });
-    return incrementTrialActionCount(sql, orgId).catch((err: unknown) => {
+  after(() => Promise.allSettled([
+    publishOrgEvent(EVENTS.ACTION_CREATED, { orgId, action: createdAction }),
+    incrementTrialActionCount(sql, orgId).catch((err: unknown) => {
       console.warn('[Guard] record=true background updates failed:', (err as Error).message);
-    });
-  });
+    }),
+  ]));
 
   // A require_approval verdict must notify operators the same way POST
   // /api/actions does — fireApprovalSurfaces (Telegram / Discord / webhook,
@@ -159,6 +166,89 @@ async function recordRunningAction(
   }
 
   return { recorded: true, action_id };
+}
+
+/**
+ * The decision-relevant surface of a guard request — everything a policy, a
+ * rail or the evidence classifier can read. An idempotency replay is bound to
+ * a digest of this, on both sides: the live request, and the `context` JSON of
+ * the decision the key found.
+ *
+ * Why: `idempotency_key` is ordinary client input (validate.js — any string
+ * ≤ 256 chars), so a replay keyed on it ALONE served a prior verdict for a
+ * different act. `{act:{kind:'shell',command:'ls'}}` earned an allow, then the
+ * same key with `rm -rf /` was answered from cache — evaluateGuard, the
+ * evidence classifier and every org policy skipped, and no decision row
+ * written for the second act (2026-08-11 adversarial review).
+ *
+ * Attribution-only fields (harness/subagent/session ids, trigger, swarm,
+ * enforcement_mode, the key itself) and per-token identity state (jti,
+ * replay_status, act_hash) stay OUT: they vary between honest retries and
+ * never change a verdict. verification_status and act_status are IN — a
+ * retry that drops its JWT must not inherit a verified agent's allow.
+ */
+function buildReplayBinding(source: Record<string, unknown>): Record<string, unknown> {
+  const act = source.act as { kind?: string; request?: { url?: unknown }; file?: { path?: unknown } } | undefined;
+
+  // Mirror of foldEvidenceIntoContext (app/lib/guard/evaluate.ts): it enriches
+  // target/write_paths FROM the act before the context is persisted, so the
+  // live request has to be enriched the same way or an honest http/file retry
+  // would never match. Drift here costs a re-evaluation, never a bad replay.
+  let target = source.target;
+  if (act && act.kind === 'http' && !target && typeof act.request?.url === 'string') {
+    target = act.request.url;
+  }
+  let writePaths = source.write_paths;
+  if (act && act.kind === 'file' && typeof act.file?.path === 'string') {
+    const paths = Array.isArray(writePaths) ? [...writePaths] : [];
+    if (!paths.includes(act.file.path)) paths.push(act.file.path);
+    writePaths = paths;
+  }
+
+  return {
+    act: source.act,
+    act_status: source.act_status,
+    // The DECLARED type: on a declared/derived mismatch evaluate swaps
+    // action_type for the evidence-derived one and parks the declared value
+    // in declared_action_type, so the stored row needs unwinding.
+    action_type: source.declared_action_type ?? source.action_type,
+    agent_id: source.agent_id,
+    client_capabilities: source.client_capabilities,
+    content: source.content,
+    declared_goal: source.declared_goal,
+    intel: source.intel,
+    reversible: source.reversible,
+    risk_score: source.risk_score,
+    source_of_truth: source.source_of_truth,
+    systems_touched: source.systems_touched,
+    target,
+    tool: source.tool,
+    verification_status: source.verification_status,
+    write_paths: writePaths,
+  };
+}
+
+function requestBindingDigest(data: GuardData): string {
+  // The stored context was redacted (redactAny) before it was persisted, so
+  // the live request is redacted the same way before digesting — otherwise a
+  // payload carrying a secret pattern could never replay. A non_fabrication
+  // policy's extra strip paths are deliberately not mirrored: an unmatched
+  // digest only re-evaluates, which is the safe direction.
+  return digestJson(redactAny(buildReplayBinding(data as Record<string, unknown>), []));
+}
+
+/**
+ * Digest of the act the prior decision was made about. null when the row
+ * carries no readable context — nothing to bind against, so no replay.
+ */
+function priorBindingDigest(prior: Record<string, unknown>): string | null {
+  const raw = prior.context;
+  let context: unknown = raw;
+  if (typeof raw === 'string') {
+    try { context = JSON.parse(raw); } catch { return null; }
+  }
+  if (!context || typeof context !== 'object' || Array.isArray(context)) return null;
+  return digestJson(buildReplayBinding(context as Record<string, unknown>));
 }
 
 /**
@@ -194,6 +284,11 @@ async function tryIdempotentReplay(
   ]);
   const prior = haltState?.halted ? null : priorRow;
   if (!prior) return null;
+
+  // The key alone is not enough: the cached verdict may only be served to the
+  // same act it was made about (see buildReplayBinding). A mismatch is not an
+  // error — fall through and evaluate the act that actually arrived.
+  if (priorBindingDigest(prior) !== requestBindingDigest(data)) return null;
 
   let priorPolicies: unknown[] = [];
   try { priorPolicies = JSON.parse(String(prior.matched_policies ?? '[]')); } catch { priorPolicies = []; }

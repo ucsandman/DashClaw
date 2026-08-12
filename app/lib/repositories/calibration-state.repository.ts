@@ -65,14 +65,58 @@ export async function getCalibrationState(sql: SqlTag, orgId: string): Promise<C
   }
 }
 
-/** Upsert the org's controller state (write path — ensures tables first). */
-export async function saveCalibrationState(sql: SqlTag, orgId: string, state: CalibrationState): Promise<void> {
+/**
+ * Upsert the org's controller state (write path — ensures tables first).
+ *
+ * `expectedPrevState` opts into optimistic CAS: pass the state exactly as
+ * read by a prior `getCalibrationState` call (or `null` when none existed
+ * yet) and the write only lands if the row still matches it. Returns
+ * `false` on a lost race so the caller can re-read, re-fold, and retry
+ * instead of the two-writer blind-overwrite that used to silently drop one
+ * adjudication (calibration-feedback.ts's read-modify-write had no guard —
+ * two approvals resolved a few hundred ms apart could each read theta,
+ * fold their own adjudication, and the second write clobbered the first).
+ *
+ * Omit the 4th arg for the pre-existing blind-upsert behavior (single-writer
+ * human resets: resetAgentAlarm / resetCalibrationState below) — always
+ * returns `true`.
+ */
+export async function saveCalibrationState(
+  sql: SqlTag,
+  orgId: string,
+  state: CalibrationState,
+  expectedPrevState?: CalibrationState | null,
+): Promise<boolean> {
   await ensureCalibrationTables(sql);
-  await sql`
-    INSERT INTO guard_calibration_state (org_id, state, updated_at)
-    VALUES (${orgId}, ${JSON.stringify(state)}, NOW())
-    ON CONFLICT (org_id) DO UPDATE SET state = EXCLUDED.state, updated_at = NOW()
+  if (expectedPrevState === undefined) {
+    await sql`
+      INSERT INTO guard_calibration_state (org_id, state, updated_at)
+      VALUES (${orgId}, ${JSON.stringify(state)}, NOW())
+      ON CONFLICT (org_id) DO UPDATE SET state = EXCLUDED.state, updated_at = NOW()
+    `;
+    return true;
+  }
+  if (expectedPrevState === null) {
+    // No row read a moment ago — only insert if one still doesn't exist.
+    // A conflict here means a concurrent first-writer beat us to it.
+    const rows = await sql`
+      INSERT INTO guard_calibration_state (org_id, state, updated_at)
+      VALUES (${orgId}, ${JSON.stringify(state)}, NOW())
+      ON CONFLICT (org_id) DO NOTHING
+      RETURNING org_id
+    `;
+    return rows.length > 0;
+  }
+  // jsonb `=` compares parsed values (key order and number formatting are
+  // insignificant), so this matches regardless of how the row round-tripped
+  // through coerceCalibrationState.
+  const rows = await sql`
+    UPDATE guard_calibration_state
+    SET state = ${JSON.stringify(state)}, updated_at = NOW()
+    WHERE org_id = ${orgId} AND state = ${JSON.stringify(expectedPrevState)}::jsonb
+    RETURNING org_id
   `;
+  return rows.length > 0;
 }
 
 export interface CalibrationEventInsert {

@@ -189,10 +189,13 @@ export async function computeRiskAssessment(
     const rows = await loadOrgRiskTemplates(sql, orgId);
     if (rows.length > 0) {
       const templates = rows.map(coerceRiskTemplate);
-      const score = computeAutoRisk(context as Parameters<typeof computeAutoRisk>[0], templates);
-      if (score != null) {
-        const matched = templates.find((t) => t.action_type === context.action_type) || templates[0]!;
-        template = { id: matched.id, name: matched.name, score };
+      const result = computeAutoRisk(context as Parameters<typeof computeAutoRisk>[0], templates);
+      if (result != null) {
+        // Attribute to the SAME template computeAutoRisk matched — do not
+        // re-derive the match here (that independently-searched selection
+        // could disagree with the one that actually produced the score,
+        // and the persisted audit trail would name the loser).
+        template = { id: String(result.template.id ?? ''), name: String(result.template.name ?? ''), score: result.score };
       }
     }
   } catch (err) {

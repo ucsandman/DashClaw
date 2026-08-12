@@ -61,7 +61,13 @@ export function globToRegExp(glob: string): RegExp {
     }
   }
   re += '$';
-  return new RegExp(re);
+  // Case-insensitive: these paths are compared for filesystem identity, not
+  // POSIX string fidelity. Windows and default macOS are case-insensitive, so
+  // a write to `app/api/Auth/route.ts` or `.ENV` addresses the same file as
+  // the lowercase-authored PROTECTED_PATH_GROUPS glob and must still match —
+  // otherwise the require_approval/block rail for auth/billing/secrets/cron
+  // silently never fires on those platforms.
+  return new RegExp(re, 'i');
 }
 
 /**

@@ -97,9 +97,17 @@ function sumMatchedRuleRisk(rules: RiskTemplateRule[], action: ActionInput): num
 /**
  * Compute an automatic risk score for an action using the matching org risk
  * templates. Returns null when no active template matches (leaving the score
- * untouched); otherwise a clamped 0-100 integer the caller folds via max.
+ * untouched); otherwise the clamped 0-100 score AND the template it came
+ * from. Callers must attribute the score to THIS template, not re-derive
+ * their own match — an independent re-derivation (search the full unfiltered
+ * list, `templates[0]` fallback with no relevance check) can disagree with
+ * the template that actually produced the score, and the persisted audit
+ * trail would then name the wrong one.
  */
-export function computeAutoRisk(action: ActionInput, templates: RiskTemplate[]): number | null {
+export function computeAutoRisk(
+  action: ActionInput,
+  templates: RiskTemplate[],
+): { score: number; template: RiskTemplate } | null {
   // Find matching templates (by action_type, or null = matches all).
   const matching = templates.filter((t) =>
     t.status === 'active' && (!t.action_type || t.action_type === action.action_type)
@@ -112,5 +120,5 @@ export function computeAutoRisk(action: ActionInput, templates: RiskTemplate[]):
 
   const risk = (template.base_risk ?? 0) + sumMatchedRuleRisk(template.rules || [], action);
 
-  return Math.max(0, Math.min(100, risk));
+  return { score: Math.max(0, Math.min(100, risk)), template };
 }

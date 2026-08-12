@@ -63,14 +63,31 @@ export async function getLoginLockState(sql: SqlTag, orgId: string): Promise<Log
 }
 
 export async function recordLoginFailure(sql: SqlTag, orgId: string): Promise<void> {
-  const state = await readState(sql, orgId);
-  const fails = state && !windowExpired(state) ? state.fails + 1 : 1;
-  const value = JSON.stringify({ fails, last_fail_at: new Date().toISOString() });
+  // Was read-then-write (SELECT here, compute fails+1 in JS, then INSERT/UPDATE
+  // with the JS-computed JSON) — a burst of parallel failed attempts all read
+  // the same pre-increment row and wrote the same value back, so the counter
+  // never climbed past 1 and LOGIN_GUARD_MAX_FAILS could be raced past with
+  // enough concurrency. Now the increment happens inside the UPDATE, computed
+  // from the row Postgres is holding, so concurrent writers serialize on the
+  // row lock instead of racing on a JS snapshot. The window-reset comparison
+  // mirrors windowExpired() above: still-fresh -> increment, expired -> reset.
+  // A malformed existing value throws here (::jsonb cast) rather than the old
+  // silent JSON.parse-catch reset; the caller (app/api/auth/local/route.ts)
+  // already wraps this in a fail-open try/catch, so that stays fail-open too.
+  const now = new Date().toISOString();
+  const freshValue = JSON.stringify({ fails: 1, last_fail_at: now });
   await sql`
     INSERT INTO settings (org_id, agent_id, key, value, category, encrypted, updated_at)
-    VALUES (${orgId}, ${null}, ${LOGIN_GUARD_KEY}, ${value}, 'system', false, NOW())
+    VALUES (${orgId}, ${null}, ${LOGIN_GUARD_KEY}, ${freshValue}, 'system', false, NOW())
     ON CONFLICT (org_id, COALESCE(agent_id, ''), key) DO UPDATE SET
-      value = ${value},
+      value = jsonb_build_object(
+        'fails', CASE
+          WHEN (settings.value::jsonb->>'last_fail_at')::timestamptz > NOW() - (INTERVAL '1 millisecond' * ${LOGIN_GUARD_LOCKOUT_MS})
+          THEN (settings.value::jsonb->>'fails')::int + 1
+          ELSE 1
+        END,
+        'last_fail_at', ${now}::text
+      )::text,
       updated_at = NOW()
   `;
 }

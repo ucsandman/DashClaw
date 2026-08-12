@@ -260,9 +260,12 @@ export default function WebhooksPage() {
     const ids = selection.selectedIds.filter((id) => visibleIds.has(id));
     if (ids.length === 0) return;
     if (typeof window !== 'undefined' && !window.confirm(`Delete ${ids.length} webhook${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
-    const { ok } = await bulkAction(ids, (id) => fetch(`/api/webhooks?id=${encodeURIComponent(id)}`, { method: 'DELETE' }));
+    const { ok, failed } = await bulkAction(ids, (id) => fetch(`/api/webhooks?id=${encodeURIComponent(id)}`, { method: 'DELETE' }));
     setWebhooks((prev) => prev.filter((x) => !ok.includes(x.id)));
     selection.clear();
+    if (failed.length > 0) {
+      setError(`Deleted ${ok.length} of ${ids.length} webhook${ids.length === 1 ? '' : 's'}. ${failed.length} failed and ${failed.length === 1 ? 'is' : 'are'} still configured — try again or delete individually.`);
+    }
   }
 
   const BULK_ACTIONS = [

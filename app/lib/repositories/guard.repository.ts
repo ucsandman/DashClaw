@@ -173,11 +173,14 @@ export async function getGuardDecisionByIdempotencyKey(
   // timestamp on setup/migrate installs — the cast is the one form that
   // works on both. Bare `created_at >` raises 42883 on TEXT, the catch
   // below returns null, and idempotency silently never fires.
-  // Column list is exactly what the replay response builder consumes —
-  // SELECT * here shipped the full context/evidence blobs (KBs per row)
-  // on every hook call for nothing.
+  // Column list is exactly what the replay response builder consumes, plus
+  // `context` — SELECT * here shipped the evidence blob too (KBs per row) on
+  // every hook call for nothing. `context` is NOT optional: idempotency_key is
+  // ordinary client input, so the caller has to re-bind the cached verdict to
+  // the request that asks for it (the stored context is the only record of
+  // WHICH act was decided) before it may serve the replay.
   const columns = `id, decision, reason, risk_score, matched_policies,
-              verification_status, agent_id, agent_name, created_at`;
+              verification_status, agent_id, agent_name, created_at, context`;
   try {
     // Fast path (drizzle/0058): the key is a real column served by a partial
     // index — the previous context::jsonb->>'idempotency_key' predicate was a

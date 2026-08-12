@@ -7,7 +7,7 @@ import { getOrgId, getOrgRole, getUserId } from '../../../lib/org';
 import { getSql } from '../../../lib/db';
 import { apiErrorResponse } from '../../../lib/apiErrors';
 import { logActivity } from '../../../lib/audit';
-import { listPendingApprovalIdsByActionTypes, recordBulkApprovals, sweepExpiredApprovals, listActionApprovalFacts } from '../../../lib/repositories/actions.repository';
+import { listPendingApprovalIdsByPolicy, recordBulkApprovals, sweepExpiredApprovals, listActionApprovalFacts } from '../../../lib/repositories/actions.repository';
 import { ingestApprovalAdjudicationBatch } from '../../../lib/guard/calibration-feedback';
 import { getPolicyById } from '../../../lib/repositories/guardrails.repository';
 import { clearApprovalNotifications } from '../../../lib/approvalNotifications';
@@ -19,8 +19,9 @@ const MAX_BULK = 500;
  * POST /api/approvals/bulk — admin-only bulk resolution for approval floods.
  * Body: { decision: 'allow'|'deny', filter: { policy_id }, limit? }
  *
- * Matches pending_approval actions by the policy's compiled action_types in
- * the last 24h. All matches resolve in ONE batched UPDATE (recordBulkApprovals)
+ * Matches the pending_approval actions THIS policy actually held, resolved
+ * through their guard decision's matched_policies, in the last 24h. All matches
+ * resolve in ONE batched UPDATE (recordBulkApprovals)
  * with the same per-row pending_approval race guard as recordApproval; rows
  * lost to a concurrent resolution are reported as failed, never re-resolved.
  *
@@ -60,20 +61,12 @@ export async function POST(request: Request) {
     if (!policy) {
       return NextResponse.json({ error: 'Policy not found' }, { status: 404 });
     }
-    if (policy.policy_type === 'protected_path') {
-      return NextResponse.json(
-        { error: 'Bulk resolution does not support protected_path policies — resolve from /approvals' },
-        { status: 400 },
-      );
-    }
-    let actionTypes: string[] = [];
-    try {
-      const rules = JSON.parse(policy.rules || '{}');
-      if (Array.isArray(rules.action_types)) actionTypes = rules.action_types.map(String);
-    } catch { /* best-effort: malformed policy rules — falls through to the 400 below */ }
-    if (!actionTypes.length) {
-      return NextResponse.json({ error: 'Policy has no action_types to match' }, { status: 400 });
-    }
+    // No policy-shape gate here any more. Matching now runs through the guard
+    // decision that actually held each approval, so every policy type resolves
+    // the same way — including the two that used to dead-end: protected_path
+    // (rules carry `paths`, never `action_types`) and rate_limit (matches on
+    // frequency, so it has no action_type to declare at all). Both reached the
+    // operator as a flood banner whose only button returned 400.
 
     // Lazy expiry sweep (roadmap v2.3): bulk resolution must not resolve
     // approvals whose clients already stopped waiting. The lister also
@@ -83,10 +76,10 @@ export async function POST(request: Request) {
     });
 
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const ids = await listPendingApprovalIdsByActionTypes(
+    const ids = await listPendingApprovalIdsByPolicy(
       sql as never,
       orgId,
-      actionTypes,
+      policyId,
       since,
       Math.min(body.limit ?? MAX_BULK, MAX_BULK),
     );

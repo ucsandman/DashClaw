@@ -372,9 +372,12 @@ export default function IdentitiesPage() {
     const ids = selection.selectedIds.filter((id) => visibleIds.has(id));
     if (ids.length === 0) return;
     if (typeof window !== 'undefined' && !window.confirm(`Revoke ${ids.length} identity(s)? This cannot be undone.`)) return;
-    await bulkAction(ids, (id) => fetch(`/api/identities/${encodeURIComponent(id)}`, { method: 'DELETE' }));
+    const { ok, failed } = await bulkAction(ids, (id) => fetch(`/api/identities/${encodeURIComponent(id)}`, { method: 'DELETE' }));
     await fetchAll();
     selection.clear();
+    if (failed.length > 0) {
+      setError(`Revoked ${ok.length} of ${ids.length} identity(s). ${failed.length} failed and ${failed.length === 1 ? 'is' : 'are'} still active — try again or revoke individually.`);
+    }
   };
 
   const BULK_ACTIONS = [

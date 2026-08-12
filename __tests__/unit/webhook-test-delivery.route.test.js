@@ -87,7 +87,8 @@ describe('POST /api/webhooks/[webhookId]/test failure state', () => {
 
     const updateCall = sql.taggedCalls.find((c) => c.text.includes('UPDATE webhooks'));
     expect(updateCall).toBeDefined();
-    expect(updateCall.text).toContain('failure_count = ?');
-    expect(updateCall.values[0]).toBe(5);
+    // The count is computed in the statement, so none is bound as a parameter.
+    expect(updateCall.text).toContain('failure_count = COALESCE(failure_count, 0) + 1');
+    expect(updateCall.values).not.toContain(5);
   });
 });

@@ -1293,8 +1293,15 @@ def handle_require_approval(guard_resp, context, tool_use_id):
         resp = create_action(context, status="pending_approval")
         action_id = _extract_action_id(resp) if resp else ""
     if not action_id:
-        log("[DashClaw] Could not create approval request, proceeding")
-        sys.exit(0)
+        # The server said "ask a human" and we could not create the request to
+        # ask with (a 5xx or a timeout both collapse to None in api_request).
+        # Proceeding would run the gated tool with no approval AND no ledger
+        # row — the same hole handle_guard_unavailable exists to close, so it
+        # fails closed the same way and honors the same escape hatch.
+        _exit_ungovernable(
+            "approval is required, but the approval request could not be created at "
+            + BASE_URL + ".",
+            "Action: " + context["declared_goal"] + " — retry once the server answers.")
 
     if HOOK_MODE == "observe":
         log("[DashClaw] [observe] Would require approval for: " + context["declared_goal"])
@@ -1390,6 +1397,30 @@ def handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_
 
     log("Contained: re-run this edit against " + worktree_path + " (containment ref " + ref
         + "). Effects will be staged for operator promotion.")
+    sys.exit(2)
+
+
+def _exit_ungovernable(headline, remedy):
+    """Fail closed on a path that could not govern this tool call for a reason
+    other than a guard outage — no verdict enforced and no ledger row, which is
+    exactly the hole handle_guard_unavailable is written to close.
+
+    Honors the SAME opt-out an operator has already chosen for degraded
+    operation (DASHCLAW_GUARD_UNAVAILABLE_POLICY) instead of inventing a second
+    knob, and observe mode still never blocks."""
+    if HOOK_MODE == "observe":
+        log("[DashClaw] [observe] " + headline + " Proceeding — observe mode never blocks.")
+        sys.exit(0)
+
+    if GUARD_UNAVAILABLE_POLICY in ("allow", "warn"):
+        log("[DashClaw] ⚠ " + headline
+            + " Proceeding anyway (DASHCLAW_GUARD_UNAVAILABLE_POLICY=" + GUARD_UNAVAILABLE_POLICY + ").")
+        sys.exit(0)
+
+    log("[DashClaw] Blocked: " + headline)
+    log(remedy)
+    log("This is by design — an action that could not be governed must not proceed.")
+    log("To change: set DASHCLAW_GUARD_UNAVAILABLE_POLICY=warn or =allow (not recommended).")
     sys.exit(2)
 
 
@@ -1556,12 +1587,24 @@ def _check_configured():
 def _read_hook_input():
     """Parse stdin -- read as raw bytes and decode as UTF-8 to handle
     Windows PowerShell which pipes UTF-8 BOM bytes through cp1252 stdin.
-    Exits 0 silently on any parse failure (never break the tool call)."""
+
+    No readable payload at all means the hook is not being driven by Claude
+    Code, so exiting 0 silently is right. A payload that WAS present and could
+    not be parsed is different: a real tool call is about to run and this hook
+    cannot govern it, which the old blanket exit 0 made indistinguishable from
+    "not governed" (client fail-open review, 2026-08-11)."""
     try:
         raw = sys.stdin.buffer.read().decode("utf-8-sig").strip()
-        return json.loads(raw) if raw else {}
     except Exception:
         sys.exit(0)
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except Exception:
+        _exit_ungovernable(
+            "the hook received a tool payload it could not parse, so this call was NOT governed.",
+            "Check that the DashClaw hooks match your Claude Code version, then retry.")
 
 
 def _enrich_tool(tool_name, tool_input, tool_info):
@@ -1821,9 +1864,18 @@ def _dispatch_decision(decision, guard_resp, context, tool_use_id, tool_name=Non
         handle_require_approval(guard_resp, context, tool_use_id)
     elif decision == "allow_contained":
         handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_id)
-    else:
-        # allow + any unknown decision both fall through to allow.
+    elif decision == "allow":
         handle_allow(guard_resp, context, tool_use_id)
+    else:
+        # Everything unrecognized used to fall through to allow, so a verdict a
+        # newer server adds — or a truncated/garbled body — executed ungoverned.
+        # Land on the human instead: require_approval is the most restrictive
+        # verdict that stays recoverable, where treating it as block would hard-
+        # break every agent the day the server ships a new verdict name.
+        log("[DashClaw] Verdict '" + str(decision)[:40]
+            + "' is not one this hook understands — treating it as require_approval. "
+              "Update the DashClaw hooks if this persists.")
+        handle_require_approval(guard_resp, context, tool_use_id)
 
 
 def main():
@@ -1880,7 +1932,10 @@ def main():
         handle_guard_unavailable(context, tool_use_id)
 
     # Step 6: Handle decision
-    decision = guard_resp.get("decision", "allow")
+    # No default verdict: a body with no `decision` is a garbled response, not
+    # an allow — _dispatch_decision routes it to the human like any other
+    # verdict this hook can't read.
+    decision = guard_resp.get("decision") or ""
     _warn_secret_scan(guard_resp, decision)
     _warn_assumption_alerts(guard_resp)
     _dispatch_decision(decision, guard_resp, context, tool_use_id, tool_name, tool_input)

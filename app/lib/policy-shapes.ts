@@ -31,6 +31,25 @@ export function shapeKey(actionType: string, targetPrefix: string | null): strin
   return `${actionType}::${targetPrefix ?? ''}`;
 }
 
+/**
+ * May this shape become an allow_grant?
+ *
+ * A grant must name WHAT it covers. grantMatches() below returns true for any
+ * action of the type when rules.target_prefix is absent, so a target-less grant
+ * silently nullifies every require_approval policy for that action type — the
+ * F1 finding of the governance gap audit 2026-08-05, where one org had
+ * accumulated 19 of them.
+ *
+ * This is the ONE place that rule lives. The review verdict route rejects what
+ * this returns false for, and the /policies triage inbox uses it to not offer
+ * the verb at all — a button whose only outcome is a 400 is not a choice.
+ * Whitespace counts as absent: `prefixMatches` fails closed on it, so a grant
+ * scoped to " " would be a dead row that reads as a resolved one.
+ */
+export function shapeIsGrantable(targetPrefix: string | null | undefined): boolean {
+  return typeof targetPrefix === 'string' && targetPrefix.trim().length > 0;
+}
+
 // A hostname segment: labels joined by dots, no leading dot, no drive colon.
 // `github.com` and `api.stripe.com` match; `.next`, `C:`, `Users`, `..` do not.
 const HOST_SEGMENT_RE = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)+$/i;

@@ -270,6 +270,17 @@
 }
 .inboxReason input:focus { border-color: var(--color-border-active); }
 .rowError { color: var(--color-error); font-size: 12px; margin-top: 8px; }
+/* A constraint, not a failure: why a verdict is absent from this row. Muted so
+   it reads as explanation rather than as the red text the operator used to get
+   only AFTER clicking a button that could never work. */
+.rowNote {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 8px;
+  max-width: 70ch;
+}
+.rowNote b { color: var(--color-text-primary); font-weight: 600; }
 
 /* inline code chip shared across inbox + ledger */
 .code {

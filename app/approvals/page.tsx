@@ -37,6 +37,7 @@ interface BannerProps {
   tone: BannerTone;
   title: React.ReactNode;
   children?: React.ReactNode;
+  onDismiss?: () => void;
 }
 
 // Sort-only client columns for the two approvals queues (both fetches are
@@ -52,7 +53,7 @@ const resolvedColumns: ListColumn<any>[] = [
   { key: 'agent', label: 'Agent', accessor: (a) => a.agent_name || a.agent_id, sortable: true },
 ];
 
-function Banner({ icon: Icon, tone, title, children }: BannerProps) {
+function Banner({ icon: Icon, tone, title, children, onDismiss }: BannerProps) {
   const tones: Record<BannerTone, string> = {
     neutral: 'border-border bg-white/[0.02] text-secondary',
     warning: 'border-warning/20 bg-warning-subtle text-amber-200',
@@ -64,10 +65,19 @@ function Banner({ icon: Icon, tone, title, children }: BannerProps) {
   return (
     <div className={`mb-5 flex items-start gap-3 rounded-xl border p-4 ${tones[tone]}`}>
       <Icon size={16} className={`mt-0.5 shrink-0 ${iconTone[tone]}`} />
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="text-[11px] font-semibold uppercase tracking-[0.14em]">{title}</div>
         <p className="mt-1 text-xs text-secondary">{children}</p>
       </div>
+      {onDismiss && (
+        <button
+          onClick={onDismiss}
+          aria-label="Dismiss"
+          className="shrink-0 text-lg leading-none text-tertiary transition-colors hover:text-secondary"
+        >
+          &times;
+        </button>
+      )}
     </div>
   );
 }
@@ -82,6 +92,10 @@ export default function ApprovalsPage() {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [clearingExpired, setClearingExpired] = useState(false);
+  // Bulk approve/deny fan out per-item requests (bulkAction); a partial
+  // failure must never look like a clean sweep on the hero surface — the
+  // single-item path already alerts on failure (handleDecision below).
+  const [bulkFailure, setBulkFailure] = useState<{ verb: string; ok: number; failed: number } | null>(null);
   const { isAdmin, settled: sessionSettled } = useEffectiveRole();
 
   const fetchPending = useCallback(async (opts?: { silent?: boolean }) => {
@@ -274,7 +288,8 @@ export default function ApprovalsPage() {
     const visibleIds = new Set(pendingControls.rows.map((a) => a.action_id));
     const ids = selection.selectedIds.filter((id) => visibleIds.has(id));
     if (ids.length === 0) return;
-    const { ok } = await bulkAction(ids, (id) =>
+    setBulkFailure(null);
+    const { ok, failed } = await bulkAction(ids, (id) =>
       fetch(`/api/approvals/${id}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -283,6 +298,7 @@ export default function ApprovalsPage() {
     );
     setPendingActions((prev) => prev.filter((a) => !ok.includes(a.action_id)));
     selection.clear();
+    if (failed.length > 0) setBulkFailure({ verb: 'approve', ok: ok.length, failed: failed.length });
   };
 
   const handleBulkDeny = async () => {
@@ -290,7 +306,8 @@ export default function ApprovalsPage() {
     const visibleIds = new Set(pendingControls.rows.map((a) => a.action_id));
     const ids = selection.selectedIds.filter((id) => visibleIds.has(id));
     if (ids.length === 0) return;
-    const { ok } = await bulkAction(ids, (id) =>
+    setBulkFailure(null);
+    const { ok, failed } = await bulkAction(ids, (id) =>
       fetch(`/api/approvals/${id}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -299,6 +316,7 @@ export default function ApprovalsPage() {
     );
     setPendingActions((prev) => prev.filter((a) => !ok.includes(a.action_id)));
     selection.clear();
+    if (failed.length > 0) setBulkFailure({ verb: 'deny', ok: ok.length, failed: failed.length });
   };
 
   const bulkActions = isAdmin ? [
@@ -347,6 +365,17 @@ export default function ApprovalsPage() {
         {sessionSettled && !isAdmin && (
           <Banner icon={ShieldAlert} tone="warning" title="Read-only access">
             Only administrators can approve or deny actions. You are currently viewing as a member.
+          </Banner>
+        )}
+        {bulkFailure && (
+          <Banner
+            icon={AlertTriangle}
+            tone="warning"
+            title={`Bulk ${bulkFailure.verb} partially failed`}
+            onDismiss={() => setBulkFailure(null)}
+          >
+            {bulkFailure.ok} of {bulkFailure.ok + bulkFailure.failed} action{bulkFailure.ok + bulkFailure.failed === 1 ? '' : 's'} {bulkFailure.verb === 'approve' ? 'approved' : 'denied'}.
+            {' '}{bulkFailure.failed} failed and {bulkFailure.failed === 1 ? 'remains' : 'remain'} pending &mdash; retry or resolve {bulkFailure.failed === 1 ? 'it' : 'them'} individually below.
           </Banner>
         )}
 

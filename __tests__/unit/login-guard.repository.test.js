@@ -57,22 +57,41 @@ describe('login-guard repository', () => {
     expect(state.locked).toBe(false);
   });
 
-  it('recordLoginFailure increments the recent counter', async () => {
+  // The counter is no longer computed in JS. It used to be SELECT -> fails+1 in
+  // JS -> write back, so a burst of parallel failed logins all read the same
+  // pre-increment row and wrote the same value: the count never climbed and
+  // LOGIN_GUARD_MAX_FAILS could be raced past with enough concurrency. The
+  // increment now happens inside the UPDATE, computed from the row Postgres is
+  // holding, so the property to pin is the QUERY SHAPE — a fake sql tag cannot
+  // observe a value the database computes.
+  it('recordLoginFailure increments from the stored row, not from a JS snapshot', async () => {
     const sql = makeSql(guardRow(2, new Date().toISOString()));
     await recordLoginFailure(sql, ORG);
     const write = sql.calls.find((c) => /INSERT INTO settings/i.test(c.text));
     expect(write).toBeTruthy();
-    const stored = write.values.find((v) => typeof v === 'string' && v.includes('fails'));
-    expect(JSON.parse(stored).fails).toBe(3);
+
+    const text = write.text.replace(/\s+/g, ' ');
+    // Increment reads the row being updated.
+    expect(text).toMatch(/settings\.value::jsonb->>'fails'\)?::int \+ 1/);
+    // And no pre-read count is interpolated as a parameter — the only JSON
+    // value bound is the fresh-insert {fails:1} seed.
+    const jsonValues = write.values.filter((v) => typeof v === 'string' && v.includes('fails'));
+    expect(jsonValues).toHaveLength(1);
+    expect(JSON.parse(jsonValues[0]).fails).toBe(1);
   });
 
-  it('recordLoginFailure resets the counter after a stale window', async () => {
+  it('recordLoginFailure resets the counter once the lockout window has passed', async () => {
     const stale = new Date(Date.now() - LOGIN_GUARD_LOCKOUT_MS - 60_000).toISOString();
     const sql = makeSql(guardRow(4, stale));
     await recordLoginFailure(sql, ORG);
     const write = sql.calls.find((c) => /INSERT INTO settings/i.test(c.text));
-    const stored = write.values.find((v) => typeof v === 'string' && v.includes('fails'));
-    expect(JSON.parse(stored).fails).toBe(1);
+
+    const text = write.text.replace(/\s+/g, ' ');
+    // Still-fresh -> increment, expired -> reset to 1, decided in SQL against
+    // the same lockout window windowExpired() uses.
+    expect(text).toMatch(/CASE WHEN .*last_fail_at.*NOW\(\) - .*INTERVAL/);
+    expect(text).toMatch(/ELSE 1 END/);
+    expect(write.values).toContain(LOGIN_GUARD_LOCKOUT_MS);
   });
 
   it('clearLoginFailures deletes the guard row', async () => {

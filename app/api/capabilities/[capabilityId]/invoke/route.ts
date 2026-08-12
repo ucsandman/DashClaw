@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import crypto from 'crypto';
 import { getSql } from '../../../../lib/db';
 import { getOrgId, getUserId } from '../../../../lib/org';
@@ -286,8 +286,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
     // in capability-health.js prevents the breaker from ever opening.
     {
       const nextHealth = result.success ? 'healthy' : 'degraded';
-      void updateCapability(sql, orgId, capabilityId, { health_status: nextHealth })
-        .catch((err) => console.warn('[API] Health status update failed:', err.message));
+      // after() keeps the lambda alive until this write settles — un-awaited
+      // writes get killed when the response ends on Vercel (app/api/actions/route.ts).
+      after(() => updateCapability(sql, orgId, capabilityId, { health_status: nextHealth })
+        .catch((err) => console.warn('[API] Health status update failed:', err.message)));
     }
 
     // 9. Return response

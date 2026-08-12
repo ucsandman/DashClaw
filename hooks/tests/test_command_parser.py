@@ -219,6 +219,50 @@ class TestRedirections(unittest.TestCase):
         self.assertEqual(result["redirections"][0]["target"], "all.log")
 
 
+class TestFdDuplication(unittest.TestCase):
+    """`N>&M` duplicates a file descriptor. It does NOT write a file.
+
+    Live defect found 2026-08-11 on my-dashclaw.vercel.app: `2>&1` parsed as a
+    redirection whose target is a file literally named `&1`. Two consequences,
+    both visible on /policies:
+      1. `dashclaw_pretool` floors any command carrying a redirection at risk
+         35 ("a redirection writes a file even when the command is readonly"),
+         so the single most common shell idiom warned forever.
+      2. The warn shape surfaced as `other -> &1`, and an operator could grant
+         it — creating a 30-day allow_grant scoped to a filename that can never
+         exist. A no-op grant that reads as a resolved item.
+    """
+
+    def test_stderr_to_stdout_is_not_a_file_write(self):
+        result = parse_command("npm test 2>&1")
+        self.assertEqual(result["redirections"], [])
+
+    def test_stdout_to_stderr_is_not_a_file_write(self):
+        result = parse_command("./run.sh >&2")
+        self.assertEqual(result["redirections"], [])
+
+    def test_fd_dup_beside_a_real_redirect_keeps_only_the_file(self):
+        result = parse_command("npm test > build.log 2>&1")
+        self.assertEqual(len(result["redirections"]), 1)
+        self.assertEqual(result["redirections"][0]["type"], ">")
+        self.assertEqual(result["redirections"][0]["target"], "build.log")
+
+    def test_spaced_fd_dup_is_not_a_file_write(self):
+        result = parse_command("npm test 2> &1")
+        self.assertEqual(result["redirections"], [])
+
+    def test_fd_dup_does_not_leak_into_targets(self):
+        result = parse_command("npm test 2>&1")
+        self.assertNotIn("&1", result["targets"])
+        self.assertNotIn("2>&1", result["targets"])
+
+    def test_a_file_named_with_a_leading_ampersand_still_redirects(self):
+        # `&` is only an fd-dup marker directly after the operator; `&>` writes
+        # a real file and must keep working.
+        result = parse_command("./run.sh &> all.log")
+        self.assertEqual(result["redirections"][0]["target"], "all.log")
+
+
 class TestChains(unittest.TestCase):
     """Chained commands: cmd1 && cmd2, cmd1 ; cmd2."""
 

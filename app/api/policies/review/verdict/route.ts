@@ -12,7 +12,7 @@ import {
   reactivateModePolicy,
 } from '../../../../lib/repositories/guardrails.repository';
 import { getSettings, upsertSetting } from '../../../../lib/repositories/settings.repository';
-import { shapeKey, GRANT_DEFAULT_TTL_DAYS } from '../../../../lib/policy-shapes';
+import { shapeKey, shapeIsGrantable, GRANT_DEFAULT_TTL_DAYS } from '../../../../lib/policy-shapes';
 import type { SqlTag } from '../../../../lib/types/db';
 
 const VERDICTS = ['fine', 'always_allow', 'tighten', 'mark_all_reviewed'] as const;
@@ -126,8 +126,10 @@ export async function POST(request: Request) {
       // when present — is where the audited instance's 19 unscoped blanket
       // grants came from, and an unscoped grant silently nullifies every
       // require_approval policy for its action_type. A grant must name WHAT
-      // it covers; a target-less shape can't be always-allowed.
-      if (!prefix) {
+      // it covers; a target-less shape can't be always-allowed. The predicate is
+      // shared with the /policies inbox so the surface never offers a verb this
+      // rejects (field report 2026-08-11: three warn rows red at once).
+      if (!shapeIsGrantable(prefix)) {
         return NextResponse.json({
           error: `"${label}" has no target scope — an unscoped grant would blanket-allow every "${shape.action_type}" action and silently disable any approval rule covering it. Review the individual actions, or write a scoped grant (action_type + target_prefix) from /policies.`,
           code: 'UNSCOPED_GRANT_REJECTED',

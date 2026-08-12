@@ -6,6 +6,12 @@ import {
 } from '../calibration-mining.js';
 import { BROWSER_FIRST_ACTION_AGENT_ID } from '../hosted/browser-action.js';
 import type { SqlTag } from '../types/db';
+import {
+  invalidateGuardPolicyCache,
+  invalidateGuardRiskTemplateCache,
+  invalidateGuardSettingsCache,
+  invalidateGuardCalibrationCache,
+} from '../guard/caches';
 
 function generateId(prefix: string): string {
   return `${prefix}_${crypto.randomBytes(12).toString('hex')}`;
@@ -206,6 +212,14 @@ export async function deleteHostedWorkspace(
     pending = failed;
   }
   await sql`DELETE FROM organizations WHERE id = ${orgId} AND hosted_mode = TRUE`;
+  // A deleted org's warm-instance guard caches otherwise ride out their TTL
+  // (up to 30s) instead of clearing immediately, and never clear at all if
+  // this org is never evaluated again — same six caches the size-capped
+  // sweep in guard/caches.ts bounds for orgs nobody explicitly deletes.
+  invalidateGuardPolicyCache(orgId);
+  invalidateGuardRiskTemplateCache(orgId);
+  invalidateGuardSettingsCache(orgId);
+  invalidateGuardCalibrationCache(orgId);
   return { deleted: true };
 }
 

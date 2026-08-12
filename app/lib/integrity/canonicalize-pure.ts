@@ -59,6 +59,11 @@ function assertBoundedDepth(value: unknown, depth: number): void {
 function nfcDeep(value: unknown): unknown {
   if (typeof value === 'string') return value.normalize('NFC');
   if (Array.isArray(value)) return value.map(nfcDeep);
+  // A Date has no own entries, so the object branch below would rebuild it as
+  // `{}` and destroy it before canonicalJsonStringify ever saw it — the same
+  // bug that made signed evidence bundles fail their own re-verification. Hand
+  // it through untouched; the one serializer owns Date encoding.
+  if (value instanceof Date) return value;
   if (value && typeof value === 'object') {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k.normalize('NFC')] = nfcDeep(v);

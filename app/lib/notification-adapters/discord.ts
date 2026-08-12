@@ -6,9 +6,16 @@ import type {
   NotificationAdapter,
 } from './index';
 
+// Use undici's fetch rather than the Node global. The global fetch is backed by
+// Node's *internal* undici, a different instance than the standalone `undici`
+// package that buildPinnedDispatcher's Agent comes from. Handing that Agent to
+// the global fetch as `dispatcher` throws a bare "TypeError: fetch failed" with
+// no .cause. Mirrors the fix already applied in webhooks.ts (a52d4478).
+import { fetch } from 'undici';
+
 // `dispatcher` is an undici extension to the fetch init that the DOM lib
 // types don't model; widen the init locally to pass it through unchanged.
-type FetchInitWithDispatcher = RequestInit & { dispatcher?: unknown };
+type FetchInitWithDispatcher = Parameters<typeof fetch>[1];
 
 // Brand orange (#f97316). The ONE hex permitted in-code per .impeccable.md
 // because Discord's embed color field requires a 24-bit integer, not a CSS

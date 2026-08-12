@@ -8,6 +8,12 @@
  * - Object keys are sorted lexicographically.
  * - Undefined object values are omitted (matching JSON.stringify behavior).
  * - Undefined array entries are encoded as null (matching JSON.stringify behavior).
+ * - Dates are encoded as ISO-8601 strings (matching JSON.stringify behavior).
+ *
+ * The invariant callers depend on: canonicalize(v) === canonicalize(JSON round
+ * trip of v). Sign-time and verify-time sit on opposite sides of a JSON
+ * transport, so anything that serializes differently from JSON.stringify
+ * produces a signature that cannot validate against itself.
  */
 
 function canonicalize(value: unknown): string {
@@ -24,6 +30,18 @@ function canonicalize(value: unknown): string {
   }
 
   if (t === 'object') {
+    // A Date has no own enumerable keys, so the generic branch below hashed
+    // EVERY Date as `{}`. Evidence bundles are built from live TIMESTAMP rows
+    // (both drivers in app/lib/db.ts return TIMESTAMP as a JS Date), so a
+    // bundle signed with Dates could not validate against itself: by verify
+    // time the same values had been through JSON and arrived as ISO strings.
+    // Match JSON.stringify exactly — ISO-8601, and `null` for an invalid Date
+    // (Date.prototype.toJSON returns null on a non-finite time value) — so the
+    // canonical form is identical on both sides of the wire.
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? 'null' : JSON.stringify(value.toISOString());
+    }
+
     const obj = value as Record<string, unknown>;
     const keys = Object.keys(obj)
       .filter((k) => typeof obj[k] !== 'undefined')

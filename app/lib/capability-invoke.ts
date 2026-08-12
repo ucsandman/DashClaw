@@ -24,6 +24,26 @@ export const RISK_SCORE_MAP: Record<string, number> = {
 
 const DEFAULT_RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
 
+/**
+ * Reject `work` as soon as `signal` fires. fetch resolves once the HEADERS
+ * arrive — the body is still an open stream — so the invocation timeout has to
+ * cover the body read as well, or an endpoint that answers 200 and then
+ * trickles bytes hangs the call forever. webhooks.ts carries the same helper
+ * for the delivery path; kept local here so this module's dependency on
+ * webhooks stays the SSRF pair.
+ */
+function withAbort<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const fail = () => reject(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }));
+    if (signal.aborted) {
+      fail();
+      return;
+    }
+    signal.addEventListener('abort', fail, { once: true });
+    work.then(resolve, reject).finally(() => signal.removeEventListener('abort', fail));
+  });
+}
+
 interface AuthConfig {
   type?: string;
   token_setting?: string;
@@ -159,11 +179,13 @@ async function singleAttempt({
       dispatcher,
     } as Parameters<typeof fetch>[1]);
 
-    clearTimeout(timer);
+    // The timer stays armed through the body read: fetch resolves on headers,
+    // so clearing it here left an endpoint that answers 200 and then trickles
+    // body bytes able to hang the invocation forever (see withAbort above).
     const elapsedMs = Date.now() - start;
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error');
+      const errorText = await withAbort(response.text(), controller.signal).catch(() => 'Unknown error');
       return {
         success: false,
         error: 'capability_error',
@@ -175,7 +197,11 @@ async function singleAttempt({
 
     // undici's fetch types response.json() as Promise<unknown> (the DOM global
     // typed it any); annotate so mapResponse still type-checks after the import.
-    const rawData = await response.json().catch(() => null) as Record<string, unknown> | null;
+    const rawData = await withAbort(response.json(), controller.signal)
+      .catch((err: unknown) => {
+        if ((err as Error)?.name === 'AbortError') throw err;
+        return null;
+      }) as Record<string, unknown> | null;
     if (rawData === null) {
       return {
         success: false,
@@ -193,7 +219,6 @@ async function singleAttempt({
       elapsed_ms: elapsedMs,
     };
   } catch (err) {
-    clearTimeout(timer);
     const elapsedMs = Date.now() - start;
 
     if ((err as Error)?.name === 'AbortError') {
@@ -218,6 +243,8 @@ async function singleAttempt({
       message,
       elapsed_ms: elapsedMs,
     };
+  } finally {
+    clearTimeout(timer);
   }
 }
 

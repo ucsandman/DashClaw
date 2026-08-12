@@ -12,6 +12,7 @@ import {
   revokeApiKey,
 } from '../../../../lib/repositories/orgs.repository';
 import crypto from 'crypto';
+import { API_KEY_ROLES, isValidApiKeyRole } from '../../../../lib/apiKeyRoles';
 
 function hashKey(key: string): string {
   return crypto.createHash('sha256').update(key).digest('hex');
@@ -86,9 +87,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ org
       return NextResponse.json({ error: 'label must be 256 characters or fewer' }, { status: 400 });
     }
 
-    const validRoles = ['admin', 'member', 'readonly'];
-    if (!validRoles.includes(keyRole)) {
-      return NextResponse.json({ error: `role must be one of: ${validRoles.join(', ')}` }, { status: 400 });
+    // Must match the shared allowlist (mirrors the api_keys_role_check DB
+    // constraint) or an accepted role here 500s on insert instead of 400ing.
+    if (!isValidApiKeyRole(keyRole)) {
+      return NextResponse.json({ error: `role must be one of: ${API_KEY_ROLES.join(', ')}` }, { status: 400 });
     }
 
     const rawKey = generateApiKey();

@@ -327,9 +327,32 @@ async function hashApiKey(key) {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Shared bound for the TTL caches below (same shape as pruneApiKeyCache /
+// pruneRateLimitMap): drop what has already expired, then evict oldest-first
+// until the Map is back under its cap. Every cache in this file is keyed by
+// something a caller can vary per request, so an uncapped one is a memory leak
+// under probing, not just under load.
+function pruneTtlCache(cache, now, ttl, maxEntries) {
+  if (cache.size <= maxEntries) return;
+
+  for (const [k, v] of cache.entries()) {
+    if (!v || now - v.timestamp >= ttl) cache.delete(k);
+  }
+
+  if (cache.size > maxEntries) {
+    let toDelete = cache.size - maxEntries;
+    for (const key of cache.keys()) {
+      cache.delete(key);
+      toDelete--;
+      if (toDelete <= 0) break;
+    }
+  }
+}
+
 // In-memory cache for org existence verification (1-hour TTL — orgs rarely change)
 const orgExistsCache = new Map();
 const ORG_EXISTS_CACHE_TTL = 60 * 60 * 1000;
+const ORG_EXISTS_CACHE_MAX_ENTRIES = 10000;
 
 // Self-host with local Postgres: Neon HTTP driver can't reach TCP-only Postgres.
 // Fail open for the default org since migrations already seeded it.
@@ -352,6 +375,7 @@ function isTrustedSelfHostBootstrap() {
 
 async function verifyOrgExists(orgId) {
   const now = Date.now();
+  pruneTtlCache(orgExistsCache, now, ORG_EXISTS_CACHE_TTL, ORG_EXISTS_CACHE_MAX_ENTRIES);
   const cached = orgExistsCache.get(orgId);
   if (cached && now - cached.timestamp < ORG_EXISTS_CACHE_TTL) {
     return cached.exists;
@@ -394,9 +418,11 @@ async function verifyOrgExists(orgId) {
 // nothing, so a retry re-queries.
 const trialOrgCache = new Map();
 const TRIAL_ORG_CACHE_TTL = 60 * 1000;
+const TRIAL_ORG_CACHE_MAX_ENTRIES = 10000;
 
 async function resolveTrialOrg(orgId) {
   const now = Date.now();
+  pruneTtlCache(trialOrgCache, now, TRIAL_ORG_CACHE_TTL, TRIAL_ORG_CACHE_MAX_ENTRIES);
   const cached = trialOrgCache.get(orgId);
   if (cached && now - cached.timestamp < TRIAL_ORG_CACHE_TTL) {
     return cached.result;
@@ -441,17 +467,34 @@ async function resolveTrialOrg(orgId) {
   return result;
 }
 
-// In-memory cache for API key -> org resolution (5-min TTL)
+// In-memory cache for API key -> org resolution.
+//
+// The POSITIVE TTL is deliberately SECONDS, not minutes. Revoking a leaked key
+// has to stop it everywhere, and invalidateApiKeyCache() below can only reach
+// the Map in ITS OWN process — middleware and the /api/keys DELETE handler
+// routinely run on different edge/serverless instances, so on every other warm
+// instance this TTL is the only thing that expires the principal. It used to be
+// 5 minutes, which meant an operator who had just revoked a key got a success
+// response while the key kept serving full org read/write. 10s bounds that at
+// human scale and still keeps the hot path at <=1 key query per key per 10s per
+// instance. Do not "optimize" it back to minutes.
 const apiKeyCache = new Map();
-const API_KEY_CACHE_TTL = 5 * 60 * 1000;
+const API_KEY_CACHE_TTL = 10 * 1000;
+// A negative answer (no such key) carries no revocation risk and damps
+// credential probing, so it keeps the original longer life.
+const API_KEY_NEGATIVE_CACHE_TTL = 5 * 60 * 1000;
 const API_KEY_CACHE_MAX_ENTRIES = 10000;
+
+function apiKeyCacheTtl(entry) {
+  return entry && entry.result ? API_KEY_CACHE_TTL : API_KEY_NEGATIVE_CACHE_TTL;
+}
 
 function pruneApiKeyCache(now) {
   if (apiKeyCache.size <= API_KEY_CACHE_MAX_ENTRIES) return;
 
   // Drop expired entries first.
   for (const [k, v] of apiKeyCache.entries()) {
-    if (!v || now - v.timestamp >= API_KEY_CACHE_TTL) {
+    if (!v || now - v.timestamp >= apiKeyCacheTtl(v)) {
       apiKeyCache.delete(k);
     }
   }
@@ -465,6 +508,43 @@ function pruneApiKeyCache(now) {
       if (toDelete <= 0) break;
     }
   }
+}
+
+/**
+ * Drop a resolved API key from this instance's cache so a revoke takes effect
+ * immediately here, instead of after the TTL. Mirrors
+ * invalidateGuardPolicyCache / invalidateGuardSettingsCache in
+ * app/lib/guard/caches.ts. Call it from the key-revoke path with the key's
+ * SHA-256 hash; no argument clears everything.
+ *
+ * This is the FAST path, not the guarantee — see API_KEY_CACHE_TTL above for
+ * why the TTL is what actually holds cross-instance.
+ *
+ * DELIBERATELY NOT called from DELETE /api/keys (2026-08-11). Reaching it from
+ * a route means importing this module — the middleware entrypoint, ~85KB with
+ * its own `config` export — into that route's bundle, and it would still only
+ * clear the Map in whichever instance happened to serve the DELETE. The TTL
+ * already bounds every instance at 10s, so the import buys ~10s on one of them
+ * for real bundle and runtime risk. If the key cache ever moves into
+ * app/lib/ (the pattern guard/caches.ts already follows), wire it then.
+ */
+export function invalidateApiKeyCache(keyHash) {
+  if (keyHash) apiKeyCache.delete(keyHash);
+  else apiKeyCache.clear();
+}
+
+/**
+ * Current size and cap of every TTL cache in this file.
+ * Exported for unit tests only (__tests__/unit/middleware-auth-precedence.test.js
+ * pins that none of them grows without bound) — do not call in production code.
+ * @internal
+ */
+export function __cacheStatsForTesting() {
+  return {
+    apiKey: { size: apiKeyCache.size, max: API_KEY_CACHE_MAX_ENTRIES },
+    orgExists: { size: orgExistsCache.size, max: ORG_EXISTS_CACHE_MAX_ENTRIES },
+    trialOrg: { size: trialOrgCache.size, max: TRIAL_ORG_CACHE_MAX_ENTRIES },
+  };
 }
 
 // Self-host on TCP-only Postgres: the edge-runtime middleware can't open a TCP
@@ -570,7 +650,7 @@ async function resolveApiKey(keyHash, request) {
   const now = Date.now();
   pruneApiKeyCache(now);
   const cached = apiKeyCache.get(keyHash);
-  if (cached && now - cached.timestamp < API_KEY_CACHE_TTL) {
+  if (cached && now - cached.timestamp < apiKeyCacheTtl(cached)) {
     return cached.result;
   }
 
@@ -1562,12 +1642,37 @@ function forwardPublicApi(request, strippedApiRequestHeaders, ip) {
   return forwardWithHeaders(request, publicHeaders);
 }
 
+// Mirrors looksLikeJwt in app/lib/jwks-verifier.ts. Deliberately a copy, not an
+// import: that module reaches app/lib/url-safety.ts, which imports node:dns —
+// unavailable in the edge runtime this middleware compiles to.
+function looksLikeJwt(token) {
+  if (!token) return false;
+  const parts = token.split('.');
+  if (parts.length !== 3) return false;
+  const [header = '', payload = '', signature = ''] = parts;
+  const base64url = /^[A-Za-z0-9_-]*$/;
+  return header.length > 0 && payload.length > 0
+    && base64url.test(header) && base64url.test(payload) && base64url.test(signature);
+}
+
 // OAuth Bearer path (Claude custom connectors). Additive — x-api-key still works.
 // Returns null when no bearer token is present.
 async function handleBearerAuth(request, pathname, requestHeaders) {
   const authz = request.headers.get('authorization') || '';
   const bearer = authz.slice(0, 7).toLowerCase() === 'bearer ' ? authz.slice(7).trim() : '';
   if (!bearer) return null;
+
+  // The Authorization header carries two different things: an OAuth CREDENTIAL
+  // (the AS mints opaque `oat_` tokens) and an agent IDENTITY claim (a JWT —
+  // DashClawClient.authToken). Both SDKs send `x-api-key` AND the identity JWT
+  // on every request once authToken is configured (sdk/dashclaw.js
+  // `_authHeaders`), so resolving the JWT against oauth_access_tokens, missing,
+  // and 401ing broke EVERY request for an operator who followed the documented
+  // Phase-2 setup — the valid key on the same request was never examined.
+  // A JWT is never an oauth_access_tokens row, so skip the lookup entirely and
+  // let the x-api-key / session path decide. Only an opaque bearer is a
+  // credential, and one that resolves to nothing still fails below.
+  if (looksLikeJwt(bearer)) return null;
 
   const tokenHash = await hashApiKey(bearer); // Web Crypto SHA-256 hex (matches hashToken)
   let oauth;

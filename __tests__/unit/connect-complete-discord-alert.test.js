@@ -5,7 +5,12 @@ const { mockFetch, mockSafeUrlWithIps, mockBuildPinnedDispatcher } = vi.hoisted(
   mockSafeUrlWithIps: vi.fn(),
   mockBuildPinnedDispatcher: vi.fn(),
 }));
-vi.stubGlobal('fetch', mockFetch);
+// The adapter calls undici's `fetch`, NOT the Node global — the pinned Agent it
+// passes as `dispatcher` comes from the standalone undici package, and handing
+// that to the global fetch throws a causeless "TypeError: fetch failed"
+// (commit a52d4478). So the mock has to intercept the module, not the global;
+// stubGlobal('fetch') silently misses and every call assertion reads zero.
+vi.mock('undici', () => ({ fetch: mockFetch, Agent: vi.fn() }));
 
 vi.mock('@/lib/webhooks.js', async () => {
   const actual = await vi.importActual('@/lib/webhooks.js');

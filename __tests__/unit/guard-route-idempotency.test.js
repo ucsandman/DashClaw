@@ -68,6 +68,21 @@ const PRIOR_ROW = {
   agent_id: 'agt_1',
   agent_name: null,
   created_at: '2026-06-12T10:00:00.000Z',
+  // The act this decision was actually made about. A cached verdict may only be
+  // served back to the SAME act (see buildReplayBinding in the route): the key
+  // is ordinary client input, so without this binding a reused key served a
+  // prior `allow` for any payload at all, with no evaluation and no audit row.
+  // Real rows always carry it — the replay lookup selects it for this purpose.
+  // act_status and verification_status are defaulted onto the payload before it
+  // is persisted, so a real stored context always carries them; a fixture
+  // without them digests differently and silently never replays.
+  context: JSON.stringify({
+    action_type: 'deploy',
+    declared_goal: 'ship',
+    agent_id: 'agt_1',
+    act_status: 'not_applicable',
+    verification_status: 'unverified',
+  }),
 };
 
 function guardData(extra = {}) {
@@ -106,6 +121,42 @@ describe('/api/guard idempotency replay', () => {
     // All guard_decisions inserts live inside evaluateGuard — not calling it
     // IS the no-new-row guarantee that keeps flood/signal counts honest.
     expect(mockEvaluateGuard).not.toHaveBeenCalled();
+  });
+
+  // The CRITICAL half of idempotency: the key says "this is the same call",
+  // but only the act can prove it. Reusing a key across different acts was a
+  // full governance bypass — an `allow` minted for `ls` was served to
+  // `rm -rf /` inside the 10-minute window, skipping the evidence classifier,
+  // every policy, and the audit row.
+  it('does NOT replay when the same key arrives with a different act', async () => {
+    mockGetPriorDecision.mockResolvedValue({ ...PRIOR_ROW, decision: 'allow' });
+    const res = await post(
+      'http://localhost/api/guard',
+      guardData({ act: { kind: 'shell', command: 'rm -rf /' } }),
+    );
+    const body = await res.json();
+
+    expect(body.idempotent_replay).toBeUndefined();
+    expect(mockEvaluateGuard).toHaveBeenCalled();
+  });
+
+  it('does NOT replay when the declared_goal differs under the same key', async () => {
+    mockGetPriorDecision.mockResolvedValue({ ...PRIOR_ROW, decision: 'allow' });
+    const res = await post('http://localhost/api/guard', guardData({ declared_goal: 'something else' }));
+
+    expect((await res.json()).idempotent_replay).toBeUndefined();
+    expect(mockEvaluateGuard).toHaveBeenCalled();
+  });
+
+  // Fail-safe direction: an unreadable/absent context means nothing to bind
+  // against, so we evaluate rather than serve a verdict we cannot justify.
+  it('evaluates instead of replaying when the prior row has no readable context', async () => {
+    const { context: _drop, ...noContext } = PRIOR_ROW;
+    mockGetPriorDecision.mockResolvedValue(noContext);
+    const res = await post();
+
+    expect((await res.json()).idempotent_replay).toBeUndefined();
+    expect(mockEvaluateGuard).toHaveBeenCalled();
   });
 
   it('evaluates normally when no prior decision exists', async () => {

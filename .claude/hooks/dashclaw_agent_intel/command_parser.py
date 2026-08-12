@@ -92,6 +92,19 @@ def _tokenize(segment: str) -> list[str]:
         return segment.split()
 
 
+def _is_fd_dup(target: str) -> bool:
+    """True when a redirection target is a file descriptor, not a file.
+
+    `2>&1` and `>&2` duplicate a descriptor; nothing is written to disk. Reading
+    the `&1` as a filename made the most common idiom in the corpus look like a
+    file write, which floored its risk at 35 in dashclaw_pretool and surfaced
+    the shape `other -> &1` in the /policies review feed as something an
+    operator could grant. `&>file` is unaffected: there the `&` belongs to the
+    operator, so the target is `file`.
+    """
+    return target.startswith("&")
+
+
 def _extract_redirections(tokens: list[str]) -> tuple[list[str], list[dict]]:
     """Separate redirection operators and their targets from *tokens*.
 
@@ -115,7 +128,9 @@ def _extract_redirections(tokens: list[str]) -> tuple[list[str], list[dict]]:
         if matched_op is None:
             for op in _REDIR_OPS:
                 if tok.startswith(op) and len(tok) > len(op):
-                    redirections.append({"type": op, "target": tok[len(op):]})
+                    target = tok[len(op):]
+                    if not _is_fd_dup(target):
+                        redirections.append({"type": op, "target": target})
                     i += 1
                     break
             else:
@@ -126,7 +141,9 @@ def _extract_redirections(tokens: list[str]) -> tuple[list[str], list[dict]]:
 
         # The operator is a standalone token.  Next token is the target.
         if i + 1 < len(tokens):
-            redirections.append({"type": matched_op, "target": tokens[i + 1]})
+            target = tokens[i + 1]
+            if not _is_fd_dup(target):
+                redirections.append({"type": matched_op, "target": target})
             i += 2
         else:
             # Dangling operator -- keep it as-is.

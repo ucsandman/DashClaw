@@ -6,9 +6,16 @@ import type {
   NotificationAdapter,
 } from './index';
 
+// Use undici's fetch rather than the Node global. The global fetch is backed by
+// Node's *internal* undici, a different instance than the standalone `undici`
+// package that buildPinnedDispatcher's Agent comes from. Handing that Agent to
+// the global fetch as `dispatcher` throws a bare "TypeError: fetch failed" with
+// no .cause. Mirrors the fix already applied in webhooks.ts (a52d4478).
+import { fetch } from 'undici';
+
 // `dispatcher` is an undici extension to the fetch init that the DOM lib
 // types don't model; widen the init locally to pass it through unchanged.
-type FetchInitWithDispatcher = RequestInit & { dispatcher?: unknown };
+type FetchInitWithDispatcher = Parameters<typeof fetch>[1];
 
 export const slackAdapter: NotificationAdapter = {
   name: 'slack',
@@ -63,8 +70,10 @@ export const slackAdapter: NotificationAdapter = {
       headers: { Authorization: `Bearer ${creds.SLACK_BOT_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ channel, blocks }),
     });
-    const data = await res.json();
-    if (!data.ok) return { success: false, message: data.error };
+    // undici's fetch types response.json() as Promise<unknown> (the DOM global
+    // typed it any); annotate so the .ok/.error access below still type-checks.
+    const data = (await res.json()) as { ok: boolean; error?: string };
+    if (!data.ok) return { success: false, message: data.error || 'Slack API error' };
     return { success: true, message: `Posted to #${channel}` };
   },
 };

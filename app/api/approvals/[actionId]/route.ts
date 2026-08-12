@@ -177,10 +177,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
     }
     const approvalEvent = decision === 'allow' ? 'approval_granted' : 'approval_denied';
     if (fullAction) {
-      fireWebhooksForApproval(orgId, approvalEvent, {
+      // after(): webhook delivery does a SQL SELECT, an HTTP call, and a
+      // delivery-log INSERT — none of which is guaranteed to finish once the
+      // response below returns and the lambda freezes on Vercel.
+      after(() => fireWebhooksForApproval(orgId, approvalEvent, {
         ...fullAction,
         status: decision === 'allow' ? 'running' : 'failed',
-      }, sql).catch((err: unknown) => console.warn('[APPROVALS] approval webhook dispatch failed:', err instanceof Error ? err.message : String(err)));
+      }, sql).catch((err: unknown) => console.warn('[APPROVALS] approval webhook dispatch failed:', err instanceof Error ? err.message : String(err))));
     }
 
     return NextResponse.json({

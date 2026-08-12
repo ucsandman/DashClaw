@@ -19,6 +19,7 @@ import { installOpenclaw, OPENCLAW_PLUGIN_VERSION } from '../lib/openclaw/instal
 import { upCommand, runDown, resolveBaseDir } from '../lib/up/index.js';
 import { runCodexNotify } from '../lib/codex/notify.js';
 import { apiRequest } from '../lib/api.js';
+import { runBackfill } from '../lib/backfill.js';
 
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
@@ -83,6 +84,8 @@ ${bold('Usage:')}
   dashclaw contained diff <actionId>     Print the captured patch diff for a contained action
   dashclaw contained apply <actionId>    Governed merge: run the promoted action's containment_ref
                                          merge, guarded by the operator's promote grant
+  dashclaw backfill                      Post orphaned actions (logged while the guard was down) into the ledger
+    --file <path>                        Orphan file to read (default: ~/.dashclaw/orphan-actions.jsonl)
   dashclaw doctor                        Diagnose your instance + this machine (report-only)
     --fix                                Apply safe auto-fixes, then re-check and report
     --json                               Output as JSON (for CI/scripts)
@@ -166,6 +169,37 @@ async function cmdDoctor() {
     repo: repoValue,
     cliVersion: pkg.version,
   });
+}
+
+async function cmdBackfill() {
+  const fileFlag = getFlag('--file');
+  const summary = await runBackfill({
+    baseUrl,
+    apiKey,
+    filePath: fileFlag,
+    logger: console,
+  });
+
+  console.log();
+  if (summary.found === 0) {
+    console.log(`  ${dim('Nothing to backfill.')}`);
+    console.log();
+    return;
+  }
+
+  console.log(
+    `  ${bold('Backfill:')} ${summary.found} found, ${green(`${summary.posted} posted`)}` +
+    `${summary.replayed ? dim(` (${summary.replayed} already recorded)`) : ''}, ` +
+    `${summary.skipped ? yellow(`${summary.skipped} skipped`) : '0 skipped'}, ` +
+    `${summary.failed ? red(`${summary.failed} failed`) : '0 failed'}.`
+  );
+  if (summary.remaining > 0) {
+    console.log(`  ${yellow(`${summary.remaining} record(s) left in the orphan file`)} — re-run ${dim('dashclaw backfill')} after fixing the issue above.`);
+    process.exitCode = 1;
+  } else {
+    console.log(`  ${green('Orphan file cleared.')}`);
+  }
+  console.log();
 }
 
 async function cmdApprove() {
@@ -937,7 +971,7 @@ async function cmdCodex() {
 
 // -- Router -------------------------------------------------------------------
 
-const COMMANDS_NEEDING_CONFIG = new Set(['approvals', 'approve', 'deny', 'doctor', 'halt', 'import', 'contained']);
+const COMMANDS_NEEDING_CONFIG = new Set(['approvals', 'approve', 'deny', 'doctor', 'halt', 'import', 'contained', 'backfill']);
 // `install` deliberately omitted: provisioning hooks and AGENTS.md shouldn't
 // require the user to have already configured API keys. If config happens to
 // be present, install will pick up baseUrl for the AGENTS.md instance link.
@@ -975,6 +1009,7 @@ const COMMAND_HANDLERS = {
   approvals: cmdApprovals,
   approve: cmdApprove,
   deny: cmdDeny,
+  backfill: cmdBackfill,
   doctor: cmdDoctor,
   logout: cmdLogout,
   up: cmdUp,

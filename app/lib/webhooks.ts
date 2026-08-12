@@ -214,7 +214,12 @@ function redactForStorage(value: unknown): unknown {
   return scanSensitiveData(value).redacted;
 }
 
-function signGuardWebhookPayload({
+/**
+ * HMAC over `${timestamp}.${payload}` — the replay-resistant form. A plain
+ * body HMAC carries no time, so a captured delivery replays forever; binding
+ * the timestamp lets a receiver reject stale ones.
+ */
+function signTimestampedPayload({
   timestamp,
   payload,
   secret,
@@ -225,6 +230,83 @@ function signGuardWebhookPayload({
 }): string {
   const msg = `${timestamp}.${payload}`;
   return crypto.createHmac('sha256', secret).update(msg).digest('hex');
+}
+
+/**
+ * Bytes we are willing to buffer from a webhook response before cutting the
+ * stream. Only the first 2000 characters are ever stored (readWebhookResponse),
+ * so anything past this is memory we can never use — and a host that answers
+ * 200 then trickles body bytes forever would otherwise buffer without bound.
+ */
+const MAX_RESPONSE_BYTES = 8192;
+
+/**
+ * Reject `work` as soon as `signal` fires. fetch's signal only covers the
+ * headers round-trip: the response resolves while the body is still an open
+ * stream, so the delivery timeout has to cover the read too. Without this a
+ * host that answers 200 and never finishes its body hangs deliverGuardWebhook
+ * — which the guard hot path awaits.
+ */
+function withAbort<T>(
+  work: Promise<T>,
+  signal: AbortSignal | undefined,
+  onAbort?: () => void,
+): Promise<T> {
+  if (!signal) return work;
+  return new Promise<T>((resolve, reject) => {
+    const fail = () => {
+      onAbort?.();
+      reject(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }));
+    };
+    if (signal.aborted) {
+      fail();
+      return;
+    }
+    signal.addEventListener('abort', fail, { once: true });
+    work.then(resolve, reject).finally(() => signal.removeEventListener('abort', fail));
+  });
+}
+
+function cancelBody(body: unknown): void {
+  const cancel = (body as { cancel?: () => Promise<void> })?.cancel;
+  if (typeof cancel !== 'function') return;
+  try {
+    cancel.call(body)?.catch?.(() => {});
+  } catch {
+    /* stream already closed */
+  }
+}
+
+/**
+ * Read at most MAX_RESPONSE_BYTES of a response body, aborting with `signal`.
+ * Streams and stops early instead of buffering the whole body first — the
+ * truncation used to happen only after res.text() had already materialized
+ * every byte the sender chose to send.
+ */
+async function readCappedResponseText(
+  res: { body?: unknown; text: () => Promise<string> },
+  signal?: AbortSignal,
+): Promise<string> {
+  const body = res.body as AsyncIterable<Uint8Array> | null | undefined;
+  if (!body || typeof body[Symbol.asyncIterator] !== 'function') {
+    // Bodies without a stream (and test doubles) still expose text().
+    return withAbort(res.text(), signal);
+  }
+
+  const drain = async (): Promise<string> => {
+    const decoder = new TextDecoder();
+    let out = '';
+    let bytes = 0;
+    for await (const chunk of body) {
+      bytes += chunk?.byteLength ?? 0;
+      out += decoder.decode(chunk, { stream: true });
+      // Breaking closes the async iterator, which cancels the underlying stream.
+      if (bytes >= MAX_RESPONSE_BYTES) break;
+    }
+    return out;
+  };
+
+  return withAbort(drain(), signal, () => cancelBody(body));
 }
 
 /**
@@ -244,34 +326,52 @@ async function postWithPinnedDns({
   headers: Record<string, string>;
   body: string;
   timeoutMs: number;
-}): Promise<Awaited<ReturnType<typeof fetch>>> {
+}): Promise<{
+  res: Awaited<ReturnType<typeof fetch>>;
+  signal: AbortSignal;
+  release: () => void;
+}> {
   const validatedIps = await safeUrlWithIps(url);
   const dispatcher = buildPinnedDispatcher(validatedIps);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-  const res = await fetch(url, {
-    method: 'POST',
-    redirect: 'manual', // SECURITY: prevent SSRF via redirects
-    headers,
-    body,
-    signal: controller.signal,
-    dispatcher,
-  } as Parameters<typeof fetch>[1]);
+  let res: Awaited<ReturnType<typeof fetch>>;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      redirect: 'manual', // SECURITY: prevent SSRF via redirects
+      headers,
+      body,
+      signal: controller.signal,
+      dispatcher,
+    } as Parameters<typeof fetch>[1]);
+  } catch (err) {
+    clearTimeout(timeout);
+    throw err;
+  }
 
-  clearTimeout(timeout);
-  return res;
+  // The timer stays armed: fetch resolves on headers, so clearing it here
+  // would leave the body read unbounded (see withAbort). The caller releases
+  // it once the body has been consumed.
+  return { res, signal: controller.signal, release: () => clearTimeout(timeout) };
 }
 
 /** Map a fetch response to delivery status + (truncated) response body. */
 async function readWebhookResponse(
   res: Awaited<ReturnType<typeof fetch>>,
+  signal?: AbortSignal,
 ): Promise<{ status: string; responseBody: string }> {
   if (res.status >= 300 && res.status < 400) {
     return { status: 'failed', responseBody: 'Redirect blocked' };
   }
-  let responseBody = await res.text().catch(() => '');
+  let responseBody = await readCappedResponseText(res, signal).catch((err: unknown) => {
+    // A read that hit the delivery timeout must fail the delivery, not log a
+    // 200 with an empty body; other read errors stay tolerated as before.
+    if ((err as Error)?.name === 'AbortError') throw err;
+    return '';
+  });
   if (responseBody.length > 2000) responseBody = responseBody.substring(0, 2000);
   return { status: res.ok ? 'success' : 'failed', responseBody };
 }
@@ -457,6 +557,8 @@ export async function deliverWebhook({
   // Per-destination formatting; the signature covers the bytes actually sent.
   const { url: targetUrl, body: payloadStr } = formatWebhookPayload(url, eventType, payload);
   const signature = signPayload(payloadStr, secret);
+  const timestamp = String(Date.now());
+  const timestampedSignature = signTimestampedPayload({ timestamp, payload: payloadStr, secret });
   const now = new Date().toISOString();
   const start = Date.now();
 
@@ -465,11 +567,17 @@ export async function deliverWebhook({
   let responseBody: string | null = null;
 
   try {
-    const res = await postWithPinnedDns({
+    const { res, signal, release } = await postWithPinnedDns({
       url: targetUrl,
       headers: {
         'Content-Type': 'application/json',
+        // Legacy plain-body HMAC: it carries no timestamp, so a captured
+        // delivery replays forever. Kept because existing receivers verify
+        // it; the timestamp-bound v1 form below (the same wire shape the
+        // guard path already ships) is what new receivers should check.
         'X-DashClaw-Signature': signature,
+        'X-DashClaw-Timestamp': timestamp,
+        'X-DashClaw-Signature-V1': `v1=${timestampedSignature}`,
         'X-DashClaw-Event': eventType,
         'X-DashClaw-Delivery': deliveryId,
         'User-Agent': 'DashClaw-Webhooks/1.0',
@@ -478,8 +586,12 @@ export async function deliverWebhook({
       timeoutMs: 10000, // 10s timeout
     });
 
-    responseStatus = res.status;
-    ({ status, responseBody } = await readWebhookResponse(res));
+    try {
+      responseStatus = res.status;
+      ({ status, responseBody } = await readWebhookResponse(res, signal));
+    } finally {
+      release();
+    }
   } catch (err) {
     responseBody = (err as Error)?.message || 'Request failed';
     status = 'failed';
@@ -510,7 +622,7 @@ function buildGuardHeaders(deliveryId: string, payloadStr: string): Record<strin
   const guardSecret = process.env.GUARD_WEBHOOK_SECRET || '';
   const guardTs = String(Date.now());
   const guardSig = guardSecret
-    ? signGuardWebhookPayload({ timestamp: guardTs, payload: payloadStr, secret: guardSecret })
+    ? signTimestampedPayload({ timestamp: guardTs, payload: payloadStr, secret: guardSecret })
     : null;
 
   return {
@@ -559,15 +671,19 @@ export async function deliverGuardWebhook({
 
   try {
     // Validate URL + capture validated IPs + pin DNS (see postWithPinnedDns).
-    const res = await postWithPinnedDns({
+    const { res, signal, release } = await postWithPinnedDns({
       url,
       headers: buildGuardHeaders(deliveryId, payloadStr),
       body: payloadStr,
       timeoutMs: timeoutMs || 5000,
     });
 
-    responseStatus = res.status;
-    ({ status, responseBody } = await readWebhookResponse(res));
+    try {
+      responseStatus = res.status;
+      ({ status, responseBody } = await readWebhookResponse(res, signal));
+    } finally {
+      release();
+    }
     if (status === 'success') parsedResponse = parseGuardResponse(responseBody);
   } catch (err) {
     responseBody = guardFailureMessage(err);
@@ -625,32 +741,44 @@ function filterRelevantSignals(
  * (signals, approval events, test route) must call this — guard webhooks
  * (policy-based, keyed by policyId) have no webhooks row and must not.
  */
-export function updateWebhookFailureState(
+export async function updateWebhookFailureState(
   wh: Pick<WebhookRow, 'id' | 'failure_count'>,
   orgId: string,
   success: boolean,
   sql: SqlClient,
-): void {
+): Promise<void> {
   if (success) {
     // Reset failure count on success
-    sql`UPDATE webhooks SET failure_count = 0, last_triggered_at = ${new Date().toISOString()} WHERE id = ${wh.id} AND org_id = ${orgId}`.catch((err) => {
+    try {
+      await sql`UPDATE webhooks SET failure_count = 0, last_triggered_at = ${new Date().toISOString()} WHERE id = ${wh.id} AND org_id = ${orgId}`;
+    } catch (err) {
       console.warn(`[Webhooks] Failed to reset failure_count for webhook ${wh.id}:`, (err as Error)?.message);
-    });
+    }
     return;
   }
 
-  const newCount = (parseInt(wh.failure_count as string, 10) || 0) + 1;
-  if (newCount >= 10) {
-    // Disable webhook after 10 consecutive failures
-    sql`UPDATE webhooks SET failure_count = ${newCount}, active = 0, last_triggered_at = ${new Date().toISOString()} WHERE id = ${wh.id} AND org_id = ${orgId}`.catch((err) => {
-      console.warn(`[Webhooks] Failed to disable webhook ${wh.id} after ${newCount} failures:`, (err as Error)?.message);
-    });
-    return;
-  }
-
-  sql`UPDATE webhooks SET failure_count = ${newCount}, last_triggered_at = ${new Date().toISOString()} WHERE id = ${wh.id} AND org_id = ${orgId}`.catch((err) => {
+  // Increment server-side, not from the caller's SELECT snapshot: overlapping
+  // failed deliveries all read the same count and all wrote count+1, so the
+  // counter sat near 1 forever and the disable-at-10 breaker never tripped —
+  // DashClaw kept hammering a dead endpoint at 10s per attempt. The threshold
+  // is evaluated in the same statement so there is no window where the count
+  // is past 10 but the webhook is still active.
+  try {
+    const rows = await sql`
+      UPDATE webhooks
+      SET failure_count = COALESCE(failure_count, 0) + 1,
+          active = CASE WHEN COALESCE(failure_count, 0) + 1 >= 10 THEN 0 ELSE active END,
+          last_triggered_at = ${new Date().toISOString()}
+      WHERE id = ${wh.id} AND org_id = ${orgId}
+      RETURNING failure_count, active
+    `;
+    const row = rows?.[0];
+    if (row && Number(row.active) === 0) {
+      console.warn(`[Webhooks] Disabled webhook ${wh.id} after ${row.failure_count} consecutive failures`);
+    }
+  } catch (err) {
     console.warn(`[Webhooks] Failed to update failure_count for webhook ${wh.id}:`, (err as Error)?.message);
-  });
+  }
 }
 
 /**
@@ -696,7 +824,7 @@ export async function fireWebhooksForOrg(
       sql,
     });
 
-    updateWebhookFailureState(wh, orgId, result.success, sql);
+    await updateWebhookFailureState(wh, orgId, result.success, sql);
 
     results.push({ webhookId: wh.id, success: result.success, signalCount: relevantSignals.length });
   }
@@ -745,10 +873,16 @@ export async function fireWebhooksForApproval(
 
     const payload = buildApprovalPayload(orgId, eventType, action);
 
+    // Collect the deliveries: this function used to resolve as soon as the
+    // loop finished, so callers wrapping it in after() were awaiting an
+    // already-settled promise while the POSTs (10s timeout each) ran
+    // unprotected past the end of the request.
+    const deliveries: Promise<void>[] = [];
+
     for (const wh of webhooks) {
       const events = parseSubscribedEvents(wh.events || '["all"]');
       if (!events.includes('all') && !events.includes(eventType)) continue;
-      deliverWebhook({
+      deliveries.push(deliverWebhook({
         webhookId: wh.id,
         orgId,
         url: wh.url,
@@ -756,12 +890,13 @@ export async function fireWebhooksForApproval(
         eventType,
         payload,
         sql,
-      }).then((result) => {
-        updateWebhookFailureState(wh, orgId, result.success, sql);
-      }).catch((err) =>
-        console.error(`[WEBHOOK] Delivery failed for ${wh.id}:`, (err as Error)?.message)
-      );
+      }).then((result) => updateWebhookFailureState(wh, orgId, result.success, sql))
+        .catch((err) =>
+          console.error(`[WEBHOOK] Delivery failed for ${wh.id}:`, (err as Error)?.message)
+        ));
     }
+
+    await Promise.allSettled(deliveries);
   } catch (err) {
     console.error('[WEBHOOK] fireWebhooksForApproval error:', (err as Error)?.message);
   }

@@ -55,6 +55,10 @@ export default function AssumptionsPage() {
   // whole positive verdict was invisible while "Invalidate…" sat in the open.
   const [validatingId, setValidatingId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
+  // Bulk validate fans out per-item PATCHes (bulkAction); a partial failure
+  // must reach the human, not just the console — the per-row path already
+  // surfaces failures via rowError above.
+  const [bulkError, setBulkError] = useState<string | null>(null);
 
   // Fetch the full (agent-scoped) set once; the route filters on integer
   // `validated`/`stale` columns and has no `status` param, so the four display
@@ -166,7 +170,8 @@ export default function AssumptionsPage() {
     );
     const ids = selection.selectedIds.filter((id) => eligible.has(id));
     if (ids.length === 0) return;
-    await bulkAction(ids, (id) =>
+    setBulkError(null);
+    const { ok, failed } = await bulkAction(ids, (id) =>
       fetch(`/api/assumptions/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -175,6 +180,9 @@ export default function AssumptionsPage() {
     );
     selection.clear();
     await fetchAssumptions();
+    if (failed.length > 0) {
+      setBulkError(`Validated ${ok.length} of ${ids.length} assumption${ids.length === 1 ? '' : 's'}. ${failed.length} failed and ${failed.length === 1 ? 'remains' : 'remain'} pending — try again or validate individually.`);
+    }
   };
 
   const handleCopyIds = () => {
@@ -204,6 +212,12 @@ export default function AssumptionsPage() {
       breadcrumbs={['Governance', 'Assumptions']}
       actions={<BulkActionBar count={selection.count} actions={BULK_ACTIONS} onClear={selection.clear} />}
     >
+      {bulkError && (
+        <div role="alert" className="mb-4 flex items-center justify-between rounded-lg border border-error/20 bg-error-subtle p-3 text-sm text-error">
+          <span>{bulkError}</span>
+          <button onClick={() => setBulkError(null)} className="ml-4 text-error hover:text-error" aria-label="Dismiss">&times;</button>
+        </div>
+      )}
       {/* Instrument rail — one container, divided columns */}
       <div className="mb-8 grid grid-cols-2 divide-x divide-border overflow-hidden rounded-xl border border-border bg-surface-secondary md:grid-cols-5 md:divide-y-0">
         <div className="p-4">
