@@ -27,7 +27,83 @@ from enforcement_liveness_probe import (  # noqa: E402
     default_settings_paths,
     effective_hook_timer,
     find_pretool_entries,
+    parse_hooks_block_minimal,
 )
+
+# The hermes seam must be probeable on a BARE interpreter: the hook runs as
+# plain `python`, which is not necessarily the one Hermes itself uses. CI's
+# python has no PyYAML, which is exactly the environment worth testing.
+try:
+    import yaml as _yaml  # noqa: F401
+    HAS_PYYAML = True
+except ImportError:
+    HAS_PYYAML = False
+
+HERMES_SNIPPET = (
+    "hooks:\n"
+    "  pre_tool_call:\n"
+    '    - matcher: "^(Bash|Edit|Write)$"\n'
+    '      command: "python /repo/.hermes/hooks/dashclaw_pretool_hermes.py"\n'
+    "      timeout: 60\n"
+    "  on_session_start:\n"
+    '    - command: "python /repo/hooks/enforcement_liveness_probe.py"\n'
+    "      timeout: 10\n"
+)
+
+
+class TestMinimalYamlReader(unittest.TestCase):
+    """The no-PyYAML fallback. It only has to read the block the installer
+    writes — but on that block it must agree with PyYAML exactly, or the
+    hermes verdict depends on which interpreter happened to run the hook."""
+
+    def test_reads_the_installed_hooks_block(self):
+        parsed = parse_hooks_block_minimal(HERMES_SNIPPET)
+        entries = parsed["hooks"]["pre_tool_call"]
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["command"], "python /repo/.hermes/hooks/dashclaw_pretool_hermes.py")
+        self.assertEqual(entries[0]["timeout"], 60)
+        self.assertEqual(entries[0]["matcher"], "^(Bash|Edit|Write)$")
+        self.assertEqual(len(parsed["hooks"]["on_session_start"]), 1)
+
+    @unittest.skipUnless(HAS_PYYAML, "PyYAML not installed")
+    def test_agrees_with_pyyaml_on_that_block(self):
+        import yaml
+        self.assertEqual(parse_hooks_block_minimal(HERMES_SNIPPET)["hooks"], yaml.safe_load(HERMES_SNIPPET)["hooks"])
+
+    def test_ignores_everything_outside_the_hooks_block(self):
+        text = (
+            "plugins:\n  dashclaw:\n    env:\n      DASHCLAW_BASE_URL: https://x\n"
+            + HERMES_SNIPPET
+            + "hooks_auto_accept: false\n"
+        )
+        parsed = parse_hooks_block_minimal(text)
+        self.assertEqual(len(parsed["hooks"]["pre_tool_call"]), 1)
+        self.assertNotIn("plugins", parsed)
+
+    def test_refuses_rather_than_guesses_on_a_shape_it_cannot_read(self):
+        # A wrong answer here is worse than no answer: it would silently
+        # report a seam as uninstalled, or probe the wrong command.
+        with self.assertRaises(ValueError):
+            parse_hooks_block_minimal("hooks:\n\tpre_tool_call:\n\t  - command: x\n")
+        with self.assertRaises(ValueError):
+            parse_hooks_block_minimal("hooks:\n  pre_tool_call:\n    - just-a-scalar\n")
+
+    def test_no_hooks_block_is_empty_not_an_error(self):
+        self.assertEqual(parse_hooks_block_minimal("plugins:\n  dashclaw: {}\n"), {"hooks": {}})
+
+    def test_unescapes_a_quoted_windows_command(self):
+        # Regression: unwrapping the quotes without UNESCAPING them left every
+        # backslash doubled, so the hook command could not run — and a hook
+        # that cannot run reads as a seam that does not enforce. Caught by the
+        # e2e hermes test on an interpreter without PyYAML.
+        command = r'"C:\tools\python.exe" "C:\tmp\dashclaw_pretool_hermes.py" --agent-id hermes'
+        doc = "hooks:\n  pre_tool_call:\n    - command: %s\n" % json.dumps(command)
+        parsed = parse_hooks_block_minimal(doc)
+        self.assertEqual(parsed["hooks"]["pre_tool_call"][0]["command"], command)
+
+    def test_unescapes_a_single_quoted_scalar(self):
+        parsed = parse_hooks_block_minimal("hooks:\n  pre_tool_call:\n    - command: 'it''s /bin/dashclaw_pretool'\n")
+        self.assertEqual(parsed["hooks"]["pre_tool_call"][0]["command"], "it's /bin/dashclaw_pretool")
 
 
 class TestEffectiveHookTimer(unittest.TestCase):

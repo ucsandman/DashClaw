@@ -219,6 +219,99 @@ def effective_hook_timer(timeout_value, harness="claude-code"):
     return seconds, ms, overflowed
 
 
+def _strip_yaml_scalar(raw):
+    """Decode one YAML scalar the way PyYAML would, for the styles the hooks
+    block uses.
+
+    Quoted values must be UNESCAPED, not just unwrapped. Every Windows hook
+    command is a quoted string full of backslashes (`"C:\\...\\python.exe"`),
+    so returning the raw characters produces a command that cannot run — and
+    a hook that cannot run reads as a seam that does not enforce. That is the
+    exact false verdict this probe exists to prevent, so it is worth the few
+    lines.
+    """
+    value = raw.strip()
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        # YAML double-quoted style shares JSON's escape vocabulary for
+        # everything this block contains.
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value[1:-1]
+    if len(value) >= 2 and value[0] == value[-1] == "'":
+        # YAML single-quoted style has exactly one escape: '' means '.
+        return value[1:-1].replace("''", "'")
+    if value.lstrip("-").isdigit():
+        try:
+            return int(value)
+        except ValueError:
+            pass
+    return value
+
+
+def parse_hooks_block_minimal(text):
+    """Read `hooks:` out of a Hermes config.yaml without PyYAML.
+
+    DELIBERATELY NARROW. It understands exactly the block shape
+    scripts/install-hermes-plugin.* writes — a `hooks:` map, event keys under
+    it, a list of `- key: value` entries under each — and nothing else: no
+    flow style, no anchors, no multi-line scalars, no tabs. Everything outside
+    `hooks:` is skipped rather than parsed, so the rest of an operator's config
+    can be arbitrarily complex without concerning this reader.
+
+    It raises ValueError on a `hooks:` block it cannot read, so an
+    unrecognised config is REPORTED by the caller instead of being
+    half-parsed into a confident wrong answer.
+    """
+    hooks = {}
+    event = None
+    entry = None
+    hooks_indent = None
+    event_indent = None
+
+    for lineno, raw in enumerate(text.splitlines(), 1):
+        line = raw.split(" #", 1)[0].rstrip() if " #" in raw else raw.rstrip()
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if "\t" in line[: len(line) - len(line.lstrip())]:
+            raise ValueError("tab indentation on line %d is not supported" % lineno)
+        indent = len(line) - len(line.lstrip())
+        body = line.strip()
+
+        if hooks_indent is None:
+            if indent == 0 and body == "hooks:":
+                hooks_indent = indent
+            continue  # outside the hooks block: not this reader's problem
+
+        if indent <= hooks_indent:
+            break  # dedented back out of hooks: done
+
+        # An event key, e.g. `pre_tool_call:`
+        if body.endswith(":") and (event_indent is None or indent <= event_indent):
+            event_indent = indent
+            event = body[:-1].strip()
+            hooks[event] = []
+            entry = None
+            continue
+
+        if event is None:
+            raise ValueError("entry on line %d is not under an event key" % lineno)
+
+        if body.startswith("- "):
+            entry = {}
+            hooks[event].append(entry)
+            body = body[2:].strip()
+        elif entry is None:
+            raise ValueError("line %d continues an entry that never started" % lineno)
+
+        if ":" not in body:
+            raise ValueError("line %d is not a `key: value` pair" % lineno)
+        key, _, value = body.partition(":")
+        entry[key.strip()] = _strip_yaml_scalar(value)
+
+    return {"hooks": hooks}
+
+
 def load_hook_config(path):
     """Parse one harness config file into the common hooks shape.
 
@@ -243,18 +336,18 @@ def load_hook_config(path):
             with open(path, "rb") as f:
                 return tomllib.load(f), harness, None
         if suffix in (".yaml", ".yml"):
-            # PyYAML is not a probe dependency; Hermes itself needs it to read
-            # this very file, so it is normally present in the interpreter the
-            # Hermes hook runs under. When it is not, say so rather than
-            # reporting "nothing installed".
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+            # PyYAML when present; otherwise the narrow reader below. The hook
+            # is invoked as bare `python`, which is not necessarily the
+            # interpreter Hermes itself runs under, so PyYAML cannot be assumed
+            # — and "cannot probe, library missing" is the same false green as
+            # "nothing installed".
             try:
                 import yaml
             except ImportError:
-                return None, harness, (
-                    "%s exists but cannot be read: PyYAML is not installed in this "
-                    "interpreter, so the hermes seam cannot be probed" % path)
-            with open(path, encoding="utf-8") as f:
-                return yaml.safe_load(f) or {}, harness, None
+                return parse_hooks_block_minimal(text), harness, None
+            return yaml.safe_load(text) or {}, harness, None
         with open(path, encoding="utf-8") as f:
             return json.load(f), harness, None
     except (OSError, ValueError) as exc:
