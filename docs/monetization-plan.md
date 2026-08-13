@@ -45,7 +45,7 @@ needs, never the adopter's.
 
 The complete governance runtime. Never gated:
 
-- Full guard loop, all 16 policy types, decisions ledger, approvals (dashboard /
+- Full guard loop, all 17 policy types, decisions ledger, approvals (dashboard /
   CLI / mobile PWA / Telegram / Discord).
 - Agent identity (Phase 2 JWKS, 2b replay, 2c action binding).
 - Durable execution finality, capability runtime, execution studio (workflows /

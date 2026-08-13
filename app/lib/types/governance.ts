@@ -32,7 +32,8 @@ export type GuardPolicyType =
   | 'branch_freshness'
   | 'require_evidence'
   | 'delegation_constraint'
-  | 'role_constraint';
+  | 'role_constraint'
+  | 'deviation_response';
 
 export type GreenLevel = 'targeted' | 'package' | 'workspace' | 'merge_ready';
 

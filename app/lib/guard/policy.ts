@@ -466,6 +466,38 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
     }
     return null;
   },
+  // Deviation response (RFC 2026-08-11-plan-deviation-events §7): per-kind
+  // consequence for the plan-vs-actual deviation the detector attached to
+  // this evaluation. Input arrives via context._plan_deviation_finding — a
+  // transient SERVER-SET stash written by runDeviationCheck AFTER the grant
+  // passes and deleted before the context is persisted — so this evaluator is
+  // a structural no-op inside runLocalPolicies and for every agent without a
+  // live plan. Tighten-only: warn/require_approval/block, never grants.
+  // Detection and recording are unconditional and policy-free (D1/D2); this
+  // maps kinds to consequences, nothing more. escalate_action is a CEILING —
+  // block requires the operator's explicit opt-in.
+  deviation_response: ({ policy, rules, context }) => {
+    const finding = (context as Record<string, unknown>)._plan_deviation_finding as
+      { kind?: string; severity?: string } | undefined;
+    if (!finding || typeof finding.kind !== 'string') return null;
+    const SEV_ORDER: Record<string, number> = { info: 0, low: 1, medium: 2, high: 3 };
+    const minSeverity = typeof rules.min_severity === 'string' && rules.min_severity in SEV_ORDER
+      ? rules.min_severity : 'info';
+    const severity = typeof finding.severity === 'string' && finding.severity in SEV_ORDER
+      ? finding.severity : 'info';
+    if (SEV_ORDER[severity]! < SEV_ORDER[minSeverity]!) return null;
+    const onKind = rules.on_kind && typeof rules.on_kind === 'object' ? rules.on_kind : null;
+    const consequence = onKind ? onKind[finding.kind] : undefined;
+    if (consequence !== 'warn' && consequence !== 'require_approval' && consequence !== 'block') return null;
+    const ACTION_ORDER: Record<string, number> = { warn: 1, require_approval: 2, block: 3 };
+    const ceiling = typeof rules.escalate_action === 'string' && ACTION_ORDER[rules.escalate_action]
+      ? rules.escalate_action : 'require_approval';
+    const action = ACTION_ORDER[consequence]! > ACTION_ORDER[ceiling]! ? ceiling : consequence;
+    return {
+      action,
+      reason: `plan deviation ${finding.kind} (${finding.severity}) — "${policy.name || 'deviation policy'}" escalates to ${action}`,
+    };
+  },
 };
 
 // Dispatch via a Map so a user-controlled policy_type cannot reach an inherited

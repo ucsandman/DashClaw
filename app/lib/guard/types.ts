@@ -140,6 +140,11 @@ export interface PolicyRules {
   require_verified_parent?: boolean;
   escalate_action?: string;
   contain_above?: number;
+  // deviation_response: per-kind consequence for plan-vs-actual deviation
+  // (RFC 2026-08-11-plan-deviation-events §7). on_kind maps a deviation kind
+  // to warn|require_approval|block; escalate_action doubles as its ceiling.
+  on_kind?: Record<string, string>;
+  min_severity?: string;
 }
 
 export interface PolicyResult {

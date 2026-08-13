@@ -151,6 +151,19 @@ export function buildContract(
         else view.interrupts.push(s(txt));
         break;
       }
+      case 'deviation_response': {
+        const onKind = rules.on_kind && typeof rules.on_kind === 'object'
+          ? (rules.on_kind as Record<string, string>) : {};
+        const kinds = Object.keys(onKind);
+        if (kinds.length === 0) {
+          view.custom.push({ policy_id: row.id, name: row.name, policy_type: row.policy_type });
+          break;
+        }
+        const txt = `an agent departs from its approved plan (${listTypes(kinds)})`;
+        if (rules.escalate_action === 'block') view.blocks.push(s(txt));
+        else view.interrupts.push(s(txt));
+        break;
+      }
       case 'allow_grant': {
         const at = String(rules.action_type ?? '');
         const tp = rules.target_prefix == null ? null : String(rules.target_prefix);

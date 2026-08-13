@@ -36,9 +36,9 @@
       "reason": "2026-08-11: +1 (backfill) — the hook has always written ungoverned actions to ~/.dashclaw/orphan-actions.jsonl and told the operator they were 'logged for backfill on guard recovery', but nothing in the repo ever read that file. `dashclaw backfill` is the reader that makes the promise true; without it the audit gap the hook claims to close stays open forever. 2026-07-27: +1 (contained) — Containment Verdicts (governed-autonomy RFC 2026-07-06, feature 3): `dashclaw contained list|diff|apply`, the terminal client for the promote/discard-to-merge lifecycle."
     },
     "guardPolicyTypes": {
-      "ceiling": 16,
+      "ceiling": 17,
       "source": "app/lib/guard/policy.ts KNOWN_POLICY_TYPES (POLICY_EVALUATORS keys)",
-      "reason": "2026-08-10: +1 role_constraint — workbench-shaped authority bundles for top-level agents (spec docs/superpowers/specs/2026-08-10-role-constraints-design.md): named role = policy row, members = agent_ids scoping, tighten-only escalation. Extends delegation_constraint's shape without the composed-id gate; no tables, no routes, no pages, no MCP/SDK changes. (Prior: 2026-07-26 +1 delegation_constraint.)"
+      "reason": "2026-08-13: 16 -> 17 deviation_response — per-kind consequence for plan-vs-actual deviation (RFC docs/rfcs/2026-08-11-plan-deviation-events.md). Detection/recording are unconditional and policy-free (a fresh install changes behavior not at all; no default row); this type only maps kind -> warn/require_approval/block, tighten-only, with escalate_action as an explicit ceiling so block is operator opt-in. Rejected the zero-budget risk-folding alternative: it collapses qualitatively different kinds into one dial. No new routes, pages, MCP tools, or SDK methods; one unbudgeted table (plan_deviations). (Prior: 2026-08-10 15 -> 16 role_constraint.)"
     }
   }
 }

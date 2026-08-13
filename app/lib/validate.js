@@ -406,7 +406,7 @@ function validateClientCapabilities(context, addError) {
   }
 }
 
-const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'require_evidence', 'delegation_constraint', 'role_constraint'];
+const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'require_evidence', 'delegation_constraint', 'role_constraint', 'deviation_response'];
 const GUARD_ACTIONS = ['allow', 'warn', 'block', 'require_approval'];
 
 const POLICY_SCHEMA = {
@@ -697,6 +697,34 @@ const POLICY_TYPE_VALIDATORS = {
     }
     if (rules.escalate_action !== undefined && !['require_approval', 'block'].includes(rules.escalate_action)) {
       addError('role_constraint rules.escalate_action must be require_approval or block (roles only tighten)');
+    }
+  },
+  deviation_response: (rules, addError) => {
+    // Per-kind consequence for plan-vs-actual deviation (RFC
+    // 2026-08-11-plan-deviation-events). All fields optional — a row with no
+    // on_kind enforces nothing; only present checks enforce. Kinds must match
+    // DEVIATION_KINDS in app/lib/repositories/plan-deviations.repository.ts.
+    const KINDS = ['unplanned_action', 'goal_drift', 'act_substitution', 'scope_escape', 'step_abandoned', 'budget_overrun'];
+    const ACTIONS = ['warn', 'require_approval', 'block'];
+    if (rules.on_kind !== undefined) {
+      if (!isPlainObject(rules.on_kind)) {
+        addError('deviation_response rules.on_kind must be an object mapping deviation kinds to warn|require_approval|block');
+      } else {
+        for (const [kind, action] of Object.entries(rules.on_kind)) {
+          if (!KINDS.includes(kind)) {
+            addError(`deviation_response rules.on_kind key "${kind}" is not a deviation kind (${KINDS.join(', ')})`);
+          }
+          if (!ACTIONS.includes(action)) {
+            addError(`deviation_response rules.on_kind.${kind} must be warn, require_approval, or block`);
+          }
+        }
+      }
+    }
+    if (rules.min_severity !== undefined && !['info', 'low', 'medium', 'high'].includes(rules.min_severity)) {
+      addError('deviation_response rules.min_severity must be info, low, medium, or high');
+    }
+    if (rules.escalate_action !== undefined && !ACTIONS.includes(rules.escalate_action)) {
+      addError('deviation_response rules.escalate_action must be warn, require_approval, or block (a ceiling — deviations only tighten)');
     }
   },
 };

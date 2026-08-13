@@ -262,14 +262,18 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 
 | Surface | Ceiling | Counted from |
 |---|---|---|
-| Active API routes | 124 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
-| App pages | 48 | `app/**/page.{js,jsx,ts,tsx}` |
+| Active API routes | 133 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
+| App pages | 53 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 17 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
 | Node SDK methods | 39 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
 | Python SDK methods | 59 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
-| CLI commands | 14 | `cli/bin/dashclaw.js` (`COMMAND_HANDLERS`) |
-| Guard policy types | 15 | `app/lib/guard/policy.ts` (`KNOWN_POLICY_TYPES`) |
+| CLI commands | 15 | `cli/bin/dashclaw.js` (`COMMAND_HANDLERS`) |
+| Guard policy types | 17 | `app/lib/guard/policy.ts` (`KNOWN_POLICY_TYPES`) |
+
+(This table mirrors `contracts/surface-budget.json` as of 2026-08-13; it had
+drifted from the JSON across several amendments — the JSON is the machine
+source of truth, the amendment log below is the history.)
 
 Raising any ceiling requires amending this section **and**
 `contracts/surface-budget.json` in the same commit with a written reason — the
@@ -449,6 +453,21 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   Explicitly NOT a revival of the culled capabilities registry or managed
   secrets — the credentials half of the original "workbench" concept stays
   dead. Spec: docs/superpowers/specs/2026-08-10-role-constraints-design.md.
+- **2026-08-13 — Guard policy types 16 → 17 (`deviation_response`).** Per-kind
+  consequence for plan-vs-actual deviation — the follow-on the preflight-plan
+  RFC explicitly deferred, now that the runtime records the diff it always
+  computed and threw away (`consumePlanStepGrant`'s no-match branch). Detection
+  and recording are unconditional and policy-free: a fresh install records and
+  renders deviations with zero behavior change, and no policy row is installed
+  by default. This type only maps a deviation kind (act substitution, scope
+  escape, unplanned action, goal drift…) to warn / require_approval / block —
+  tighten-only, layered on the existing evaluator map and `/policies` rails,
+  with `escalate_action` as an explicit ceiling so blocking is an operator's
+  opt-in act. Rejected the zero-budget alternative (folding deviation severity
+  into risk) because it collapses qualitatively different kinds into one dial.
+  No new routes, pages, MCP tools, or SDK methods; one new unbudgeted table
+  (`plan_deviations`). RFC: docs/rfcs/2026-08-11-plan-deviation-events.md.
+  (Prior: 2026-08-10 15 → 16 `role_constraint`.)
 - **2026-08-09 — App pages 52 → 53 (`/pricing`).** Reinstated per
   `docs/decisions/2026-08-09-hosted-paid-tier.md`, which reverses the
   2026-05-14 "retract the monetization surface entirely" decision

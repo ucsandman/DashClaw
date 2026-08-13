@@ -176,3 +176,110 @@ describe('runDeviationCheck (via evaluateGuard)', () => {
     expect(deviationInserts(sql)).toHaveLength(0);
   });
 });
+
+describe('deviation_response policy (via evaluateGuard)', () => {
+  const originalGuardLlmKey = process.env.GUARD_LLM_KEY;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    __resetGuardCaches();
+    mockScanSensitiveData.mockImplementation((text) => ({ findings: [], redacted: text, clean: true }));
+    process.env.GUARD_LLM_KEY = 'mock-key-for-unit-tests';
+  });
+
+  afterEach(() => {
+    if (originalGuardLlmKey === undefined) delete process.env.GUARD_LLM_KEY;
+    else process.env.GUARD_LLM_KEY = originalGuardLlmKey;
+  });
+
+  const devPolicy = (rules, overrides = {}) => ({
+    id: 'gp_deviation', name: 'Deviation response', policy_type: 'deviation_response',
+    rules: JSON.stringify(rules), ...overrides,
+  });
+
+  it('on_kind raises an unplanned_action to require_approval and stamps policy_outcome on the row', async () => {
+    const sql = makeSql({
+      hasLivePlan: true, planSteps: [step()],
+      policies: [devPolicy({ on_kind: { unplanned_action: 'require_approval' } })],
+    });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'send_email', declared_goal: 'email the customer',
+    }, sql);
+
+    expect(result.decision).toBe('require_approval');
+    expect(result.matched_policies).toContain('gp_deviation');
+    expect(result.reasons.some((r) => r.includes('plan deviation unplanned_action'))).toBe(true);
+    const inserts = deviationInserts(sql);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].values).toEqual(expect.arrayContaining(['require_approval']));
+  });
+
+  it('min_severity filters below-threshold kinds (goal_drift is low; medium floor ignores it)', async () => {
+    const sql = makeSql({
+      hasLivePlan: true, planSteps: [step()],
+      policies: [devPolicy({ on_kind: { goal_drift: 'require_approval' }, min_severity: 'medium' })],
+    });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'deploy api instead',
+    }, sql);
+
+    expect(result.decision).toBe('allow');
+    // D1: still recorded — only the consequence is filtered
+    const inserts = deviationInserts(sql);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].values).toEqual(expect.arrayContaining(['goal_drift', 'none']));
+  });
+
+  it('block requires the explicit escalate_action ceiling — the default clamps to require_approval', async () => {
+    const clamped = makeSql({
+      hasLivePlan: true, planSteps: [step()],
+      policies: [devPolicy({ on_kind: { unplanned_action: 'block' } })],
+    });
+    const r1 = await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'send_email', declared_goal: 'email the customer',
+    }, clamped);
+    expect(r1.decision).toBe('require_approval');
+
+    __resetGuardCaches();
+    const unclamped = makeSql({
+      hasLivePlan: true, planSteps: [step()],
+      policies: [devPolicy({ on_kind: { unplanned_action: 'block' }, escalate_action: 'block' })],
+    });
+    const r2 = await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'send_email', declared_goal: 'email the customer',
+    }, unclamped);
+    expect(r2.decision).toBe('block');
+  });
+
+  it('tighten-only: an existing block is never lowered by a warn-level deviation consequence', async () => {
+    const sql = makeSql({
+      hasLivePlan: true, planSteps: [step()],
+      policies: [
+        { id: 'gp_block', name: 'Block emails', policy_type: 'block_action_type', rules: JSON.stringify({ action_types: ['send_email'] }) },
+        devPolicy({ on_kind: { unplanned_action: 'warn' } }),
+      ],
+    });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'send_email', declared_goal: 'email the customer',
+    }, sql);
+
+    expect(result.decision).toBe('block');
+  });
+
+  it('the transient finding stash never reaches the persisted decision context', async () => {
+    const sql = makeSql({
+      hasLivePlan: true, planSteps: [step()],
+      policies: [devPolicy({ on_kind: { unplanned_action: 'require_approval' } })],
+    });
+    await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'send_email', declared_goal: 'email the customer',
+    }, sql);
+
+    const decisionInserts = sql.taggedCalls.filter((c) => /INSERT INTO guard_decisions/i.test(c.text));
+    expect(decisionInserts.length).toBeGreaterThan(0);
+    const serialized = JSON.stringify(decisionInserts.map((c) => c.values));
+    expect(serialized).not.toContain('_plan_deviation_finding');
+    // the durable sibling echo IS there
+    expect(serialized).toContain('_plan_deviation');
+  });
+});
