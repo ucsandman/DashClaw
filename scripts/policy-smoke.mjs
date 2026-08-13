@@ -1793,6 +1793,70 @@ async function main() {
       `decision=${mergeMutated.json?.decision}`);
   }
 
+  // DV: plan deviation events (RFC 2026-08-11-plan-deviation-events).
+  // Live loop: submit plan → approve → execute a SUBSTITUTED act (same type +
+  // goal, different payload) → deviation recorded and the deviation_response
+  // policy raises require_approval → off-plan type warns → operator resolves.
+  {
+    const agent = agentFor('dv');
+    await createPolicy('deviation-response', 'deviation_response',
+      { on_kind: { act_substitution: 'require_approval', unplanned_action: 'warn' } }, [agent]);
+
+    const declaredAct = { kind: 'shell', command: `echo deploy-staging-${RUN}` };
+    const submitted = await api('POST', '/api/plans', {
+      agent_id: agent,
+      declared_goal: `dv smoke plan ${RUN}`,
+      steps: [{ action_type: 'smoke.dv_deploy', step_goal: `dv deploy step ${RUN}`, act: declaredAct }],
+      ttl_minutes: 30,
+    });
+    const planId = submitted.json?.plan?.plan_id;
+    check('DV1', 'plan submits and previews', submitted.status === 201 && Boolean(planId),
+      `status=${submitted.status} plan=${planId}`);
+
+    const approved = planId
+      ? await api('POST', `/api/plans/${planId}`, { verdict: 'approve' })
+      : { status: 0, json: null };
+    check('DV1', 'operator approves the plan', approved.status === 200,
+      `status=${approved.status}`);
+
+    // Substituted act: same declared intent, different actual payload — the
+    // kind a path-based gate cannot express (RFC §5).
+    const substituted = await api('POST', '/api/guard', {
+      agent_id: agent, action_type: 'smoke.dv_deploy', declared_goal: `dv deploy step ${RUN}`,
+      act: { kind: 'shell', command: `echo deploy-production-${RUN}` },
+    });
+    const subSignals = JSON.stringify(substituted.json?.signals || substituted.json?.warnings || []);
+    check('DV2', 'substituted act → act_substitution deviation raised to require_approval',
+      substituted.json?.decision === 'require_approval' && subSignals.includes('act_substitution'),
+      `decision=${substituted.json?.decision} signals=${subSignals}`);
+
+    const offPlan = await api('POST', '/api/guard', {
+      agent_id: agent, action_type: 'smoke.dv_unplanned', declared_goal: `dv off-plan action ${RUN}`,
+    });
+    const offSignals = JSON.stringify(offPlan.json?.signals || offPlan.json?.warnings || []);
+    check('DV3', 'off-plan action → unplanned_action deviation warns (never blocks)',
+      offPlan.json?.decision === 'warn' && offSignals.includes('unplanned_action'),
+      `decision=${offPlan.json?.decision} signals=${offSignals}`);
+
+    const detail = planId ? await api('GET', `/api/plans/${planId}`) : { status: 0, json: null };
+    const deviations = detail.json?.deviations || [];
+    check('DV4', 'GET /api/plans/:id carries the recorded deviations',
+      deviations.length >= 2 && deviations.every((d) => d.status === 'open'),
+      `count=${deviations.length}`);
+
+    const target = deviations.find((d) => d.kind === 'act_substitution');
+    const resolvedRes = target && planId
+      ? await api('POST', `/api/plans/${planId}`, {
+          verdict: 'resolve_deviation', deviation_id: target.deviation_id, resolution: 'acknowledged',
+        })
+      : { status: 0, json: null };
+    check('DV4', 'operator resolve flips the deviation to acknowledged',
+      resolvedRes.status === 200 && resolvedRes.json?.deviation?.status === 'acknowledged',
+      `status=${resolvedRes.status} deviation_status=${resolvedRes.json?.deviation?.status}`);
+
+    if (planId) await api('POST', `/api/plans/${planId}`, { verdict: 'revoke' });
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

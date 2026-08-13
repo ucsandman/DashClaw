@@ -50,6 +50,51 @@ bound the blast radius: the review card discloses the org-wide match before
 the operator decides, `revoke` lifts a bad denial instantly, and the denial
 expires with the TTL regardless.
 
+### Plan deviation events
+
+While an agent has a live approved plan, every guarded action is also
+classified against that plan's steps (RFC
+`docs/rfcs/2026-08-11-plan-deviation-events.md`). An action that departs from
+the plan — same declared intent but a different actual payload
+(`act_substitution`), a path or system outside the step's declared scope
+(`scope_escape`), a matching action type with a different goal (`goal_drift`),
+no matching step at all (`unplanned_action`), a second action against an
+already-consumed step (`budget_overrun`), or an approved step the run never
+executed (`step_abandoned`) — is recorded as a `plan_deviations` row and
+echoed into the guard decision's `context._plan_deviation`.
+
+Three invariants govern the mechanism:
+
+- **Recording is unconditional and policy-free.** The row is written whether
+  the decision was `allow`, `warn`, `require_approval`, or `block`. Detection
+  and consequence are separate subsystems.
+- **The shipped default is consequence-free.** No `deviation_response` policy
+  row is installed; consequence is an operator's explicit opt-in — the
+  `deviation_response` policy type maps each kind to `warn` /
+  `require_approval` / `block` (tighten-only, with `escalate_action` as an
+  explicit ceiling so blocking requires opting in).
+- **The detector fails soft.** A broken deviation computation never blocks,
+  delays, or fails a guard call — it only costs detection coverage.
+
+The agent learns of a deviation through a warning line on the guard response
+(the same channel as `Covered by plan …`). Deviations ride existing payloads:
+`GET /api/plans/:id` and `GET /api/actions/:id` gain `deviations[]`, and the
+operator resolves one through `POST /api/plans/:id` with
+`{ "verdict": "resolve_deviation", "deviation_id": "dv_…", "resolution":
+"acknowledged" | "accepted" | "rejected", "amend_plan": true? }`.
+`amend_plan` (valid only with `accepted`) appends the observed action to the
+plan as a new approved step — acceptance as a recorded amendment, for future
+matches only; resolving a deviation never releases a pending approval.
+Agents may additionally self-report (`plan_step_id` / `deviation_note` on
+`POST /api/actions`): self-reports are recorded as `agent_reported` claims
+capped at `low` severity and can never suppress or downgrade server-derived
+detection.
+
+**Honest limitation:** the detector observes *claims*, not ground truth — it
+can only diff what was declared to the guard. An ungoverned action produces
+no deviation event; deviation strengthens governed paths, it does not create
+coverage. Output-side file truth still belongs to commit-time gates.
+
 ---
 
 ## Core Endpoints
