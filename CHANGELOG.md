@@ -13,6 +13,64 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.22.0] — 2026-08-13
+
+Plan Deviation Events — the follow-on the preflight-plan RFC explicitly
+deferred (docs/rfcs/2026-08-11-plan-deviation-events.md). The runtime has
+always computed the plan-vs-actual diff — `consumePlanStepGrant` matches every
+live action against the approved steps — and threw the no-match branch away.
+This release makes that else-branch durable, classified, and policy-visible.
+
+### Added
+
+- **Plan deviations are recorded on every governed action, for all four
+  decisions.** While an agent has a live approved plan, a new fail-soft guard
+  phase classifies each action against the plan's steps: `act_substitution`
+  (same declared intent, different actual payload — the case a path gate
+  cannot express), `scope_escape` (outside a step's optional `declared_paths`
+  / `declared_systems`), `goal_drift`, `unplanned_action`, `budget_overrun`,
+  and `step_abandoned` (swept when a plan terminalises with approved steps
+  never consumed). Recording is unconditional and policy-free; the detector
+  failing soft can never block, delay, or fail a guard call; a plan's own
+  dry-run preview never deviates against itself. Rows land in a new
+  `plan_deviations` table (the attached-fact triad sibling of `assumptions`
+  and `guard_decisions`), echo into the decision's `context._plan_deviation`,
+  and publish `plan.deviation.detected` on the SSE bus.
+- **`deviation_response` — guard policy type 16 → 17** (THESIS anti-regrowth
+  amendment in the same commit, the recorded deliberate act). Maps each
+  deviation kind to warn / require_approval / block, tighten-only, with
+  `min_severity` and an explicit `escalate_action` ceiling so blocking is an
+  operator's opt-in. **No default row ships** — a fresh install records and
+  renders deviations with zero behavior change.
+- **Operator surfaces, zero new pages.** `/approvals` Live plans rows carry a
+  deviation strip (brand orange only when an open high-severity deviation
+  needs a human) expanding to a declared-vs-observed table with one-click
+  Acknowledge / Accept / Reject — plus **Accept & amend plan**, which appends
+  the observed action as a new approved step so acceptance is a recorded
+  amendment, never a silent dismissal (future matches only; resolving never
+  releases a pending approval). `/decisions/[actionId]` shows the deviation
+  beside the plan-grant badge; the session retro consumes derived deviations
+  as findings and suppresses its own goal-drift heuristic only where a
+  plan-anchored row already covers the action. `/policies` New rule gains the
+  Deviation Response form.
+- **Additive wire surface, zero budget elsewhere.** `GET /api/plans/:id` and
+  `GET /api/actions/:id` gain `deviations[]`; `POST /api/plans/:id` gains the
+  `resolve_deviation` verdict (plan-scoped, separation-of-duties on the amend
+  path); plan-submit steps accept optional `declared_paths` /
+  `declared_systems`; `dashclaw_record` accepts `plan_step_id` /
+  `deviation_note` self-reports — recorded as agent-reported claims capped at
+  low severity, never able to suppress or downgrade server-derived detection.
+  No new routes, pages, MCP tools, or SDK methods.
+
+### Changed
+
+- Guard cold-path DB round-trip budget 5 → 6 (one cached `hasLivePlan`
+  EXISTS probe per org:agent per 30s; warm path unchanged — measured ~2ms
+  marginal inside a plan window, ~0 for planless agents).
+- THESIS.md's anti-regrowth ceilings table re-synced to
+  `contracts/surface-budget.json` — it had silently drifted across several
+  amendments; the JSON stays the machine source of truth.
+
 ## [5.21.0] — 2026-08-12
 
 ### Changed

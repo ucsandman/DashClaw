@@ -14,6 +14,49 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-13 — the diff we were already computing
+
+v5.22.0 ships Plan Deviation Events, and the honest framing is that the
+feature mostly existed before today. `consumePlanStepGrant` has matched every
+live action against its agent's approved plan steps since the preflight RFC
+shipped — and the no-match branch was `return null`. The signal was computed
+in production and discarded. Today's work made that else-branch durable
+(`plan_deviations`, migration 0073), classified (six kinds; `act_substitution`
+— approved `deploy:staging`, executed `deploy:prod` — is the flagship, because
+it is exactly what a path-based gate cannot see), and policy-visible
+(`deviation_response`, guard policy type 16 → 17, THESIS amendment in the same
+commit).
+
+The design constraint that outranked everything else came from the RFC's file
+prototype: a gate whose false positives train operators to reach for a bypass
+that also disarms real protections is worse than no gate. So detection and
+consequence are separate subsystems — recording is unconditional, the shipped
+default consequence is *nothing*, the detector fails soft, and blocking
+requires an operator to set an explicit ceiling. A fresh install behaves
+identically to yesterday.
+
+What went wrong, for the record. First, my own gate caught me: the
+policy-types-coverage contract test failed because I registered the type in
+six places but not the seventh (its test-form fixture) — that is the test
+working as designed. Second, the live smoke run failed with 403s on every
+approve flow, and the cause was not the feature: this machine's user-scope
+`DASHCLAW_API_KEY` differs from `.env.local`'s, so the smoke script's key
+resolved as an attributed database key and tripped separation-of-duties on its
+own submissions — the v5.2.0 machine-env-shadowing trap again, in a new
+costume. Run in CI mode with the right key: 140/140 checks pass, including the
+six new DV checks (submit → approve → substituted act raised to
+require_approval → off-plan warn → payload carries the rows → one-click
+resolve). Third, THESIS.md's ceilings table turned out to have drifted from
+`contracts/surface-budget.json` across several amendments — fixed and
+annotated while I was amending it anyway.
+
+Hot-path cost, measured rather than asserted: one cached EXISTS probe per
+org:agent per 30s (cold round-trip budget 5 → 6, documented in the budget
+test), ~0 marginal for planless agents, ~2ms p50 marginal inside a live plan
+window. Rendered proof driven headless: the deviation strip, the
+declared-vs-observed table, and the Deviation Response policy form all render
+with real data; resolve buttons correctly absent in read-only demo mode.
+
 ## 2026-08-12 — the button that was already built
 
 The owner sent a screenshot of his own approval queue: twelve pending items,
