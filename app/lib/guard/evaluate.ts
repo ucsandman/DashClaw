@@ -1067,7 +1067,8 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   // is never returned, so there is nothing left for a grant to protect.
   let evaluationAbandoned = false;
   const runEvaluation = async (): Promise<'completed'> => {
-    // Independent lookups (both served from the 30s caches when warm; on a
+    // Independent lookups (served from the hot-path caches when warm — 3s for
+    // policies, 30s for risk templates/settings; on a
     // cold instance this halves the lookup round trips). phase_in_flight is
     // diagnostic-only and may name either phase while they overlap.
     const [policies, riskAssessment] = await Promise.all([

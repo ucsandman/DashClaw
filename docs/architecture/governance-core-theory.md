@@ -700,5 +700,8 @@ what a sentence already says is decoration; per the mandate, it is left out.
 - §5's client-side hook automaton (fail-closed under harness timeout) is
   asserted from the v4.72.1 fix and its tests, not re-verified end-to-end in
   this session; the v8 enforcement-liveness drill owns that.
-- The multi-instance halt/settings convergence windows (3s/30s) are taken from
-  the cache design and its unit tests, not measured across real warm lambdas.
+- The multi-instance halt/policy/settings convergence windows (3s/3s/30s) are
+  taken from the cache design and its unit tests, not measured across real
+  warm lambdas. (Policies moved from the 30s to a 3s window after a live
+  2026-08-13 incident: a freshly created require_approval policy answered
+  `allow` from another instance's still-warm cache.)

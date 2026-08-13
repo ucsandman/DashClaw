@@ -95,6 +95,46 @@ describe('guard hot path — policy cache', () => {
     expect(sql3.taggedCalls.some((c) => c.text.includes('FROM guard_policies'))).toBe(true);
   });
 
+  // Positional taggedResponses are a trap for this test: on a policy-cache
+  // hit the response meant for guard_policies gets consumed by an unrelated
+  // query (the plan-steps lookup) and can flip the decision for the wrong
+  // reason. Answer by query text instead.
+  const policyOnlySql = (policyRows) => {
+    const taggedCalls = [];
+    const sqlFn = (strings, ...values) => {
+      const text = String.raw({ raw: strings }, ...Array(values.length).fill('?'));
+      taggedCalls.push({ text, values });
+      return Promise.resolve(text.includes('FROM guard_policies') ? policyRows : []);
+    };
+    sqlFn.query = async () => [];
+    sqlFn.taggedCalls = taggedCalls;
+    return sqlFn;
+  };
+
+  it('a policy created on ANOTHER instance is enforced within 3s — NOT the 30s settings TTL', async () => {
+    // Live incident (2026-08-13): a freshly created require_approval policy
+    // answered `allow` with zero matched policies — eager invalidation only
+    // reaches the instance that served the policy write, and other warm
+    // lambdas kept their (empty) 30s policy cache. Same cross-instance bound
+    // as the halt cache (guard-halt-cache.test.js): ~3s.
+    vi.useFakeTimers();
+    try {
+      const org = freshOrg();
+      // First call: org has no policies yet → allow, empty set cached.
+      const r1 = await evaluateGuard(org, { ...CTX, action_type: 'deploy' }, policyOnlySql([]));
+      expect(r1.decision).toBe('allow');
+
+      // Policy created via another instance — no invalidation reaches this one.
+      vi.advanceTimersByTime(3_100);
+      const sql2 = policyOnlySql([blockPolicy]);
+      const r2 = await evaluateGuard(org, { ...CTX, action_type: 'deploy' }, sql2);
+      expect(sql2.taggedCalls.some((c) => c.text.includes('FROM guard_policies'))).toBe(true);
+      expect(r2.decision).toBe('block');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('cache TTL is ≤60s: a policy change is picked up without invalidation after the TTL window', async () => {
     vi.useFakeTimers();
     try {

@@ -16,6 +16,16 @@ import { parseCalibrationSettings } from './calibration';
 // TTL is short (≤60s per the enforcement contract) and policy mutations
 // invalidate eagerly via invalidateGuardPolicyCache().
 const GUARD_CACHE_TTL_MS = 30_000;
+
+// Policies do NOT ride the 30s TTL: eager invalidation only reaches the
+// instance that served the policy write, so on multi-instance deploys a warm
+// lambda kept enforcing the OLD policy set for up to 30s (observed live
+// 2026-08-13: a freshly created require_approval policy answered `allow` with
+// zero matched policies until another instance's cache expired). Same
+// rationale and bound as the halt cache below: cross-instance policy lag is
+// held at human-reaction scale (~3s) for ≤1 policy query per org per 3s per
+// instance. Pinned by guard-hotpath.test.js ("ANOTHER instance").
+const POLICY_CACHE_TTL_MS = 3_000;
 const policyCache = new Map<string, { rows: PolicyRow[]; expires: number }>();
 export interface OrgHaltState {
   halted: boolean;
@@ -121,8 +131,8 @@ export function invalidateGuardSettingsCache(orgId?: string): void {
 /**
  * Called by the calibration feedback path and the controller route so a θ
  * update / mode flip / alarm reset reaches the guard within the instance
- * immediately (other warm instances converge within the 30s TTL, same
- * contract as policy edits).
+ * immediately (other warm instances converge within the 30s TTL; policy
+ * edits converge faster — see POLICY_CACHE_TTL_MS).
  */
 export function invalidateGuardCalibrationCache(orgId?: string): void {
   if (orgId) {
@@ -205,8 +215,9 @@ export async function loadOrgRiskTemplates(sql: GuardSql, orgId: string): Promis
   return rows;
 }
 
-// Active org policies, served from the short-TTL cache (one DB round-trip per
-// org per TTL window instead of one per governed call).
+// Active org policies, served from their own 3s cache (one DB round-trip per
+// org per 3s window instead of one per governed call — see POLICY_CACHE_TTL_MS
+// for why this is shorter than the 30s settings TTL).
 async function loadOrgPolicies(sql: GuardSql, orgId: string): Promise<PolicyRow[]> {
   const hit = policyCache.get(orgId);
   if (hit && hit.expires > Date.now()) return hit.rows;
@@ -218,7 +229,7 @@ async function loadOrgPolicies(sql: GuardSql, orgId: string): Promise<PolicyRow[
     WHERE org_id = ${orgId} AND active = 1
   ` as PolicyRow[];
   const now = Date.now();
-  policyCache.set(orgId, { rows: allPolicies, expires: now + GUARD_CACHE_TTL_MS });
+  policyCache.set(orgId, { rows: allPolicies, expires: now + POLICY_CACHE_TTL_MS });
   pruneCache(policyCache, now);
   return allPolicies;
 }
