@@ -1505,6 +1505,40 @@ export const planAuthorizationSteps = pgTable('plan_authorization_steps', {
   grant_used_at: timestamp('grant_used_at', { withTimezone: true }),
   matched_action_id: text('matched_action_id'),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  // Optional widened declared scope (drizzle/0073) — deviation detection
+  // compares live target/write_paths/systems_touched against these.
+  declared_paths: jsonb('declared_paths'),
+  declared_systems: jsonb('declared_systems'),
+});
+
+// @domain governance
+// Plan deviation events (drizzle/0073, RFC 2026-08-11-plan-deviation-events):
+// how what the agent did differed from what its approved plan said it would
+// do. Attached-fact triad sibling of assumptions (what it believed) and
+// guard_decisions (what the runtime ruled). Recording is unconditional;
+// consequence flows only through the deviation_response policy type.
+export const planDeviations = pgTable('plan_deviations', {
+  deviation_id: text('deviation_id').primaryKey(), // dv_<16hex>
+  org_id: text('org_id').notNull(),
+  agent_id: text('agent_id').notNull(),
+  session_id: text('session_id'),
+  action_id: text('action_id'),
+  guard_decision_id: text('guard_decision_id'),
+  plan_id: text('plan_id').notNull(),
+  step_id: text('step_id'), // null for unplanned_action
+  kind: text('kind').notNull(), // unplanned_action|goal_drift|act_substitution|scope_escape|step_abandoned|budget_overrun
+  dimension: text('dimension').notNull(), // existence|goal|act|path|system
+  severity: text('severity').notNull(), // info|low|medium|high
+  declared: jsonb('declared'),
+  observed: jsonb('observed'),
+  detector: text('detector').notNull().default('server_derived'), // server_derived|agent_reported
+  match_confidence: integer('match_confidence'),
+  agent_note: text('agent_note'),
+  policy_outcome: text('policy_outcome').notNull().default('none'),
+  status: text('status').notNull().default('open'), // open|acknowledged|accepted|rejected
+  resolved_by: text('resolved_by'),
+  resolved_at: timestamp('resolved_at', { withTimezone: true }),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
 // --- Code Sessions (AgentLens absorption — Phase 2) ---
