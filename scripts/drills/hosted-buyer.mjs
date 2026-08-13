@@ -2,26 +2,33 @@
 /**
  * hosted-buyer drill — the money path against a running hosted-mode
  * instance, scripted: mint a trial → key works → first governed action →
- * claim → checkout → synthetic Stripe webhook plan-flip → entitlements →
- * portal → cancel → export → teardown. A drill failure is a broken ship:
- * fix on the spot, log it in the maintainer log.
+ * claim (seed the authenticated user, forge the session, claim, verify DB
+ * truth) → checkout → synthetic Stripe webhook (signed) → idempotency
+ * replay → plan flip. A drill failure is a broken ship: fix on the spot,
+ * log it in the maintainer log.
  *
  * Spec: PS docs/plans/2026-08-13-dashclaw-hosted-launch-implementation-plans.md
- * (Plan A). This file is built incrementally, task by task; this stage
- * covers mint → key-works → first-action → claim.
+ * (Plan A). This file covers plan Tasks 1-3 only (mint/key/action, claim,
+ * checkout/webhook/plan-flip); Tasks 4-6 (entitlements, portal, cancel,
+ * export) extend the same step/teardown structure in a later change.
  *
  * The claim step cannot do the real Google OAuth redirect, so — same
  * substitution as claim-flow.mjs — it seeds the `users` row the signIn
  * callback would have created and forges a NextAuth session JWT with
  * next-auth/jwt + NEXTAUTH_SECRET. Everything else rides live HTTP.
  *
+ * Checkout and the webhook use REAL Stripe test-mode API calls (the
+ * customer is created by the checkout route itself) plus a SIGNED synthetic
+ * webhook event (stripe.webhooks.generateTestHeaderString) so the handler's
+ * signature verification runs unmodified — no Stripe CLI, no live
+ * subscription is ever created.
+ *
  * Usage:
  *   node scripts/drills/hosted-buyer.mjs
  *     [--base-url http://localhost:3000]   (or HOSTED_DRILL_BASE_URL)
  *     [--sabotage]                          (L1 make-it-fail switch: flips
  *                                            the seat-cap expected status
- *                                            from 409 to 200 — wired here,
- *                                            consumed by a later step)
+ *                                            from 409 to 200)
  *
  * Env (all required):
  *   HOSTED_DRILL_TOKEN     mint bypass held by the operator
@@ -36,6 +43,7 @@
 import '../_load-env.mjs';
 import { createSqlFromEnv } from '../_db.mjs';
 import { encode } from 'next-auth/jwt';
+import Stripe from 'stripe';
 import crypto from 'node:crypto';
 
 const REQUIRED = ['HOSTED_DRILL_TOKEN', 'DATABASE_URL', 'NEXTAUTH_SECRET',
@@ -144,11 +152,12 @@ async function main() {
   const hostedAdminKey = process.env.HOSTED_ADMIN_API_KEY || '';
 
   const sql = createSqlFromEnv();
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const runId = crypto.randomBytes(4).toString('hex');
 
   console.log(`[drill] hosted-buyer money path against ${baseUrl}${sabotage ? ' (--sabotage armed)' : ''}`);
 
-  // Globals filled in as the run progresses; later tasks extend these.
+  // Globals filled in as the run progresses; Task 4-6 steps extend these.
   let workspaceId = null;
   let orgId = null;
   let apiKey = null;
@@ -156,6 +165,8 @@ async function main() {
   let claimed = false;
   let userId = null;
   let personalOrgId = null;
+  let stripeCustomerId = null;
+  const subscriptionId = `sub_drill_${runId}`;
 
   // Re-minted after claim, bound to the trial org, so billing routes
   // resolve deterministically instead of waiting out the middleware's 60s
@@ -178,7 +189,9 @@ async function main() {
   }
 
   // Un-claim (the claim guard refuses to delete an owned org) + generic
-  // FK-child sweep + delete, mirroring claim-flow.mjs's teardown.
+  // FK-child sweep + delete, mirroring claim-flow.mjs's teardown. Shared by
+  // both the personal-org and the claimed-trial-org cleanups so the sweep
+  // logic exists once.
   async function purgeOrg(id) {
     await sql`UPDATE organizations SET claimed_at = NULL, claimed_by_user_id = NULL WHERE id = ${id}`;
     const children = await sql`
@@ -207,6 +220,19 @@ async function main() {
     await sql`DELETE FROM organizations WHERE id = ${id}`;
   }
 
+  async function postSignedWebhook(type, object, eventId) {
+    const payload = JSON.stringify({ id: eventId, object: 'event', type, data: { object } });
+    const signature = stripe.webhooks.generateTestHeaderString({
+      payload, secret: process.env.STRIPE_WEBHOOK_SECRET,
+    });
+    const res = await fetch(`${baseUrl}/api/webhooks/stripe`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'stripe-signature': signature },
+      body: payload,
+    });
+    return { status: res.status, body: await res.json() };
+  }
+
   try {
     // 1. Mint — the trial door (drill-labeled, same as hosted-stranger.mjs).
     const ok1 = await step('mint', async () => {
@@ -225,8 +251,9 @@ async function main() {
       // server must never depend on a later check succeeding to get torn
       // down.
       registerTeardown('trial-workspace (unclaimed-path fallback)', async () => {
-        // Only meaningful if the run never reached claim (a later task
-        // replaces this teardown for the claimed case).
+        // Only meaningful if the run never reached claim. Once claimed the
+        // Task-2 claimed-org teardown supersedes this and this one is a
+        // guaranteed no-op 404 (or skipped outright — see below).
         if (claimed) return 'skipped: org was claimed, see claimed-org teardown';
         if (!hostedAdminKey) return 'skipped: no HOSTED_ADMIN_API_KEY (trial will auto-expire)';
         const del = await jsonFetch(`${baseUrl}/api/hosted/workspaces/${workspaceId}`, {
@@ -349,6 +376,94 @@ async function main() {
         throw new Error(`claimed_at=${o.claimed_at ? 'set' : 'null'} by=${o.claimed_by_user_id} expiry=${o.trial_ends_at}`);
       }
       return `claimed_at=set by=${o.claimed_by_user_id} trial_ends_at=null`;
+    });
+
+    // 8. Checkout — starts a real Stripe test-mode Checkout Session; the
+    //    route creates the customer before returning.
+    const checkoutOk = await step('checkout', async () => {
+      const res = await jsonFetch(`${baseUrl}/api/billing/checkout`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: sessionCookie() },
+        body: JSON.stringify({ plan: 'indie' }),
+      });
+      if (res.status !== 200 || !/^https:\/\/checkout\.stripe\.com\//.test(res.json?.url || '')) {
+        throw new Error(`status=${res.status} url=${JSON.stringify(res.json?.url)}`);
+      }
+      const rows = await sql`SELECT stripe_customer_id FROM organizations WHERE id = ${orgId}`;
+      stripeCustomerId = rows[0]?.stripe_customer_id || null;
+      if (!stripeCustomerId) throw new Error('checkout 200 but organizations.stripe_customer_id is still null');
+
+      registerTeardown('stripe customer', async () => {
+        await stripe.customers.del(stripeCustomerId);
+        // Verify the delete actually happened rather than trusting a 200.
+        try {
+          const c = await stripe.customers.retrieve(stripeCustomerId);
+          if (!c?.deleted) throw new Error('customer still retrievable and not marked deleted');
+        } catch (err) {
+          if (err?.code !== 'resource_missing') throw err;
+        }
+        return `customer ${stripeCustomerId} deleted`;
+      });
+      return `status=${res.status} customer=${stripeCustomerId}`;
+    });
+    if (!checkoutOk) return finish();
+
+    // 9. Synthetic completed webhook, signed with the real webhook secret.
+    const webhookEventId = `evt_drill_completed_${runId}`;
+    const webhookOk = await step('webhook-completed', async () => {
+      const { status, body } = await postSignedWebhook('checkout.session.completed', {
+        customer: stripeCustomerId,
+        subscription: subscriptionId,
+        metadata: { org_id: orgId, plan: 'indie' },
+      }, webhookEventId);
+      if (status !== 200 || body?.received !== true || body?.duplicate === true) {
+        throw new Error(`status=${status} received=${body?.received} duplicate=${body?.duplicate}`);
+      }
+      registerTeardown('stripe_webhook_events rows', async () => {
+        const deleted = await sql`
+          DELETE FROM stripe_webhook_events WHERE event_id LIKE ${'evt_drill_%' + runId}
+          RETURNING event_id
+        `;
+        return `${deleted.length} row(s) removed`;
+      });
+      return `status=${status} received=${body?.received} duplicate=${body?.duplicate}`;
+    });
+    if (!webhookOk) return finish();
+
+    // 10. Replay the identical event — idempotency ledger must short-circuit.
+    await step('webhook-idempotent', async () => {
+      const { status, body } = await postSignedWebhook('checkout.session.completed', {
+        customer: stripeCustomerId,
+        subscription: subscriptionId,
+        metadata: { org_id: orgId, plan: 'indie' },
+      }, webhookEventId);
+      if (status !== 200 || body?.duplicate !== true) {
+        throw new Error(`status=${status} duplicate=${body?.duplicate}`);
+      }
+      return `status=${status} duplicate=${body?.duplicate}`;
+    });
+
+    // 11. Plan flip — DB write is immediate; poll mirrors claim-flow's
+    //     precedent so this step follows the same pattern as the Task-4
+    //     behavioral checks that DO wait on middleware's 60s org-facts cache.
+    await step('plan-flip', async () => {
+      let row = null;
+      const deadline = Date.now() + 75_000;
+      while (Date.now() < deadline) {
+        const rows = await sql`
+          SELECT plan, subscription_status, stripe_subscription_id, trial_action_cap
+          FROM organizations WHERE id = ${orgId}
+        `;
+        row = rows[0] || null;
+        if (row?.plan === 'indie') break;
+        await new Promise((r) => setTimeout(r, 2_000));
+      }
+      const ok = row?.plan === 'indie' && row?.subscription_status === 'active'
+        && row?.stripe_subscription_id === subscriptionId && row?.trial_action_cap === null;
+      if (!ok) {
+        throw new Error(`plan=${row?.plan} status=${row?.subscription_status} sub=${row?.stripe_subscription_id} cap=${row?.trial_action_cap}`);
+      }
+      return `plan=${row.plan} status=${row.subscription_status} cap=null`;
     });
 
     return finish();
