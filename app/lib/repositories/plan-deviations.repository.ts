@@ -115,18 +115,80 @@ export async function resolveDeviation(
   sql: SqlClient,
   orgId: string,
   deviationId: string,
-  input: { resolution: DeviationResolution; resolvedBy: string },
+  input: { resolution: DeviationResolution; resolvedBy: string; planId?: string | null },
 ) {
   if (!DEVIATION_RESOLUTIONS.includes(input.resolution)) {
     throw new Error(`Invalid resolution "${input.resolution}" — expected one of ${DEVIATION_RESOLUTIONS.join(', ')}`);
   }
-  const rows = await sql`
-    UPDATE plan_deviations
-    SET status = ${input.resolution}, resolved_by = ${input.resolvedBy}, resolved_at = now()
-    WHERE org_id = ${orgId} AND deviation_id = ${deviationId} AND status = 'open'
-    RETURNING *
-  `;
+  // planId scoping: the resolve verb rides POST /api/plans/[planId], so a
+  // deviation may only be resolved through the plan it belongs to — a
+  // deviation_id is not a bearer capability across plans.
+  const rows = input.planId
+    ? await sql`
+        UPDATE plan_deviations
+        SET status = ${input.resolution}, resolved_by = ${input.resolvedBy}, resolved_at = now()
+        WHERE org_id = ${orgId} AND deviation_id = ${deviationId} AND plan_id = ${input.planId} AND status = 'open'
+        RETURNING *
+      `
+    : await sql`
+        UPDATE plan_deviations
+        SET status = ${input.resolution}, resolved_by = ${input.resolvedBy}, resolved_at = now()
+        WHERE org_id = ${orgId} AND deviation_id = ${deviationId} AND status = 'open'
+        RETURNING *
+      `;
   return rows[0] ?? null;
+}
+
+/**
+ * Agent deviation self-report (RFC §6): a CLAIM, not a finding. detector
+ * 'agent_reported', severity capped 'low', and it can never suppress,
+ * downgrade, or resolve a server-derived row — it only ever adds. Attaches
+ * to the named step's plan when plan_step_id resolves, else to the agent's
+ * live plan; with neither there is nothing to measure against and the claim
+ * is dropped (fail-soft, caller logs).
+ */
+export async function recordAgentReportedDeviation(
+  sql: SqlClient,
+  orgId: string,
+  input: { agentId?: string | null; sessionId?: string | null; actionId?: string | null; planStepId?: string | null; note?: string | null },
+) {
+  const note = typeof input.note === 'string' ? input.note.trim().slice(0, 2000) : '';
+  if (!note) return null;
+  let planId: string | null = null;
+  let stepId: string | null = null;
+  if (typeof input.planStepId === 'string' && input.planStepId) {
+    const rows = await sql`
+      SELECT step_id, plan_id FROM plan_authorization_steps
+      WHERE org_id = ${orgId} AND step_id = ${input.planStepId} LIMIT 1
+    `;
+    if (rows[0]) {
+      planId = String(rows[0].plan_id);
+      stepId = String(rows[0].step_id);
+    }
+  }
+  if (!planId && input.agentId) {
+    const rows = await sql`
+      SELECT plan_id FROM plan_authorizations
+      WHERE org_id = ${orgId} AND agent_id = ${input.agentId}
+        AND status IN ('approved', 'partially_approved') AND expires_at > now()
+      ORDER BY created_at DESC LIMIT 1
+    `;
+    planId = rows[0] ? String(rows[0].plan_id) : null;
+  }
+  if (!planId) return null;
+  return insertPlanDeviation(sql, orgId, {
+    orgId,
+    agentId: input.agentId || 'unknown',
+    sessionId: input.sessionId ?? null,
+    actionId: input.actionId ?? null,
+    planId,
+    stepId,
+    kind: stepId ? 'goal_drift' : 'unplanned_action',
+    dimension: stepId ? 'goal' : 'existence',
+    severity: 'low',
+    detector: 'agent_reported',
+    agentNote: note,
+  });
 }
 
 /**

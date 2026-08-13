@@ -524,11 +524,30 @@ export async function getSessionRetroData(
       `
     : [];
 
+  // Plan deviations attributed to this session, by session stamp OR action
+  // link (guard-time rows may carry either). Best-effort: a mid-upgrade DB
+  // without the table must not 500 the retro (RFC 2026-08-11, fail-soft).
+  let deviations: Record<string, unknown>[] = [];
+  try {
+    deviations = await sql`
+      SELECT deviation_id, kind, severity, detector, status, plan_id, step_id,
+             action_id, guard_decision_id, session_id, match_confidence, created_at
+      FROM plan_deviations
+      WHERE org_id = ${orgId}
+        AND (session_id = ${sessionId} OR action_id = ANY(${actionIds}))
+      ORDER BY created_at ASC
+      LIMIT 200
+    `;
+  } catch (err) {
+    console.warn('[Sessions] deviations read failed (continuing):', (err as Error).message);
+  }
+
   return {
     session,
     actions,
     actionsTotal: Number(countRows[0]?.total) || 0,
     decisions,
     assumptions,
+    deviations,
   };
 }

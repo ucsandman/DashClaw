@@ -25,6 +25,9 @@ const {
   mockGetSettings,
   mockGetPlanWithSteps,
   mockReviewPlan,
+  mockAmendPlanFromDeviation,
+  mockListDeviationsForPlan,
+  mockResolveDeviation,
 } = vi.hoisted(() => ({
   mockGetSql: vi.fn(),
   mockGetOrgId: vi.fn(() => 'org_test'),
@@ -35,6 +38,9 @@ const {
   mockGetSettings: vi.fn(async () => [] as Array<{ key: string; value: string }>),
   mockGetPlanWithSteps: vi.fn(),
   mockReviewPlan: vi.fn(),
+  mockAmendPlanFromDeviation: vi.fn(),
+  mockListDeviationsForPlan: vi.fn(async () => [] as unknown[]),
+  mockResolveDeviation: vi.fn(),
 }));
 
 // after() callbacks run immediately in tests (the route defers the
@@ -68,6 +74,12 @@ vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: mockG
 vi.mock('@/lib/repositories/plans.repository.js', () => ({
   getPlanWithSteps: mockGetPlanWithSteps,
   reviewPlan: mockReviewPlan,
+  amendPlanFromDeviation: mockAmendPlanFromDeviation,
+}));
+vi.mock('@/lib/repositories/plan-deviations.repository.js', () => ({
+  listDeviationsForPlan: mockListDeviationsForPlan,
+  resolveDeviation: mockResolveDeviation,
+  DEVIATION_RESOLUTIONS: ['acknowledged', 'accepted', 'rejected'],
 }));
 
 const { GET, POST } = await import('@/api/plans/[planId]/route.js');
@@ -543,5 +555,115 @@ describe('POST /api/plans/[planId]', () => {
 
     expect(res.status).toBe(500);
     expect(data.error).toMatch(/internal server error/i);
+  });
+});
+
+// Plan deviation events (docs/rfcs/2026-08-11-plan-deviation-events.md §7):
+// deviations ride the GET payload; resolve_deviation folds into POST.
+describe('GET /api/plans/[planId] — deviations', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetOrgId.mockReturnValue('org_test');
+  });
+
+  it('attaches deviations[] beside plan/steps', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'approved' },
+      steps: [],
+    });
+    mockListDeviationsForPlan.mockResolvedValueOnce([{ deviation_id: 'dv_1', kind: 'act_substitution' }]);
+
+    const res = await GET(getReq(), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.deviations).toEqual([{ deviation_id: 'dv_1', kind: 'act_substitution' }]);
+  });
+
+  it('a deviations read failure does not break the plan poll', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'approved' },
+      steps: [],
+    });
+    mockListDeviationsForPlan.mockRejectedValueOnce(new Error('table missing'));
+
+    const res = await GET(getReq(), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.deviations).toEqual([]);
+  });
+});
+
+describe('POST /api/plans/[planId] — resolve_deviation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetOrgId.mockReturnValue('org_test');
+    mockGetOrgRole.mockReturnValue('admin');
+    mockGetUserId.mockReturnValue('user_1');
+  });
+
+  it('resolves a deviation plan-scoped and returns it', async () => {
+    mockResolveDeviation.mockResolvedValueOnce({ deviation_id: 'dv_1', status: 'acknowledged' });
+
+    const res = await POST(postReq({ verdict: 'resolve_deviation', deviation_id: 'dv_1', resolution: 'acknowledged' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.deviation.status).toBe('acknowledged');
+    expect(mockResolveDeviation).toHaveBeenCalledWith(mockGetSql, 'org_test', 'dv_1',
+      expect.objectContaining({ resolution: 'acknowledged', resolvedBy: 'user_1', planId: 'pa_1234567890abcdef' }));
+    // resolution never touches the plan review machinery
+    expect(mockReviewPlan).not.toHaveBeenCalled();
+  });
+
+  it('400 on a missing or invalid resolution', async () => {
+    const res = await POST(postReq({ verdict: 'resolve_deviation', deviation_id: 'dv_1', resolution: 'promoted' }), { params });
+    expect(res.status).toBe(400);
+    expect(mockResolveDeviation).not.toHaveBeenCalled();
+  });
+
+  it('400 when amend_plan rides a non-accepted resolution', async () => {
+    const res = await POST(postReq({ verdict: 'resolve_deviation', deviation_id: 'dv_1', resolution: 'rejected', amend_plan: true }), { params });
+    expect(res.status).toBe(400);
+  });
+
+  it('404 when the deviation is not on this plan or already resolved', async () => {
+    mockResolveDeviation.mockResolvedValueOnce(null);
+    const res = await POST(postReq({ verdict: 'resolve_deviation', deviation_id: 'dv_x', resolution: 'accepted' }), { params });
+    expect(res.status).toBe(404);
+  });
+
+  it('SoD: the submitter cannot accept-and-amend its own plan', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', created_by: 'user_1', raw_status: 'approved' },
+      steps: [],
+    });
+    const res = await POST(postReq({ verdict: 'resolve_deviation', deviation_id: 'dv_1', resolution: 'accepted', amend_plan: true }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.code).toBe('SELF_APPROVAL_FORBIDDEN');
+    expect(mockResolveDeviation).not.toHaveBeenCalled();
+    expect(mockAmendPlanFromDeviation).not.toHaveBeenCalled();
+  });
+
+  it('accept-and-amend by a different principal resolves AND appends the approved step', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', created_by: 'user_2', raw_status: 'approved' },
+      steps: [],
+    });
+    mockResolveDeviation.mockResolvedValueOnce({
+      deviation_id: 'dv_1', status: 'accepted',
+      observed: { action_type: 'deploy', declared_goal: 'deploy prod' },
+    });
+    mockAmendPlanFromDeviation.mockResolvedValueOnce({ step_id: 'ps_new', grant_status: 'approved' });
+
+    const res = await POST(postReq({ verdict: 'resolve_deviation', deviation_id: 'dv_1', resolution: 'accepted', amend_plan: true }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.amended_step.step_id).toBe('ps_new');
+    expect(mockAmendPlanFromDeviation).toHaveBeenCalled();
   });
 });

@@ -20,7 +20,7 @@ export type RetroSeverity = 'low' | 'medium' | 'high';
 export type RetroPosture = 'clean' | 'review' | 'flagged';
 
 export interface RetroFinding {
-  kind: 'injection' | 'non_fabrication' | 'goal_drift' | 'risk_spike' | 'intervention' | 'assumption';
+  kind: 'injection' | 'non_fabrication' | 'goal_drift' | 'risk_spike' | 'intervention' | 'assumption' | 'deviation';
   severity: RetroSeverity;
   action_id: string | null;
   guard_decision_id: string | null;
@@ -34,6 +34,9 @@ export interface SessionRetroData {
   actionsTotal: number;
   decisions: Row[];
   assumptions: Row[];
+  /** Plan deviations attributed to this session (RFC 2026-08-11) — optional
+   *  so pre-deviation callers/fixtures stay valid. */
+  deviations?: Row[];
 }
 
 export interface SessionRetro {
@@ -85,6 +88,16 @@ function riskOf(action: Row): number | null {
 
 export function buildSessionRetro(data: SessionRetroData): SessionRetro {
   const { session, actions, actionsTotal, decisions, assumptions } = data;
+  const deviations = data.deviations ?? [];
+  // Actions with a derived plan deviation skip the 3b session-first-goal
+  // heuristic below: the plan-anchored comparison is strictly better evidence
+  // for the same divergence, and two detectors reporting one departure with
+  // different thresholds is worse than either alone (RFC 2026-08-11 §11.1).
+  // Sessions without plans keep the heuristic — retiring it wholesale would
+  // regress goal-drift coverage for every planless session.
+  const deviationActionIds = new Set(
+    deviations.map((d) => (typeof d.action_id === 'string' ? d.action_id : '')).filter(Boolean),
+  );
 
   const decisionsById = new Map<string, Row>();
   for (const d of decisions) if (d?.id) decisionsById.set(String(d.id), d);
@@ -162,7 +175,8 @@ export function buildSessionRetro(data: SessionRetroData): SessionRetro {
         summary: `no declared goal on an action with risk ${risk}`,
         evidence: { rule: 'missing_declared_goal', risk_score: risk },
       });
-    } else if (goal != null && firstGoal != null && goal !== firstGoal && risk != null && risk >= DRIFT_RISK_FLOOR) {
+    } else if (goal != null && firstGoal != null && goal !== firstGoal && risk != null && risk >= DRIFT_RISK_FLOOR
+      && !(actionId != null && deviationActionIds.has(actionId))) {
       add({
         kind: 'goal_drift', severity: 'medium',
         action_id: actionId, guard_decision_id: gdId,
@@ -224,6 +238,26 @@ export function buildSessionRetro(data: SessionRetroData): SessionRetro {
         },
       });
     }
+  }
+
+  // 8 — plan deviations (RFC 2026-08-11 §11.1): the retro CONSUMES derived
+  // deviations rather than keeping its own parallel plan check. Severity maps
+  // info→low (retro has no info tier); self-reports stay labeled as claims.
+  for (const dv of deviations) {
+    const sevRaw = String(dv.severity ?? 'low');
+    const severity: RetroSeverity = sevRaw === 'high' ? 'high' : sevRaw === 'medium' ? 'medium' : 'low';
+    add({
+      kind: 'deviation', severity,
+      action_id: typeof dv.action_id === 'string' ? dv.action_id : null,
+      guard_decision_id: typeof dv.guard_decision_id === 'string' ? dv.guard_decision_id : null,
+      summary: `plan deviation: ${dv.kind}${dv.detector === 'agent_reported' ? ' (self-reported)' : ''}`,
+      evidence: {
+        deviation_id: dv.deviation_id ?? null, kind: dv.kind ?? null,
+        plan_id: dv.plan_id ?? null, step_id: dv.step_id ?? null,
+        match_confidence: dv.match_confidence ?? null,
+        detector: dv.detector ?? null, status: dv.status ?? null,
+      },
+    });
   }
 
   const counts = { high: 0, medium: 0, low: 0 };

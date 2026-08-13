@@ -13,7 +13,9 @@ import { logActivity } from '../../../lib/audit';
 import { apiErrorResponse } from '../../../lib/apiErrors';
 import { EVENTS, publishOrgEvent } from '../../../lib/events';
 import { getSettings } from '../../../lib/repositories/settings.repository';
-import { getPlanWithSteps, reviewPlan } from '../../../lib/repositories/plans.repository';
+import { getPlanWithSteps, reviewPlan, amendPlanFromDeviation } from '../../../lib/repositories/plans.repository';
+import { listDeviationsForPlan, resolveDeviation, DEVIATION_RESOLUTIONS } from '../../../lib/repositories/plan-deviations.repository';
+import type { DeviationResolution } from '../../../lib/repositories/plan-deviations.repository';
 
 const DEFAULT_TTL_CLAMP_MINUTES = 480;
 
@@ -28,7 +30,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ plan
     // agent-facing GET. reviewed_by stays (it's displayed as approver
     // attribution in the UI, which is intentional provenance).
     const { created_by: _createdBy, raw_status: _rawStatus, ...plan } = result.plan as Record<string, unknown>;
-    return NextResponse.json({ plan, steps: result.steps });
+    // Deviations ride the existing payload (RFC 2026-08-11 §7: no new
+    // routes). Best-effort: a deviations read failure must not break the
+    // agent's plan poll.
+    let deviations: unknown[] = [];
+    try {
+      deviations = await listDeviationsForPlan(sql, orgId, planId);
+    } catch (err) {
+      console.warn('[Plans] deviations read failed (continuing):', (err as Error).message);
+    }
+    return NextResponse.json({ plan, steps: result.steps, deviations });
   } catch (error) {
     return apiErrorResponse(error, 'PLAN GET');
   }
@@ -53,8 +64,68 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
 
     const body = await request.json();
     const { verdict, step_overrides: stepOverrides } = body;
-    if (!['approve', 'deny', 'revoke'].includes(verdict)) {
-      return NextResponse.json({ error: 'Invalid verdict. Must be approve, deny, or revoke.' }, { status: 400 });
+    if (!['approve', 'deny', 'revoke', 'resolve_deviation'].includes(verdict)) {
+      return NextResponse.json({ error: 'Invalid verdict. Must be approve, deny, revoke, or resolve_deviation.' }, { status: 400 });
+    }
+
+    // resolve_deviation (RFC 2026-08-11 §7): the operator verdict on a
+    // recorded deviation, folded into this route to reuse its admin +
+    // attributable-principal auth instead of standing up a new write path.
+    // Resolution and approval stay strictly separate verbs (RFC OQ5):
+    // accepting a deviation NEVER releases a pending approval on the action.
+    if (verdict === 'resolve_deviation') {
+      const deviationId = typeof body.deviation_id === 'string' ? body.deviation_id : '';
+      const resolution = typeof body.resolution === 'string' ? body.resolution : '';
+      const amendPlan = body.amend_plan === true;
+      if (!deviationId || !DEVIATION_RESOLUTIONS.includes(resolution as DeviationResolution)) {
+        return NextResponse.json(
+          { error: `resolve_deviation requires deviation_id and resolution (${DEVIATION_RESOLUTIONS.join('|')})` },
+          { status: 400 },
+        );
+      }
+      if (amendPlan && resolution !== 'accepted') {
+        return NextResponse.json({ error: 'amend_plan is only valid with resolution "accepted"' }, { status: 400 });
+      }
+      const sql = getSql();
+      // "Accept & amend" appends an APPROVED step — approval-shaped, so the
+      // plan's separation-of-duties self-gate applies to it (mirror of the
+      // approve gate below; plain resolutions are bookkeeping and are not
+      // gated beyond admin + principal).
+      if (amendPlan && userId !== 'operator') {
+        const existing = await getPlanWithSteps(sql, orgId, planId);
+        const createdBy = (existing?.plan as { created_by?: string | null } | undefined)?.created_by;
+        if (createdBy && createdBy === userId) {
+          return NextResponse.json(
+            { error: 'The credential that submitted this plan cannot amend it via deviation acceptance. Use a different admin credential.', code: 'SELF_APPROVAL_FORBIDDEN' },
+            { status: 403 },
+          );
+        }
+        if (existing && !createdBy) {
+          return NextResponse.json(
+            { error: 'This plan has no attributable submitter, so only the operator credential can amend it.', code: 'PRINCIPAL_LESS_PLAN_REQUIRES_OPERATOR' },
+            { status: 403 },
+          );
+        }
+      }
+      const resolved = await resolveDeviation(sql, orgId, deviationId, {
+        resolution: resolution as DeviationResolution, resolvedBy: userId, planId,
+      });
+      if (!resolved) {
+        return NextResponse.json({ error: 'Deviation not found on this plan, or already resolved' }, { status: 404 });
+      }
+      let amendedStep: Record<string, unknown> | null = null;
+      if (amendPlan) {
+        amendedStep = await amendPlanFromDeviation(sql, orgId, planId, resolved);
+      }
+      after(() => logActivity({
+        orgId, actorId: userId, action: 'plan.deviation_resolved',
+        resourceType: 'plan', resourceId: planId,
+        details: { deviation_id: deviationId, resolution, amend_plan: amendPlan }, request,
+      }, sql));
+      return NextResponse.json({
+        deviation: resolved,
+        ...(amendedStep ? { amended_step: amendedStep } : {}),
+      });
     }
     // Fail-closed on operator intent: an unrecognized step_overrides value
     // must not silently fall through to 'approve' in reviewPlan.

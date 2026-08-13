@@ -28,6 +28,9 @@ export interface PlanStepInput {
   action_type: string;
   step_goal: string;
   act?: unknown;
+  // Optional widened declared scope (RFC 2026-08-11-plan-deviation-events §7).
+  declared_paths?: string[];
+  declared_systems?: string[];
 }
 
 // T3: a pending plan older than the max grant TTL ceiling can never matter —
@@ -78,10 +81,13 @@ export async function createPlanWithSteps(
     const redactedAct = step.act === undefined ? null : JSON.stringify(redactAny(step.act, []));
     const rows = await sql`
       INSERT INTO plan_authorization_steps
-        (step_id, plan_id, org_id, seq, action_type, step_goal, act, act_content_hash)
+        (step_id, plan_id, org_id, seq, action_type, step_goal, act, act_content_hash,
+         declared_paths, declared_systems)
       VALUES
         (${stepId}, ${planId}, ${orgId}, ${seq}, ${step.action_type}, ${step.step_goal},
-         ${redactedAct}, ${actHash})
+         ${redactedAct}, ${actHash},
+         ${step.declared_paths ? JSON.stringify(step.declared_paths) : null},
+         ${step.declared_systems ? JSON.stringify(step.declared_systems) : null})
       RETURNING *
     `;
     steps.push(rows[0]!);
@@ -471,6 +477,41 @@ export async function findDeniedStepMatch(
     LIMIT 1
   `;
   return (rows[0] as { step_id: string; plan_id: string; reviewed_by: string | null } | undefined) ?? null;
+}
+
+/**
+ * "Accept & amend plan" (RFC 2026-08-11-plan-deviation-events §12): appends
+ * the deviation's OBSERVED action as a new approved step, so acceptance is a
+ * recorded amendment rather than a silent dismissal. Future matches only —
+ * it never retroactively releases a pending approval (RFC OQ5). The live-plan
+ * predicate lives in the INSERT's SELECT so an expired/revoked plan cannot be
+ * silently extended; returns null when the plan is not live or the deviation
+ * lacks a usable observed action_type + goal.
+ */
+export async function amendPlanFromDeviation(
+  sql: SqlClient,
+  orgId: string,
+  planId: string,
+  deviation: Record<string, unknown>,
+) {
+  const observed = (deviation.observed ?? {}) as Record<string, unknown>;
+  const actionType = typeof observed.action_type === 'string' && observed.action_type ? observed.action_type : null;
+  const stepGoal = typeof observed.declared_goal === 'string' && observed.declared_goal ? observed.declared_goal : null;
+  if (!actionType || !stepGoal) return null;
+  const actHash = typeof observed.act_content_hash === 'string' && observed.act_content_hash ? observed.act_content_hash : null;
+  const stepId = mintId('ps');
+  const rows = await sql`
+    INSERT INTO plan_authorization_steps
+      (step_id, plan_id, org_id, seq, action_type, step_goal, act_content_hash, grant_status)
+    SELECT ${stepId}, p.plan_id, ${orgId},
+      (SELECT COALESCE(MAX(seq), 0) + 1 FROM plan_authorization_steps WHERE plan_id = ${planId} AND org_id = ${orgId}),
+      ${actionType}, ${stepGoal}, ${actHash}, 'approved'
+    FROM plan_authorizations p
+    WHERE p.org_id = ${orgId} AND p.plan_id = ${planId}
+      AND p.status IN ('approved', 'partially_approved') AND p.expires_at > now()
+    RETURNING *
+  `;
+  return rows[0] ?? null;
 }
 
 /**

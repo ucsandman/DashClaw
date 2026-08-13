@@ -518,6 +518,26 @@ export async function POST(request: Request) {
       console.warn('[HOSTED] trial counter increment failed:', (err as Error).message);
     }));
 
+    // Agent deviation self-report (RFC 2026-08-11 §6): optional additive
+    // fields on this route, read from the raw body like harness_session_id
+    // above. A claim, not a finding — recorded as agent_reported/low and
+    // never able to suppress or resolve a derived deviation. Fail-soft.
+    if (typeof body.deviation_note === 'string' && body.deviation_note) {
+      after(() => {
+        import('../../lib/repositories/plan-deviations.repository')
+          .then(({ recordAgentReportedDeviation }) => recordAgentReportedDeviation(sql, orgId, {
+            agentId: data.agent_id ?? null,
+            sessionId: typeof data.session_id === 'string' ? data.session_id : null,
+            actionId: action_id,
+            planStepId: boundedIdField(body.plan_step_id),
+            note: body.deviation_note,
+          }))
+          .catch((err: unknown) => {
+            console.warn('[Actions] deviation self-report failed (continuing):', (err as Error).message);
+          });
+      });
+    }
+
     const response = NextResponse.json({
       action: createdAction,
       action_id,

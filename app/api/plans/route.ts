@@ -39,6 +39,21 @@ interface PlanStepBody {
   action_type?: unknown;
   step_goal?: unknown;
   act?: unknown;
+  // Optional widened declared scope (RFC 2026-08-11-plan-deviation-events §7)
+  // — the deviation detector's scope_escape comparison reads these.
+  declared_paths?: unknown;
+  declared_systems?: unknown;
+}
+
+// Optional string-list step field: undefined stays undefined; anything else
+// must be an array of non-empty strings (bounded), else null = invalid.
+function parseDeclaredList(value: unknown, maxLen: number): string[] | undefined | null {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > 50
+    || !value.every((v) => typeof v === 'string' && v.length > 0 && v.length <= maxLen)) {
+    return null;
+  }
+  return value as string[];
 }
 
 export async function POST(request: Request) {
@@ -84,6 +99,12 @@ export async function POST(request: Request) {
       if (step.act !== undefined && (typeof step.act !== 'object' || step.act === null || Array.isArray(step.act))) {
         return NextResponse.json({ error: `steps[${i}].act must be an object ({ kind: ... })` }, { status: 400 });
       }
+      if (parseDeclaredList(step.declared_paths, 256) === null) {
+        return NextResponse.json({ error: `steps[${i}].declared_paths must be an array of non-empty strings (max 50, <=256 chars)` }, { status: 400 });
+      }
+      if (parseDeclaredList(step.declared_systems, 64) === null) {
+        return NextResponse.json({ error: `steps[${i}].declared_systems must be an array of non-empty strings (max 50, <=64 chars)` }, { status: 400 });
+      }
     }
 
     const settings = await getSettings(sql, orgId, { category: 'general' });
@@ -115,7 +136,11 @@ export async function POST(request: Request) {
 
     const created = await createPlanWithSteps(sql, orgId, {
       agentId, declaredGoal: body.declared_goal, ttlMinutes, maxPending: MAX_PENDING_PLANS,
-      steps: steps.map((s) => ({ action_type: String(s.action_type), step_goal: String(s.step_goal), act: s.act })),
+      steps: steps.map((s) => ({
+        action_type: String(s.action_type), step_goal: String(s.step_goal), act: s.act,
+        declared_paths: parseDeclaredList(s.declared_paths, 256) ?? undefined,
+        declared_systems: parseDeclaredList(s.declared_systems, 64) ?? undefined,
+      })),
       // SoD (drizzle/0063): trusted middleware principal, never the body —
       // the review route rejects reviewer === created_by. Never null (X1
       // above already 403'd an unattributed request).

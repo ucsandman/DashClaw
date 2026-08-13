@@ -66,7 +66,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ acti
       }
     }
 
-    return NextResponse.json(result);
+    // Plan deviations attached to this action (RFC 2026-08-11 §7: rides the
+    // existing payload, no new route). Best-effort — a deviations read
+    // failure must not break the action poll.
+    let deviations: unknown[] = [];
+    try {
+      const { listDeviationsForAction } = await import('../../../lib/repositories/plan-deviations.repository');
+      deviations = await listDeviationsForAction(sql, orgId, actionId);
+    } catch (err) {
+      console.warn('[Actions] deviations read failed (continuing):', (err as Error).message);
+    }
+
+    return NextResponse.json({ ...result, deviations });
   } catch (error) {
     return apiErrorResponse(error, 'ACTION_GET');
   }

@@ -28,6 +28,7 @@ const kindLabel: Record<string, string> = {
   risk_spike: 'Risk spike',
   intervention: 'Interventions',
   assumption: 'Invalidated assumptions',
+  deviation: 'Plan deviations',
 };
 
 // Compact posture chip for the session-page header, so the retro verdict is

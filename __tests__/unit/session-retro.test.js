@@ -188,3 +188,50 @@ describe('buildSessionRetro', () => {
     expect(live.session.ended_at).toBeNull();
   });
 });
+
+// Plan deviation consumption (RFC 2026-08-11 §11.1): the retro consumes
+// derived deviations; actions carrying one skip the 3b session-first-goal
+// heuristic (no double reporting); planless sessions keep the heuristic.
+describe('buildSessionRetro — plan deviations', () => {
+  const deviation = (overrides = {}) => ({
+    deviation_id: 'dv_1', kind: 'act_substitution', severity: 'high',
+    detector: 'server_derived', status: 'open', plan_id: 'pa_1', step_id: 'ps_1',
+    action_id: null, guard_decision_id: null, session_id: 'sess_1',
+    match_confidence: 90, created_at: '2026-08-13T10:00:00Z',
+    ...overrides,
+  });
+
+  it('maps deviations to findings (info→low; self-reports labeled)', () => {
+    const r = buildSessionRetro(data({
+      deviations: [
+        deviation(),
+        deviation({ deviation_id: 'dv_2', kind: 'goal_drift', severity: 'info', detector: 'agent_reported' }),
+      ],
+    }));
+    expect(r.findings).toHaveLength(2);
+    expect(r.findings[0]).toMatchObject({ kind: 'deviation', severity: 'high' });
+    expect(r.findings[0].summary).toContain('act_substitution');
+    expect(r.findings[1]).toMatchObject({ kind: 'deviation', severity: 'low' });
+    expect(r.findings[1].summary).toContain('(self-reported)');
+    expect(r.posture).toBe('flagged');
+  });
+
+  it('an action with a deviation row yields ONE finding, not deviation + goal-drift heuristic', () => {
+    const a1 = action({ declared_goal: 'ship the feature', risk_score: 50 });
+    const a2 = action({ declared_goal: 'something else entirely', risk_score: 50 });
+    const withDeviation = buildSessionRetro(data({
+      actions: [a1, a2], actionsTotal: 2,
+      deviations: [deviation({ action_id: a2.action_id, kind: 'goal_drift', severity: 'low' })],
+    }));
+    const aboutA2 = withDeviation.findings.filter((f) => f.action_id === a2.action_id);
+    expect(aboutA2).toHaveLength(1);
+    expect(aboutA2[0].kind).toBe('deviation');
+  });
+
+  it('a planless session keeps the session-first-goal heuristic', () => {
+    const a1 = action({ declared_goal: 'ship the feature', risk_score: 50 });
+    const a2 = action({ declared_goal: 'something else entirely', risk_score: 50 });
+    const r = buildSessionRetro(data({ actions: [a1, a2], actionsTotal: 2 }));
+    expect(r.findings.some((f) => f.kind === 'goal_drift' && f.action_id === a2.action_id)).toBe(true);
+  });
+});
