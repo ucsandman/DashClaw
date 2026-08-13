@@ -134,7 +134,32 @@ export default function PoliciesTab({ actionId, action, guardDecision, trace, as
                         </Badge>
                       </span>
                     )}
+                    {guardDecision.context?._plan_deviation && (
+                      <span title={`Plan ${guardDecision.context._plan_deviation.plan_id}`}>
+                        <Badge variant="warning" size="xs">
+                          Deviation: {String(guardDecision.context._plan_deviation.kind).replace(/_/g, ' ')} ({guardDecision.context._plan_deviation.severity})
+                        </Badge>
+                      </span>
+                    )}
                   </div>
+                  {/* Declared vs observed (RFC 2026-08-11 §12): the deviation's
+                      whole story beside the policies it triggered. */}
+                  {guardDecision.context?._plan_deviation && (
+                    <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="rounded-lg border border-white/5 bg-surface-tertiary p-3">
+                        <div className="mb-1 text-[10px] uppercase tracking-wider text-tertiary">Declared (plan)</div>
+                        <pre className="whitespace-pre-wrap break-all font-mono text-xs text-secondary">
+                          {JSON.stringify(guardDecision.context._plan_deviation.declared ?? {}, null, 2)}
+                        </pre>
+                      </div>
+                      <div className="rounded-lg border border-warning/20 bg-warning-subtle p-3">
+                        <div className="mb-1 text-[10px] uppercase tracking-wider text-tertiary">Observed (live)</div>
+                        <pre className="whitespace-pre-wrap break-all font-mono text-xs text-secondary">
+                          {JSON.stringify(guardDecision.context._plan_deviation.observed ?? {}, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {parseJsonArray(guardDecision.matched_policies).map((p: any, i: number) => (
                       <div key={i} className="p-3 rounded-lg border border-white/5 bg-surface-tertiary flex items-center gap-3">

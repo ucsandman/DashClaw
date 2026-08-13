@@ -337,3 +337,41 @@ describe('policyFormModel — full-type characterization', () => {
     expect(buildPolicySummary({ type: 'unknown_type', agentIds: [] })).toBe('Configure a policy rule.');
   });
 });
+
+// deviation_response (plan-deviation events, RFC 2026-08-11)
+describe('deviation_response', () => {
+  it('compiles only non-ignore kinds into on_kind, with ceiling and min severity', () => {
+    const payload = compilePolicyPayload({
+      name: 'Deviation guardrail',
+      type: 'deviation_response',
+      deviationOnKind: { act_substitution: 'require_approval', scope_escape: 'block', unplanned_action: 'ignore', goal_drift: 'warn' },
+      deviationMinSeverity: 'medium',
+      escalateAction: 'block',
+    });
+    const rules = JSON.parse(payload.rules);
+    expect(rules.on_kind).toEqual({ act_substitution: 'require_approval', scope_escape: 'block', goal_drift: 'warn' });
+    expect(rules.min_severity).toBe('medium');
+    expect(rules.escalate_action).toBe('block');
+    expect(payload.policy_type).toBe('deviation_response');
+  });
+
+  it('all-ignore compiles to no on_kind (record-only policy) and info min severity is omitted', () => {
+    const payload = compilePolicyPayload({ name: 'x', type: 'deviation_response' });
+    const rules = JSON.parse(payload.rules);
+    expect(rules.on_kind).toBeUndefined();
+    expect(rules.min_severity).toBeUndefined();
+    expect(rules.escalate_action).toBe('require_approval');
+  });
+
+  it('decompile round-trips on_kind and fills unlisted kinds with ignore', () => {
+    const form = decompilePolicyForm({
+      policy_type: 'deviation_response',
+      name: 'Deviation guardrail',
+      rules: JSON.stringify({ on_kind: { act_substitution: 'block' }, min_severity: 'low', escalate_action: 'block' }),
+    });
+    expect(form.deviationOnKind.act_substitution).toBe('block');
+    expect(form.deviationOnKind.goal_drift).toBe('ignore');
+    expect(form.deviationMinSeverity).toBe('low');
+    expect(form.escalateAction).toBe('block');
+  });
+});

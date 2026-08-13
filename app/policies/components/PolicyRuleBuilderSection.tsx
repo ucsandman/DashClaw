@@ -408,6 +408,80 @@ function RoleConstraintFields({ form, onChange }: DelegationConstraintFieldsProp
   );
 }
 
+// Deviation response (plan-deviation events, RFC 2026-08-11): per-kind
+// consequence selects. Deviations are ALWAYS recorded; this policy only sets
+// what happens next, so 'ignore' (record-only) is every kind's default.
+const DEVIATION_KIND_OPTIONS: Array<{ key: string; label: string; hint: string }> = [
+  { key: 'act_substitution', label: 'Act substitution', hint: 'same declared intent, different actual payload' },
+  { key: 'scope_escape', label: 'Scope escape', hint: 'touched a path/system the step never declared' },
+  { key: 'unplanned_action', label: 'Unplanned action', hint: 'no step in the live plan matches' },
+  { key: 'goal_drift', label: 'Goal drift', hint: 'matching action type, different goal' },
+];
+
+function DeviationResponseFields({ form, onChange }: DelegationConstraintFieldsProps) {
+  const onKind = form.deviationOnKind || {};
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-tertiary">
+        Deviations from an approved plan are always recorded. This policy sets the consequence per
+        kind — leave a kind on &quot;Record only&quot; to keep it consequence-free.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {DEVIATION_KIND_OPTIONS.map(({ key, label, hint }) => (
+          <div key={key}>
+            <label className="block text-xs text-secondary mb-1">{label}</label>
+            <select
+              aria-label={`Deviation response for ${label}`}
+              value={onKind[key] || 'ignore'}
+              onChange={(event) => onChange('deviationOnKind', { ...onKind, [key]: event.target.value })}
+              className={selectClass}
+            >
+              <option value="ignore">Record only</option>
+              <option value="warn">Warn</option>
+              <option value="require_approval">Require Approval</option>
+              <option value="block">Block</option>
+            </select>
+            <p className="mt-1 text-[11px] text-tertiary">{hint}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs text-secondary mb-1">Minimum severity</label>
+          <select
+            aria-label="Deviation minimum severity"
+            value={form.deviationMinSeverity || 'info'}
+            onChange={(event) => onChange('deviationMinSeverity', event.target.value)}
+            className={selectClass}
+          >
+            <option value="info">Info (all deviations)</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+          <p className="mt-1 text-[11px] text-tertiary">Deviations below this severity are recorded but never escalated.</p>
+        </div>
+        <div>
+          <label className="block text-xs text-secondary mb-1">Escalation ceiling</label>
+          <select
+            aria-label="Deviation escalation ceiling"
+            value={form.escalateAction || 'require_approval'}
+            onChange={(event) => onChange('escalateAction', event.target.value)}
+            className={selectClass}
+          >
+            <option value="warn">Warn</option>
+            <option value="require_approval">Require Approval</option>
+            <option value="block">Block</option>
+          </select>
+          <p className="mt-1 text-[11px] text-tertiary">Per-kind consequences are clamped to this — blocking requires setting the ceiling to Block.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface PolicyRuleBuilderSectionProps {
   form: any;
   actionOptions: string[];
@@ -895,6 +969,10 @@ export default function PolicyRuleBuilderSection({
 
       {form.type === 'role_constraint' && (
         <RoleConstraintFields form={form} onChange={onChange} />
+      )}
+
+      {form.type === 'deviation_response' && (
+        <DeviationResponseFields form={form} onChange={onChange} />
       )}
 
     </>

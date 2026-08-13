@@ -68,6 +68,8 @@ export const TOOL_DEFINITIONS = [
                 session_id: { type: 'string', description: 'Session to attribute this action to. Defaults to the session started via dashclaw_session_start in this connection.' },
                 approval_wait_seconds: { type: 'integer', description: 'For status pending_approval: how long you will poll for the decision (default 300; the approval expires after this window + a retry grace)' },
                 act: { type: 'object', description: 'The actual act this record covers — pass the SAME act object you sent to dashclaw_guard. For status pending_approval the server stamps a content hash from it, binding the operator\'s approval to this exact act: the approval then only covers a dashclaw_guard retry presenting the same act. Shape matches dashclaw_guard\'s act ({ kind: "shell"|"http"|"sql"|"file", ... }). Optional — omit when no concrete act exists.' },
+                plan_step_id: { type: 'string', description: 'Optional deviation self-report: the plan step (ps_...) this action was supposed to fulfil, when you knowingly departed from it.' },
+                deviation_note: { type: 'string', description: 'Optional deviation self-report: how and why this action departed from the approved plan. Recorded as an agent-reported claim (never suppresses or downgrades the server\'s own deviation detection).' },
             },
             required: ['action_type', 'declared_goal', 'status'],
         },
@@ -293,13 +295,15 @@ export const TOOL_DEFINITIONS = [
                 declared_goal: { type: 'string', description: 'The mission-level goal of the plan (required)' },
                 steps: {
                     type: 'array',
-                    description: 'Ordered steps: [{ action_type, step_goal, act? }] (required)',
+                    description: 'Ordered steps: [{ action_type, step_goal, act?, declared_paths?, declared_systems? }] (required)',
                     items: {
                         type: 'object',
                         properties: {
                             action_type: { type: 'string', description: 'Action category, e.g. deploy, code_change (required)' },
                             step_goal: { type: 'string', description: 'What this step accomplishes (required)' },
                             act: { type: 'object', description: 'Optional literal act ({ kind: shell|http|sql|file, ... }) — act-binds the grant to exactly this act' },
+                            declared_paths: { type: 'array', items: { type: 'string' }, description: 'Optional declared file scope (globs, ** and * supported) — an action matched to this step that touches paths outside it records a scope_escape deviation' },
+                            declared_systems: { type: 'array', items: { type: 'string' }, description: 'Optional declared systems scope — touching an undeclared system records a scope_escape deviation' },
                         },
                         required: ['action_type', 'step_goal'],
                     },
@@ -519,6 +523,11 @@ export function createToolHandlers(client) {
                 // the grant only covers a dashclaw_guard retry presenting the same
                 // act. Same forwarding rule as dashclaw_guard.
                 ...(input.act && typeof input.act === 'object' ? { act: input.act } : {}),
+                // Deviation self-report (RFC 2026-08-11 §6): additive claim fields —
+                // the server records them agent_reported/low and they can never
+                // suppress or downgrade server-derived detection.
+                ...(typeof input.plan_step_id === 'string' && input.plan_step_id ? { plan_step_id: input.plan_step_id } : {}),
+                ...(typeof input.deviation_note === 'string' && input.deviation_note ? { deviation_note: input.deviation_note } : {}),
                 // Approvals lifecycle (roadmap v2.3): same wait-window declaration as
                 // dashclaw_guard, for records created directly as pending_approval.
                 approval_wait_seconds: Number.isInteger(input.approval_wait_seconds) ? input.approval_wait_seconds : 300,

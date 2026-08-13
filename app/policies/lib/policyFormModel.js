@@ -50,6 +50,15 @@ const DEFAULT_FORM_STATE = {
   maxDepth: '',
   escalateAction: 'require_approval',
   requireVerifiedParent: false,
+  // deviation_response (plan-deviation events, RFC 2026-08-11) — per-kind
+  // consequence; 'ignore' means the kind is omitted from compiled on_kind.
+  deviationOnKind: {
+    act_substitution: 'ignore',
+    scope_escape: 'ignore',
+    unplanned_action: 'ignore',
+    goal_drift: 'ignore',
+  },
+  deviationMinSeverity: 'info',
   // optional inline test recipes (A1): [{ name, input, expect: { decision } }]
   tests: [],
 };
@@ -75,6 +84,7 @@ export const POLICY_TYPE_OPTIONS = [
   { value: 'require_evidence', label: 'Evidence Required', desc: 'Escalate guard calls that declare intent without attaching the actual act (command, request, statement, or file write)' },
   { value: 'delegation_constraint', label: 'Subagent Constraint', desc: 'Cap what a spawned subagent may do — risk ceiling, action types, paths, depth' },
   { value: 'role_constraint', label: 'Role Constraint', desc: 'A named authority bundle for the targeted agents — allowed/blocked action types, risk ceiling, path scope' },
+  { value: 'deviation_response', label: 'Deviation Response', desc: 'Consequence per plan-deviation kind — warn, require approval, or block when an agent departs from its approved plan' },
 ];
 
 function cleanString(value) {
@@ -351,6 +361,32 @@ const POLICY_TYPE_HANDLERS = {
       return `Limit the "${cleanString(form.name) || 'role'}" role${allowedPart}${riskPart}${scoped}.`;
     },
   },
+  // Deviation response (plan-deviation events, RFC 2026-08-11): per-kind
+  // consequence. Kinds left on 'ignore' are omitted from on_kind — an empty
+  // on_kind compiles to a policy that enforces nothing (deviations are always
+  // recorded regardless; this only sets consequence).
+  deviation_response: {
+    compile: (form) => {
+      const rules = {
+        escalate_action: ['warn', 'require_approval', 'block'].includes(form.escalateAction)
+          ? form.escalateAction : 'require_approval',
+      };
+      const onKind = {};
+      for (const [kind, action] of Object.entries(form.deviationOnKind || {})) {
+        if (action === 'warn' || action === 'require_approval' || action === 'block') onKind[kind] = action;
+      }
+      if (Object.keys(onKind).length > 0) rules.on_kind = onKind;
+      if (['low', 'medium', 'high'].includes(form.deviationMinSeverity)) {
+        rules.min_severity = form.deviationMinSeverity;
+      }
+      return rules;
+    },
+    summary: (form, scoped) => {
+      const kinds = Object.entries(form.deviationOnKind || {}).filter(([, a]) => a !== 'ignore');
+      if (kinds.length === 0) return `Record plan deviations without consequence${scoped}.`;
+      return `On plan deviation: ${kinds.map(([k, a]) => `${k.replace(/_/g, ' ')} → ${a}`).join(', ')}${scoped}.`;
+    },
+  },
 };
 
 // --- Form state -> stored policy payload (compile) ---
@@ -428,6 +464,11 @@ export function decompilePolicyForm(policy) {
     maxDepth: coalesce(rules.max_depth, DEFAULT_FORM_STATE.maxDepth),
     escalateAction: orVal(rules.escalate_action, DEFAULT_FORM_STATE.escalateAction),
     requireVerifiedParent: rules.require_verified_parent !== undefined ? !!rules.require_verified_parent : DEFAULT_FORM_STATE.requireVerifiedParent,
+    deviationOnKind: {
+      ...DEFAULT_FORM_STATE.deviationOnKind,
+      ...(rules.on_kind && typeof rules.on_kind === 'object' ? rules.on_kind : {}),
+    },
+    deviationMinSeverity: orVal(rules.min_severity, DEFAULT_FORM_STATE.deviationMinSeverity),
     tests: arrOr(rules.tests, []),
     agentIds: parseAgentIds(policy),
   };

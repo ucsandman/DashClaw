@@ -1358,7 +1358,48 @@ export function demoPlanDetail(fixtures: DemoFixtures, planId: string) {
         step(1, 'api_call', 'Mint replacement staging credentials', { d: 'allow', r: 25 }, { status: 'approved', usedMinsAgo: 30 }),
         step(2, 'config_change', 'Swap the credential in staging env config', { d: 'warn', r: 45 }, { status: 'approved' }),
       ];
-  return { plan, steps };
+  // Plan deviations (RFC 2026-08-11): the live plan carries one open
+  // act_substitution so the demo /approvals deviation strip, the
+  // declared-vs-observed pair, and the resolve buttons all render. Complete
+  // rows — every field LivePlansSection reads is present.
+  const deviations = planId === 'pa_demo_live01'
+    ? [
+        {
+          deviation_id: 'dv_demo_live01_1',
+          org_id: 'org_demo',
+          agent_id: plan.agent_id,
+          session_id: null,
+          action_id: null,
+          guard_decision_id: null,
+          plan_id: planId,
+          step_id: `ps_demo_${planId.slice(-6)}_2`,
+          kind: 'act_substitution',
+          dimension: 'act',
+          severity: 'high',
+          declared: {
+            action_type: 'config_change',
+            step_goal: 'Swap the credential in staging env config',
+            act_content_hash: `demo2${planId.slice(-6)}`.padEnd(16, '0'),
+          },
+          observed: {
+            action_type: 'config_change',
+            declared_goal: 'Swap the credential in staging env config',
+            act_content_hash: 'demoObservedHash0',
+            act_summary: 'config_change: production env config',
+            systems_touched: ['production'],
+          },
+          detector: 'server_derived',
+          match_confidence: 90,
+          agent_note: null,
+          policy_outcome: 'none',
+          status: 'open',
+          resolved_by: null,
+          resolved_at: null,
+          created_at: new Date(now - 8 * 60_000).toISOString(),
+        },
+      ]
+    : [];
+  return { plan, steps, deviations };
 }
 
 /** GET /api/calibration/controller — a shadow-mode controller snapshot with a
