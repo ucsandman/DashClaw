@@ -41,13 +41,16 @@ const roundTrips = (sql) =>
   sql.queryCalls.filter((c) => isStatement(c.text)).length;
 
 describe('guard hot path — DB round-trip budget', () => {
-  it('default path executes ≤5 DB round-trips cold and ≤2 warm (was ~9)', async () => {
+  it('default path executes ≤6 DB round-trips cold and ≤2 warm (was ~9)', async () => {
     // Cold budget went 4 → 5 deliberately (supergoal P4): the org risk-template
-    // layer adds ONE cached query per org per 30s TTL window. Warm stays ≤2.
+    // layer adds ONE cached query per org per 30s TTL window. 5 → 6 deliberately
+    // (RFC 2026-08-11-plan-deviation-events §8): the deviation detector's
+    // hasLivePlan pre-gate adds ONE cached EXISTS probe per org:agent per 30s.
+    // Warm stays ≤2 — both extra queries answer from cache.
     const org = freshOrg();
     const sql = createSqlMock({ taggedResponses: [[]] });
     await evaluateGuard(org, CTX, sql);
-    expect(roundTrips(sql)).toBeLessThanOrEqual(5);
+    expect(roundTrips(sql)).toBeLessThanOrEqual(6);
 
     const sql2 = createSqlMock({ taggedResponses: [[]] });
     await evaluateGuard(org, CTX, sql2);

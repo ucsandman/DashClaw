@@ -13,6 +13,7 @@ export const EVENTS = {
   TASK_COMPLETED: 'task.completed',
   DECISION_CREATED: 'decision.created',
   GUARD_DECISION_CREATED: 'guard.decision.created',
+  PLAN_DEVIATION_DETECTED: 'plan.deviation.detected',
   LOOP_CREATED: 'loop.created',
   LOOP_UPDATED: 'loop.updated',
   GOAL_CREATED: 'goal.created',

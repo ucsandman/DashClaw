@@ -14,7 +14,9 @@ import { grantMatches, grantIsExpired, grantCoversRisk, grantMaxRisk } from '../
 import { DECISION_SEVERITY, sevOf } from './internal';
 import type { GuardSql, GuardEvalContext, PolicyRow, PolicyRules, PolicyResult, Preliminary, GuardDecisionInsert } from './types';
 import { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, isKnownPolicyType } from './policy';
-import { getOrgHaltState, getActiveApprovalPause, loadApplicablePolicies, getPredictiveSettings, getCalibrationRuntime } from './caches';
+import { getOrgHaltState, getActiveApprovalPause, loadApplicablePolicies, getPredictiveSettings, getCalibrationRuntime, getHasLivePlan } from './caches';
+import { classifyDeviation, summarizeAct } from './deviation';
+import type { DeviationFinding, LivePlanStep } from './deviation';
 import { assessCalibration, CALIBRATION_POLICY_ID } from './calibration';
 import type { CalibrationAssessment } from './calibration';
 import { serverRiskTerms, computeEffectiveRisk, computeRiskAssessment } from './risk';
@@ -745,6 +747,112 @@ async function runSignalChecks(
   }
 }
 
+// The classifier's finding plus what the policy engine did with it — echoed
+// into guard_decisions.context as _plan_deviation (a SIBLING breakdown key,
+// never inside the hashed score vector) and persisted as a plan_deviations
+// row after the decision row lands.
+export type PlanDeviationOutcome = DeviationFinding & { policy_outcome: string };
+
+/**
+ * Plan deviation detection (RFC 2026-08-11-plan-deviation-events §8). Runs on
+ * EVERY guarded action for all four decisions — NOT inside applyPlanStepGrant,
+ * which is gated on require_approval and structurally cannot see an off-plan
+ * action that evaluates to allow. Placement: after the grant passes (a step
+ * consumed this evaluation is a confirmed match; only its declared scope can
+ * still be violated), never under simulate (the caller gates that — a plan's
+ * own dry-run preview must not deviate against the plan being previewed).
+ *
+ * D3: fail-soft, wrapped whole — a broken deviation computation must never
+ * block, delay, or fail a guard call. Detection and consequence stay separate
+ * subsystems: the finding is always returned for recording (D1); only the
+ * deviation_response policy pass below decides whether anything is raised.
+ */
+async function runDeviationCheck(
+  deps: GuardPhaseDeps,
+  acc: GuardAccumulator,
+  policies: PolicyRow[],
+  planGrant: PlanGrantInfo | null,
+  adjustedRiskScore: number,
+): Promise<PlanDeviationOutcome | null> {
+  const { context, sql, orgId } = deps;
+  try {
+    if (!context.agent_id) return null;
+    // Same exclusion as the grant passes: the synthetic containment merge row
+    // is never a legitimate plan step.
+    if (context.action_type === 'containment_promote' || context.declared_action_type === 'containment_promote') return null;
+    // Hot-path pre-gate: the overwhelmingly common planless case costs a 30s
+    // cache hit and no query.
+    if (!(await getHasLivePlan(sql, orgId, context.agent_id))) return null;
+    const { getLivePlanForAgent } = await import('../repositories/plans.repository');
+    const live = await getLivePlanForAgent(sql as never, orgId, context.agent_id);
+    if (!live || live.steps.length === 0) return null;
+
+    const observed = {
+      action_type: context.action_type ?? null,
+      declared_goal: context.declared_goal ?? null,
+      act_hash: computeActContentHash(context.act),
+      target: typeof context.target === 'string' && context.target ? context.target : null,
+      write_paths: Array.isArray(context.write_paths)
+        ? (context.write_paths as unknown[]).filter((p): p is string => typeof p === 'string')
+        : [],
+      systems_touched: Array.isArray(context.systems_touched)
+        ? (context.systems_touched as unknown[]).filter((s): s is string => typeof s === 'string')
+        : [],
+      act_summary: summarizeAct(context.act),
+    };
+    const finding = classifyDeviation({
+      planId: live.plan_id,
+      steps: live.steps as unknown as LivePlanStep[],
+      observed,
+      grantedStepId: planGrant?.step_id ?? null,
+    });
+    if (!finding) return null;
+
+    // The agent's channel (RFC §7): a warning line on the guard response,
+    // identical to the plan-grant "Covered by plan…" convention. Existing
+    // clients that ignore unknown warnings are unaffected.
+    acc.warnings.push(`Plan deviation: ${finding.kind} (${finding.severity}) vs plan ${finding.plan_id}`);
+
+    // deviation_response policy pass. These policies are a no-op inside
+    // runLocalPolicies (no finding exists there yet); here they get the
+    // finding via a transient context stash, deleted before
+    // redactContextForLog builds the persisted context — the durable copy is
+    // context._plan_deviation. Raises here land AFTER the grant passes, so a
+    // deviation-raised require_approval can never be cleared by a grant this
+    // same evaluation (tighten-only, D2: no default row ships).
+    let policyOutcome = 'none';
+    const devPolicies = policies.filter((p) => p.policy_type === 'deviation_response');
+    if (devPolicies.length > 0) {
+      (context as Record<string, unknown>)._plan_deviation_finding = finding;
+      try {
+        for (const policy of devPolicies) {
+          let rules: PolicyRules;
+          try {
+            rules = JSON.parse(policy.rules);
+          } catch {
+            notePolicyUnenforceable(acc, policy, 'rules is not valid JSON');
+            continue;
+          }
+          const result = await evaluatePolicy(policy, rules, context, sql, orgId, adjustedRiskScore);
+          if (!result) continue;
+          applyResult(result, policy, acc);
+          if (result.action === 'warn' || result.action === 'require_approval') {
+            acc.gatingPolicies.push({ id: policy.id, name: policy.name, ungrantable: rules.ungrantable === true });
+          }
+          raiseDecision(acc, result.action);
+          if (sevOf(result.action) > sevOf(policyOutcome)) policyOutcome = result.action;
+        }
+      } finally {
+        delete (context as Record<string, unknown>)._plan_deviation_finding;
+      }
+    }
+    return { ...finding, policy_outcome: policyOutcome };
+  } catch (err) {
+    console.warn('[Guard] deviation check failed (fail-soft, continuing):', (err as Error).message);
+    return null;
+  }
+}
+
 // SECURITY: do not store raw secrets in guard decision context.
 function redactContextForLog(context: GuardEvalContext, nonFabStripPaths: Set<string>): unknown {
   const dlpFindings: unknown[] = [];
@@ -795,6 +903,7 @@ interface GuardFinalizeInput {
   evidenceDerived: EvidenceDerivedBreakdown | null;
   calibration: CalibrationAssessment | null;
   planGrant: PlanGrantInfo | null;
+  planDeviation: PlanDeviationOutcome | null;
   timings: Record<string, number> | null;
   degraded: { kind: string; deadline_ms: number; action: string; phase_in_flight: string | null } | null;
   containment: { status: 'contained'; basis: string; ref: string } | null;
@@ -832,6 +941,9 @@ function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionInsert {
       // trail lives here: what the calibrated threshold would have done.
       ...(input.calibration ? { _calibration: input.calibration } : {}),
       ...(input.planGrant ? { _plan_grant: input.planGrant } : {}),
+      // Score-provenance rule: a SIBLING key beside _plan_grant/_calibration —
+      // never inside the hashed score vector.
+      ...(input.planDeviation ? { _plan_deviation: input.planDeviation } : {}),
       ...(input.timings ? { _timings: input.timings } : {}),
       ...(input.degraded ? { _degraded: input.degraded } : {}),
     },
@@ -1041,6 +1153,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     | null = null;
   let calibration: CalibrationAssessment | null = null;
   let planGrant: PlanGrantInfo | null = null;
+  let planDeviation: PlanDeviationOutcome | null = null;
   let riskBreakdown: RiskBreakdown = {
     base: syncTerms.base,
     modifiers: syncTerms.modifiers,
@@ -1166,6 +1279,12 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
       // check above and below.
       if (evaluationAbandoned) return 'completed';
       planGrant = await timed('plan_grant', () => applyPlanStepGrant(deps, liveAcc));
+      // Deviation detection (RFC 2026-08-11-plan-deviation-events): after the
+      // grant passes so a consumed step reads as a confirmed match, inside the
+      // simulate gate so a plan's own dry-run preview never deviates against
+      // the plan being previewed. Fail-soft inside (D3).
+      planDeviation = await timed('deviation', () =>
+        runDeviationCheck(deps, liveAcc, policies, planGrant, adjustedRiskScore));
     }
     await timed('signals', () => runSignalChecks(deps, options, liveAcc));
     return 'completed';
@@ -1289,7 +1408,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   const input: GuardFinalizeInput = {
     decisionId, orgId, context, acc, safeContextForLog, evidenceJson, statuses,
     adjustedRiskScore, agentRiskScore, evaluatedAt, predictiveRisk,
-    riskBreakdown, intentSource, evidenceDerived, calibration, planGrant, timings, degraded: degradedDetail,
+    riskBreakdown, intentSource, evidenceDerived, calibration, planGrant, planDeviation, timings, degraded: degradedDetail,
     containment: containmentOut.containment ?? null,
   };
 
@@ -1303,5 +1422,44 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   // GUARD_AUDIT_PERSIST_FAILED and no decision is ever returned.
   await persistGuardDecision(sql, buildGuardDecisionRow(input));
   publishGuardDecisionEvent(input);
+  await persistPlanDeviationRow(sql, input);
   return buildGuardResult(input);
+}
+
+// D1: recording is unconditional — every decision with a finding writes the
+// plan_deviations row, whatever the policy outcome, for all four decisions
+// (only simulate skips, upstream). Runs AFTER persistGuardDecision so
+// guard_decision_id is real. Fail-soft (D3): a failed insert costs the
+// durable row — the _plan_deviation echo in guard_decisions.context survives
+// — never the guard call.
+async function persistPlanDeviationRow(sql: GuardSql, input: GuardFinalizeInput): Promise<void> {
+  const finding = input.planDeviation;
+  if (!finding) return;
+  try {
+    const { insertPlanDeviation } = await import('../repositories/plan-deviations.repository');
+    const row = await insertPlanDeviation(sql as never, input.orgId, {
+      orgId: input.orgId,
+      agentId: input.context.agent_id || 'unknown',
+      sessionId: typeof input.context.session_id === 'string' ? input.context.session_id : null,
+      actionId: input.context.action_id ? String(input.context.action_id) : null,
+      guardDecisionId: input.decisionId,
+      planId: finding.plan_id,
+      stepId: finding.step_id,
+      kind: finding.kind,
+      dimension: finding.dimension,
+      severity: finding.severity,
+      declared: finding.declared,
+      observed: finding.observed,
+      matchConfidence: finding.match_confidence,
+      policyOutcome: finding.policy_outcome,
+    });
+    if (row) {
+      void publishOrgEvent(EVENTS.PLAN_DEVIATION_DETECTED, {
+        orgId: input.orgId,
+        deviation: row,
+      });
+    }
+  } catch (err) {
+    console.warn('[Guard] plan-deviation persist failed (fail-soft):', (err as Error).message);
+  }
 }

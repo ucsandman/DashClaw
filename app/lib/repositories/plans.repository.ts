@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { computeActContentHash } from '../act-content-hash';
 import { redactAny } from '../security';
+import { sweepAbandonedSteps } from './plan-deviations.repository';
 
 type SqlClient = {
   (s: TemplateStringsArray, ...v: unknown[]): Promise<Record<string, unknown>[]>;
@@ -159,7 +160,19 @@ export async function getPlanWithSteps(sql: SqlClient, orgId: string, planId: st
   const steps = await sql`
     SELECT * FROM plan_authorization_steps WHERE org_id = ${orgId} AND plan_id = ${planId} ORDER BY seq ASC
   `;
-  return { plan: applyDerivedStatus(plans[0], true), steps };
+  const result = { plan: applyDerivedStatus(plans[0], true), steps };
+  // step_abandoned lazy sweep (RFC 2026-08-11-plan-deviation-events §8): TTL
+  // lapse has no writer, so the read path that DERIVES 'expired' is the
+  // natural terminalisation hook. Idempotent (partial unique index) and
+  // fail-soft — a sweep failure must never break a plan read.
+  if (result.plan.status === 'expired') {
+    try {
+      await sweepAbandonedSteps(sql, orgId, planId);
+    } catch (err) {
+      console.warn('[Plans] step_abandoned sweep failed (continuing):', (err as Error).message);
+    }
+  }
+  return result;
 }
 
 export async function countPendingPlans(sql: SqlClient, orgId: string): Promise<number> {
@@ -271,6 +284,15 @@ export async function reviewPlan(
       RETURNING *
     `;
     if (!updated[0]) return null;
+    // Revoke is terminal: approved steps never consumed are now abandoned by
+    // definition (RFC 2026-08-11-plan-deviation-events §5). The sweep reads
+    // grant_status/grant_used_at, which revoke does not rewrite. Fail-soft:
+    // a sweep failure must never fail the operator's revoke.
+    try {
+      await sweepAbandonedSteps(sql, orgId, planId);
+    } catch (err) {
+      console.warn('[Plans] step_abandoned sweep failed on revoke (continuing):', (err as Error).message);
+    }
     const steps = await sql`
       SELECT * FROM plan_authorization_steps WHERE org_id = ${orgId} AND plan_id = ${planId} ORDER BY seq ASC
     `;
@@ -449,4 +471,31 @@ export async function findDeniedStepMatch(
     LIMIT 1
   `;
   return (rows[0] as { step_id: string; plan_id: string; reviewed_by: string | null } | undefined) ?? null;
+}
+
+/**
+ * The agent's most recent live plan (approved/partially_approved, unexpired)
+ * with its steps — the deviation detector's measuring stick. Only called
+ * after getHasLivePlan (caches.ts) answered true, so the common planless
+ * case never reaches this query.
+ */
+export async function getLivePlanForAgent(sql: SqlClient, orgId: string, agentId: string) {
+  const plans = await sql`
+    SELECT plan_id FROM plan_authorizations
+    WHERE org_id = ${orgId} AND agent_id = ${agentId}
+      AND status IN ('approved', 'partially_approved')
+      AND expires_at > now()
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+  const planId = (plans[0] as { plan_id: string } | undefined)?.plan_id;
+  if (!planId) return null;
+  const steps = await sql`
+    SELECT step_id, seq, action_type, step_goal, act_content_hash, grant_status,
+           grant_used_at, declared_paths, declared_systems
+    FROM plan_authorization_steps
+    WHERE org_id = ${orgId} AND plan_id = ${planId}
+    ORDER BY seq ASC
+  `;
+  return { plan_id: planId, steps };
 }

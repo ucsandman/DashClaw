@@ -73,6 +73,14 @@ export interface ApprovalPauseState {
 }
 const approvalPauseCache = new Map<string, { pause: ApprovalPauseState | null; expires: number }>();
 
+// Deviation detection pre-gate (RFC 2026-08-11-plan-deviation-events §8): the
+// overwhelmingly common case — an agent with no live plan — must cost a cache
+// hit and zero queries on the guard hot path. Keyed org:agent (the first
+// two-arg cache here). 30s staleness only delays detection COVERAGE after a
+// plan approval, never a decision — the detector is an observation (D3), so
+// a stale `false` loses nothing that fail-soft doesn't already concede.
+const hasLivePlanCache = new Map<string, { has: boolean; expires: number }>();
+
 // Bound cache growth: nothing removed these maps between the targeted
 // invalidate* calls below and __resetGuardCaches() (test-only), so an org
 // evaluated once and never touched again left an entry resident for the
@@ -182,6 +190,29 @@ export function approvalPauseIsActive(pause: ApprovalPauseState | null | undefin
   return Number.isFinite(until) && until > Date.now();
 }
 
+/**
+ * Whether this agent has a live (approved/partially_approved, unexpired) plan
+ * — the deviation detector's pre-gate. Served from a 30s cache so a planless
+ * agent's guard call costs no extra query (see hasLivePlanCache above).
+ */
+export async function getHasLivePlan(sql: GuardSql, orgId: string, agentId: string): Promise<boolean> {
+  const key = `${orgId}:${agentId}`;
+  const hit = hasLivePlanCache.get(key);
+  if (hit && hit.expires > Date.now()) return hit.has;
+  const rows = await sql`
+    SELECT 1 AS present FROM plan_authorizations
+    WHERE org_id = ${orgId} AND agent_id = ${agentId}
+      AND status IN ('approved', 'partially_approved')
+      AND expires_at > now()
+    LIMIT 1
+  `;
+  const has = rows.length > 0;
+  const now = Date.now();
+  hasLivePlanCache.set(key, { has, expires: now + GUARD_CACHE_TTL_MS });
+  pruneCache(hasLivePlanCache, now);
+  return has;
+}
+
 /** Test-only: clear all guard hot-path caches. */
 export function __resetGuardCaches(): void {
   policyCache.clear();
@@ -191,6 +222,7 @@ export function __resetGuardCaches(): void {
   approvalPauseCache.clear();
   calibrationSettingsCache.clear();
   calibrationStateCache.clear();
+  hasLivePlanCache.clear();
 }
 
 // Active org risk templates, served from the short-TTL cache (same pattern as
