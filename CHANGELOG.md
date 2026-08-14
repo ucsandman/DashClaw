@@ -13,6 +13,24 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.22.2] — 2026-08-13
+
+Production bugfix for the approval pause shipped in v5.22.0's era (2026-08-12):
+the pause buttons on /policies and /approvals returned "Internal server error"
+for every operator. Platform-only; no SDK or API surface change.
+
+### Fixed
+
+- **`POST`/`DELETE /api/approval-pause` 500'd on every call** — the route
+  persists pause state via `upsertSetting`, whose key allowlist
+  (`VALID_SETTING_KEYS`) never had `DASHCLAW_APPROVAL_PAUSE` added, so the
+  repository rejected the write with `Invalid setting key`. The feature shipped
+  broken because every existing test mocked `settings.repository`, so the
+  allowlist check never executed. Fixed by allowlisting the key, and covered by
+  a new regression suite (`__tests__/unit/approval-pause.route.test.js`) that
+  drives the route through the **real** settings repository — the exact layer
+  that failed.
+
 ## [5.22.1] — 2026-08-13
 
 Hosted-buyer money-path drill — maintainer tooling; no SDK or runtime surface

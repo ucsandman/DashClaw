@@ -101,6 +101,10 @@ export const VALID_SETTING_KEYS = [
   // Written ONLY by the admin-gated /api/halt route; read on the guard hot
   // path (piggybacked on the cached settings read in guard.ts).
   'DASHCLAW_ORG_HALT',
+  // Approval pause — JSON {until, actor, reason, at}. Written ONLY by the
+  // admin-gated /api/approval-pause route; read on the guard hot path
+  // (rides the same cached category-general settings read as the halt key).
+  'DASHCLAW_APPROVAL_PAUSE',
   // Calibrated interruption controller (governance-core-theory §1). MODE is
   // 'off' (default) | 'shadow' | 'active'; TARGET_RATE is the operator-set
   // false-interruption bound α as a decimal string ('0.10'). Written by the

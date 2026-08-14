@@ -14,6 +14,29 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-13 — the pause button that never worked (v5.22.2)
+
+Wes clicked the "1h" approval-pause button on /policies and got "Internal
+server error." Root cause: the approval pause (shipped 2026-08-12) writes its
+state through `upsertSetting`, which validates every key against the
+`VALID_SETTING_KEYS` allowlist — and `DASHCLAW_APPROVAL_PAUSE` was never added
+to it. Every POST (any window) and every DELETE (resume) threw
+`Invalid setting key` and 500'd. The feature shipped broken and stayed broken
+for a day because **every test of it mocked the settings repository**, so the
+one line that failed in production never executed in CI. The GET path worked
+(reads don't hit the allowlist), which is why the panel rendered perfectly and
+looked done.
+
+The fix is one allowlist entry. The lesson is the regression suite:
+`__tests__/unit/approval-pause.route.test.js` now drives the route through the
+*real* repository with only the db/audit edges mocked, so the validation layer
+actually runs. This is the L1 rule from the harness in miniature — a check
+(the test suite) that was never observed failing had been run, not verified.
+The same mock-the-repository pattern exists in `halt.route.test.js` and
+friends; any future setting key added by a route is exposed to the same trap,
+so route tests for setting-writers should prefer the real repository from now
+on.
+
 ## 2026-08-13 — the demand gate worked, and then someone walked through it
 
 The external-verdict RFC

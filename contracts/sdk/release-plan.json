@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.22.1",
+    "current_version": "5.22.2",
     "next_bump": "none",
-    "reason": "5.22.1 is the hosted-buyer money-path drill (scripts/drills/hosted-buyer.mjs): maintainer tooling only, verified live against hosted.dashclaw.io (19/19 green + sabotage red). sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.22.1 tag fires release.yml, whose publish-npm job publishes whatever version the manifests carry and only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.22.2 is a production bugfix: POST/DELETE /api/approval-pause 500d because DASHCLAW_APPROVAL_PAUSE was missing from the VALID_SETTING_KEYS allowlist in settings.repository.ts. sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.22.2 tag fires release.yml, whose publish-npm job publishes whatever version the manifests carry and only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.22.1",
+    "current_version": "5.22.2",
     "next_bump": "none",
-    "reason": "5.22.1 is the hosted-buyer money-path drill, platform-side maintainer tooling only. sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.22.1 tag fires release.yml, whose publish-pypi job publishes whatever version the manifests carry and only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.22.2 is a production bugfix to the approval-pause route, platform-side only. sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.22.2 tag fires release.yml, whose publish-pypi job publishes whatever version the manifests carry and only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.22.1 ships the hosted-buyer money-path drill (scripts/drills/README.md 'hosted-buyer'): a 19-step scripted proof of the hosted billing path - mint -> key -> first governed action -> claim (seeded user + forged NextAuth session) -> real Stripe test/live checkout customer -> signed synthetic webhooks with idempotency replay -> plan flip -> seat-cap 409 -> action-ceiling 403 -> portal -> cancel -> free restore -> export - with full teardown and a --sabotage make-it-fail switch. First run against hosted.dashclaw.io went 19/19 green after surfacing and fixing three production faults: an EXPIRED live STRIPE_SECRET_KEY (real buyers' checkout was broken), a missing default Customer Portal configuration, and an unrecoverable NEXTAUTH_SECRET (rotated). HOSTED_DRILL_TOKEN rotated after the run per the drill-mint spec. Neither SDK's source changed; the CLI did not change.",
+  "reason": "5.22.2 fixes the approval pause shipped 2026-08-12: every pause window button on /policies and /approvals returned Internal server error because the route wrote its state through upsertSetting and DASHCLAW_APPROVAL_PAUSE was never added to VALID_SETTING_KEYS - the write was rejected as an invalid key. The gap survived CI because every existing test mocked settings.repository, so the allowlist never executed; a new regression suite (approval-pause.route.test.js) now drives the route through the real repository. Neither SDK source changed; the CLI did not change.",
   "domains": [
     "platform"
   ]
