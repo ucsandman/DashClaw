@@ -39,6 +39,45 @@ interface ReplayOptions {
 
 const EVENT_VERSION = 'v1';
 const ORG_CHANNEL_PREFIX = 'dashclaw:org';
+// Same bounds as app/lib/org-rate-limit.ts (#222/#223): a stalled endpoint or
+// half-open socket (NAT idle-drop emits no error event, node-redis v4 never
+// reconnects and has no command timeout) must never pend an await unbounded.
+// Publishes here are background-only (void / after()), so an unbounded await
+// pins the serverless invocation open and loses events rather than blocking a
+// response — bounded + memory fallback instead.
+const REDIS_CONNECT_TIMEOUT_MS = 3000;
+const REDIS_COMMAND_TIMEOUT_MS = 2000;
+const REDIS_RETRY_COOLDOWN_MS = 30000;
+
+class RedisCommandTimeout extends Error {}
+
+/** Race a Redis command against a timer so it can never pend unbounded. */
+function withCommandTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    promise,
+    new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new RedisCommandTimeout(`Redis command exceeded ${ms}ms`)), ms);
+    }),
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+// Forcibly release a client whose connect failed/timed out or whose socket is
+// half-open. Best-effort: never throws, never blocks the fallback (node-redis
+// v4 exposes disconnect(); v5 adds destroy()).
+function safeDisconnect(client: { destroy?: () => void; disconnect?: () => Promise<unknown> }): void {
+  try {
+    if (typeof client.destroy === 'function') {
+      client.destroy();
+    } else if (typeof client.disconnect === 'function') {
+      void Promise.resolve(client.disconnect()).catch(() => {});
+    }
+  } catch {
+    // teardown is best-effort
+  }
+}
 const requestedBackend = (process.env.REALTIME_BACKEND || 'memory').toLowerCase();
 const redisUrl = process.env.REDIS_URL || process.env.REALTIME_REDIS_URL || '';
 const enforceRedisCutover = ['1', 'true', 'yes', 'on'].includes(
@@ -145,12 +184,14 @@ class MemoryRealtimeBackend {
 
 class RedisRealtimeBackend {
   url: string;
-  publisher: any;
+  publisherPromise: Promise<any> | null;
+  publisherFailedAt: number;
   createClient: any;
 
   constructor(url: string) {
     this.url = url;
-    this.publisher = null;
+    this.publisherPromise = null;
+    this.publisherFailedAt = 0;
     this.createClient = null;
   }
 
@@ -169,15 +210,73 @@ class RedisRealtimeBackend {
     return this.createClient;
   }
 
-  async getPublisher(): Promise<any> {
-    if (this.publisher) return this.publisher;
+  // Create a client and connect within a bound. First line of defense is the
+  // socket connectTimeout; second is our own race, because the observed
+  // production hang was a connect() that ignored connectTimeout entirely.
+  async connectClient(role: string): Promise<any> {
     const createClient = await this.loadRedisClientFactory();
-    this.publisher = createClient({ url: this.url });
-    this.publisher.on('error', (err: any) => {
-      console.error('[REALTIME] Redis publisher error:', err?.message || err);
+    const client = createClient({
+      url: this.url,
+      socket: { connectTimeout: REDIS_CONNECT_TIMEOUT_MS },
     });
-    await this.publisher.connect();
-    return this.publisher;
+    client.on('error', (err: any) => {
+      console.error(`[REALTIME] Redis ${role} error:`, err?.message || err);
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        client.connect(),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`Redis connect exceeded ${REDIS_CONNECT_TIMEOUT_MS}ms`)),
+            REDIS_CONNECT_TIMEOUT_MS,
+          );
+        }),
+      ]);
+    } catch (err) {
+      safeDisconnect(client);
+      throw err;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+    return client;
+  }
+
+  async getPublisher(): Promise<any> {
+    if (this.publisherFailedAt && Date.now() - this.publisherFailedAt < REDIS_RETRY_COOLDOWN_MS) {
+      throw new Error('Redis publisher in failure cooldown');
+    }
+    if (!this.publisherPromise) {
+      // Cache the CONNECT PROMISE, not the raw client: caching the client
+      // before connect() resolved handed concurrent callers an offline-queue
+      // client whose commands pended forever.
+      this.publisherPromise = this.connectClient('publisher').catch((err) => {
+        this.publisherFailedAt = Date.now();
+        this.publisherPromise = null;
+        throw err;
+      });
+    }
+    return this.publisherPromise;
+  }
+
+  // Drop a publisher whose socket is likely half-open (a timed-out command)
+  // so the post-cooldown retry builds a fresh connection instead of reusing
+  // the dead one forever.
+  dropPublisher(client: any): void {
+    safeDisconnect(client);
+    this.publisherPromise = null;
+    this.publisherFailedAt = Date.now();
+  }
+
+  // Run one publisher command under the command bound; on timeout, tear the
+  // stalled client down before rethrowing.
+  async boundedCommand<T>(client: any, promise: Promise<T>): Promise<T> {
+    try {
+      return await withCommandTimeout(promise, REDIS_COMMAND_TIMEOUT_MS);
+    } catch (err) {
+      if (err instanceof RedisCommandTimeout) this.dropPublisher(client);
+      throw err;
+    }
   }
 
   async publish(envelope: EventEnvelope): Promise<EventEnvelope> {
@@ -185,7 +284,7 @@ class RedisRealtimeBackend {
     let withCursor = envelope;
 
     try {
-      const streamId = await publisher.sendCommand([
+      const streamId = await this.boundedCommand(publisher, publisher.sendCommand([
         'XADD',
         this.streamKeyForOrg(envelope.org_id),
         'MAXLEN',
@@ -194,39 +293,49 @@ class RedisRealtimeBackend {
         '*',
         'data',
         JSON.stringify(envelope),
-      ]);
-      withCursor = { ...envelope, cursor: streamId };
+      ]));
+      withCursor = { ...envelope, cursor: streamId as string };
     } catch (err) {
       console.error('[REALTIME] Redis XADD failed:', (err as any)?.message || err);
     }
 
-    await publisher.publish(this.channelForOrg(withCursor.org_id), JSON.stringify(withCursor));
+    await this.boundedCommand(
+      publisher,
+      publisher.publish(this.channelForOrg(withCursor.org_id), JSON.stringify(withCursor)),
+    );
     return withCursor;
   }
 
   async ping(): Promise<boolean> {
     const publisher = await this.getPublisher();
-    const pong = await publisher.ping();
+    const pong = await this.boundedCommand(publisher, publisher.ping());
     return String(pong || '').toUpperCase() === 'PONG';
   }
 
   async subscribe(orgId: string, handler: (envelope: EventEnvelope) => void): Promise<() => Promise<void>> {
-    const createClient = await this.loadRedisClientFactory();
-    const subscriber = createClient({ url: this.url });
-    subscriber.on('error', (err: any) => {
-      console.error('[REALTIME] Redis subscriber error:', err?.message || err);
-    });
-    await subscriber.connect();
+    // Subscriber connects are on the SSE-open path; bound them the same way
+    // so a stalled endpoint degrades to the memory backend instead of hanging
+    // the stream response. Failed connects clean up after themselves inside
+    // connectClient().
+    const subscriber = await this.connectClient('subscriber');
 
     const channel = this.channelForOrg(orgId);
-    await subscriber.subscribe(channel, (message: string) => {
-      try {
-        const parsed = JSON.parse(message);
-        handler(parsed);
-      } catch (err) {
-        console.error('[REALTIME] Failed to parse Redis event message:', (err as any)?.message || err);
-      }
-    });
+    try {
+      await withCommandTimeout(
+        subscriber.subscribe(channel, (message: string) => {
+          try {
+            const parsed = JSON.parse(message);
+            handler(parsed);
+          } catch (err) {
+            console.error('[REALTIME] Failed to parse Redis event message:', (err as any)?.message || err);
+          }
+        }),
+        REDIS_COMMAND_TIMEOUT_MS,
+      );
+    } catch (err) {
+      safeDisconnect(subscriber);
+      throw err;
+    }
 
     return async () => {
       try {
@@ -267,15 +376,18 @@ class RedisRealtimeBackend {
 
     let raw;
     try {
-      raw = await publisher.sendCommand([
+      raw = await this.boundedCommand(publisher, publisher.sendCommand([
         'XRANGE',
         streamKey,
         start,
         '+',
         'COUNT',
         String(safeLimit),
-      ]);
+      ]));
     } catch (err) {
+      // A timed-out command means Redis is unreachable, not that the cursor
+      // is bad — let it propagate so replayOrgEvents falls back to memory.
+      if (err instanceof RedisCommandTimeout) throw err;
       // If cursor is invalid for redis stream, treat as no replay available.
       if (afterCursor) return [];
       throw err;

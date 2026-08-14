@@ -14,6 +14,31 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-14 — Closing the last open finding from the timeout incident
+
+The v5.23.3 entry below left one item deliberately on the books: the
+realtime SSE publisher in `app/lib/events.ts` had the same unbounded Redis
+awaits that hung the guard path, plus a subtler bug — the client was cached
+*before* `connect()` resolved, so a concurrent publisher got an
+offline-queue client whose commands pended forever. It could never block a
+response (every hot-path publish is fire-and-forget or inside `after()`),
+but it pinned serverless invocations open and silently lost events.
+
+This session gave it the full #222/#223 treatment: bounded connect (3s
+socket timeout plus a `Promise.race` second guard with teardown), the
+connect *promise* cached instead of the raw client, a 30s failure cooldown,
+and a 2s bound on every publisher command (`XADD`, `PUBLISH`, `PING`,
+`XRANGE`) that destroys and drops a timed-out client so the post-cooldown
+retry connects fresh. The SSE subscriber connect — which *is* on the
+stream-open response path — got the same bounded connect, falling back to
+the memory backend instead of hanging the stream. Eight new tests reproduce
+each hang in virtual time (all eight failed against the old code, including
+the concurrent-caller bug) — plus one test-hygiene lesson: `clearAllMocks`
+doesn't drop persistent mock implementations, which had let a pending
+connect leak between tests and made one assertion pass for the wrong
+reason. Full gates green: lint, typecheck, 4742 tests, build. No version
+ceremony on this commit — it rides the next ship, same as #223 did.
+
 ## 2026-08-14 — The timeout came back one layer deeper (v5.23.3)
 
 Overnight, DashClaw blocked its own operator's messages. The OpenClaw
