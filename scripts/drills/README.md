@@ -72,6 +72,68 @@ phase where the entry path is under active scrutiny). These are not part of
 CI — they require Windows Sandbox / Docker on the maintainer's own machine and
 take several minutes each.
 
+## hosted-buyer — the money path
+
+`hosted-buyer.mjs` is a different kind of drill from the four above: instead
+of proving the entry path (`npx dashclaw up`), it proves the **billing and
+entitlements path** end to end against a live hosted-mode instance — mint →
+key works → first governed action → claim (seeded user + forged NextAuth
+session, same substitution as `claim-flow.mjs`) → checkout (a real Stripe
+test-mode customer) → signed synthetic `checkout.session.completed` webhook →
+idempotency replay → plan flip to indie → seat-cap 409 at 2 seats →
+action-ceiling 403 at 50,000 governed actions → billing portal link → signed
+synthetic `customer.subscription.deleted` webhook → free-plan restore →
+ceiling gone → workspace export. Every step prints a `DRILL_STEP <id>
+PASS|FAIL <detail>` line and the run ends with one `DRILL_VERDICT PASS|FAIL
+n/n steps green`; exit 0 only when every step passed.
+
+There is no `npm run` alias for this drill — invoke it directly:
+
+```bash
+node scripts/drills/hosted-buyer.mjs
+node scripts/drills/hosted-buyer.mjs --base-url https://hosted.dashclaw.io
+node scripts/drills/hosted-buyer.mjs --sabotage
+```
+
+`--base-url` also reads from `HOSTED_DRILL_BASE_URL`; it defaults to
+`http://127.0.0.1:3000`.
+
+**Required env** — all five, operator secrets, set only for the run:
+
+```bash
+HOSTED_DRILL_TOKEN     # mint bypass held by the operator
+DATABASE_URL           # must point at the TARGET instance's database
+NEXTAUTH_SECRET        # must match the target instance (forges the claim session JWT)
+STRIPE_WEBHOOK_SECRET  # must match the target instance (signs the synthetic webhook events)
+STRIPE_SECRET_KEY      # Stripe TEST-MODE secret key
+```
+
+The script checks these before doing anything else and prints `DRILL_VERDICT
+FAIL missing env: ...` if any are unset. Rotate `HOSTED_DRILL_TOKEN`
+afterward, per the drill-mint spec (`app/lib/hosted/drill-mint.ts`) — don't
+leave a live mint-bypass token sitting around after the run.
+
+**`--sabotage`**: the same seeded-break idea as above, built into the script
+itself. It flips the seat-cap step's expected second-invite status from 409
+to 200, which the real route never returns once the cap is hit. Run it once
+against a working instance and confirm the drill actually goes red before
+trusting a green run to mean anything.
+
+**When to run it**: before any release that touches billing, entitlements,
+claim, the hosted middleware, or the Stripe webhook handler.
+
+**Warning — real Stripe side effects.** A run against a live-Stripe-keyed
+instance creates a real Stripe customer through the checkout route and drives
+real signed webhook events against it. Nothing is ever charged — no live
+subscription is created, only synthetic test-mode webhook events — and the
+customer is deleted in teardown (verified by re-retrieving it, not just
+trusting the delete call's response). Teardown is best-effort in a `finally`:
+a failed cleanup prints a `DRILL_TEARDOWN ... FAILED` warning with manual
+cleanup instructions instead of silently leaving Stripe or DB state behind.
+Even so, this touches a real payment provider account — get explicit
+approval before running it against anything other than a disposable or
+test-only instance.
+
 ## Known gap: no macOS equivalent
 
 **macOS has no maintainer-executable fresh-machine drill.** There is no macOS
