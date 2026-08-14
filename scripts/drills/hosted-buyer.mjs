@@ -8,9 +8,10 @@
  * log it in the maintainer log.
  *
  * Spec: PS docs/plans/2026-08-13-dashclaw-hosted-launch-implementation-plans.md
- * (Plan A). This file covers plan Tasks 1-3 only (mint/key/action, claim,
- * checkout/webhook/plan-flip); Tasks 4-6 (entitlements, portal, cancel,
- * export) extend the same step/teardown structure in a later change.
+ * (Plan A). Full money path: mint/key/action, claim, checkout/webhook/
+ * plan-flip (Tasks 1-3), entitlement proof — seat-cap 409 + action-ceiling
+ * 403 (Task 4), portal + cancel webhook + free-plan restore (Task 5), and
+ * export + final verdict (Task 6).
  *
  * The claim step cannot do the real Google OAuth redirect, so — same
  * substitution as claim-flow.mjs — it seeds the `users` row the signIn
@@ -628,6 +629,14 @@ async function main() {
       const ok = last?.status === 200 || last?.status === 201;
       if (!ok) throw new Error(`status=${last?.status} code=${last?.json?.code}`);
       return `status=${last.status}`;
+    });
+
+    // 19. Export — the carry-out bundle, same assertion hosted-stranger uses.
+    await step('export', async () => {
+      const res = await jsonFetch(`${baseUrl}/api/workspace/export`, { headers: { 'x-api-key': apiKey } });
+      const ok = res.status === 200 && res.json && typeof res.json === 'object' && Boolean(res.json.exported_at);
+      if (!ok) throw new Error(`GET /api/workspace/export -> ${res.status}: ${res.text.slice(0, 200)}`);
+      return `exported_at=${res.json.exported_at} (${res.text.length} bytes)`;
     });
 
     return finish();
