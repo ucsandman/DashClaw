@@ -13,6 +13,28 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.23.3] — 2026-08-14
+
+Follow-up hardening to the v5.23.2 bounded Redis connect (#222), closing the
+same production incident: OpenClaw agents fail-closed on `POST /api/guard` /
+`POST /api/actions` 30s timeouts. Platform-only; no SDK source change, so the
+Node/Python SDKs are not republished.
+
+### Fixed
+
+- **Org rate limiting: Redis commands are now bounded too, and a stalled
+  client is discarded.** #222 bounded `connect()`, but on a warm serverless
+  instance an established connection can go half-open (NAT idle-drop emits no
+  error event, so node-redis v4 never reconnects and has no command timeout) —
+  `INCR`/`PEXPIRE` then pended forever and held the governance write path until
+  the caller's 30s watchdog. Commands now race a 2s timer and degrade to the
+  bounded in-memory limiter (never unlimited); a command timeout also destroys
+  the cached client and clears the client promise so the post-cooldown retry
+  builds a fresh connection instead of reusing the dead socket every window.
+  Verified live: post-deploy canaries (guard → action record → outcome) warm
+  109–494ms and cold ≤4.2s, plus a real governed OpenClaw agent-to-Telegram
+  delivery. (#223)
+
 ## [5.23.2] — 2026-08-14
 
 Hardening release from a whole-codebase adversarial review (five finder

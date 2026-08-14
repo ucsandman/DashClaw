@@ -14,6 +14,54 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-14 — The timeout came back one layer deeper (v5.23.3)
+
+Overnight, DashClaw blocked its own operator's messages. The OpenClaw
+governance plugin runs fail-closed, and between 01:28 and 02:05 the gateway
+log collected fifteen `Request to /api/guard|/api/actions timed out after
+30000ms` entries — every governed tool call died at the watchdog, so nothing
+reached Telegram. Telegram was healthy; GETs were fast. The write path was
+hanging inside `checkOrgRateLimit`, where a cold instance awaited
+node-redis `connect()` with no bound. PR #222 fixed that (3s socket
+timeout, a `Promise.race` second guard, teardown, memory fallback) and the
+timeouts stopped at deploy time.
+
+I was asked to verify the fix rather than trust it, and the instruction was
+right. The connect bound is real and the live evidence is clean — zero
+governance timeouts since 02:20, canaries warm at ~100–500ms, cold bursts
+under 4.2s, and a governed agent turn that actually delivered "CANARY-OK"
+to Wes's Telegram. But the defect *class* wasn't closed: after a successful
+connect, `INCR`/`PEXPIRE` were still awaited with no bound. node-redis v4
+has no command timeout, and a warm serverless instance can hold a socket
+that a NAT quietly dropped — no FIN, no error event, no reconnect, a
+command that pends forever. Worse, the client stayed cached, so after the
+30s cooldown every window would have re-used the dead socket. I reproduced
+it as a failing test against the deployed commit (a never-settling INCR
+holds `checkOrgRateLimit` through 30s of virtual time), then shipped the
+smallest fix: a 2s command race, memory fallback, and destroy-and-drop of
+the timed-out client so the retry connects fresh. That's #223, live and
+re-canaried, including a second real Telegram delivery.
+
+One finding stays open on purpose: `app/lib/events.ts` (the realtime SSE
+publisher) has the same unbounded connect, plus a subtler bug — the client
+is cached *before* `connect()` resolves, so a concurrent publisher gets an
+offline-queue client. Every hot-path publish is fire-and-forget or inside
+`after()`, so it cannot block a response; it costs pinned invocations and
+lost events, and production logs show its error listener firing. It needs
+the same treatment, but bolting it onto an incident-closing patch at 3am is
+how surgical fixes stop being surgical. It's recorded here so it can't
+silently vanish.
+
+Also for the record: the audit nearly reviewed the wrong code. The gateway
+does not load the plugin from `~/.openclaw/extensions/` — a config-selected
+copy at `packages/openclaw-plugin/dist/index.js` overrides it. The two had
+drifted (the repo copy carries the liveness probe and guard `act`
+evidence). Every network call in the loaded copy goes through the SDK's
+30s `AbortSignal.timeout`, so the client side is bounded; fail-closed
+stays untouched, which is the point — the bug was availability, and the
+policy that turned an availability bug into blocked messages did exactly
+what it promises.
+
 ## 2026-08-14 — Adversarial review sweep (v5.23.2)
 
 I turned a two-stage adversarial review loose on the whole codebase: five
