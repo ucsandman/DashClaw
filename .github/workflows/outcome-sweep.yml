@@ -6,12 +6,21 @@ name: Outcome sweep
 # operations feed (see drizzle/0005_orphan_action_backfill.sql for the
 # one-shot cleanup of pre-existing zombies).
 #
-# Setup (same secrets as integration-health.yml — already configured if you
-# enabled that one):
-#   1. In repo Settings → Secrets and variables → Actions, ensure:
-#        - DASHCLAW_BASE_URL  (e.g. https://my-dashclaw.vercel.app)
-#        - CRON_SECRET        (matches the CRON_SECRET env on Vercel)
+# Runs once PER INSTANCE. Each deployment has its own CRON_SECRET on Vercel, so
+# a single url+secret pair could only ever sweep one of them — which is how
+# hosted went unswept while self accumulated 589 abandoned sessions.
+#
+# Setup (shared by all four sweep workflows):
+#   1. In repo Settings → Secrets and variables → Actions, ensure per instance:
+#        - DASHCLAW_SELF_BASE_URL     + DASHCLAW_SELF_CRON_SECRET
+#        - DASHCLAW_HOSTED_BASE_URL   + DASHCLAW_HOSTED_CRON_SECRET
+#      Each CRON_SECRET must match that project's own CRON_SECRET env on Vercel.
+#      A target whose two secrets are unset is skipped; the others still run.
 #   2. Enable this workflow (disabled for forks by default).
+#
+# A skipped target still reports success (so forks stay green). To check a
+# target actually ran rather than trusting the tick:
+#   gh run view <id> --log | grep -E "target skipped|HTTP |sessions_closed"
 #
 # Manual trigger: Actions tab → "Outcome sweep" → "Run workflow".
 
@@ -24,16 +33,30 @@ on:
 
 jobs:
   sweep:
+    name: sweep (${{ matrix.target }})
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    strategy:
+      # One instance failing must not cancel the other's sweep.
+      fail-fast: false
+      matrix:
+        include:
+          - target: self
+            url_secret: DASHCLAW_SELF_BASE_URL
+            key_secret: DASHCLAW_SELF_CRON_SECRET
+          - target: hosted
+            url_secret: DASHCLAW_HOSTED_BASE_URL
+            key_secret: DASHCLAW_HOSTED_CRON_SECRET
     steps:
       - name: Hit /api/cron/outcome-sweep
         env:
-          BASE_URL: ${{ secrets.DASHCLAW_BASE_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # Indexed by secret NAME on purpose. A `cond && A || B` ternary would
+          # fall through to the OTHER instance's URL whenever A is unset.
+          BASE_URL: ${{ secrets[matrix.url_secret] }}
+          CRON_SECRET: ${{ secrets[matrix.key_secret] }}
         run: |
           if [ -z "$BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
-            echo "::warning::Outcome sweep: required secrets not configured — run skipped."
+            echo "::warning::Outcome sweep [${{ matrix.target }}]: ${{ matrix.url_secret }} / ${{ matrix.key_secret }} not configured — target skipped."
             exit 0
           fi
           status=$(curl -sS --max-time 30 --connect-timeout 10 -o /tmp/resp.json -w '%{http_code}' \

@@ -5,10 +5,14 @@ name: Synthetic-traffic retention sweep
 # DASHCLAW_SYNTHETIC_RETENTION_DAYS (default 7). Without this, test traffic
 # accumulates in the ledger forever and pollutes the agent roster.
 #
+# Runs once PER INSTANCE — see outcome-sweep.yml for why a single url+secret
+# pair is not enough (each deployment has its own CRON_SECRET on Vercel).
+#
 # Setup (same secrets as jti-sweep.yml / outcome-sweep.yml):
-#   1. In repo Settings → Secrets and variables → Actions, ensure:
-#        - DASHCLAW_BASE_URL  (e.g. https://my-dashclaw.vercel.app)
-#        - CRON_SECRET        (matches the CRON_SECRET env on Vercel)
+#   1. In repo Settings → Secrets and variables → Actions, ensure per instance:
+#        - DASHCLAW_SELF_BASE_URL     + DASHCLAW_SELF_CRON_SECRET
+#        - DASHCLAW_HOSTED_BASE_URL   + DASHCLAW_HOSTED_CRON_SECRET
+#      A target whose two secrets are unset is skipped; the others still run.
 #   2. Enable this workflow (disabled for forks by default).
 #
 # Manual trigger: Actions tab → "Synthetic-traffic retention sweep" → "Run workflow".
@@ -22,16 +26,27 @@ on:
 
 jobs:
   sweep:
+    name: sweep (${{ matrix.target }})
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: self
+            url_secret: DASHCLAW_SELF_BASE_URL
+            key_secret: DASHCLAW_SELF_CRON_SECRET
+          - target: hosted
+            url_secret: DASHCLAW_HOSTED_BASE_URL
+            key_secret: DASHCLAW_HOSTED_CRON_SECRET
     steps:
       - name: Hit /api/cron/synthetic-sweep
         env:
-          BASE_URL: ${{ secrets.DASHCLAW_BASE_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BASE_URL: ${{ secrets[matrix.url_secret] }}
+          CRON_SECRET: ${{ secrets[matrix.key_secret] }}
         run: |
           if [ -z "$BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
-            echo "::warning::Synthetic-traffic retention sweep: required secrets not configured — run skipped."
+            echo "::warning::Synthetic-traffic retention sweep [${{ matrix.target }}]: ${{ matrix.url_secret }} / ${{ matrix.key_secret }} not configured — target skipped."
             exit 0
           fi
           status=$(curl -sS --max-time 30 --connect-timeout 10 -o /tmp/resp.json -w '%{http_code}' \
