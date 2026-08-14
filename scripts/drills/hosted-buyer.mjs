@@ -150,7 +150,6 @@ async function main() {
   const baseUrl = args.baseUrl;
   const sabotage = args.sabotage;
   const drillToken = process.env.HOSTED_DRILL_TOKEN;
-  const hostedAdminKey = process.env.HOSTED_ADMIN_API_KEY || '';
 
   const sql = createSqlFromEnv();
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -163,7 +162,6 @@ async function main() {
   let orgId = null;
   let apiKey = null;
   let trialCookie = null;
-  let claimed = false;
   let userId = null;
   let personalOrgId = null;
   let stripeCustomerId = null;
@@ -194,6 +192,14 @@ async function main() {
   // both the personal-org and the claimed-trial-org cleanups so the sweep
   // logic exists once.
   async function purgeOrg(id) {
+    // users.org_id is ON DELETE NO ACTION, so if the FK-sweep's user delete
+    // below fails across every retry pass, the final org DELETE raises an FK
+    // violation and the org survives. Delete the seeded user by id FIRST,
+    // mirroring claim-flow.mjs:216. Guarded: purgeOrg also runs for the
+    // unclaimed mint-time path, before userId is ever assigned.
+    if (userId) {
+      await sql`DELETE FROM users WHERE id = ${userId}`;
+    }
     await sql`UPDATE organizations SET claimed_at = NULL, claimed_by_user_id = NULL WHERE id = ${id}`;
     const children = await sql`
       SELECT DISTINCT tc.table_name AS table_name, kcu.column_name AS column_name
@@ -250,19 +256,16 @@ async function main() {
       // Register cleanup for the minted workspace BEFORE any further
       // assertion in this step can throw — a workspace that exists on the
       // server must never depend on a later check succeeding to get torn
-      // down.
-      registerTeardown('trial-workspace (unclaimed-path fallback)', async () => {
-        // Only meaningful if the run never reached claim. Once claimed the
-        // Task-2 claimed-org teardown supersedes this and this one is a
-        // guaranteed no-op 404 (or skipped outright — see below).
-        if (claimed) return 'skipped: org was claimed, see claimed-org teardown';
-        if (!hostedAdminKey) return 'skipped: no HOSTED_ADMIN_API_KEY (trial will auto-expire)';
-        const del = await jsonFetch(`${baseUrl}/api/hosted/workspaces/${workspaceId}`, {
-          method: 'DELETE',
-          headers: { 'x-api-key': hostedAdminKey },
-        });
-        if (del.status !== 200) throw new Error(`DELETE -> ${del.status}`);
-        return `workspace ${workspaceId} deleted`;
+      // down. purgeOrg is registered unconditionally here, not just on the
+      // claim path: a claim that commits server-side but fails client-side
+      // (fetch abort, reset, non-JSON body) used to leave NO cleanup at all,
+      // because the mint-time admin-DELETE this replaced refuses to delete a
+      // claimed org. purgeOrg un-claims first, so it is the ONE org-cleanup
+      // path for both the claimed and unclaimed cases — nothing else in
+      // this file registers a second org-level teardown.
+      registerTeardown('org cleanup (purgeOrg)', async () => {
+        await purgeOrg(orgId);
+        return `org=${orgId}`;
       });
       trialCookie = cookieFromSetCookie(mint.headers, 'dashclaw-trial-session');
       if (!trialCookie) throw new Error('mint succeeded but no dashclaw-trial-session cookie in set-cookie');
@@ -342,27 +345,18 @@ async function main() {
       if (res.status !== 200 || res.json?.claimed !== true) {
         throw new Error(`status=${res.status} claimed=${res.json?.claimed}`);
       }
-      claimed = true;
       return `status=${res.status} claimed=${res.json?.claimed}`;
     });
     if (claimOk) {
       // The claim POST rebinds server-side state; the old cookie still says
       // personalOrgId. Re-mint bound to the trial org so billing routes
-      // resolve the right org deterministically.
+      // resolve the right org deterministically. No teardown to register
+      // here — the unconditional purgeOrg(orgId) registered back at mint
+      // already covers the claimed org: claim rebinds users.org_id from
+      // personalOrgId to orgId, so purgeOrg's own guarded user delete (see
+      // fix #4) and its FK sweep pick up the rebound user without any
+      // claim-specific registration.
       sessionCookieValue = await mintSessionCookie(orgId);
-
-      // Claimed-trial-org teardown. Registered AFTER the seeded-personal-org
-      // teardown above, so in reverse-order execution this runs FIRST: the
-      // FK-sweep on orgId catches the user row too (claim rebinds
-      // users.org_id from personalOrgId to orgId — claim-flow.mjs's
-      // "user_rebound"), which makes the seeded-personal-org teardown's own
-      // `DELETE FROM users` and org purge harmless no-ops by the time they
-      // run. The unclaimed-path fallback registered at mint no-ops here too
-      // (guarded on `claimed`).
-      registerTeardown('claimed-trial-org', async () => {
-        await purgeOrg(orgId);
-        return `org=${orgId}`;
-      });
     }
 
     // 7. Database truth after claim.
@@ -387,14 +381,18 @@ async function main() {
         headers: { 'content-type': 'application/json', cookie: sessionCookie() },
         body: JSON.stringify({ plan: 'indie' }),
       });
-      if (res.status !== 200 || !/^https:\/\/checkout\.stripe\.com\//.test(res.json?.url || '')) {
-        throw new Error(`status=${res.status} url=${JSON.stringify(res.json?.url)}`);
-      }
+      // The route creates the Stripe customer and persists
+      // organizations.stripe_customer_id BEFORE it creates the checkout
+      // session — session creation can itself throw (bad price id, Stripe
+      // error, wrong mode) and 500 the route. Read the id and register its
+      // teardown BEFORE asserting status/url below, so a failed checkout
+      // still cleans up the real customer it already created. No-ops when
+      // the id is null/empty (checkout may have failed before persisting
+      // it).
       const rows = await sql`SELECT stripe_customer_id FROM organizations WHERE id = ${orgId}`;
       stripeCustomerId = rows[0]?.stripe_customer_id || null;
-      if (!stripeCustomerId) throw new Error('checkout 200 but organizations.stripe_customer_id is still null');
-
       registerTeardown('stripe customer', async () => {
+        if (!stripeCustomerId) return 'skipped: no stripe_customer_id persisted';
         await stripe.customers.del(stripeCustomerId);
         // Verify the delete actually happened rather than trusting a 200.
         try {
@@ -405,6 +403,11 @@ async function main() {
         }
         return `customer ${stripeCustomerId} deleted`;
       });
+
+      if (res.status !== 200 || !/^https:\/\/checkout\.stripe\.com\//.test(res.json?.url || '')) {
+        throw new Error(`status=${res.status} url=${JSON.stringify(res.json?.url)}`);
+      }
+      if (!stripeCustomerId) throw new Error('checkout 200 but organizations.stripe_customer_id is still null');
       return `status=${res.status} customer=${stripeCustomerId}`;
     });
     if (!checkoutOk) return finish();
@@ -417,9 +420,10 @@ async function main() {
         subscription: subscriptionId,
         metadata: { org_id: orgId, plan: 'indie' },
       }, webhookEventId);
-      if (status !== 200 || body?.received !== true || body?.duplicate === true) {
-        throw new Error(`status=${status} received=${body?.received} duplicate=${body?.duplicate}`);
-      }
+      // claimWebhookEvent inserts the stripe_webhook_events row BEFORE the
+      // handler runs, and that table has no FK to organizations (purgeOrg's
+      // information_schema sweep never collects it) — register its cleanup
+      // before the assertion below can throw.
       registerTeardown('stripe_webhook_events rows', async () => {
         const deleted = await sql`
           DELETE FROM stripe_webhook_events WHERE event_id LIKE ${'evt_drill_%' + runId}
@@ -427,6 +431,9 @@ async function main() {
         `;
         return `${deleted.length} row(s) removed`;
       });
+      if (status !== 200 || body?.received !== true || body?.duplicate === true) {
+        throw new Error(`status=${status} received=${body?.received} duplicate=${body?.duplicate}`);
+      }
       return `status=${status} received=${body?.received} duplicate=${body?.duplicate}`;
     });
     if (!webhookOk) return finish();
@@ -510,11 +517,11 @@ async function main() {
         VALUES (${orgId}, ${period}, 50000, 0)
         ON CONFLICT (org_id, period) DO UPDATE SET governed_actions = 50000, updated_at = NOW()
       `;
-      // Registered here (after the claimed-trial-org purge teardown, which
-      // was registered back at the claim step) so in reverse-registration
-      // execution order this delete runs BEFORE that FK sweep — double
-      // delete is harmless either way since the sweep also matches
-      // usage_rollups.org_id.
+      // Registered here (after the unconditional org-cleanup purgeOrg
+      // teardown, which was registered back at the mint step) so in
+      // reverse-registration execution order this delete runs BEFORE that FK
+      // sweep — double delete is harmless either way since the sweep also
+      // matches usage_rollups.org_id.
       registerTeardown('usage_rollups row', async () => {
         const deleted = await sql`
           DELETE FROM usage_rollups WHERE org_id = ${orgId} AND period = ${period} RETURNING org_id
@@ -604,9 +611,24 @@ async function main() {
     // 18. Ceiling gone — free has no monthlyActionCeiling even though the
     //     usage_rollups row (from ceiling-seed, still intact — teardown for
     //     it hasn't run yet) still says >= 50000. A success here proves the
-    //     403 above was plan-scoped, not sticky to the usage row. A 403
-    //     during the poll window is the cache aging out and is tolerated.
+    //     403 above was plan-scoped, not sticky to the usage row. Only a 403
+    //     with code ACTION_CEILING_REACHED during the poll window is the
+    //     cache aging out and is tolerated — enforceHostedTrial also returns
+    //     403, with a DIFFERENT code, and cancel already restored
+    //     trial_action_cap, so any other status/code is a real failure.
     await step('ceiling-gone', async () => {
+      // enforceActionCeiling fails OPEN on a usage-read error, so a PASS
+      // below could mean "restored to free" or just as easily "the rollup
+      // row is gone and the check never ran". Assert the rollup is still
+      // present first, so a PASS means both.
+      const rollup = await sql`
+        SELECT governed_actions FROM usage_rollups WHERE org_id = ${orgId} AND period = ${period}
+      `;
+      const governedActions = rollup[0]?.governed_actions;
+      if (!(governedActions >= 50000)) {
+        throw new Error(`usage_rollups governed_actions=${governedActions} (row ${rollup.length ? 'present' : 'missing'})`);
+      }
+
       let last = null;
       const deadline = Date.now() + 75_000;
       while (Date.now() < deadline) {
@@ -621,14 +643,14 @@ async function main() {
         });
         last = res;
         if (res.status === 200 || res.status === 201) break;
-        if (res.status !== 403) {
+        if (res.status !== 403 || res.json?.code !== 'ACTION_CEILING_REACHED') {
           throw new Error(`POST /api/actions -> ${res.status}: ${res.text.slice(0, 200)}`);
         }
         await new Promise((r) => setTimeout(r, 5_000));
       }
       const ok = last?.status === 200 || last?.status === 201;
       if (!ok) throw new Error(`status=${last?.status} code=${last?.json?.code}`);
-      return `status=${last.status}`;
+      return `status=${last.status} governed_actions=${governedActions}`;
     });
 
     // 19. Export — the carry-out bundle, same assertion hosted-stranger uses.
@@ -647,4 +669,13 @@ async function main() {
 
 main().then(() => {
   if (process.exitCode === undefined) process.exitCode = 1;
+}).catch((err) => {
+  // A throw here means something failed OUTSIDE any step() wrapper (e.g. the
+  // mintSessionCookie() calls) — main()'s own try/finally already ran
+  // teardowns before this rejection surfaced, so just record the crash and
+  // print the verdict; finish() computes a non-zero exit because this failed
+  // step now exists in `steps`.
+  console.error(err?.message || err);
+  record('unhandled', false, err?.message || String(err));
+  finish();
 });
