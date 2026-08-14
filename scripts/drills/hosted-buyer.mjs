@@ -557,6 +557,79 @@ async function main() {
       return `status=403 code=ACTION_CEILING_REACHED monthly_action_ceiling=${last.json.monthly_action_ceiling}`;
     });
 
+    // 15. Portal — proves the customer link is live; the real cancel arrives
+    //     as the webhook Stripe would send after a portal cancel (next step).
+    await step('portal', async () => {
+      const res = await jsonFetch(`${baseUrl}/api/billing/portal`, { headers: { cookie: sessionCookie() } });
+      if (res.status !== 200 || !/^https:\/\/billing\.stripe\.com\//.test(res.json?.url || '')) {
+        throw new Error(`status=${res.status} url=${JSON.stringify(res.json?.url)}`);
+      }
+      return `status=${res.status}`;
+    });
+
+    // 16. Synthetic canceled webhook — same signed-event mechanism as the
+    //     checkout.session.completed steps above.
+    await step('webhook-canceled', async () => {
+      const { status, body } = await postSignedWebhook(
+        'customer.subscription.deleted', { id: subscriptionId }, `evt_drill_deleted_${runId}`,
+      );
+      if (status !== 200 || body?.received !== true) {
+        throw new Error(`status=${status} received=${body?.received}`);
+      }
+      return `status=${status} received=${body?.received}`;
+    });
+
+    // 17. Free-plan restore — DB write is immediate; poll mirrors plan-flip.
+    await step('free-restore', async () => {
+      let row = null;
+      const deadline = Date.now() + 75_000;
+      while (Date.now() < deadline) {
+        const rows = await sql`
+          SELECT plan, subscription_status, stripe_subscription_id, trial_action_cap
+          FROM organizations WHERE id = ${orgId}
+        `;
+        row = rows[0] || null;
+        if (row?.plan === 'free') break;
+        await new Promise((r) => setTimeout(r, 2_000));
+      }
+      const ok = row?.plan === 'free' && row?.subscription_status === 'canceled'
+        && row?.stripe_subscription_id === null && row?.trial_action_cap === 10000;
+      if (!ok) {
+        throw new Error(`plan=${row?.plan} status=${row?.subscription_status} sub=${row?.stripe_subscription_id} cap=${row?.trial_action_cap}`);
+      }
+      return `plan=${row.plan} status=${row.subscription_status} cap=${row.trial_action_cap}`;
+    });
+
+    // 18. Ceiling gone — free has no monthlyActionCeiling even though the
+    //     usage_rollups row (from ceiling-seed, still intact — teardown for
+    //     it hasn't run yet) still says >= 50000. A success here proves the
+    //     403 above was plan-scoped, not sticky to the usage row. A 403
+    //     during the poll window is the cache aging out and is tolerated.
+    await step('ceiling-gone', async () => {
+      let last = null;
+      const deadline = Date.now() + 75_000;
+      while (Date.now() < deadline) {
+        const res = await jsonFetch(`${baseUrl}/api/actions`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': apiKey },
+          body: JSON.stringify({
+            agent_id: 'smoke-drill-buyer',
+            action_type: 'smoke.drill',
+            declared_goal: 'hosted-buyer drill: post-cancel probe',
+          }),
+        });
+        last = res;
+        if (res.status === 200 || res.status === 201) break;
+        if (res.status !== 403) {
+          throw new Error(`POST /api/actions -> ${res.status}: ${res.text.slice(0, 200)}`);
+        }
+        await new Promise((r) => setTimeout(r, 5_000));
+      }
+      const ok = last?.status === 200 || last?.status === 201;
+      if (!ok) throw new Error(`status=${last?.status} code=${last?.json?.code}`);
+      return `status=${last.status}`;
+    });
+
     return finish();
   } finally {
     await runTeardowns();
