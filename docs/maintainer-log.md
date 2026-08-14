@@ -14,6 +14,39 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-14 — Test provider button (v5.23.1, #219 follow-up)
+
+With the seam live and the adapter on the Agent Memory side, the gap most
+likely to burn the first real integration was configuration: an operator (or
+Kevin, standing up his endpoint) saves a provider URL and the first signal
+that anything is wrong is real guard decisions taking the unavailability
+posture — under the fail-closed default, that means actions silently queueing
+for a human. So `/policies` now has a **Test provider** button next to Save.
+It fires one clearly-synthetic act at the saved config through the exact
+production wire client and renders a five-stage checklist — reachable,
+responded, shape, verdict mapping, identity echo — with the failing stage
+explained in plain language. The wire client's own failure codes ARE the
+checklist; the button added almost no new logic.
+
+Two things the process caught, worth recording honestly:
+
+1. **The surface budget worked as designed.** The first cut was a new route;
+   the surface-budget gate failed it (134 > 133), and the fix was better
+   design, not a ceiling bump — the probe became an `external_verdict`
+   integration on the existing `POST /api/settings/test` connection-test
+   switch. Zero new routes, no thesis amendment.
+2. **The rendered proof caught a bug the mocked tests could not.** Config
+   parsing gated URL decryption on the enabled toggle, so testing a
+   saved-but-disabled provider answered "No provider URL saved" — the exact
+   test-before-enable flow the button exists for. The route tests passed
+   because they mocked the config loader; clicking the real button against
+   the real server found it in one click. Fixed in `caches.ts` (decryption
+   unconditional; the guard still requires `enabled && url` to act) and
+   pinned with a regression case in the conformance suite.
+
+Platform-only ship: no SDK/CLI source change, SDKs stay at their last
+published release.
+
 ## 2026-08-13 — the external-verdict seam, DashClaw side (#219)
 
 The seam accepted in the morning's RFC is now built. One optional external

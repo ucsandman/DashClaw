@@ -56,6 +56,20 @@ describe('external verdict config (org-settings → guard cache)', () => {
     expect(cfg.timeoutMs).toBe(1200);
   });
 
+  it('carries the URL while the toggle is OFF — the /policies probe tests providers before enabling', async () => {
+    // Regression: url/token decryption was once gated on `enabled`, which made
+    // the panel's "Test provider" button answer "No provider URL saved" for a
+    // saved-but-not-yet-enabled provider (found via rendered proof 2026-08-14).
+    // The guard itself still requires enabled && url (runExternalVerdict).
+    mockGetSettings.mockResolvedValue(settingsRows({
+      EXTERNAL_VERDICT_ENABLED: 'false',
+      EXTERNAL_VERDICT_PROVIDER_URL: 'https://provider.example.com/verdict',
+    }));
+    const cfg = await getExternalVerdictConfig(makeSql(), 'org_1');
+    expect(cfg.enabled).toBe(false);
+    expect(cfg.url).toBe('https://provider.example.com/verdict');
+  });
+
   it('parses an enabled provider config from settings rows', async () => {
     mockGetSettings.mockResolvedValue(settingsRows({
       EXTERNAL_VERDICT_ENABLED: 'true',

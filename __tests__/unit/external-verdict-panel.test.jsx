@@ -83,6 +83,77 @@ describe('ExternalVerdictPanel', () => {
     expect(postedBody(fetchFn, 'EXTERNAL_VERDICT_ENABLED').value).toBe('false');
   });
 
+  it('tests the saved provider and renders the passing checks + verdict summary', async () => {
+    const fetchFn = makeFetch();
+    fetchFn.mockImplementation(async (url, options = {}) => {
+      if (String(url) === '/api/settings/test' && options.method === 'POST') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            message: 'Provider answered "allow" in 42ms — joins the guard decision as allow.',
+            evidence: { raw_verdict: 'allow', mapped_verdict: 'allow', latency_ms: 42 },
+          }),
+        };
+      }
+      return makeFetch()(url, options);
+    });
+    global.fetch = fetchFn;
+    render(<ExternalVerdictPanel />);
+    await screen.findByDisplayValue('agent-memory-pama');
+
+    fireEvent.click(screen.getByText('Test provider'));
+
+    await waitFor(() => expect(screen.getByText(/joins the guard decision as allow/)).toBeTruthy());
+    // All five contract stages render as passed.
+    expect(screen.getByText('Identity echoed verbatim')).toBeTruthy();
+    expect(screen.getAllByLabelText('passed').length).toBe(5);
+  });
+
+  it('marks the failing contract stage and stops the checklist there', async () => {
+    const fetchFn = makeFetch();
+    fetchFn.mockImplementation(async (url, options = {}) => {
+      if (String(url) === '/api/settings/test' && options.method === 'POST') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: false,
+            message: 'Provider did not echo input_identity verbatim — the verdict binds to nothing.',
+            evidence: { failure: 'identity_mismatch' },
+          }),
+        };
+      }
+      return makeFetch()(url, options);
+    });
+    global.fetch = fetchFn;
+    render(<ExternalVerdictPanel />);
+    await screen.findByDisplayValue('agent-memory-pama');
+
+    fireEvent.click(screen.getByText('Test provider'));
+
+    await waitFor(() => expect(screen.getByText(/binds to nothing/)).toBeTruthy());
+    // identity_mismatch is the LAST stage: four passed, one failed, none skipped.
+    expect(screen.getAllByLabelText('passed').length).toBe(4);
+    expect(screen.getAllByLabelText('failed').length).toBe(1);
+  });
+
+  it('shows the server error when no provider is saved yet', async () => {
+    const fetchFn = makeFetch();
+    fetchFn.mockImplementation(async (url, options = {}) => {
+      if (String(url) === '/api/settings/test' && options.method === 'POST') {
+        return { ok: true, json: async () => ({ success: false, message: 'No provider URL saved. Save the provider settings first — the test probes the saved configuration.' }) };
+      }
+      return makeFetch()(url, options);
+    });
+    global.fetch = fetchFn;
+    render(<ExternalVerdictPanel />);
+    await screen.findByDisplayValue('agent-memory-pama');
+
+    fireEvent.click(screen.getByText('Test provider'));
+
+    await waitFor(() => expect(screen.getByText(/No provider URL saved/)).toBeTruthy());
+  });
+
   it('never clears a server-masked URL client-side', async () => {
     const fetchFn = makeFetch();
     global.fetch = fetchFn;

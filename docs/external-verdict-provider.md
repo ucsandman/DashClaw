@@ -128,3 +128,14 @@ curl -X POST http://localhost:3000/api/guard \
 
 With a provider configured on `/policies`, the response's `signals` and the
 decision's evidence show the external verdict joined into the result.
+
+### Built-in connection test
+
+Before any real action flows, the **Test provider** button on `/policies`
+(next to Save in the provider panel) fires one synthetic act at your endpoint
+through the exact production wire client and reports which contract stage
+fails: reachability, HTTP response, response shape, verdict mapping, or the
+`input_identity` echo. The synthetic act is unmistakable — `action_type:
+"dashclaw.connection_test"` with `act: {"synthetic": true}` — and nothing is
+recorded as a guard decision. Implementers can answer it like any other
+request; the echoed identity and a contract verdict are all that is checked.

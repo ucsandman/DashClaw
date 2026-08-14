@@ -818,6 +818,19 @@
 .extHint { margin: -6px 0 0; color: var(--color-text-tertiary); font-size: 12px; max-width: 68ch; }
 .extFoot { display: flex; align-items: center; gap: 12px; }
 .extSaved { display: inline-flex; align-items: center; gap: 5px; color: var(--color-success); font-size: 12px; }
+.extTest {
+  display: flex; flex-direction: column; gap: 8px; padding: 10px 12px;
+  background: var(--color-bg-primary); border: 1px solid var(--color-border); border-radius: 8px;
+}
+.extTestList { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.extTestList li { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; }
+.extTestPass { color: var(--color-text-secondary); }
+.extTestPass svg { color: var(--color-success); }
+.extTestFail { color: var(--color-text-primary); font-weight: 500; }
+.extTestFail svg { color: var(--color-error); }
+.extTestSkip { color: var(--color-text-disabled); }
+.extTestOk { margin: 0; color: var(--color-success); font-size: 12px; }
+.extTestErr { margin: 0; color: var(--color-error); font-size: 12px; max-width: 68ch; }
 
 .spin { animation: pauseSpin 0.9s linear infinite; }
 @keyframes pauseSpin { to { transform: rotate(360deg); } }

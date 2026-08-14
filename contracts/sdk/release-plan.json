@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.23.0",
+    "current_version": "5.23.1",
     "next_bump": "none",
-    "reason": "5.23.0 ships the external-verdict seam (#219, RFC 2026-08-13): guard-side provider call, stricter-wins join, failure posture, _external_verdict evidence, /policies config panel, regime badges. Entirely platform-side - sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.23.0 tag fires release.yml, whose publish-npm job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.23.1 adds the /policies Test provider probe for the external-verdict seam (#219 follow-up), platform-side only. sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.23.1 tag fires release.yml, whose publish-npm job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.23.0",
+    "current_version": "5.23.1",
     "next_bump": "none",
-    "reason": "5.23.0 ships the external-verdict seam (#219), platform-side only. sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.23.0 tag fires release.yml, whose publish-pypi job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.23.1 adds the /policies Test provider probe (#219 follow-up), platform-side only. sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.23.1 tag fires release.yml, whose publish-pypi job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.23.0 adds the external decision provider seam accepted in the 2026-08-13 RFC (#219): one optional per-org provider whose verdict joins the guard decision stricter-wins (external deny absolute, external allow never loosening, identity-bound via echoed input_identity), explicit fail_closed/fail_open unavailability posture, _external_verdict decision evidence, EXTERNAL_VERDICT_* org-settings config with a /policies workbench panel, and regime badges on decision detail and /approvals. Conformance suite = the ten #220 adversarial cases. Zero new routes/SDK methods/MCP tools/policy types. Neither SDK source changed; the CLI did not change.",
+  "reason": "5.23.1 adds a Test provider button to the /policies external-verdict panel (#219 follow-up): an admin-gated probe (integration 'external_verdict' on the existing /api/settings/test route - zero new routes, per the surface budget) that fires one clearly-synthetic act at the SAVED provider config through the production wire client and renders a five-stage contract checklist (reachable, responded, shape, verdict mapping, identity echo) with the failing stage explained in plain language. Includes a config-parse fix: URL/token decryption is no longer gated on EXTERNAL_VERDICT_ENABLED, so operators can test a provider BEFORE enabling it (the guard still requires enabled && url to act). Zero new routes/SDK methods/MCP tools/policy types. Neither SDK source changed; the CLI did not change.",
   "domains": [
     "platform"
   ]

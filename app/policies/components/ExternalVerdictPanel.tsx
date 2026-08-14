@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Check } from 'lucide-react';
+import { Loader2, Check, X, Minus } from 'lucide-react';
 import styles from '../policies.module.css';
 
 /**
@@ -38,11 +38,30 @@ const EMPTY: FormState = {
   enabled: false, provider: '', url: '', token: '', timeoutMs: '', posture: 'fail_closed',
 };
 
+/** The wire client's contract checks, in the order it applies them. A probe's
+ *  single failure code marks its stage; earlier stages passed, later ones
+ *  were never reached. */
+const TEST_STAGES: Array<{ label: string; codes: string[] }> = [
+  { label: 'Endpoint reachable (HTTPS, public host)', codes: ['unsafe_url', 'timeout', 'budget', 'error'] },
+  { label: 'Provider responded OK', codes: ['http_error'] },
+  { label: 'Contract response shape', codes: ['malformed'] },
+  { label: 'Verdict within the v1 contract', codes: ['unsupported_verdict'] },
+  { label: 'Identity echoed verbatim', codes: ['identity_mismatch'] },
+];
+
+interface TestResult {
+  ok: boolean;
+  summary: string;
+  evidence?: { failure?: string; raw_verdict?: string; mapped_verdict?: string; latency_ms?: number; provider_id?: string };
+}
+
 export default function ExternalVerdictPanel() {
   const [form, setForm] = useState<FormState | null>(null);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [test, setTest] = useState<TestResult | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,9 +121,36 @@ export default function ExternalVerdictPanel() {
     }
   }, [form]);
 
+  const runTest = useCallback(async () => {
+    setTesting(true);
+    setTest(null);
+    try {
+      const res = await fetch('/api/settings/test', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ integration: 'external_verdict' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setTest({ ok: false, summary: data.error || data.message || `Provider test failed (HTTP ${res.status})` });
+        return;
+      }
+      setTest({ ok: !!data.success, summary: data.message, evidence: data.evidence });
+    } catch (err) {
+      setTest({ ok: false, summary: (err as Error).message });
+    } finally {
+      setTesting(false);
+    }
+  }, []);
+
   if (!form) return null;
 
   const set = (patch: Partial<FormState>) => { setSaved(false); setForm({ ...form, ...patch }); };
+  // The probe reports ONE failure code; the stage owning it failed, everything
+  // before it passed, everything after it was never reached.
+  const failedStage = test && !test.ok
+    ? TEST_STAGES.findIndex((s) => s.codes.includes(test.evidence?.failure ?? ''))
+    : -1;
 
   return (
     <div className={`${styles.card} ${styles.extPanel}`}>
@@ -206,6 +252,15 @@ export default function ExternalVerdictPanel() {
           {busy ? <Loader2 size={14} className={styles.spin} /> : null}
           Save provider
         </button>
+        <button
+          type="button"
+          className={`${styles.btn} ${styles.btnSm} ${styles.btnGhost}`}
+          onClick={runTest}
+          disabled={testing}
+        >
+          {testing ? <Loader2 size={14} className={styles.spin} /> : null}
+          Test provider
+        </button>
         {saved && (
           <span className={styles.extSaved}>
             <Check size={14} aria-hidden="true" /> Saved — applies to the next guard decision
@@ -213,6 +268,29 @@ export default function ExternalVerdictPanel() {
         )}
         {error && <span className={styles.pauseError}>{error}</span>}
       </div>
+      <p className={styles.extHint}>
+        The test sends one synthetic act to the <b>saved</b> settings through the same wire
+        client the guard uses — save first, then test.
+      </p>
+
+      {test && (
+        <div className={styles.extTest} role="status">
+          {test.evidence?.failure || test.ok ? (
+            <ul className={styles.extTestList}>
+              {TEST_STAGES.map((stage, i) => {
+                const state = test.ok ? 'pass' : i < failedStage || failedStage === -1 ? 'pass' : i === failedStage ? 'fail' : 'skip';
+                return (
+                  <li key={stage.label} className={state === 'fail' ? styles.extTestFail : state === 'skip' ? styles.extTestSkip : styles.extTestPass}>
+                    {state === 'pass' ? <Check size={13} aria-label="passed" /> : state === 'fail' ? <X size={13} aria-label="failed" /> : <Minus size={13} aria-label="not reached" />}
+                    {stage.label}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+          <p className={test.ok ? styles.extTestOk : styles.extTestErr}>{test.summary}</p>
+        </div>
+      )}
     </div>
   );
 }

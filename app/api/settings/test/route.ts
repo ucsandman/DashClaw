@@ -1,8 +1,18 @@
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { randomUUID } from 'crypto';
 import { getDefaultProviderModel } from '../../../lib/providers/providerRegistry';
 // SSRF defense lives in the shared module — never duplicate the regex here.
 import { isPrivateIP, assertSafeFetchUrl, safeFetch as safeBaseFetch } from '../../../lib/url-safety';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import {
+  getExternalVerdictConfig,
+  invalidateGuardSettingsCache,
+  invalidateGuardExternalVerdictCache,
+} from '../../../lib/guard/caches';
+import { computeInputIdentity, fetchExternalVerdict } from '../../../lib/guard/external-verdict';
+import type { ExternalVerdictEvidence } from '../../../lib/guard/external-verdict';
 
 export const dynamic = 'force-dynamic';
 
@@ -117,6 +127,8 @@ export async function POST(request: Request) {
         return await testCloudflare(credentials);
       case 'vercel':
         return await testVercel(credentials);
+      case 'external_verdict':
+        return await testExternalVerdict(request);
       default:
         // Generic "has value" test for integrations without specific test endpoints
         const hasValues = Object.values(credentials || {}).some((v: any) => v && v.length > 0);
@@ -448,6 +460,66 @@ async function testCloudflare(credentials: any) {
   } catch (error) {
     return NextResponse.json({ success: false, message: 'Connection test failed' });
   }
+}
+
+/**
+ * Probe the org's SAVED external decision provider (#219) with a synthetic
+ * act, through the exact wire client the guard uses — so an operator learns a
+ * provider is misconfigured from the /policies button, not from real actions
+ * silently taking the unavailability posture.
+ *
+ * Unlike the credential tests above, this ignores body credentials and reads
+ * the server-decrypted saved config: the browser only ever holds masked
+ * secrets, so client-supplied values cannot be tested. It deliberately works
+ * while the provider toggle is OFF (verify before enabling), and nothing is
+ * recorded as a guard decision.
+ */
+const EXTERNAL_VERDICT_FAILURE_SUMMARY: Record<NonNullable<ExternalVerdictEvidence['failure']>, string> = {
+  unsafe_url: 'Provider URL rejected — it must be HTTPS on a public host.',
+  timeout: 'Provider did not answer within the configured timeout.',
+  budget: 'Call skipped — the time budget was too small to attempt it.',
+  http_error: 'Provider responded with an HTTP error — check the URL path and auth token.',
+  malformed: 'Provider responded, but not with the contract JSON shape.',
+  unsupported_verdict: 'Provider returned a verdict outside the v1 contract (allow/warn/escalate/deny).',
+  identity_mismatch: 'Provider did not echo input_identity verbatim — the verdict binds to nothing.',
+  error: 'Request failed before reaching the provider — check the URL.',
+};
+
+async function testExternalVerdict(request: Request) {
+  const orgId = getOrgId(request);
+  // "Test what is saved NOW": drop this instance's 30s settings cache so a
+  // save immediately followed by a test never probes a stale config.
+  invalidateGuardSettingsCache(orgId);
+  invalidateGuardExternalVerdictCache(orgId);
+  const cfg = await getExternalVerdictConfig(getSql(), orgId);
+
+  if (!cfg.url) {
+    return NextResponse.json({
+      success: false,
+      message: 'No provider URL saved. Save the provider settings first — the test probes the saved configuration.',
+    });
+  }
+
+  const identityPayload = {
+    org_id: orgId,
+    agent_id: 'dashclaw-connection-test',
+    action_type: 'dashclaw.connection_test',
+    declared_goal: 'DashClaw provider connection test (synthetic act — no real action follows)',
+    act: { synthetic: true, source: 'dashclaw-policies-panel' },
+  };
+  const wire = {
+    request_id: `evr_${randomUUID()}`,
+    ...identityPayload,
+    input_identity: computeInputIdentity(identityPayload),
+  };
+
+  const evidence = await fetchExternalVerdict(cfg, wire, cfg.timeoutMs);
+  const ok = evidence.status === 'ok';
+  const message = ok
+    ? `Provider answered "${evidence.raw_verdict}" in ${evidence.latency_ms}ms — joins the guard decision as ${evidence.mapped_verdict}.`
+    : EXTERNAL_VERDICT_FAILURE_SUMMARY[evidence.failure ?? 'error'] ?? 'Provider test failed.';
+
+  return NextResponse.json({ success: ok, message, evidence });
 }
 
 async function testVercel(credentials: any) {

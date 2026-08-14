@@ -13,6 +13,35 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.23.1] — 2026-08-14
+
+### Added
+
+- **Test provider button on the `/policies` external-verdict panel (#219
+  follow-up).** One click fires a clearly-synthetic act (`action_type:
+  "dashclaw.connection_test"`, `act: {"synthetic": true}`) at the **saved**
+  provider config through the exact production wire client, and renders a
+  five-stage contract checklist — endpoint reachable, provider responded,
+  response shape, verdict mapping, `input_identity` echo — with the failing
+  stage marked and explained in plain language. Operators learn a provider is
+  misconfigured from a button, not from real actions silently taking the
+  unavailability posture; provider implementers (Agent Memory first) get
+  self-serve validation while standing up their endpoint. Server side is an
+  admin-gated `external_verdict` integration on the existing
+  `POST /api/settings/test` connection-test route — zero new routes, per the
+  surface budget. Nothing is recorded as a guard decision. Documented in
+  `docs/external-verdict-provider.md`.
+
+### Fixed
+
+- **External-verdict config now carries the URL/token while the provider
+  toggle is off.** `parseExternalVerdictConfig` gated decryption on
+  `EXTERNAL_VERDICT_ENABLED`, so a saved-but-not-yet-enabled provider probed
+  as "No provider URL saved" (found via rendered proof, pinned by a
+  regression test in the conformance suite). Decryption is now unconditional;
+  the guard itself still requires `enabled && url` before calling a provider,
+  so a disabled org's config never reaches a decision.
+
 ## [5.23.0] — 2026-08-13
 
 ### Added

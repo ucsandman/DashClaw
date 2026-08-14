@@ -297,8 +297,13 @@ async function parseExternalVerdictConfig(
       return null;
     }
   };
-  const url = enabled ? await readMaybeEncrypted('EXTERNAL_VERDICT_PROVIDER_URL') : null;
-  const authToken = enabled ? await readMaybeEncrypted('EXTERNAL_VERDICT_AUTH_TOKEN') : null;
+  // Deliberately NOT gated on `enabled`: the /policies "Test provider" probe
+  // reads this config to test a provider BEFORE the org turns it on (enabling
+  // an unverified provider under fail_closed starts holding real actions).
+  // The guard itself still requires `enabled && url` (runExternalVerdict), so
+  // a disabled org's decrypted URL never reaches a decision.
+  const url = await readMaybeEncrypted('EXTERNAL_VERDICT_PROVIDER_URL');
+  const authToken = await readMaybeEncrypted('EXTERNAL_VERDICT_AUTH_TOKEN');
   const timeoutRaw = parseInt(String(row('EXTERNAL_VERDICT_TIMEOUT_MS')?.value ?? ''), 10);
   const timeoutMs = Number.isFinite(timeoutRaw)
     ? Math.min(5_000, Math.max(100, timeoutRaw))
