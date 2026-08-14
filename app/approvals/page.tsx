@@ -566,6 +566,21 @@ export default function ApprovalsPage() {
                                   <Badge variant="info" size="xs">Act-bound</Badge>
                                 </span>
                               )}
+                              {/* RFC 2026-08-13 §6: an operator approving a
+                                  require_approval that came from an external
+                                  escalate sees that is WHY they were asked. */}
+                              {action.external_verdict && (
+                                <span title={`External decision provider: ${action.external_verdict.provider_id}`}>
+                                  <Badge
+                                    variant={action.external_verdict.regime === 'external+local' ? 'info' : 'warning'}
+                                    size="xs"
+                                  >
+                                    {action.external_verdict.regime === 'external+local'
+                                      ? `External: ${action.external_verdict.raw_verdict}`
+                                      : 'External unavailable'}
+                                  </Badge>
+                                </span>
+                              )}
                               {action.plain?.confidence === 'unknown' && (
                                 <Badge variant="default" size="xs">Not translated</Badge>
                               )}

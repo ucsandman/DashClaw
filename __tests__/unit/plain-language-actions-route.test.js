@@ -48,4 +48,27 @@ describe('enrichWithPlainLanguage', () => {
     await enrichWithPlainLanguage({}, 'org_1', rows);
     expect(mockGetContexts).toHaveBeenCalledTimes(1);
   });
+
+  // RFC 2026-08-13 §6 posture visibility: /approvals rows surface WHICH
+  // regime produced the verdict, read-time from the guard context sibling.
+  it('surfaces a compact external_verdict regime from the guard context', async () => {
+    const rows = [{ action_id: 'a1', guard_decision_id: 'gd_1', declared_goal: 'Bash: ls', risk_score: 5 }];
+    mockGetContexts.mockResolvedValueOnce(new Map([['gd_1', {
+      _external_verdict: {
+        provider_id: 'agent-memory-pama', status: 'ok', regime: 'external+local',
+        raw_verdict: 'escalate', mapped_verdict: 'require_approval', posture: 'fail_closed', latency_ms: 42,
+      },
+    }]]));
+    const out = await enrichWithPlainLanguage({}, 'org_1', rows);
+    expect(out[0].external_verdict).toEqual({
+      regime: 'external+local', raw_verdict: 'escalate', provider_id: 'agent-memory-pama',
+    });
+  });
+
+  it('leaves external_verdict undefined for local-only decisions', async () => {
+    const rows = [{ action_id: 'a1', guard_decision_id: 'gd_1', declared_goal: 'Bash: ls', risk_score: 5 }];
+    mockGetContexts.mockResolvedValueOnce(new Map([['gd_1', { target: 'x' }]]));
+    const out = await enrichWithPlainLanguage({}, 'org_1', rows);
+    expect(out[0].external_verdict).toBeUndefined();
+  });
 });

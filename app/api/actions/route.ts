@@ -69,8 +69,22 @@ export async function enrichWithPlainLanguage(
   return rows.map((row) => {
     const gdId = typeof row.guard_decision_id === 'string' ? row.guard_decision_id : null;
     const context = gdId ? contexts.get(gdId) : undefined;
+    // Posture visibility (RFC 2026-08-13 §6): which regime produced the
+    // verdict — compact, read-time, absent for local-only decisions.
+    const xv = context?._external_verdict as
+      | { regime?: string; raw_verdict?: string; provider_id?: string }
+      | undefined;
     return {
       ...row,
+      ...(xv
+        ? {
+            external_verdict: {
+              regime: xv.regime,
+              raw_verdict: xv.raw_verdict,
+              provider_id: xv.provider_id,
+            },
+          }
+        : {}),
       plain: describeAction({
         action_type: row.action_type as string | null,
         declared_goal: row.declared_goal as string | null,

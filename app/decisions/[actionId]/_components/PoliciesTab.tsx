@@ -33,6 +33,26 @@ export default function PoliciesTab({ actionId, action, guardDecision, trace, as
                   }`}>
                     {guardDecision.decision.toUpperCase()}
                   </div>
+                  {/* Posture visibility (RFC 2026-08-13 §6): which regime
+                      produced this verdict. Absence = local-only, unlabeled —
+                      the quiet default. Lives in the always-rendered header
+                      because an external deny can arrive with zero matched
+                      local policies. */}
+                  {guardDecision.context?._external_verdict && (
+                    <span
+                      className="mt-2 inline-block"
+                      title={`Provider ${guardDecision.context._external_verdict.provider_id} · posture ${guardDecision.context._external_verdict.posture}${guardDecision.context._external_verdict.reason_code ? ` · ${guardDecision.context._external_verdict.reason_code}` : ''}`}
+                    >
+                      <Badge
+                        variant={guardDecision.context._external_verdict.status === 'ok' ? 'info' : 'warning'}
+                        size="xs"
+                      >
+                        {guardDecision.context._external_verdict.status === 'ok'
+                          ? `External: ${guardDecision.context._external_verdict.raw_verdict}`
+                          : 'External unavailable'}
+                      </Badge>
+                    </span>
+                  )}
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-tertiary uppercase tracking-wider mb-1">Evaluated At</div>
