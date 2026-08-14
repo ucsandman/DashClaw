@@ -13,6 +13,18 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Fixed
+
+- **Copy Agent Prompt survives uBlock Origin's ClickFix defense.** The agent
+  setup prompt is shell-command-laden, which is exactly what uBlock 1.72+'s
+  clipboard defuser intercepts on programmatic writes — undetectably, so the
+  button could show "Copied!" over an empty clipboard, and a failure was
+  silently swallowed. The button now always opens a dialog with the prompt
+  pre-selected (a native Ctrl+C is a user copy no extension blocks), states
+  honestly whether the programmatic copy happened, and explains the blocker
+  when it didn't. Also shows the operator exactly what they're handing their
+  agent before they paste it.
+
 ## [5.23.4] — 2026-08-14
 
 One command from a bare machine to a governed OpenClaw agent. Platform-side
