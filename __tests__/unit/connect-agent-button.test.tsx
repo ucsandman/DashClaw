@@ -17,6 +17,7 @@ vi.mock('../../app/lib/connectPrompt', () => ({
 import ConnectAgentButton from '../../app/components/ConnectAgentButton';
 
 const writeText = vi.fn();
+const readText = vi.fn();
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
@@ -24,10 +25,14 @@ beforeEach(() => {
     json: async () => ({ org: { name: 'Acme' } }),
   }));
   Object.defineProperty(navigator, 'clipboard', {
-    value: { writeText },
+    value: { writeText, readText },
     configurable: true,
   });
   writeText.mockReset();
+  readText.mockReset();
+  // Default: readText echoes back whatever was last written, so tests that
+  // don't care about verification keep seeing the confident "copied" state.
+  readText.mockImplementation(async () => writeText.mock.calls.at(-1)?.[0] ?? '');
 });
 
 afterEach(() => {
@@ -97,5 +102,41 @@ describe('ConnectAgentButton', () => {
     await waitFor(() => screen.getByRole('dialog'));
     const textarea = screen.getByRole('dialog').querySelector('textarea')!;
     expect(textarea.value).toContain('# Coverage prompt for Acme');
+  });
+
+  // Finding 10: writeText resolving is not proof the copy landed — uBlock's
+  // ClickFix defuser (1.72+) can no-op the write without throwing. Without a
+  // readText() verification round-trip, the dialog would over-claim "copied"
+  // here even though nothing reached the real clipboard.
+  it('does not claim "copied" when the write cannot be verified (silent no-op)', async () => {
+    writeText.mockResolvedValue(undefined);
+    // Simulates a defused write: writeText "succeeds" but the clipboard
+    // content readText reports back is unrelated to what was sent.
+    readText.mockResolvedValue('unrelated clipboard content');
+    render(<ConnectAgentButton />);
+    fireEvent.click(screen.getByText('Copy Agent Prompt'));
+
+    await waitFor(() => screen.getByRole('dialog'));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).not.toContain('Agent prompt copied');
+    expect(dialog.textContent).toContain('Agent prompt ready');
+    expect(dialog.textContent).toContain('could not confirm the copy landed');
+    // The full prompt is still visible/selected as the manual fallback.
+    const textarea = dialog.querySelector('textarea')!;
+    expect(textarea.value).toContain('# DashClaw Agent Setup for Acme');
+  });
+
+  it('does not claim "copied" when clipboard read is unpermitted (no throw on write)', async () => {
+    writeText.mockResolvedValue(undefined);
+    readText.mockRejectedValue(new Error('NotAllowedError'));
+    render(<ConnectAgentButton />);
+    fireEvent.click(screen.getByText('Copy Agent Prompt'));
+
+    await waitFor(() => screen.getByRole('dialog'));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).not.toContain('Agent prompt copied');
+    expect(dialog.textContent).toContain('could not confirm the copy landed');
+    const textarea = dialog.querySelector('textarea')!;
+    expect(textarea.value).toContain('# DashClaw Agent Setup for Acme');
   });
 });

@@ -6,19 +6,35 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // but it pins serverless invocations open and silently loses events. These
 // tests pin the bounded-connect / bounded-command / cooldown behavior.
 
-const { mockRedisClient, mockCreateClient } = vi.hoisted(() => {
+const { mockRedisClient, mockCreateClient, redisClientState } = vi.hoisted(() => {
+  // Tracks whether the shared mock client has been "disconnected" so PUBLISH
+  // can reject like real node-redis does against a closed socket, and
+  // "reconnected" (via connect()) can make it accept commands again.
+  const redisClientState = { closed: false };
+  const publishImpl = async () => {
+    if (redisClientState.closed) {
+      const err = new Error('The client is closed');
+      err.name = 'ClientClosedError';
+      throw err;
+    }
+    return 1;
+  };
   const mockRedisClient = {
-    connect: vi.fn(async () => {}),
+    connect: vi.fn(async () => {
+      redisClientState.closed = false;
+    }),
     on: vi.fn(),
     sendCommand: vi.fn(async () => '1-1'),
-    publish: vi.fn(async () => 1),
+    publish: vi.fn(publishImpl),
     ping: vi.fn(async () => 'PONG'),
     subscribe: vi.fn(async () => {}),
     unsubscribe: vi.fn(async () => {}),
     quit: vi.fn(async () => {}),
-    disconnect: vi.fn(async () => {}),
+    disconnect: vi.fn(async () => {
+      redisClientState.closed = true;
+    }),
   };
-  return { mockRedisClient, mockCreateClient: vi.fn(() => mockRedisClient) };
+  return { mockRedisClient, mockCreateClient: vi.fn(() => mockRedisClient), redisClientState };
 });
 
 vi.mock('redis', () => ({ createClient: mockCreateClient }));
@@ -36,11 +52,21 @@ describe('RedisRealtimeBackend bounded Redis usage', () => {
     // clearAllMocks does NOT drop persistent mockImplementations from earlier
     // tests — restore the healthy defaults so a pending connect can't leak
     // into the next test.
-    mockRedisClient.connect.mockImplementation(async () => {});
+    mockRedisClient.connect.mockImplementation(async () => {
+      redisClientState.closed = false;
+    });
     mockRedisClient.sendCommand.mockImplementation(async () => '1-1');
-    mockRedisClient.publish.mockImplementation(async () => 1);
+    mockRedisClient.publish.mockImplementation(async () => {
+      if (redisClientState.closed) {
+        const err = new Error('The client is closed');
+        err.name = 'ClientClosedError';
+        throw err;
+      }
+      return 1;
+    });
     mockRedisClient.ping.mockImplementation(async () => 'PONG');
     mockRedisClient.subscribe.mockImplementation(async () => {});
+    redisClientState.closed = false;
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-14T12:00:00Z'));
     vi.stubEnv('REALTIME_BACKEND', 'redis');
@@ -116,6 +142,42 @@ describe('RedisRealtimeBackend bounded Redis usage', () => {
     expect(outcome).toBe('SETTLED');
     // The half-open client is torn down, not left cached.
     expect(mockRedisClient.disconnect).toHaveBeenCalled();
+  });
+
+  it('never issues the pub/sub publish on a client the XADD timeout just dropped', async () => {
+    // Finding: boundedCommand's timeout handler disconnects and drops the
+    // publisher on an XADD timeout, but publish() used to keep reusing the
+    // now-closed local `publisher` reference for the PUBLISH call. node-redis
+    // rejects instantly against a closed socket, so the event got neither the
+    // durable stream write nor the live broadcast. The fix re-fetches through
+    // getPublisher(), which honours the #223 failure cooldown — so right after
+    // the drop the publish degrades to memory delivery instead of hammering a
+    // struggling Redis with an extra unmanaged connection (which also leaked:
+    // nothing ever disconnected the ad-hoc client).
+    mockRedisClient.sendCommand.mockImplementationOnce(() => new Promise(() => {}));
+    const { publishOrgEvent } = await loadEventsModule();
+
+    const publishPromise = publishOrgEvent('action.created', { orgId: 'org_a' });
+    await vi.advanceTimersByTimeAsync(2000); // REDIS_COMMAND_TIMEOUT_MS
+    await publishPromise; // settles via the memory fallback — no hang
+
+    // The stalled client from the XADD timeout was torn down...
+    expect(mockRedisClient.disconnect).toHaveBeenCalledTimes(1);
+    // ...no PUBLISH was attempted on the closed socket, and no unmanaged
+    // extra connection was opened inside the failure cooldown.
+    expect(mockRedisClient.publish).not.toHaveBeenCalled();
+    expect(mockCreateClient).toHaveBeenCalledTimes(1);
+
+    // Past the cooldown the publisher is rebuilt through the CACHED path and
+    // Redis delivery resumes end to end.
+    await vi.advanceTimersByTimeAsync(31000);
+    const tail = await Promise.race([
+      publishOrgEvent('action.updated', { orgId: 'org_a' }).then(() => 'SETTLED'),
+      vi.advanceTimersByTimeAsync(30000).then(() => 'PENDING'),
+    ]);
+    expect(tail).toBe('SETTLED');
+    expect(mockCreateClient).toHaveBeenCalledTimes(2);
+    expect(mockRedisClient.publish).toHaveBeenCalledTimes(1);
   });
 
   it('enters a failure cooldown after a connect failure and reconnects after it', async () => {

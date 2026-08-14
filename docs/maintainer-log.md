@@ -14,7 +14,41 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
-## 2026-08-14 — One command to a governed OpenClaw agent (v5.23.4, CLI 0.12.0)
+## 2026-08-14 — The sweep swept the sweeper: 13 fixes from an adversarial review of the last 10 commits
+
+Wes asked for two things in one breath: an adversarial review of everything
+that just shipped, and a human-style click-through of every button in the app.
+Twenty read-only agents reviewed the v5.23.4 arc across five dimensions
+(correctness, cross-change seams, silent failures, security, test gaps), every
+finding re-verified by an independent skeptic told to refute it. Thirteen
+survived. In parallel, a headless browser signed in through the real login
+form, dismissed and restored governance signals both ways (the persistence fix
+from this arc held on both key shapes), approved and revoked a probe plan,
+and walked all 32 routes twice — zero console errors, zero failed API calls.
+
+The embarrassing part, recorded per charter: most of the 13 were bugs in code
+this maintainer shipped earlier in the same arc. The critical one: the durable
+mute for `mcp_degraded` keyed on (type, agent) while the signal is minted one
+per MCP *server* — so muting one server's alert muted them all, on a key that
+churned with whichever decision row happened to report it. Related: the muted
+list leaked other agents' dismissals into agent-filtered views; POST/DELETE
+`/api/signals` had no admin gate, so any governed agent's own API key could
+silence the signals watching it; dismissals were written with `dismissed_by`
+NULL; and `events.ts` `publish()` kept using a Redis client its own timeout
+handler had just destroyed. Six fix agents ran in parallel on disjoint file
+scopes, each proving its regression test failed against the pre-fix source.
+One finding turned out false: "zero regression tests for the config.toml fix"
+survived skeptical verification because finder and skeptic inherited the same
+too-narrow search path (`cli/test/`) — the tests were in `__tests__/unit/`
+all along, CI-visible since the fix commit. A correlated-blindness lesson for
+the review harness, logged in ERRORS.md.
+
+One deliberate behavior change: muting a governance signal is now an admin
+act (it hides a live risk condition from the whole org), mirroring the
+approval-pause gate. The platform guide entries were updated in the same
+change, and the legacy localStorage migration in the status bar now drops
+sets the server permanently rejects instead of retrying them on every mount
+forever.
 
 This one started as a support question, not a roadmap item. Wes ran
 `openclaw plugins install @dashclaw/openclaw-plugin` on a fresh EC2 box —

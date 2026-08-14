@@ -13,12 +13,12 @@ interface ConnectAgentButtonProps {
 /**
  * Copies the agent setup prompt — and always SHOWS it too. The prompt is full
  * of shell commands, which is exactly the shape uBlock Origin's ClickFix
- * defense (1.72+) intercepts on programmatic clipboard writes: the write is
- * defused and a warning banner shown, and the page cannot detect it happened.
- * So the one-click write is best-effort only; the dialog with the text
- * pre-selected is the guarantee — a native Ctrl+C of a selection is a user
- * copy no extension blocks. It also means the operator sees exactly what
- * they're about to hand their agent.
+ * defense (1.72+) intercepts on programmatic clipboard writes: the write can
+ * be defused so the promise still resolves, with no exception to catch. A
+ * readText() round-trip after the write is what actually confirms it landed;
+ * when that can't be confirmed the dialog says so instead of claiming
+ * "copied". The dialog with the text pre-selected is the guarantee either
+ * way — a native Ctrl+C of a selection is a user copy no extension blocks.
  */
 export default function ConnectAgentButton({
   className = '',
@@ -27,6 +27,10 @@ export default function ConnectAgentButton({
 }: ConnectAgentButtonProps) {
   const [prompt, setPrompt] = useState<string | null>(null);
   const [wroteClipboard, setWroteClipboard] = useState(false);
+  // writeText resolving is not proof the text landed — uBlock's ClickFix
+  // defuser (1.72+) can no-op the write without throwing. A readText()
+  // round-trip is the only thing that actually confirms it.
+  const [clipboardVerified, setClipboardVerified] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleClick = async () => {
@@ -45,13 +49,21 @@ export default function ConnectAgentButton({
       ? generateCoveragePrompt(baseUrl, orgName)
       : generateConnectPrompt(baseUrl, orgName);
     let wrote = false;
+    let verified = false;
     try {
       await navigator.clipboard.writeText(text);
       wrote = true;
+      try {
+        verified = (await navigator.clipboard.readText()) === text;
+      } catch {
+        // Read is unpermitted or unavailable — the write can't be confirmed,
+        // so don't claim it landed. Not the same as a blocked write.
+      }
     } catch {
       // Blocked or unavailable — the dialog below is the real path.
     }
     setWroteClipboard(wrote);
+    setClipboardVerified(verified);
     setPrompt(text);
   };
 
@@ -95,8 +107,8 @@ export default function ConnectAgentButton({
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                {wroteClipboard ? <Check size={15} className="text-success" /> : <Terminal size={15} />}
-                Agent prompt {wroteClipboard ? 'copied' : 'ready'}
+                {wroteClipboard && clipboardVerified ? <Check size={15} className="text-success" /> : <Terminal size={15} />}
+                Agent prompt {wroteClipboard && clipboardVerified ? 'copied' : 'ready'}
               </div>
               <button
                 onClick={() => setPrompt(null)}
@@ -107,9 +119,11 @@ export default function ConnectAgentButton({
               </button>
             </div>
             <p className="mt-2 text-xs text-secondary leading-relaxed">
-              {wroteClipboard
+              {wroteClipboard && clipboardVerified
                 ? 'It is on your clipboard. Some content blockers (uBlock Origin’s ClickFix defense) silently block programmatic copies of terminal commands — if your paste comes up empty, the text below is already selected: press Ctrl+C / ⌘C.'
-                : 'Your browser blocked the programmatic copy — content blockers flag pages that push terminal commands onto the clipboard. The text below is already selected: press Ctrl+C / ⌘C.'}
+                : wroteClipboard
+                  ? 'The prompt should be on your clipboard, but we could not confirm the copy landed — some content blockers silently no-op it. If pasting gives you something else, use the text below instead: it is already selected, press Ctrl+C / ⌘C.'
+                  : 'Your browser blocked the programmatic copy — content blockers flag pages that push terminal commands onto the clipboard. The text below is already selected: press Ctrl+C / ⌘C.'}
             </p>
             <textarea
               ref={textareaRef}

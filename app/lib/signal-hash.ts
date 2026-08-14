@@ -25,6 +25,47 @@ export const SAMPLED_TIME_SIGNAL_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Every signal type `app/lib/signals.ts` can mint. Used to shape-check dismiss
+ * keys arriving from a browser before they are persisted — a key whose first
+ * slot is not a real signal type can never match a computed signal, so storing
+ * it is pure garbage. Kept here rather than in `signals.ts` because the panel
+ * (a client component) needs it too and cannot import the server module.
+ */
+export const SIGNAL_TYPES: ReadonlySet<string> = new Set([
+  'agent_silent',
+  'approval_backlog',
+  'approval_flood',
+  'assumption_drift',
+  'autonomy_spike',
+  'branch_stale',
+  'executed_despite_block',
+  'green_insufficient',
+  'high_impact_low_oversight',
+  'integration_mismatch',
+  'mcp_degraded',
+  'observe_mode',
+  'repeated_failures',
+  'session_stalled',
+  'stale_assumption',
+  'stale_running_action',
+  'ungoverned_scope',
+]);
+
+/**
+ * Cheap shape check for a dismiss key handed to us by a client.
+ *
+ * The minted key is six colon-joined slots, and the last slot (`detected_at`)
+ * is an ISO timestamp that itself contains colons — so the test is "at least
+ * five separators", not "exactly six parts". Paired with a known type prefix
+ * that is enough to reject anything that could never match a real signal.
+ */
+export function isWellFormedDismissKey(key: string): boolean {
+  const parts = key.split(':');
+  if (parts.length < 6) return false;
+  return SIGNAL_TYPES.has(parts[0] ?? '');
+}
+
+/**
  * Stable per-INSTANCE dismissal key for a risk signal.
  *
  * Including `detected_at` is load-bearing for event-time signals: it makes a dismissal suppress
@@ -50,6 +91,7 @@ export function signalDismissKey(s: {
   loop_id?: string | null;
   assumption_id?: string | null;
   detected_at?: string | Date | null;
+  mcp_server?: string | null;
 }): string {
   const type = s.type || s.signal_type || '';
   // pg drivers hand computeSignals a Date for timestamptz columns, while the
@@ -60,12 +102,21 @@ export function signalDismissKey(s: {
   // Sampled-time types mute durably on (type, agent): their timestamp advances
   // on its own, so including it made the dismissal un-matchable forever after.
   const detectedAt = SAMPLED_TIME_SIGNAL_TYPES.has(type) ? '' : rawDetectedAt;
+  // `mcp_degraded` is minted once per MCP SERVER, not per agent: the `agent_id`
+  // on it is whichever decision row happened to observe that server first
+  // (ORDER BY created_at DESC LIMIT 20). Keying on (type, agent) therefore did
+  // two wrong things at once — muting server A also muted server B, and the
+  // mute stopped matching as soon as a different agent's row was the one seen.
+  // Its identity is the server name, carried in the otherwise-empty
+  // `detected_at` slot so the six-slot format, and every already-persisted key
+  // of every other signal type, stays byte-identical.
+  const isMcp = type === 'mcp_degraded';
   return [
     type,
-    s.agent_id || '',
+    isMcp ? '' : s.agent_id || '',
     s.action_id || '',
     s.loop_id || '',
     s.assumption_id || '',
-    detectedAt || '',
+    isMcp ? s.mcp_server || '' : detectedAt || '',
   ].join(':');
 }

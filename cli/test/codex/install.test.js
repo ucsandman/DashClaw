@@ -10,6 +10,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { parse as parseToml } from 'smol-toml';
+
 import {
   installCodex,
   mergeConfigToml,
@@ -18,6 +20,9 @@ import {
   buildRootKeysBlock,
   buildAgentsMdBlock,
   replaceManagedBlock,
+  neutralizeManualDashclawTables,
+  neutralizeManualRootKeys,
+  assertParseableToml,
   codexHome,
   codexConfigPath,
   codexHooksDir,
@@ -442,6 +447,276 @@ describe('installCodex (end-to-end)', () => {
 
     assert.equal(config1, config2);
     assert.equal(agents1, agents2);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// Regression coverage for the 2026-08-14 config.toml-corrupting incident
+// (commit b10d7798): duplicate manual [mcp_servers.dashclaw] tables and
+// duplicate root keys made TOML unparseable, breaking every `codex`
+// invocation. These tests cover neutralizeManualDashclawTables,
+// neutralizeManualRootKeys, assertParseableToml, and the pre-write refusal
+// guard in mergeConfigToml that keeps a bad merge from ever touching disk.
+// -----------------------------------------------------------------------------
+
+describe('neutralizeManualDashclawTables', () => {
+  it('comments out a single hand-written [mcp_servers.dashclaw] table', () => {
+    const source = [
+      'model = "gpt-5"',
+      '',
+      '[mcp_servers.dashclaw]',
+      'command = "python"',
+      'args = ["hand-rolled.py"]',
+      '',
+      '[profiles.work]',
+      'model = "gpt-5.1-codex"',
+    ].join('\n');
+
+    const { source: out, neutralized } = neutralizeManualDashclawTables(source);
+    assert.equal(neutralized, true);
+    // Unrelated content survives untouched.
+    assert.match(out, /^model = "gpt-5"$/m);
+    assert.match(out, /\[profiles\.work\]/);
+    assert.match(out, /model = "gpt-5\.1-codex"/);
+    // The manual table is commented out, not deleted.
+    assert.match(out, /^# \[mcp_servers\.dashclaw\]$/m);
+    assert.match(out, /^# command = "python"$/m);
+    assert.match(out, /^# args = \["hand-rolled\.py"\]$/m);
+  });
+
+  it('neutralizes duplicate manual dashclaw tables without corrupting content between them', () => {
+    const source = [
+      'model = "gpt-5"',
+      '',
+      '[mcp_servers.dashclaw]',
+      'command = "python"',
+      '',
+      '[profiles.work]',
+      'model = "gpt-5.1-codex"',
+      '',
+      '[mcp_servers.dashclaw]',
+      'command = "node"',
+      'args = ["second-copy.js"]',
+    ].join('\n');
+
+    const { source: out, neutralized } = neutralizeManualDashclawTables(source);
+    assert.equal(neutralized, true);
+    // Both duplicate definitions get commented out.
+    const commentedHeaders = out.split('\n').filter((l) => l.trim() === '# [mcp_servers.dashclaw]');
+    assert.equal(commentedHeaders.length, 2);
+    assert.match(out, /^# command = "node"$/m);
+    assert.match(out, /^# args = \["second-copy\.js"\]$/m);
+    // The unrelated table sitting between the two duplicates is untouched.
+    assert.match(out, /^\[profiles\.work\]$/m);
+    assert.match(out, /^model = "gpt-5\.1-codex"$/m);
+  });
+
+  it('leaves managed-block content alone even if it looks like a dashclaw table', () => {
+    const source = [
+      MANAGED_START,
+      '[mcp_servers.dashclaw]',
+      'command = "node"',
+      MANAGED_END,
+    ].join('\n');
+    const { source: out, neutralized } = neutralizeManualDashclawTables(source);
+    assert.equal(neutralized, false);
+    assert.match(out, /^\[mcp_servers\.dashclaw\]$/m);
+  });
+
+  it('reports no neutralization when there is nothing to neutralize', () => {
+    const source = 'model = "gpt-5"\n\n[profiles.work]\nmodel = "gpt-5.1-codex"\n';
+    const { source: out, neutralized } = neutralizeManualDashclawTables(source);
+    assert.equal(neutralized, false);
+    assert.equal(out, source);
+  });
+});
+
+describe('neutralizeManualRootKeys', () => {
+  it('comments out a hand-written root-level approval_policy', () => {
+    const source = [
+      'approval_policy = "never"',
+      'model = "gpt-5"',
+      '',
+      '[profiles.work]',
+      'model = "gpt-5.1-codex"',
+    ].join('\n');
+    const { source: out, neutralized } = neutralizeManualRootKeys(source);
+    assert.equal(neutralized, true);
+    assert.match(out, /^# approval_policy = "never"$/m);
+    assert.match(out, /^model = "gpt-5"$/m);
+    assert.match(out, /\[profiles\.work\]/);
+  });
+
+  it('does not touch a same-named key inside a [table]', () => {
+    // A key nested under a table header is not a root key — neutralizing it
+    // would corrupt the table's own config, not just dedupe a root clash.
+    const source = [
+      '[profiles.work]',
+      'approval_policy = "never"',
+    ].join('\n');
+    const { source: out, neutralized } = neutralizeManualRootKeys(source);
+    assert.equal(neutralized, false);
+    assert.equal(out, source);
+  });
+
+  it('leaves notify alone by default (includeNotify=false)', () => {
+    const source = 'notify = ["node", "custom-notify.js"]\napproval_policy = "never"\n';
+    const { source: out, neutralized } = neutralizeManualRootKeys(source, { includeNotify: false });
+    assert.equal(neutralized, true);
+    assert.match(out, /^notify = \["node", "custom-notify\.js"\]$/m);
+    assert.match(out, /^# approval_policy = "never"$/m);
+  });
+
+  it('neutralizes notify too when includeNotify=true', () => {
+    const source = 'notify = ["node", "custom-notify.js"]\napproval_policy = "never"\n';
+    const { source: out, neutralized } = neutralizeManualRootKeys(source, { includeNotify: true });
+    assert.equal(neutralized, true);
+    assert.match(out, /^# notify = \["node", "custom-notify\.js"\]$/m);
+    assert.match(out, /^# approval_policy = "never"$/m);
+  });
+});
+
+describe('assertParseableToml', () => {
+  it('does not throw for valid TOML', () => {
+    assert.doesNotThrow(() =>
+      assertParseableToml('model = "gpt-5"\n\n[profiles.work]\nmodel = "gpt-5.1"\n', {
+        path: '/fake/config.toml',
+        phase: 'merged',
+      }),
+    );
+  });
+
+  it('rejects text that does not round-trip through the TOML parser', () => {
+    // Unterminated table header — not valid TOML.
+    const broken = 'model = "gpt-5"\n\n[unterminated\nmodel = "gpt-5.1"\n';
+    assert.throws(
+      () => assertParseableToml(broken, { path: '/fake/config.toml', phase: 'merged' }),
+      /merged config for \/fake\/config\.toml is not valid TOML/,
+    );
+  });
+});
+
+describe('mergeConfigToml — refuses to write an unparseable merge', () => {
+  it('leaves the original file byte-for-byte untouched when the merge would be unparseable', () => {
+    const dir = makeTempDir('dc-codex-badtoml-');
+    const configPath = path.join(dir, 'config.toml');
+    // Malformed content that neutralization does not touch (not a manual
+    // dashclaw table, not a root approval_policy/notify key) so it survives
+    // into the merged text and breaks the overall parse.
+    const original = 'model = "gpt-5"\n\n[unterminated\nmodel = "gpt-5.1"\n';
+    fs.writeFileSync(configPath, original);
+
+    assert.throws(
+      () =>
+        mergeConfigToml({
+          configPath,
+          mcpServerPath: '/tmp/mcp.js',
+          hooksDir: '/tmp/hooks',
+        }),
+      /is not valid TOML/,
+    );
+
+    // The guard fires before any write — original bytes are untouched and no
+    // backup was created (backup only happens after the guard passes).
+    assert.equal(fs.readFileSync(configPath, 'utf8'), original);
+    assert.equal(fs.existsSync(configPath + '.dashclaw-bak'), false);
+  });
+});
+
+describe('mergeConfigToml — end-to-end neutralization stays parseable', () => {
+  it('dedupes duplicate manual dashclaw tables and produces parseable TOML', () => {
+    const dir = makeTempDir('dc-codex-dedupe-');
+    const configPath = path.join(dir, 'config.toml');
+    fs.writeFileSync(
+      configPath,
+      [
+        'model = "gpt-5"',
+        '',
+        '[mcp_servers.dashclaw]',
+        'command = "python"',
+        '',
+        '[profiles.work]',
+        'model = "gpt-5.1-codex"',
+        '',
+        '[mcp_servers.dashclaw]',
+        'command = "node"',
+        '',
+      ].join('\n'),
+    );
+
+    const result = mergeConfigToml({
+      configPath,
+      mcpServerPath: '/tmp/mcp.js',
+      hooksDir: '/tmp/hooks',
+    });
+    assert.equal(result.neutralizedManualTables, true);
+
+    const text = fs.readFileSync(configPath, 'utf8');
+    assert.doesNotThrow(() => parseToml(text), 'merged config must be valid TOML');
+    // Unrelated content preserved.
+    assert.match(text, /model = "gpt-5\.1-codex"/);
+    assert.match(text, /\[profiles\.work\]/);
+    // Only the managed table registers mcp_servers.dashclaw.
+    const parsed = parseToml(text);
+    assert.equal(parsed.mcp_servers.dashclaw.command, 'node');
+  });
+
+  it('neutralizes a manual root approval_policy and produces parseable TOML with one value', () => {
+    const dir = makeTempDir('dc-codex-rootdedupe-');
+    const configPath = path.join(dir, 'config.toml');
+    fs.writeFileSync(configPath, 'approval_policy = "never"\nmodel = "gpt-5"\n');
+
+    const result = mergeConfigToml({
+      configPath,
+      mcpServerPath: '/tmp/mcp.js',
+      hooksDir: '/tmp/hooks',
+      approvalPolicy: 'on-request',
+    });
+    assert.equal(result.neutralizedRootKeys, true);
+
+    const text = fs.readFileSync(configPath, 'utf8');
+    const parsed = parseToml(text);
+    assert.equal(parsed.approval_policy, 'on-request');
+    assert.match(text, /^model = "gpt-5"$/m);
+  });
+});
+
+describe('mergeConfigToml — clean install leaves parseable config.toml', () => {
+  it('produces a config.toml that parses cleanly on a fresh install', () => {
+    const dir = makeTempDir('dc-codex-clean-');
+    const configPath = path.join(dir, 'config.toml');
+
+    const result = mergeConfigToml({
+      configPath,
+      mcpServerPath: '/tmp/mcp.js',
+      hooksDir: '/tmp/hooks',
+      approvalPolicy: 'on-request',
+    });
+    assert.equal(result.changed, true);
+
+    const text = fs.readFileSync(configPath, 'utf8');
+    const parsed = parseToml(text);
+    assert.equal(parsed.approval_policy, 'on-request');
+    assert.equal(parsed.mcp_servers.dashclaw.command, 'node');
+    assert.equal(Array.isArray(parsed.hooks.PreToolUse), true);
+  });
+
+  it('installCodex end-to-end produces a config.toml that parses cleanly', async () => {
+    const codexHomeDir = makeTempDir('dc-codex-clean-home-');
+    const projectDir = makeTempDir('dc-codex-clean-proj-');
+    const env = { CODEX_HOME: codexHomeDir };
+
+    await installCodex({
+      repoRoot: REPO_ROOT,
+      projectDir,
+      env,
+      trustHooks: false,
+      logger: silentLogger,
+    });
+
+    const text = fs.readFileSync(path.join(codexHomeDir, 'config.toml'), 'utf8');
+    const parsed = parseToml(text);
+    assert.equal(parsed.mcp_servers.dashclaw.command, 'node');
   });
 });
 

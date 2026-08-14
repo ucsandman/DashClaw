@@ -4,6 +4,14 @@ Newest first. Full entries for multi-attempt debugging or reusable lessons; one-
 
 ---
 
+## 2026-08-14 — adversarial sweep #2: durable-mute key coarser than the signal it mutes; publish() reused a client its own timeout handler destroyed
+
+Three lessons from the 13-finding sweep over the v5.23.4 arc, same-day catches of code shipped earlier in the arc:
+
+1. **A dismissal key must match the granularity the signal is MINTED at.** `mcp_degraded` signals are built one per MCP *server*, but `SAMPLED_TIME_SIGNAL_TYPES` reduced its durable-mute key to (type, agent) — muting server A muted server B, and the key's agent_id was whichever `guard_decisions` row happened to be seen first, so the mute also churned. Shipped in f3e49a76, caught by the same-day sweep. Fix: the signal now carries `mcp_server` and the key is (type, server), reusing the empty timestamp slot so every other type's persisted key stays byte-identical.
+2. **An error handler that tears down a resource must not let the caller keep using its stale reference.** `events.ts` `publish()` fetched the Redis publisher once; the XADD timeout path called `dropPublisher()` (socket destroyed, promise cleared), then fell through to `publisher.publish(...)` on the dead client — instant `ClientClosedError`, event lost for live-Redis SSE subscribers. Shipped in 1cc7e1ae. The first fix attempt reconnected ad hoc via `connectClient()`, which leaked one unmanaged connection per timeout AND bypassed the #223 failure cooldown — re-fetching through `getPublisher()` (cached, cooldown-honoring) is the only correct shape.
+3. **Review agents must search every test tree before claiming "zero tests".** Finding "zero regression tests for the config.toml fix" survived adversarial verification because finder AND verifier only searched `cli/test/` — the tests existed in `__tests__/unit/cli-codex-install.test.js`, shipped inside b10d7798 itself and CI-visible. Prompt-scope blindness is a correlated failure across finder and skeptic: they inherited the same wrong search space from the scope brief.
+
 ## 2026-08-14 — verification drill wrote to the real ~/.codex/config.toml (one-liner)
 
 What happened: while verifying the installer fix below, a `node -e` drill passed `process.env.SCRATCH` for `CODEX_HOME`, but the shell variable was set without `export` — undefined env → installer fell back to the real `~/.codex` and the repo's AGENTS.md. Root cause: un-exported shell variable consumed inside a subprocess. Prevention: verification scripts that target a sandbox path now hardcode the path and hard-fail if the resolved write path is outside it (see the guard in the drill script pattern). The new TOML round-trip gate held: the live config stayed parseable; AGENTS.md restored from git.

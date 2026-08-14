@@ -332,15 +332,18 @@ export async function runTelegramSetup({
     if (!localEnvPath) return;
     if (!(await askYesNo('  Also write these to a local .env for dev?', false))) return;
     let existing = '';
+    let fileExists = false;
     try {
       await access(localEnvPath, constants.F_OK);
+      fileExists = true;
       existing = await readFile(localEnvPath, 'utf8');
     } catch { /* no existing .env */ }
     let updated = upsertEnvLines(existing, values);
     if (!existing) {
       updated = '# DashClaw local dev env — DO NOT COMMIT\n' + updated;
     }
-    await writeFile(localEnvPath, updated, 'utf8');
+    const writeOpts = fileExists ? { encoding: 'utf8' } : { encoding: 'utf8', mode: 0o600 };
+    await writeFile(localEnvPath, updated, writeOpts);
     log(`  Updated ${localEnvPath}`);
   }
 
@@ -396,19 +399,28 @@ export async function runTelegramSetup({
 
     const actionId = `act_setup${Date.now().toString(36)}${randomBytes(3).toString('hex')}`;
     log(`\n  Creating synthetic action ${actionId}...`);
-    const create = await fetch(`${deployUrl}/api/actions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': key },
-      body: JSON.stringify({
-        action_id: actionId,
-        agent_id: 'telegram-setup-wizard',
-        action_type: 'deploy',
-        declared_goal: 'telegram:setup wizard round-trip test',
-        risk_score: 80,
-        reversible: false,
-        status: 'pending_approval',
-      }),
-    });
+    let create;
+    try {
+      create = await fetch(`${deployUrl}/api/actions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': key },
+        body: JSON.stringify({
+          action_id: actionId,
+          agent_id: 'telegram-setup-wizard',
+          action_type: 'deploy',
+          declared_goal: 'telegram:setup wizard round-trip test',
+          risk_score: 80,
+          reversible: false,
+          status: 'pending_approval',
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+    } catch (e) {
+      err(`  Failed to create action: ${e.message}`);
+      err('  Most likely causes: env vars not set on the deploy yet, or the');
+      err('  redeploy has not finished. Wait 30s and re-run this wizard.');
+      return;
+    }
     if (!create.ok) {
       err(`  Failed to create action: ${create.status} ${await create.text()}`);
       err('  Most likely causes: env vars not set on the deploy yet, or the');
@@ -422,9 +434,15 @@ export async function runTelegramSetup({
     const timeoutMs = 5 * 60 * 1000;
     while (Date.now() - start < timeoutMs) {
       await new Promise((r) => setTimeout(r, 1500));
-      const r = await fetch(`${deployUrl}/api/actions/${actionId}`, {
-        headers: { 'x-api-key': key },
-      });
+      let r;
+      try {
+        r = await fetch(`${deployUrl}/api/actions/${actionId}`, {
+          headers: { 'x-api-key': key },
+          signal: AbortSignal.timeout(10000),
+        });
+      } catch {
+        continue;
+      }
       if (!r.ok) continue;
       const { action } = await r.json();
       if (action?.status && action.status !== 'pending_approval') {

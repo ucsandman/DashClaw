@@ -57,6 +57,11 @@ export default function SystemStatusBar() {
         if (res.ok) {
           localStorage.removeItem('dashclaw_dismissed_signals');
           fetchSignals();
+        } else if (res.status >= 400 && res.status < 500) {
+          // The server rejected the legacy set for good (malformed pre-timestamp
+          // keys → 400, non-admin → 403). Retrying every mount can never
+          // succeed, so drop the local copy instead of looping forever.
+          localStorage.removeItem('dashclaw_dismissed_signals');
         }
       }).catch((err) => {
         console.warn('Failed to migrate dismissed signals to server:', err);

@@ -224,6 +224,40 @@ describe('GovernanceSignalsPanel', () => {
     expect(screen.getByText('View the session →').getAttribute('href')).toBe('/sessions/sess_9');
   });
 
+  // Finding 9: restoreMany() must mirror dismissMany()'s res.ok handling —
+  // check res.ok per chunk and stop on the first failed chunk instead of
+  // firing every remaining chunk regardless (the old `finally`-only version
+  // never inspected res.ok, so a failed chunk didn't stop the loop). Force
+  // two DELETE chunks (DISMISS_CHUNK=1000) and fail the first: only the
+  // first DELETE should ever be sent.
+  it('restoreMany stops sending further chunks once a DELETE chunk fails', async () => {
+    const bigMuted = Array.from({ length: 1200 }, (_, i) => ({
+      type: 'autonomy_spike', severity: 'amber', label: `muted ${i}`,
+      agent_id: 'agent-c', dismiss_key: `autonomy_spike:agent-c:${i}`,
+    }));
+    let deleteCalls = 0;
+    global.fetch = vi.fn(async (_url, opts = {}) => {
+      const method = opts.method || 'GET';
+      if (method === 'DELETE') {
+        deleteCalls += 1;
+        return { ok: false, status: 500, json: async () => ({}) };
+      }
+      return { ok: true, status: 200, json: async () => ({ signals: SIGNALS, muted: bigMuted }) };
+    });
+    render(<GovernanceSignalsPanel initialSeverity={null} />);
+
+    const toggle = await screen.findByTestId('muted-signals-toggle');
+    fireEvent.click(toggle);
+    await screen.findAllByTestId('muted-signal-row');
+
+    fireEvent.click(screen.getByRole('button', { name: /Restore all 1200/ }));
+
+    await waitFor(() => expect(deleteCalls).toBeGreaterThan(0));
+    // Give any further (wrongly-sent) chunk a chance to fire before asserting.
+    await waitFor(() => expect(global.fetch.mock.calls.some(([, o]) => !o?.method || o.method === 'GET')).toBe(true));
+    expect(deleteCalls).toBe(1);
+  }, 15000);
+
   it('tier chips re-filter without refetching', async () => {
     render(<GovernanceSignalsPanel initialSeverity={null} />);
     await waitFor(() => expect(screen.getAllByTestId('signal-row')).toHaveLength(3));

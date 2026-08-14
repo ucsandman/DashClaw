@@ -280,7 +280,8 @@ class RedisRealtimeBackend {
   }
 
   async publish(envelope: EventEnvelope): Promise<EventEnvelope> {
-    const publisher = await this.getPublisher();
+    let publisher = await this.getPublisher();
+    const publisherBeforeXadd = this.publisherPromise;
     let withCursor = envelope;
 
     try {
@@ -297,6 +298,15 @@ class RedisRealtimeBackend {
       withCursor = { ...envelope, cursor: streamId as string };
     } catch (err) {
       console.error('[REALTIME] Redis XADD failed:', (err as any)?.message || err);
+      if (this.publisherPromise !== publisherBeforeXadd) {
+        // boundedCommand's timeout handler already dropped this publisher
+        // (disconnected socket, cleared publisherPromise) — the local
+        // `publisher` reference is now dead. Re-fetch through getPublisher()
+        // — bounded by the same connect timeout, and cached on
+        // publisherPromise so the client is shared and reaped like any other
+        // publisher instead of leaking one connection per timeout.
+        publisher = await this.getPublisher();
+      }
     }
 
     await this.boundedCommand(

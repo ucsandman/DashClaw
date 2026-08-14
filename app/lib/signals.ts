@@ -33,6 +33,9 @@ interface Signal {
   provider?: string | null;
   policy_id?: string | null;
   trigger?: string | null;
+  // mcp_degraded only: the degraded server's name. It, not agent_id, is what
+  // identifies the signal — see signalDismissKey in ./signal-hash.
+  mcp_server?: string | null;
 }
 
 // DB rows from the various signal queries are dynamic; fields are read by name.
@@ -428,6 +431,9 @@ export function buildMcpDegradedSignals(recentMcpDecisions: Row[] | null): Signa
           detail: mcp.error || `MCP server ${mcp.server} is ${mcp.status}`,
           help: 'Check MCP server configuration and connectivity',
           agent_id: dec.agent_id,
+          // The dismissal identity for this signal: one per server, stable
+          // across whichever agent's decision row happened to report it.
+          mcp_server: mcp.server,
           detected_at: dec.created_at || null,
         });
       }
@@ -749,28 +755,32 @@ export async function computeSignals(
     }
   } catch (e) { warnNull('approval_flood')(e); }
 
+  // Post-filter by agent_id if requested. This runs BEFORE the dismissal split
+  // on purpose: most signal queries don't push filterAgentId into SQL, so
+  // filtering afterwards left `mutedOut` full of other agents' dismissals — an
+  // agent-scoped view would list, and offer Restore on, mutes that belong to
+  // agents the caller asked not to see.
+  const scopedSignals = filterAgentId
+    ? signals.filter((s) => s.agent_id === filterAgentId)
+    : signals;
+
   // ── Server-side dismissals — subtract the org's dismissed occurrence keys
   // here, at the single choke point, so EVERY consumer (status bar, signals
   // panel, widget pulse, guard warnings, signals cron) sees the same set.
   // Fail-open: a dismissal read failure must never hide or break signals.
-  let visibleSignals = signals;
+  let filteredSignals = scopedSignals;
   try {
     const { listDismissKeys } = await import('./repositories/signal-dismissals.repository');
     const { signalDismissKey } = await import('./signal-hash');
     const dismissed = new Set(await listDismissKeys(sql as never, orgId));
     if (dismissed.size > 0) {
-      visibleSignals = signals.filter((s) => {
+      filteredSignals = scopedSignals.filter((s) => {
         if (!dismissed.has(signalDismissKey(s))) return true;
         mutedOut?.push(s);
         return false;
       });
     }
   } catch (e) { warnNull('signal_dismissals')(e); }
-
-  // Post-filter by agent_id if requested
-  const filteredSignals = filterAgentId
-    ? visibleSignals.filter((s) => s.agent_id === filterAgentId)
-    : visibleSignals;
 
   // Sort: red first, then amber
   filteredSignals.sort((a, b) => {

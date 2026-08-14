@@ -327,21 +327,27 @@ export async function autoTrustHooks({
   if (after !== before) writeFileSync(configPath, after);
 
   // Verify: re-list and require every one of our hooks to report trusted.
+  // `verified` stays null when the re-list itself failed — that is NOT the
+  // same as a confirmed trust, so it must not be reported as 'trusted'.
   let verified = null;
+  let verifyError = null;
   try {
     const recheck = await listHooks({ codexBin: found.bin, codexHome, cwd });
     const still = recheck.filter((h) => samePath(h.sourcePath, configPath));
     verified = still.length > 0 && still.every((h) => h.trustStatus === 'trusted');
   } catch (err) {
+    verifyError = err.message;
     logger.warn(`Trust verification re-list failed: ${err.message}`);
   }
 
+  const reason = verified === true ? 'trusted' : verified === false ? 'verify-failed' : 'verify-unavailable';
   return {
-    ok: verified !== false,
-    reason: verified === false ? 'verify-failed' : 'trusted',
+    ok: verified === true,
+    reason,
     trusted: entries.length,
     verified,
     bin: found.bin,
     version: found.version,
+    ...(verifyError ? { detail: verifyError } : {}),
   };
 }

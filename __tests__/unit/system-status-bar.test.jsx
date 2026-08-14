@@ -70,6 +70,34 @@ describe('SystemStatusBar ticker', () => {
     await waitFor(() => expect(localStorage.getItem('dashclaw_dismissed_signals')).toBeNull());
   });
 
+  it('drops the legacy local set when the server rejects it for good (4xx)', async () => {
+    // Legacy pre-timestamp keys now fail the shape gate (400), and a
+    // non-admin gets 403 — both can never succeed, so retrying the migration
+    // on every mount would loop forever. A 4xx must clear the local copy.
+    localStorage.setItem('dashclaw_dismissed_signals', JSON.stringify(['k1']));
+    global.fetch = vi.fn(async (url, opts = {}) => {
+      if ((opts.method || 'GET') === 'POST') return { ok: false, status: 400, json: async () => ({}) };
+      if (String(url).startsWith('/api/signals')) return { ok: true, json: async () => ({ signals: [] }) };
+      return { ok: true, json: async () => ({}) };
+    });
+    render(<SystemStatusBar />);
+
+    await waitFor(() => expect(localStorage.getItem('dashclaw_dismissed_signals')).toBeNull());
+  });
+
+  it('keeps the legacy local set on a transient server failure (5xx) so the next load retries', async () => {
+    localStorage.setItem('dashclaw_dismissed_signals', JSON.stringify(['k1']));
+    global.fetch = vi.fn(async (url, opts = {}) => {
+      if ((opts.method || 'GET') === 'POST') return { ok: false, status: 503, json: async () => ({}) };
+      if (String(url).startsWith('/api/signals')) return { ok: true, json: async () => ({ signals: [] }) };
+      return { ok: true, json: async () => ({}) };
+    });
+    render(<SystemStatusBar />);
+
+    await waitFor(() => expect(global.fetch.mock.calls.some(([, opts]) => opts?.method === 'POST')).toBe(true));
+    expect(localStorage.getItem('dashclaw_dismissed_signals')).toBe(JSON.stringify(['k1']));
+  });
+
   it('does not POST a migration when there is no legacy local set', async () => {
     mockSignals([]);
     render(<SystemStatusBar />);

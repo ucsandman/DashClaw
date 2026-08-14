@@ -3,10 +3,10 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { getSql as getDbSql } from '../../lib/db';
-import { getOrgId } from '../../lib/org';
+import { getOrgId, getOrgRole, getUserId } from '../../lib/org';
 import { computeSignals } from '../../lib/signals';
 import { addDismissals, removeDismissals } from '../../lib/repositories/signal-dismissals.repository';
-import { signalDismissKey } from '../../lib/signal-hash';
+import { isWellFormedDismissKey, signalDismissKey } from '../../lib/signal-hash';
 
 const MAX_DISMISS_KEYS = 1000;
 const MAX_KEY_LENGTH = 600;
@@ -37,6 +37,9 @@ export async function GET(request: Request) {
         type: s.type,
         label: s.label,
         agent_id: s.agent_id ?? null,
+        // Part of the dismiss key for mcp_degraded, so the panel can re-mint
+        // the same key from a muted entry as it does from a live signal.
+        mcp_server: s.mcp_server ?? null,
         severity: s.severity,
         dismiss_key: signalDismissKey(s as Parameters<typeof signalDismissKey>[0]),
       })),
@@ -83,6 +86,12 @@ async function readDismissKeys(request: Request): Promise<{ keys: string[] } | {
   if (keys.length !== rawKeys.length) {
     return { response: NextResponse.json({ error: `Every dismiss key must be a string of at most ${MAX_KEY_LENGTH} characters` }, { status: 400 }) };
   }
+  // Shape gate: a key that isn't the six-slot form signalDismissKey mints, led
+  // by a real signal type, can never match a computed signal — persisting it
+  // would only grow the table with rows nothing ever reads.
+  if (!keys.every(isWellFormedDismissKey)) {
+    return { response: NextResponse.json({ error: 'Every dismiss key must be a signal dismiss key' }, { status: 400 }) };
+  }
   return { keys };
 }
 
@@ -90,11 +99,16 @@ export async function POST(request: Request) {
   try {
     const sql = getSql();
     const orgId = getOrgId(request);
+    // Muting a signal hides a live risk condition from everyone in the org, so
+    // it is an admin act — same gate as /api/approval-pause.
+    if (getOrgRole(request) !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
 
     const parsed = await readDismissKeys(request);
     if ('response' in parsed) return parsed.response;
 
-    const added = await addDismissals(sql, orgId, parsed.keys);
+    const added = await addDismissals(sql, orgId, parsed.keys, getUserId(request) || null);
     return NextResponse.json({ dismissed: added, received: parsed.keys.length });
   } catch (error) {
     console.error('Signal dismissal API error:', error);
@@ -110,6 +124,9 @@ export async function DELETE(request: Request) {
   try {
     const sql = getSql();
     const orgId = getOrgId(request);
+    if (getOrgRole(request) !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
 
     const parsed = await readDismissKeys(request);
     if ('response' in parsed) return parsed.response;

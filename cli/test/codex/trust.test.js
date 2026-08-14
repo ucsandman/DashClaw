@@ -229,4 +229,36 @@ describe('autoTrustHooks', () => {
     assert.equal(result.ok, false);
     assert.equal(result.reason, 'verify-failed');
   });
+
+  it('reports verify-unavailable (not trusted) when the re-list throws', async () => {
+    const dir = makeTempDir('dashclaw-trust-');
+    const configPath = writeConfig(dir);
+    let calls = 0;
+    const result = await autoTrustHooks({
+      configPath,
+      codexHome: dir,
+      logger: silentLogger,
+      findBin: () => fakeBin,
+      listHooks: async () => {
+        calls++;
+        if (calls === 1) {
+          return [
+            {
+              key: `${configPath}:pre_tool_use:0:0`,
+              currentHash: 'sha256:h3',
+              sourcePath: configPath,
+              trustStatus: 'untrusted',
+            },
+          ];
+        }
+        throw new Error('app-server hung up');
+      },
+    });
+    // Verification never ran to completion, so this must NOT be reported as
+    // trusted/ok — that would be a false "governance is enforcing" claim.
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, 'verify-unavailable');
+    assert.equal(result.verified, null);
+    assert.match(result.detail, /app-server hung up/);
+  });
 });

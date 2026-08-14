@@ -172,18 +172,26 @@ export default function GovernanceSignalsPanel({ initialSeverity }: { initialSev
   const restoreMany = async (keys: string[]) => {
     if (keys.length === 0) return;
     const keySet = new Set(keys);
+    // Optimistic remove from Muted; a failed DELETE refetches so a restore
+    // that never persisted doesn't sit there looking like it worked.
     setMuted((prev) => prev.filter((m) => !keySet.has(m.dismiss_key)));
     try {
       for (let i = 0; i < keys.length; i += DISMISS_CHUNK) {
-        await fetch('/api/signals', {
+        const res = await fetch('/api/signals', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ dismiss_keys: keys.slice(i, i + DISMISS_CHUNK) }),
         });
+        if (!res.ok) {
+          fetchSignals();
+          return;
+        }
       }
-    } finally {
+    } catch {
       fetchSignals();
+      return;
     }
+    fetchSignals();
   };
 
   // Dismissal means two different things depending on the signal type, and the
