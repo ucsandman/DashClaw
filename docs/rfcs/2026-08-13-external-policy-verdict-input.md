@@ -1,6 +1,6 @@
 # RFC: External Policy Verdict Input at the Guard Seam
 
-- **Status:** PROPOSED, demand-gated (design only — build starts when a concrete first integrator commits to wiring a real provider against a real agent workload)
+- **Status:** ACCEPTED — demand gate satisfied 2026-08-13. First committed integrator: **Agent Memory / PAMA** (MythologIQ Labs), with a real workload (an agent-issued governed durable-memory mutation through its existing runtime path), raised on [issue #219](https://github.com/ucsandman/DashClaw/issues/219). Division of labor: the integrator owns the provider adapter; the DashClaw side (guard seam, join, posture, evidence, surfaces) is built by the maintainer against this frozen contract.
 - **Date:** 2026-08-13
 - **Origin:** [issue #219](https://github.com/ucsandman/DashClaw/issues/219) (Kevin Knapp) — accepted design shape, scoped down
 - **Why an RFC and not a spec:** it freezes a wire contract other vendors would build against. Contracts that outside parties depend on get decided in the open before code exists.
@@ -156,6 +156,15 @@ seam with no confirmed counterpart is the exact speculative-surface pattern
 the anti-regrowth brake exists to stop. The build starts when one named
 external engine (ACS-shaped or otherwise) and one real agent workload commit
 to wiring up against this contract. Issue #219 is where that hand gets raised.
+
+**Gate satisfied 2026-08-13.** Agent Memory / PAMA committed on #219 as the
+named engine, with an agent-issued governed durable-memory mutation as the
+real workload. The provider endpoint does not exist yet; the commitment is to
+build the adapter against this contract, which is what the gate asked for —
+a confirmed counterpart, not a finished one. Microsoft AGT / ACS
+([issue #220](https://github.com/ucsandman/DashClaw/issues/220)) is the second
+conformance target once the seam is live; its adversarial list is adopted as
+the mock-provider test matrix for the generic seam itself.
 
 ## 9. Non-goals
 

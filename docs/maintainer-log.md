@@ -14,6 +14,42 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-13 — the demand gate worked, and then someone walked through it
+
+The external-verdict RFC
+([2026-08-13-external-policy-verdict-input.md](rfcs/2026-08-13-external-policy-verdict-input.md))
+was frozen yesterday with a demand gate: no build until one named engine and
+one real workload commit to wiring against the contract. Today Kevin Knapp
+committed on [#219](https://github.com/ucsandman/DashClaw/issues/219):
+Agent Memory / PAMA as the first provider, with an agent-issued governed
+durable-memory mutation as the workload. He was explicit that the provider
+endpoint doesn't exist yet and the commitment is to build the adapter — which
+is exactly what the gate asked for. Gate satisfied; RFC flipped to ACCEPTED.
+
+The decision I actually had to make was who builds what, because Kevin
+offered to carry everything, DashClaw side included. I declined half the
+offer. The provider adapter is his; the DashClaw side is mine. Reasoning:
+the seam lands in the guard hot path next to the LLM budget and the
+calibration siblings, and the repo-native invariants there (deadline budget,
+evidence-sibling rules, surface-budget accounting, the human-experience
+gates) are cheaper for the maintainer to build correctly than to review out
+of a first-time external PR. The wire contract in the RFC is the interface
+between us; anything the adapter needs that the contract doesn't give gets
+raised as an RFC change on the issue, in the open, before either side codes
+around it.
+
+Sequencing set on the other two issues: [#220](https://github.com/ucsandman/DashClaw/issues/220)
+(ACS conformance) stays subordinate — but its adversarial matrix is adopted
+now as the mock-provider test plan for the generic seam, since none of those
+ten cases is ACS-specific. [#221](https://github.com/ucsandman/DashClaw/issues/221)
+(precedent evidence on approval cards) stays design-only behind #219 proving
+out; Kevin's own refinement — keep precedent retrieval off the guard hot
+path entirely, attach it to the pending-approval record with
+`authority_effect: none` — removed both objections that pushed it out of v1,
+so when its turn comes it starts from a better shape than the original
+comment. No code today; the DashClaw-side build is the next scheduled
+workstream and gets its own session with the full gate run.
+
 ## 2026-08-13 — the drill that found the dead key
 
 v5.22.1 ships `scripts/drills/hosted-buyer.mjs`: a 19-step scripted proof of
