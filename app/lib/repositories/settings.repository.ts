@@ -122,6 +122,19 @@ export const VALID_SETTING_KEYS = [
   // guard hot path — the consumption query needs no settings).
   'PLAN_GRANT_TTL_MAX_MINUTES',
   'PLAN_MAX_STEPS',
+  // External policy verdict provider (RFC docs/rfcs/2026-08-13-external-policy-
+  // verdict-input.md, #219). One optional per-org provider whose verdict joins
+  // the local guard result stricter-wins. Written by the admin-gated settings
+  // API from /policies; read on the guard hot path (rides the same cached
+  // category-general settings read as the halt key). URL and token auto-encrypt
+  // via shouldAutoEncrypt suffix rules; PROVIDER deliberately avoids an _ID
+  // suffix so the display label stays readable.
+  'EXTERNAL_VERDICT_ENABLED',
+  'EXTERNAL_VERDICT_PROVIDER',
+  'EXTERNAL_VERDICT_PROVIDER_URL',
+  'EXTERNAL_VERDICT_AUTH_TOKEN',
+  'EXTERNAL_VERDICT_TIMEOUT_MS',
+  'EXTERNAL_VERDICT_POSTURE',
 ];
 
 export const VALID_CATEGORIES = ['integration', 'general', 'system'];

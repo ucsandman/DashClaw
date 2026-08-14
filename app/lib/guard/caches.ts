@@ -73,6 +73,31 @@ export interface ApprovalPauseState {
 }
 const approvalPauseCache = new Map<string, { pause: ApprovalPauseState | null; expires: number }>();
 
+/**
+ * External policy verdict provider config (RFC 2026-08-13-external-policy-
+ * verdict-input, #219). Rides the shared category-general settings read on the
+ * 30s TTL — provider config changes rarely and a stale entry only delays a
+ * config edit, never a decision (the posture applies either way). URL and
+ * auth token are decrypted here, once per cache fill, not per guard call.
+ */
+export interface ExternalVerdictConfig {
+  enabled: boolean;
+  url: string | null;
+  authToken: string | null;
+  /** Parsed from EXTERNAL_VERDICT_TIMEOUT_MS, clamped 100..5000. */
+  timeoutMs: number;
+  /** Unavailability posture — anything but explicit 'fail_open' is fail_closed. */
+  posture: 'fail_closed' | 'fail_open';
+  /** Display/provenance id: EXTERNAL_VERDICT_PROVIDER, else the URL host. */
+  providerId: string;
+}
+export const EXTERNAL_VERDICT_TIMEOUT_DEFAULT_MS = 1_200;
+const DISABLED_EXTERNAL_VERDICT_CONFIG: ExternalVerdictConfig = {
+  enabled: false, url: null, authToken: null,
+  timeoutMs: EXTERNAL_VERDICT_TIMEOUT_DEFAULT_MS, posture: 'fail_closed', providerId: 'external',
+};
+const externalVerdictCache = new Map<string, { cfg: ExternalVerdictConfig; expires: number }>();
+
 // Deviation detection pre-gate (RFC 2026-08-11-plan-deviation-events §8): the
 // overwhelmingly common case — an agent with no live plan — must cost a cache
 // hit and zero queries on the guard hot path. Keyed org:agent (the first
@@ -127,13 +152,25 @@ export function invalidateGuardSettingsCache(orgId?: string): void {
     approvalPauseCache.delete(orgId);
     calibrationSettingsCache.delete(orgId);
     calibrationStateCache.delete(orgId);
+    externalVerdictCache.delete(orgId);
   } else {
     predictiveSettingsCache.clear();
     orgHaltCache.clear();
     approvalPauseCache.clear();
     calibrationSettingsCache.clear();
     calibrationStateCache.clear();
+    externalVerdictCache.clear();
   }
+}
+
+/**
+ * Called by the settings API when an EXTERNAL_VERDICT_* key changes, so a
+ * provider enable/disable or posture flip reaches this instance immediately
+ * (other warm instances converge within the 30s TTL).
+ */
+export function invalidateGuardExternalVerdictCache(orgId?: string): void {
+  if (orgId) externalVerdictCache.delete(orgId);
+  else externalVerdictCache.clear();
 }
 
 /**
@@ -223,6 +260,56 @@ export function __resetGuardCaches(): void {
   calibrationSettingsCache.clear();
   calibrationStateCache.clear();
   hasLivePlanCache.clear();
+  externalVerdictCache.clear();
+}
+
+/**
+ * The org's external verdict provider config, from the shared 30s settings
+ * cache. Callers treat `enabled && url` as "configured"; an enabled org whose
+ * URL is missing or undecryptable is NOT configured (no call, no evidence) —
+ * unavailability posture is reserved for a configured provider that fails.
+ */
+export async function getExternalVerdictConfig(sql: GuardSql, orgId: string): Promise<ExternalVerdictConfig> {
+  const hit = externalVerdictCache.get(orgId);
+  if (hit && hit.expires > Date.now()) return hit.cfg;
+  await loadGeneralSettings(sql, orgId);
+  return externalVerdictCache.get(orgId)?.cfg ?? DISABLED_EXTERNAL_VERDICT_CONFIG;
+}
+
+async function parseExternalVerdictConfig(
+  list: Array<Record<string, unknown>>,
+  orgId: string,
+): Promise<ExternalVerdictConfig> {
+  const row = (key: string) => list.find((s) => s.key === key);
+  const enabled = row('EXTERNAL_VERDICT_ENABLED')?.value === 'true';
+  // URL and token auto-encrypt at the settings API (shouldAutoEncrypt suffix
+  // rules); decrypt once per cache fill. Import lazily so orgs without a
+  // provider never load the encryption module on the guard hot path.
+  const readMaybeEncrypted = async (key: string): Promise<string | null> => {
+    const r = row(key);
+    if (!r || typeof r.value !== 'string' || !r.value) return null;
+    if (!r.encrypted) return r.value;
+    try {
+      const { decrypt } = await import('../encryption');
+      return decrypt(r.value, `${orgId}:${key}`);
+    } catch (err) {
+      console.warn('[Guard] external-verdict setting decrypt failed:', key, (err as Error).message);
+      return null;
+    }
+  };
+  const url = enabled ? await readMaybeEncrypted('EXTERNAL_VERDICT_PROVIDER_URL') : null;
+  const authToken = enabled ? await readMaybeEncrypted('EXTERNAL_VERDICT_AUTH_TOKEN') : null;
+  const timeoutRaw = parseInt(String(row('EXTERNAL_VERDICT_TIMEOUT_MS')?.value ?? ''), 10);
+  const timeoutMs = Number.isFinite(timeoutRaw)
+    ? Math.min(5_000, Math.max(100, timeoutRaw))
+    : EXTERNAL_VERDICT_TIMEOUT_DEFAULT_MS;
+  const posture = row('EXTERNAL_VERDICT_POSTURE')?.value === 'fail_open' ? 'fail_open' as const : 'fail_closed' as const;
+  const providerRaw = row('EXTERNAL_VERDICT_PROVIDER')?.value;
+  let providerId = typeof providerRaw === 'string' && providerRaw ? providerRaw : null;
+  if (!providerId && url) {
+    try { providerId = new URL(url).host; } catch { /* fall through to default */ }
+  }
+  return { enabled, url, authToken, timeoutMs, posture, providerId: providerId ?? 'external' };
 }
 
 // Active org risk templates, served from the short-TTL cache (same pattern as
@@ -339,6 +426,11 @@ async function loadGeneralSettings(sql: GuardSql, orgId: string): Promise<{ enab
     expires: now + GUARD_CACHE_TTL_MS,
   });
   pruneCache(calibrationSettingsCache, now);
+  externalVerdictCache.set(orgId, {
+    cfg: await parseExternalVerdictConfig(settingsList, orgId),
+    expires: now + GUARD_CACHE_TTL_MS,
+  });
+  pruneCache(externalVerdictCache, now);
   return { enabled: predictive.enabled, threshold: predictive.threshold, halt, approvalPause };
 }
 
