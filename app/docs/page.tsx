@@ -746,6 +746,8 @@ cp -r public/downloads/dashclaw-governance ~/.claude/skills/
                 identity-bound to the exact act via an echoed <code className="text-xs">input_identity</code> digest.
                 If the provider is unreachable, the configured posture applies — fail closed (ask a human, the default)
                 or fail open (local rules only) — and the decision records <em>external unavailable</em> either way.
+                A domain-specific provider can declare an action-type scope (&quot;Action types it governs&quot;): out-of-scope
+                acts skip the provider call entirely and record <em>external: out of scope</em>, never a fake external allow.
                 Wire contract for provider implementers:{' '}
                 <code className="text-xs">docs/external-verdict-provider.md</code>.
               </p>

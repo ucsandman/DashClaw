@@ -135,6 +135,10 @@ export const VALID_SETTING_KEYS = [
   'EXTERNAL_VERDICT_AUTH_TOKEN',
   'EXTERNAL_VERDICT_TIMEOUT_MS',
   'EXTERNAL_VERDICT_POSTURE',
+  // Applicability scope (#219 follow-up): comma-separated exact action_types
+  // the provider governs; empty = every act. Plain-text on purpose — it must
+  // stay readable when the encrypted URL cannot be recovered.
+  'EXTERNAL_VERDICT_ACTION_TYPES',
 ];
 
 export const VALID_CATEGORIES = ['integration', 'general', 'system'];

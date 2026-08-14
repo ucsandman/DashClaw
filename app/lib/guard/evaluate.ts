@@ -255,6 +255,24 @@ async function runExternalVerdict(
   try {
     cfg = await getExternalVerdictConfig(sql, orgId);
     if (cfg.configState === 'unset') return null;
+    // Applicability scope (#219 follow-up): a domain-specific provider is
+    // only consulted for the action_types it declared authority over. An
+    // out-of-scope act is LOCAL-ONLY governance by configuration — no wire
+    // call, no latency, and no unavailability posture (there is nothing to
+    // be unavailable for) — but the skip is recorded, never silent, so an
+    // operator can see the provider was not asked. Checked before the
+    // 'unreadable' posture on purpose: the scope key is plain-text and stays
+    // readable when the encrypted URL does not.
+    if (cfg.actionTypes && !cfg.actionTypes.includes(context.action_type || '')) {
+      return {
+        provider_id: cfg.providerId,
+        posture: cfg.posture,
+        status: 'skipped',
+        regime: 'not_applicable',
+        latency_ms: 0,
+        reason_code: 'action_type_not_in_scope',
+      };
+    }
     if (cfg.configState === 'unreadable') {
       // Enabled and a URL was saved, but it could not be decrypted (e.g.
       // after an ENCRYPTION_KEY rotation) — a failed provider call in every

@@ -36,8 +36,10 @@ const MIN_CALL_BUDGET_MS = 100;
 
 export interface ExternalVerdictEvidence {
   provider_id: string;
-  status: 'ok' | 'unavailable';
-  regime: 'external+local' | 'external_unavailable';
+  /** 'skipped' — the act was outside the provider's configured applicability
+   *  scope (#219 follow-up): never called, no posture, recorded honestly. */
+  status: 'ok' | 'unavailable' | 'skipped';
+  regime: 'external+local' | 'external_unavailable' | 'not_applicable';
   posture: 'fail_closed' | 'fail_open';
   latency_ms: number;
   raw_verdict?: string;

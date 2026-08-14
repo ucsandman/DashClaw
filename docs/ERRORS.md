@@ -4,6 +4,10 @@ Newest first. Full entries for multi-attempt debugging or reusable lessons; one-
 
 ---
 
+- 2026-08-14 — CI-only flake in `policies-inert-banner-reveal.test.jsx`: one-shot `getByRole(...).getAttribute('aria-selected')` read a batched lens update a frame early under CI load while the sibling `findByText` retried its way past it / root cause: mixed retrying + one-shot assertions over the same state transition / prevention: assert post-transition state via `waitFor`, never a bare read next to a `findBy*`.
+
+---
+
 ## 2026-08-14 — adversarial sweep #2: durable-mute key coarser than the signal it mutes; publish() reused a client its own timeout handler destroyed
 
 Three lessons from the 13-finding sweep over the v5.23.4 arc, same-day catches of code shipped earlier in the arc:

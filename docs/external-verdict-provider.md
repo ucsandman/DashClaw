@@ -80,6 +80,27 @@ Rules:
 - `evidence` is optional and bounded: serialized payloads over 4096 chars are
   dropped (a truncation marker is stored instead).
 
+## Applicability scope (domain-specific providers)
+
+A provider does not have to govern every act. If yours has authority over a
+domain — say durable-memory mutations — list the exact `action_type` values it
+governs in the **Action types it governs** field of the `/policies` provider
+panel (comma-separated; the setting key is `EXTERNAL_VERDICT_ACTION_TYPES`).
+
+With a scope configured, DashClaw only calls your endpoint for acts whose
+`action_type` matches the list exactly. Everything else is local-only
+governance **by configuration**: no wire call, no hot-path latency, no
+unavailability posture — and the decision's evidence records
+`status: "skipped"`, `regime: "not_applicable"` (never a fake external
+`allow`, and never silence). The detail page shows `External: out of scope`.
+
+An empty scope means the original behavior: every guard decision is sent.
+The wire contract is unchanged either way — applicability is a host-side
+configuration concern, so your endpoint never needs an `abstain` verdict.
+Acts with no `action_type` at all are out of scope for a scoped provider.
+The **Test provider** button bypasses the scope on purpose — it tests the
+wire, not the filter.
+
 ## Failure posture
 
 The call runs inside the guard hot path under a hard budget
@@ -104,8 +125,9 @@ fetch (private IPs and redirects are refused).
 Every decision a provider touched carries a `_external_verdict` block in its
 audit evidence (provider id, raw and mapped verdict, reason, versions,
 identity, latency, posture, failure kind if any), and operators see the regime
-— `External: <verdict>` or `External unavailable` — on the decision detail
-page and on `/approvals` cards. Your verdict is **decision evidence, not an
+— `External: <verdict>`, `External unavailable`, or `External: out of scope` —
+on the decision detail page; `/approvals` cards show the first two (a
+never-consulted provider never caused an approval ask). Your verdict is **decision evidence, not an
 execution witness**: DashClaw's enforcement and witness semantics prove
 whether the joined decision was enforced; an external verdict is never itself
 proof of enforcement.

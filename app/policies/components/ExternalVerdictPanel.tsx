@@ -23,6 +23,7 @@ const KEYS = [
   'EXTERNAL_VERDICT_AUTH_TOKEN',
   'EXTERNAL_VERDICT_TIMEOUT_MS',
   'EXTERNAL_VERDICT_POSTURE',
+  'EXTERNAL_VERDICT_ACTION_TYPES',
 ] as const;
 
 interface FormState {
@@ -32,10 +33,12 @@ interface FormState {
   token: string;
   timeoutMs: string;
   posture: 'fail_closed' | 'fail_open';
+  /** Comma-separated exact action types the provider governs; empty = all. */
+  actionTypes: string;
 }
 
 const EMPTY: FormState = {
-  enabled: false, provider: '', url: '', token: '', timeoutMs: '', posture: 'fail_closed',
+  enabled: false, provider: '', url: '', token: '', timeoutMs: '', posture: 'fail_closed', actionTypes: '',
 };
 
 /** The wire client's contract checks, in the order it applies them. A probe's
@@ -80,6 +83,7 @@ export default function ExternalVerdictPanel() {
           token: val('EXTERNAL_VERDICT_AUTH_TOKEN'),
           timeoutMs: val('EXTERNAL_VERDICT_TIMEOUT_MS'),
           posture: val('EXTERNAL_VERDICT_POSTURE') === 'fail_open' ? 'fail_open' : 'fail_closed',
+          actionTypes: val('EXTERNAL_VERDICT_ACTION_TYPES'),
         });
       } catch (err) {
         if (!cancelled) { setForm(EMPTY); setError((err as Error).message); }
@@ -101,6 +105,7 @@ export default function ExternalVerdictPanel() {
         EXTERNAL_VERDICT_AUTH_TOKEN: form.token.trim(),
         EXTERNAL_VERDICT_TIMEOUT_MS: form.timeoutMs.trim(),
         EXTERNAL_VERDICT_POSTURE: form.posture,
+        EXTERNAL_VERDICT_ACTION_TYPES: form.actionTypes.trim(),
       };
       for (const key of KEYS) {
         // An empty optional token stays unset instead of storing ''.
@@ -212,7 +217,21 @@ export default function ExternalVerdictPanel() {
             onChange={(e) => set({ timeoutMs: e.target.value })}
           />
         </label>
+        <label className={styles.extField}>
+          <span>Action types it governs (optional)</span>
+          <input
+            type="text"
+            value={form.actionTypes}
+            placeholder="agent_memory.mutation, agent_memory.delete"
+            onChange={(e) => set({ actionTypes: e.target.value })}
+          />
+        </label>
       </div>
+      <p className={styles.extHint}>
+        Leave the action types empty and the provider sees <b>every</b> guard decision. List
+        exact types (comma-separated) and it is only consulted for those — other actions stay
+        local-only and their decisions record <b>external: out of scope</b>.
+      </p>
 
       <div className={styles.extRow}>
         <span className={styles.extRowLabel}>When the provider is unreachable:</span>

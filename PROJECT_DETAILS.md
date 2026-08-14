@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-08-13
+last-verified: 2026-08-14
 doc-type: architecture
 ---
 
@@ -164,7 +164,7 @@ older integrations but is no longer the primary identity surface.
 
 ## External decision provider
 
-An org can configure **one external decision provider** (RFC `docs/rfcs/2026-08-13-external-policy-verdict-input.md`, #219): `/policies` workbench form → six `EXTERNAL_VERDICT_*` org-settings keys (URL and bearer token encrypted at rest), read on the guard hot path through the shared cached settings read (`app/lib/guard/caches.ts`). During evaluation, `app/lib/guard/external-verdict.ts` POSTs the evaluated act tuple over `safeFetch` (SSRF-guarded, budgeted by the evaluation deadline) and the verdict joins **stricter-wins** via the existing `raiseDecision` lattice — `allow/warn/escalate/deny` → `allow/warn/require_approval/block`, external `deny` absolute, external `allow` never loosening, identity-bound by an echoed `input_identity` digest (a mismatch discards the verdict). Unavailability takes the configured posture (`fail_closed` default → `require_approval`; `fail_open` → local-only) and is recorded honestly as `external unavailable`. Provenance persists as a `_external_verdict` sibling in `guard_decisions.context` (never inside the score vector); operators see the regime on decision detail and `/approvals`. Wire contract for provider implementers: `docs/external-verdict-provider.md`. Conformance: the ten #220 adversarial cases in `__tests__/unit/guard-external-verdict.test.js`. Zero new routes/SDK methods/MCP tools/policy types.
+An org can configure **one external decision provider** (RFC `docs/rfcs/2026-08-13-external-policy-verdict-input.md`, #219): `/policies` workbench form → seven `EXTERNAL_VERDICT_*` org-settings keys (URL and bearer token encrypted at rest; the `ACTION_TYPES` applicability scope deliberately plain-text so it survives an unreadable URL), read on the guard hot path through the shared cached settings read (`app/lib/guard/caches.ts`). During evaluation, `app/lib/guard/external-verdict.ts` POSTs the evaluated act tuple over `safeFetch` (SSRF-guarded, budgeted by the evaluation deadline) and the verdict joins **stricter-wins** via the existing `raiseDecision` lattice — `allow/warn/escalate/deny` → `allow/warn/require_approval/block`, external `deny` absolute, external `allow` never loosening, identity-bound by an echoed `input_identity` digest (a mismatch discards the verdict). Unavailability takes the configured posture (`fail_closed` default → `require_approval`; `fail_open` → local-only) and is recorded honestly as `external unavailable`. Provenance persists as a `_external_verdict` sibling in `guard_decisions.context` (never inside the score vector); operators see the regime on decision detail and `/approvals`. A domain-specific provider can declare an applicability scope (`EXTERNAL_VERDICT_ACTION_TYPES`, exact `action_type` allowlist; empty = every act): out-of-scope acts skip the wire call, take no posture, and persist `status: "skipped"` / `regime: "not_applicable"` — surfaced as `External: out of scope` on decision detail, deliberately unlabeled on `/approvals` (a never-consulted provider never caused an ask). Wire contract for provider implementers: `docs/external-verdict-provider.md`. Conformance: the ten #220 adversarial cases plus the applicability-scope cases in `__tests__/unit/guard-external-verdict.test.js`. Zero new routes/SDK methods/MCP tools/policy types.
 
 ## Non-fabrication & signed evidence
 

@@ -569,7 +569,11 @@ export default function ApprovalsPage() {
                               {/* RFC 2026-08-13 §6: an operator approving a
                                   require_approval that came from an external
                                   escalate sees that is WHY they were asked. */}
-                              {action.external_verdict && (
+                              {/* A 'not_applicable' skip (#219 scope filter) stays
+                                  unlabeled here: this badge explains why the ask
+                                  happened, and a never-consulted provider never
+                                  caused an ask. The detail page shows the skip. */}
+                              {action.external_verdict && action.external_verdict.regime !== 'not_applicable' && (
                                 <span title={`External decision provider: ${action.external_verdict.provider_id}`}>
                                   <Badge
                                     variant={action.external_verdict.regime === 'external+local' ? 'info' : 'warning'}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 /**
  * F1 inert-rule banner → the grant that nullified the rule.
@@ -106,7 +106,12 @@ describe('/policies — inert-rule banner reveals the suppressing grant (F1)', (
     fireEvent.click(screen.getByRole('button', { name: /review suppressed patterns/i }));
 
     expect(await screen.findByText(/never bother me about/i)).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /sentences/i }).getAttribute('aria-selected')).toBe('true');
+    // waitFor, not a one-shot read: under CI load jsdom can yield the text
+    // assertion's retry loop a frame before the tab's aria state commits
+    // (flaked remotely 2026-08-14; same tree, one-shot read of a batched
+    // update). The asserted landing state is unchanged.
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: /sentences/i }).getAttribute('aria-selected')).toBe('true'));
     // The human's whole job here is one click: remove the grant.
     expect(screen.getByRole('button', { name: 'Remove' })).toBeTruthy();
   });

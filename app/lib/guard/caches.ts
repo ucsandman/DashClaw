@@ -91,6 +91,13 @@ export interface ExternalVerdictConfig {
   /** Display/provenance id: EXTERNAL_VERDICT_PROVIDER, else the URL host. */
   providerId: string;
   /**
+   * Applicability scope (#219 follow-up): exact action_types the provider
+   * governs, from EXTERNAL_VERDICT_ACTION_TYPES (comma-separated). null =
+   * no filter — every act is in scope, the original behavior. A scoped
+   * provider is never called (and no posture applies) for acts outside it.
+   */
+  actionTypes: string[] | null;
+  /**
    * 'unset' — not enabled, or no URL value was ever saved (nothing to run).
    * 'unreadable' — enabled AND a stored URL value exists but could not be
    * decrypted (e.g. after an ENCRYPTION_KEY rotation). 'ready' — usable. The guard
@@ -103,6 +110,7 @@ export const EXTERNAL_VERDICT_TIMEOUT_DEFAULT_MS = 1_200;
 const DISABLED_EXTERNAL_VERDICT_CONFIG: ExternalVerdictConfig = {
   enabled: false, url: null, authToken: null,
   timeoutMs: EXTERNAL_VERDICT_TIMEOUT_DEFAULT_MS, posture: 'fail_closed', providerId: 'external',
+  actionTypes: null,
   configState: 'unset',
 };
 const externalVerdictCache = new Map<string, { cfg: ExternalVerdictConfig; expires: number }>();
@@ -356,6 +364,14 @@ async function parseExternalVerdictConfig(
     ? Math.min(5_000, Math.max(100, timeoutRaw))
     : EXTERNAL_VERDICT_TIMEOUT_DEFAULT_MS;
   const posture = row('EXTERNAL_VERDICT_POSTURE')?.value === 'fail_open' ? 'fail_open' as const : 'fail_closed' as const;
+  // Applicability scope (#219 follow-up): plain-text on purpose — it must
+  // stay readable even when the encrypted URL/token cannot be recovered, so
+  // an out-of-scope act never takes an unavailability posture.
+  const scopeRaw = row('EXTERNAL_VERDICT_ACTION_TYPES')?.value;
+  const scopeList = typeof scopeRaw === 'string'
+    ? scopeRaw.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+  const actionTypes = scopeList.length > 0 ? scopeList : null;
   const providerRaw = row('EXTERNAL_VERDICT_PROVIDER')?.value;
   let providerId = typeof providerRaw === 'string' && providerRaw ? providerRaw : null;
   if (!providerId && url) {
@@ -368,7 +384,7 @@ async function parseExternalVerdictConfig(
       : !url
         ? 'unset'
         : 'ready';
-  return { enabled, url, authToken, timeoutMs, posture, providerId: providerId ?? 'external', configState };
+  return { enabled, url, authToken, timeoutMs, posture, providerId: providerId ?? 'external', actionTypes, configState };
 }
 
 // Active org risk templates, served from the short-TTL cache (same pattern as

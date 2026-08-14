@@ -185,3 +185,15 @@ Additionally out of scope for v1:
   the verdict seam proves out. Its safety invariant is adopted here for the
   record: **prior approval is evidence, not standing authority.**
 - Multiple simultaneous providers. One per org until someone real needs two.
+
+## Addendum (2026-08-14): applicability scope
+
+Raised by the first real adapter build (Agent Memory/PAMA, #219): a
+domain-specific provider must not be consulted — or spend hot-path latency —
+on acts outside its authority, and v1 has no `abstain` verdict. Resolution:
+a **host-side** applicability filter, not a fifth verdict. The org config
+gains `EXTERNAL_VERDICT_ACTION_TYPES` (exact `action_type` allowlist; empty =
+every act, the original behavior). Out-of-scope acts are local-only by
+configuration: no wire call, no posture, evidence records `status: "skipped"`
+/ `regime: "not_applicable"`. The v1 wire contract is unchanged and stays
+frozen. Details: `docs/external-verdict-provider.md` § Applicability scope.

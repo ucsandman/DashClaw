@@ -546,3 +546,87 @@ describe('evaluateGuard external-verdict seam (ten #220 adversarial cases)', () 
     expect(persistedContext(sql)._external_verdict.regime).toBe('external+local');
   });
 });
+
+// --- Provider applicability scope (#219 follow-up, raised by the Agent ------
+// Memory adapter build: a domain-specific provider must not be consulted —
+// or spend hot-path latency — on acts outside its declared authority, and
+// the evidence must say "out of scope", never a fake external `allow`.
+
+const SCOPED_SETTINGS = {
+  ...PROVIDER_SETTINGS,
+  EXTERNAL_VERDICT_ACTION_TYPES: 'agent_memory.mutation, agent_memory.delete',
+};
+
+describe('external verdict applicability scope (action_type allowlist)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    __resetGuardCaches();
+  });
+
+  it('config: parses a comma-separated allowlist, trimming and dropping empties', async () => {
+    mockGetSettings.mockResolvedValue(settingsRows({
+      ...PROVIDER_SETTINGS,
+      EXTERNAL_VERDICT_ACTION_TYPES: ' agent_memory.mutation ,, agent_memory.delete ',
+    }));
+    const cfg = await getExternalVerdictConfig(makeSql(), 'org_1');
+    expect(cfg.actionTypes).toEqual(['agent_memory.mutation', 'agent_memory.delete']);
+  });
+
+  it('config: absent or empty allowlist means no filter (every act is in scope)', async () => {
+    mockGetSettings.mockResolvedValue(settingsRows(PROVIDER_SETTINGS));
+    expect((await getExternalVerdictConfig(makeSql(), 'org_1')).actionTypes).toBeNull();
+    __resetGuardCaches();
+    mockGetSettings.mockResolvedValue(settingsRows({ ...PROVIDER_SETTINGS, EXTERNAL_VERDICT_ACTION_TYPES: ' , ' }));
+    expect((await getExternalVerdictConfig(makeSql(), 'org_1')).actionTypes).toBeNull();
+  });
+
+  it('out-of-scope act: provider never called, decision stays local, evidence says skipped — even under fail_closed', async () => {
+    providerAnswers('deny'); // would block if it were (wrongly) consulted
+    mockGetSettings.mockResolvedValue(settingsRows({ ...SCOPED_SETTINGS, EXTERNAL_VERDICT_POSTURE: 'fail_closed' }));
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx({ action_type: 'http_request' }), sql);
+    expect(mockSafeFetch).not.toHaveBeenCalled();
+    expect(result.decision).toBe('allow'); // no posture applies — the act was never externally governed
+    const xv = persistedContext(sql)._external_verdict;
+    expect(xv.status).toBe('skipped');
+    expect(xv.regime).toBe('not_applicable');
+    expect(xv.reason_code).toBe('action_type_not_in_scope');
+    expect(xv.mapped_verdict).toBeUndefined();
+  });
+
+  it('in-scope act: the wire call and stricter-wins join are unchanged (deny → block)', async () => {
+    providerAnswers('deny');
+    mockGetSettings.mockResolvedValue(settingsRows(SCOPED_SETTINGS));
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx({ action_type: 'agent_memory.mutation' }), sql);
+    expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+    expect(result.decision).toBe('block');
+    expect(persistedContext(sql)._external_verdict.regime).toBe('external+local');
+  });
+
+  it('scoped provider + act with no action_type → out of scope (a provider governs only what it declared)', async () => {
+    providerAnswers('deny');
+    mockGetSettings.mockResolvedValue(settingsRows(SCOPED_SETTINGS));
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx({ action_type: undefined }), sql);
+    expect(mockSafeFetch).not.toHaveBeenCalled();
+    expect(result.decision).toBe('allow');
+    expect(persistedContext(sql)._external_verdict.status).toBe('skipped');
+  });
+
+  it('out-of-scope act wins over an unreadable URL — no fail_closed escalation for an act the provider never governed', async () => {
+    mockDecrypt.mockReturnValueOnce(null); // URL undecryptable; the plain-text scope is still readable
+    mockGetSettings.mockResolvedValue([
+      ...settingsRows({
+        EXTERNAL_VERDICT_ENABLED: 'true',
+        EXTERNAL_VERDICT_POSTURE: 'fail_closed',
+        EXTERNAL_VERDICT_ACTION_TYPES: 'agent_memory.mutation',
+      }),
+      encryptedRow('EXTERNAL_VERDICT_PROVIDER_URL', 'sha256:v2:ciphertext'),
+    ]);
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx({ action_type: 'http_request' }), sql);
+    expect(result.decision).toBe('allow');
+    expect(persistedContext(sql)._external_verdict.status).toBe('skipped');
+  });
+});

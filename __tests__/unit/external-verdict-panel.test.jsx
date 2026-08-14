@@ -70,6 +70,22 @@ describe('ExternalVerdictPanel', () => {
     expect(postedBody(fetchFn, 'EXTERNAL_VERDICT_POSTURE').value).toBe('fail_open');
   });
 
+  it('seeds, edits, and saves the applicability scope — clearing it saves an empty value (not a skipped write)', async () => {
+    const fetchFn = makeFetch([...CONFIGURED, { key: 'EXTERNAL_VERDICT_ACTION_TYPES', value: 'agent_memory.mutation' }]);
+    global.fetch = fetchFn;
+    render(<ExternalVerdictPanel />);
+    const scope = await screen.findByDisplayValue('agent_memory.mutation');
+
+    fireEvent.change(scope, { target: { value: '' } });
+    fireEvent.click(screen.getByText('Save provider'));
+
+    // An emptied scope MUST still POST (value '') — skipping the write, like
+    // the optional token does, would leave a stale filter active forever.
+    await waitFor(() => expect(postedBody(fetchFn, 'EXTERNAL_VERDICT_ACTION_TYPES')).toBeTruthy());
+    expect(postedBody(fetchFn, 'EXTERNAL_VERDICT_ACTION_TYPES').value).toBe('');
+    expect(postedBody(fetchFn, 'EXTERNAL_VERDICT_ACTION_TYPES').category).toBe('general');
+  });
+
   it('defaults the posture to fail_closed on a fresh org', async () => {
     const fetchFn = makeFetch([]);
     global.fetch = fetchFn;

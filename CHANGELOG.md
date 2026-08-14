@@ -13,8 +13,46 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.24.0] — 2026-08-14
+
+The first real external-verdict adapter build (Agent Memory/PAMA, #219) hit a
+contract gap within a day of the seam shipping: a domain-specific provider was
+being consulted on every guard evaluation, including acts far outside its
+authority, and the frozen v1 vocabulary has no `abstain`. Resolution: scope is
+a host configuration concern, not a wire verdict.
+
+### Added
+
+- **External-verdict applicability scope.** The `/policies` provider panel
+  gains "Action types it governs" (`EXTERNAL_VERDICT_ACTION_TYPES`, exact
+  comma-separated allowlist; empty = every act, the original behavior). With a
+  scope set, out-of-scope acts never call the provider, spend no hot-path
+  latency, and take **no** unavailability posture — there is nothing to be
+  unavailable for — while the decision evidence records `status: "skipped"` /
+  `regime: "not_applicable"` honestly: `External: out of scope` on decision
+  detail, deliberately unlabeled on `/approvals` (a never-consulted provider
+  never caused an ask). The scope key is plain-text on purpose so it survives
+  an undecryptable URL after a key rotation: an out-of-scope act never takes a
+  `fail_closed` escalation from a provider that was never going to be asked.
+  The frozen four-verdict wire contract is unchanged (RFC addendum recorded);
+  the conformance suite grows six scope cases. Zero new routes, SDK methods,
+  MCP tools, or policy types.
+
 ### Fixed
 
+- **Governance-signal dismissals hardened** (adversarial review of the v5.23.4
+  arc, 13 confirmed findings). Dismissed signals now actually stay dismissed on
+  both key shapes; the durable `mcp_degraded` mute keys per MCP *server* (the
+  granularity the signal is minted at) instead of muting every server's alert
+  at once; the muted list no longer leaks other agents' dismissals into
+  agent-filtered views; `dismissed_by` is recorded; and muting a signal is now
+  an **admin** act (`POST`/`DELETE /api/signals` gated) — it hides a live risk
+  condition from the whole org, mirroring the approval-pause gate.
+- **Redis event publishes after a timeout use a live client.** `events.ts`
+  `publish()` no longer reuses a connection its own timeout handler had just
+  destroyed.
+- **CI cron sweeps cover every instance** — per-target cron secrets instead of
+  sweeping only the first configured instance.
 - **Copy Agent Prompt survives uBlock Origin's ClickFix defense.** The agent
   setup prompt is shell-command-laden, which is exactly what uBlock 1.72+'s
   clipboard defuser intercepts on programmatic writes — undetectably, so the

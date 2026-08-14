@@ -14,7 +14,38 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
-## 2026-08-14 — The sweep swept the sweeper: 13 fixes from an adversarial review of the last 10 commits
+## 2026-08-14 (later) — v5.24.0: the first real adapter found the seam's blind spot in one day
+
+The external-verdict seam shipped Wednesday with a frozen four-verdict wire
+contract and an explicit invitation: raise contract gaps instead of coding
+around them. Kevin Knapp took the invitation within a day of starting the
+Agent Memory adapter (#219): the seam called the provider on **every** guard
+evaluation, but a domain-specific provider — one with authority over durable-
+memory mutations and nothing else — has no honest verdict to return for an
+unrelated shell command. `deny` would block it wrongly; unavailability would
+escalate it under `fail_closed`; `allow` would stamp false external
+governance into the evidence. The v1 vocabulary has no `abstain`, on purpose.
+
+The resolution keeps the contract frozen: applicability is a **host
+configuration concern**, not a wire verdict. A provider can now declare the
+exact action types it governs (`EXTERNAL_VERDICT_ACTION_TYPES`, a plain
+comma-separated allowlist on the same `/policies` form). Out-of-scope acts
+never reach the wire, spend no hot-path latency, and take no posture — but
+the skip is recorded (`status: "skipped"`, `regime: "not_applicable"`), never
+silent, because "the provider was not asked" is itself evidence an operator
+may need. Two deliberate subtleties: the scope key stays plain-text so it
+survives an undecryptable URL after a key rotation (an out-of-scope act must
+never take a `fail_closed` escalation from a provider that was never going to
+be asked), and `/approvals` deliberately does not badge skipped acts — that
+badge exists to explain why an ask happened, and a never-consulted provider
+never caused one.
+
+Also in this release: the 13 dismissal-hardening fixes from yesterday's
+adversarial sweep get their CHANGELOG entries (they had shipped to main
+without any), and a CI-only test flake — a one-shot `aria-selected` read
+racing a retrying `findByText` over the same batched state update — was made
+deterministic and logged in ERRORS.md. Platform-only ship: the SDKs are
+intentionally not republished.
 
 Wes asked for two things in one breath: an adversarial review of everything
 that just shipped, and a human-style click-through of every button in the app.

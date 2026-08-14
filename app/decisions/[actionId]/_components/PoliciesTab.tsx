@@ -37,19 +37,27 @@ export default function PoliciesTab({ actionId, action, guardDecision, trace, as
                       produced this verdict. Absence = local-only, unlabeled —
                       the quiet default. Lives in the always-rendered header
                       because an external deny can arrive with zero matched
-                      local policies. */}
+                      local policies. 'skipped' (#219 scope filter) renders
+                      neutral: the act was outside the provider's declared
+                      scope, so no external governance happened — honestly. */}
                   {guardDecision.context?._external_verdict && (
                     <span
                       className="mt-2 inline-block"
-                      title={`Provider ${guardDecision.context._external_verdict.provider_id} · posture ${guardDecision.context._external_verdict.posture}${guardDecision.context._external_verdict.reason_code ? ` · ${guardDecision.context._external_verdict.reason_code}` : ''}`}
+                      title={guardDecision.context._external_verdict.status === 'skipped'
+                        ? `Provider ${guardDecision.context._external_verdict.provider_id} not consulted — this action type is outside its configured scope`
+                        : `Provider ${guardDecision.context._external_verdict.provider_id} · posture ${guardDecision.context._external_verdict.posture}${guardDecision.context._external_verdict.reason_code ? ` · ${guardDecision.context._external_verdict.reason_code}` : ''}`}
                     >
                       <Badge
-                        variant={guardDecision.context._external_verdict.status === 'ok' ? 'info' : 'warning'}
+                        variant={guardDecision.context._external_verdict.status === 'ok' ? 'info'
+                          : guardDecision.context._external_verdict.status === 'skipped' ? 'default'
+                          : 'warning'}
                         size="xs"
                       >
                         {guardDecision.context._external_verdict.status === 'ok'
                           ? `External: ${guardDecision.context._external_verdict.raw_verdict}`
-                          : 'External unavailable'}
+                          : guardDecision.context._external_verdict.status === 'skipped'
+                            ? 'External: out of scope'
+                            : 'External unavailable'}
                       </Badge>
                     </span>
                   )}
