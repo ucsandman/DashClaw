@@ -66,7 +66,9 @@ where their one-click approvals happen.
 - Claude Code: \`up --yes\` wires the hooks into ~/.claude/settings.json
   automatically (needs python3 or python on PATH). Manual: \`npx dashclaw
   install claude\`. Codex: \`npx dashclaw install codex\`. OpenClaw: \`npx
-  dashclaw install openclaw\`.
+  dashclaw install openclaw\` (interactive in a terminal — it can create an
+  instance and collect a key; headless runs need DASHCLAW_BASE_URL and
+  DASHCLAW_API_KEY set, or --base-url/--api-key flags).
 - MCP (any MCP host): \`npx @dashclaw/mcp-server\` with env DASHCLAW_URL and
   DASHCLAW_API_KEY (optional DASHCLAW_AGENT_ID).
 - SDKs: \`npm install dashclaw\` (Node) or \`pip install dashclaw\` (Python).

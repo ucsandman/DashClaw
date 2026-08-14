@@ -222,7 +222,7 @@ echo '{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_use_id":"t
 dashclaw install openclaw
 ```
 
-Full guide: [dashclaw.io/guides/openclaw](https://www.dashclaw.io/guides/openclaw).
+Run it bare in a terminal and it walks you through everything you're missing: no DashClaw instance yet? it offers the hosted trial or a local install (`dashclaw up`) inline; no API key? it collects one; then it suggests a per-machine agent id (`<hostname>-openclaw`). With `--base-url`, `--api-key`, and `--agent-id` (or the matching env vars) it runs non-interactively. Full guide: [dashclaw.io/guides/openclaw](https://www.dashclaw.io/guides/openclaw).
 
 **MCP server (zero code).** [`@dashclaw/mcp-server`](mcp-server) exposes **17 governance MCP tools** across core governance, retrospection, identity, team tasks, and plans, plus 3 read-only resources (`dashclaw://policies`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`).
 

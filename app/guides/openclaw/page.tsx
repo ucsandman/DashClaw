@@ -60,7 +60,8 @@ policies:
 
   const subhead = (
     <>
-      One command wires DashClaw governance into an OpenClaw agent. Restart the gateway and your
+      One command wires DashClaw governance into an OpenClaw agent — even with no DashClaw
+      instance or API key yet; it offers to create both. Restart the gateway and your
       next tool call shows up in <span className="text-secondary">/decisions</span>.
     </>
   );
@@ -70,18 +71,18 @@ policies:
       number: 1,
       title: 'Prerequisites',
       summary:
-        'Three things before you start: OpenClaw installed and on PATH, a running DashClaw instance (deploy one or use an existing one), and an API key for that instance (it starts with oc_live_).',
-      note: 'Already have all three? Skip to Step 2.',
+        'One thing before you start: OpenClaw installed and on PATH. A DashClaw instance and an API key help but are no longer required — run the install command without them and it offers to create both: the free hosted trial (sign in, paste the minted key) or a local instance on this machine via dashclaw up.',
+      note: 'The CLI comes with npm: npm i -g @dashclaw/cli, or run everything through npx @dashclaw/cli.',
     },
     {
       number: 2,
       title: 'Run the install command',
       summary:
-        'One command installs the dashclaw-governance plugin, patches your OpenClaw config, enables the plugin, and writes the governance block into AGENTS.md. Give every machine its own --agent-id: moltfire-openclaw, forge-openclaw, whatever fits your fleet. Reuse one id across machines and /decisions cannot tell the agents apart. Add --base-url if this machine has no DASHCLAW_BASE_URL and no saved config.',
+        'One command asks for anything it is missing, then installs the dashclaw-governance plugin, patches your OpenClaw config, enables the plugin, and writes the governance block into AGENTS.md. It prompts for an agent id with a per-machine default (<hostname>-openclaw): moltfire-openclaw, forge-openclaw, whatever fits your fleet. Reuse one id across machines and /decisions cannot tell the agents apart. Flags (--base-url, --api-key, --agent-id) or env vars skip the prompts; without a terminal the command fails loudly instead of hanging.',
       codeTitle: 'Terminal',
-      codeBody: 'dashclaw install openclaw --agent-id moltfire-openclaw',
+      codeBody: 'dashclaw install openclaw',
       note:
-        'The API key is written as DASHCLAW_API_KEY to the .env beside your openclaw.json, so it follows openclaw --profile rather than always landing in the default profile. Pass --write-config to store it in openclaw.json instead. The key is written before the plugin is enabled, on purpose: a plugin that comes up with no key refuses every tool call. The installer also sets failClosed: true, and there is currently no flag to change it: if DashClaw is unreachable, the plugin blocks the call instead of letting it through.',
+        'The API key is written as DASHCLAW_API_KEY to the .env beside your openclaw.json, so it follows openclaw --profile rather than always landing in the default profile. Pass --write-config to store it in openclaw.json instead. The key is written before the plugin is enabled, on purpose: a plugin that comes up with no key refuses every tool call. The installer also sets failClosed: true, and there is currently no flag to change it: if DashClaw is unreachable, the plugin blocks the call instead of letting it through. Already ran "openclaw plugins install @dashclaw/openclaw-plugin" by hand? Run this command anyway: the raw install only puts the plugin on disk, with no key, no config, and not enabled. The installer detects it, keeps it (it never downgrades an equal-or-newer version), and finishes the rest.',
     },
     {
       number: 3,
@@ -258,7 +259,7 @@ policies:
               before.
             </p>
             <div className="mt-4 overflow-hidden rounded-xl border border-border-hover bg-surface-tertiary">
-              <pre className="overflow-x-auto whitespace-pre-wrap px-4 py-4 text-xs text-secondary">dashclaw install openclaw --agent-id moltfire-openclaw</pre>
+              <pre className="overflow-x-auto whitespace-pre-wrap px-4 py-4 text-xs text-secondary">dashclaw install openclaw</pre>
             </div>
           </section>
         </div>

@@ -39,6 +39,7 @@ import { dirname, join, resolve } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { readConfigFile, writeConfigFile } from '../config.js';
+import { DEFAULT_HOSTED_TRIAL_URL, promptTrialKey, mustPrompt, defaultOpenUrl } from '../trial.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -59,10 +60,10 @@ const HOOKS_BUNDLE_PATH = '/downloads/dashclaw-claude-code-hooks.zip';
 
 export const DEFAULT_AGENT_ID = 'claude-code';
 
-// The public hosted trial instance. `--trial` falls back to it when no
-// --endpoint / DASHCLAW_HOSTED_URL is given — a cold outsider following
-// QUICK-START has no way to answer a "which URL?" prompt (v5.4 outsider run).
-export const DEFAULT_HOSTED_TRIAL_URL = 'https://hosted.dashclaw.io';
+// The public hosted trial instance (defined in ../trial.js, shared with the
+// openclaw onboarding wizard). Re-exported because tests and callers import it
+// from here.
+export { DEFAULT_HOSTED_TRIAL_URL };
 
 // ---------------------------------------------------------------------------
 // Python resolution
@@ -387,13 +388,9 @@ export async function installClaude({
       logger.log(`  Using the public hosted trial: ${DEFAULT_HOSTED_TRIAL_URL}`);
       logger.log('  (Trying your own instance instead? Re-run with --endpoint <url>.)');
     }
-    const signupUrl = `${hostedBase.replace(/\/+$/, '')}/connect`;
-    logger.log('');
-    logger.log(`  Opening the trial signup page: ${signupUrl}`);
-    logger.log('  Sign in there, copy your trial API key, and paste it below.');
-    openUrl(signupUrl);
-    endpoint = endpoint || hostedBase.replace(/\/+$/, '');
-    apiKey = await mustPrompt(promptSecret || prompt, 'Paste your trial API key (oc_live_...): ');
+    const trial = await promptTrialKey({ hostedBase, prompt, promptSecret, openUrl, logger });
+    endpoint = endpoint || trial.baseUrl;
+    apiKey = trial.apiKey;
   }
 
   if (!endpoint) endpoint = await mustPrompt(prompt, 'DashClaw instance URL (e.g. https://your-dashclaw.vercel.app): ');
@@ -477,25 +474,6 @@ export async function installClaude({
   }
 
   return { hooksDir, settingsPath, hookEnvPath, python, endpoint, agentId, hookMode };
-}
-
-async function mustPrompt(promptFn, question) {
-  if (!promptFn) {
-    throw new Error(`Missing required value (${question.trim()}) and no interactive prompt available.`);
-  }
-  const answer = (await promptFn(question)).trim();
-  if (!answer) throw new Error('Aborted — a value is required.');
-  return answer;
-}
-
-function defaultOpenUrl(url) {
-  try {
-    if (process.platform === 'win32') spawnSync('cmd', ['/c', 'start', '', url], { stdio: 'ignore' });
-    else if (process.platform === 'darwin') spawnSync('open', [url], { stdio: 'ignore' });
-    else spawnSync('xdg-open', [url], { stdio: 'ignore' });
-  } catch {
-    // best-effort — the URL is printed either way
-  }
 }
 
 // config.js hardcodes homedir(); these wrappers honor the injectable homeDir

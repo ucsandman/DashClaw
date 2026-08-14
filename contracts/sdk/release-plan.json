@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.23.3",
+    "current_version": "5.23.4",
     "next_bump": "none",
-    "reason": "5.23.3 is a platform-only fix: bounded Redis rate-limit commands + stalled-client teardown in app/lib/org-rate-limit.ts (#223, follow-up to the #222 connect bound). sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.23.3 tag fires release.yml, whose publish-npm job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.23.4 is a platform+CLI ship: the dashclaw install openclaw onboarding wizard and its docs/marketing accuracy sweep. sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.23.4 tag fires release.yml, whose publish-npm job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.23.3",
+    "current_version": "5.23.4",
     "next_bump": "none",
-    "reason": "5.23.3 is a platform-only fix (bounded Redis rate-limit commands, #223). sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.23.3 tag fires release.yml, whose publish-pypi job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.23.4 is a platform+CLI ship (install openclaw onboarding wizard). sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.23.4 tag fires release.yml, whose publish-pypi job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.23.3 closes the 2026-08-14 governance-path timeout incident: after #222 bounded the node-redis connect(), the post-connect INCR/PEXPIRE awaits were still unbounded (node-redis v4 has no command timeout; a half-open socket emits no error event), and the stale client stayed cached across the retry cooldown. Commands now race a 2s timer, degrade to the bounded in-memory limiter, and a command timeout destroys + drops the cached client (#223, regression-tested with never-settling-command fakes). Zero new routes/SDK methods/MCP tools/policy types. Neither SDK source changed; the CLI did not change.",
+  "reason": "5.23.4 ships interactive onboarding for dashclaw install openclaw: a bare TTY invocation now offers to create a DashClaw instance (hosted trial signup or an inline dashclaw up on the same machine), collects/mints the API key, and prompts a per-machine agent id (<hostname>-openclaw) - non-TTY runs keep the hard errors. @dashclaw/cli bumps 0.11.0 -> 0.12.0 (independent track; the v5.23.4 tag publishes it). The shared hosted-trial flow moved to cli/lib/trial.js (install claude --trial now uses it too). Zero new routes/SDK methods/MCP tools/policy types. Neither SDK source changed.",
   "domains": [
     "platform"
   ]

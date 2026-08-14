@@ -343,7 +343,7 @@ pip install dashclaw`}</CodeBlock>
                   <h3 className="text-base font-semibold text-text-primary">OpenClaw Plugin</h3>
                 </div>
                 <p className="text-sm text-text-secondary leading-relaxed mb-4">
-                  Framework native plugin for OpenClaw agents. Intercepts PreToolUse and PostToolUse, runs guard, records the outcome, and waits for approval automatically.
+                  Framework native plugin for OpenClaw agents. Intercepts before_tool_call and after_tool_call at the gateway, runs guard, records the outcome, and waits for approval automatically. No instance or key yet? The installer offers the hosted trial or a local install.
                 </p>
                 <div className="mt-auto">
                   <CodeBlock>{`dashclaw install openclaw`}</CodeBlock>

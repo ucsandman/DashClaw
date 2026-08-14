@@ -13,6 +13,51 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.23.4] — 2026-08-14
+
+One command from a bare machine to a governed OpenClaw agent. Platform-side
+this is docs/marketing accuracy plus a drill-hygiene fix; the feature ships in
+`@dashclaw/cli` **0.12.0** (independent track, published by this release's tag).
+No SDK source change, so the Node/Python SDKs are not republished by intent —
+`release.yml` skips registry-matching versions only, and the unified number
+advances regardless.
+
+### Added
+
+- **`dashclaw install openclaw` interactive onboarding wizard** (`@dashclaw/cli`
+  0.12.0). A bare invocation in a terminal now fills every gap conversationally
+  instead of dying with "baseUrl is required": no DashClaw instance? it offers
+  the **hosted trial** (signup page + pasted key — Turnstile can't be driven
+  headlessly) or a **local install on the same machine** by running the
+  `dashclaw up` pipeline inline, reading the minted key from instance state and
+  staying attached to the server afterwards exactly like `up` does. No API key?
+  It collects one (trial paste flow, or a pointer to `<instance>/connect`). No
+  `--agent-id`? It prompts with a per-machine default (`<hostname>-openclaw`) so
+  fleets stop sharing the silent `openclaw` id. It then offers to save URL+key
+  to `~/.dashclaw/config.json` (merge, mode 600). Non-TTY invocations are
+  untouched — the installer's hard errors still fail loudly, nothing hangs on a
+  prompt. `DASHCLAW_AGENT_ID` env skips the agent-id prompt; the saved-config
+  `agentId` is deliberately ignored there (it defaults to `cli-operator`, a
+  human identity that must never become an agent's ledger id). The hosted-trial
+  flow is now shared code (`cli/lib/trial.js`) between `install claude --trial`
+  and the wizard.
+
+### Fixed
+
+- **Docs/marketing said the raw plugin install was self-sufficient.** The
+  npm-facing `@dashclaw/openclaw-plugin` README now leads with the CLI installer
+  and states what `openclaw plugins install` alone does NOT do (no enable, no
+  key, no config — and fail-closed refuses every tool call if enabled keyless);
+  `/guides/openclaw` prerequisites drop the pre-provisioned instance+key
+  requirement; `/connect` no longer describes the OpenClaw plugin with Claude
+  Code hook vocabulary (`before_tool_call`/`after_tool_call`, not
+  PreToolUse/PostToolUse); `llms.txt` documents the headless contract for
+  agents.
+- **Fresh-Windows drill staged over stale artifacts.** The launcher now clears
+  `drill.log`/`up.log`/`install-claude.log` from the sandbox share at stage
+  time, not just `drill-result.json` — a previous run's logs read exactly like
+  live progress and misled a maintainer watching the share mid-drill.
+
 ## [5.23.3] — 2026-08-14
 
 Follow-up hardening to the v5.23.2 bounded Redis connect (#222), closing the

@@ -67,7 +67,12 @@ async function main() {
   const wsbTemplateSrc = path.join(repoRoot, 'scripts', 'drills', 'windows-sandbox', 'drill.wsb.template');
 
   const resultPath = path.join(stageDir, 'drill-result.json');
-  if (existsSync(resultPath)) rmSync(resultPath, { force: true });
+  // Clear every artifact a previous run left behind, not just the verdict —
+  // a stale up.log/install-claude.log reads exactly like live progress and
+  // has misled a maintainer watching the share mid-drill.
+  for (const stale of ['drill-result.json', 'drill.log', 'up.log', 'install-claude.log']) {
+    rmSync(path.join(stageDir, stale), { force: true });
+  }
 
   // Stage the script + config + generated .wsb
   copyFileSync(drillPs1Src, path.join(stageDir, 'drill.ps1'));

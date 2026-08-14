@@ -4,9 +4,19 @@ Add DashClaw governance to OpenClaw — every tool call gets policy enforcement,
 
 ## Install
 
+The recommended path is the DashClaw CLI installer — it runs the plugin install for you and finishes everything the plugin needs to actually enforce (API key written to the profile's `.env`, gateway config patched, plugin enabled, governance protocol written to `AGENTS.md`, install verified). Run it bare in a terminal and it walks you through the rest, including creating a DashClaw instance (hosted trial or local `dashclaw up`) and collecting a key if you don't have them yet:
+
+```bash
+dashclaw install openclaw
+```
+
+Installing the plugin directly also works:
+
 ```bash
 openclaw plugins install @dashclaw/openclaw-plugin
 ```
+
+but the raw install only puts the plugin on disk — it is not enabled and has no configuration until you complete the steps below. Already ran it? `dashclaw install openclaw` detects the installed plugin, keeps it (it never downgrades an equal-or-newer version), and finishes the rest. Full walkthrough: [dashclaw.io/guides/openclaw](https://www.dashclaw.io/guides/openclaw).
 
 ## Configure
 

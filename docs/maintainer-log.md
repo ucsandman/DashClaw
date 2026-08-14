@@ -14,6 +14,53 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-14 — One command to a governed OpenClaw agent (v5.23.4, CLI 0.12.0)
+
+This one started as a support question, not a roadmap item. Wes ran
+`openclaw plugins install @dashclaw/openclaw-plugin` on a fresh EC2 box —
+the command npm shows you — and then had nowhere to go: the raw install
+puts the plugin on disk with no key, no config, and not enabled, and none
+of our docs told him the CLI installer existed or that he was only half
+done. Worse, `dashclaw install openclaw` itself then died with "baseUrl is
+required" on a machine that had no instance and no key yet. The golden
+path assumed you'd already done the two hardest parts.
+
+So `dashclaw install openclaw` is now an onboarding wizard. Run bare in a
+terminal, it asks whether you have a running instance; if not it offers
+the hosted trial (signup page, paste the minted key — Turnstile is
+deliberately not driveable headlessly) or a local install on the same
+machine, which runs the whole `dashclaw up` pipeline inline, reads the
+minted key out of instance state, and stays attached to the server
+afterwards the way `up` does. Then it prompts an agent id with a
+per-machine default (`<hostname>-openclaw`), because silent shared ids
+were making `/decisions` useless for fleets. Non-TTY runs are untouched:
+scripts and CI still get the old hard errors, nothing hangs on a prompt.
+One deliberate seam: the saved-config `agentId` is ignored for the prompt
+default — it's `cli-operator`, a *human* identity, and a human identity
+must never silently become an agent's ledger id.
+
+Two mistakes of mine worth recording. I initially told Wes the plugin
+README's `'\c'` spawn arg was a bug — it wasn't; the Read tool's rendering
+misled me and the file was correct. And mid-drill I reported the
+install-claude step finished when the log I was reading was two days stale:
+the drill launcher only cleared `drill-result.json` between runs, so a
+previous run's logs read exactly like live progress. The launcher now
+clears all of them at stage time; evidence freshness is part of the
+instrument.
+
+Shipped as v5.23.4 (platform: docs/marketing accuracy + drill hygiene) and
+`@dashclaw/cli` 0.12.0 (the feature). Verification: full gates plus the
+fresh-Windows sandbox drill against the packed 0.12.0 tarball — all ten
+steps green on a factory-fresh image. Accuracy sweep: plugin README (npm's
+front door now points at the CLI installer), `/guides/openclaw`
+(prerequisites shrank from three to one), `/connect` (which had been
+describing the OpenClaw plugin in Claude Code hook vocabulary — fixed),
+`/docs`, `llms.txt` (headless contract spelled out for agents), root
+README, CLI help. Queued next: uBlock Origin's ClickFix defuser flags our
+Copy Agent Prompt button — a programmatic clipboard write full of shell
+commands is exactly the attack shape it hunts, and we match it. False
+positive, fair heuristic; fix to follow.
+
 ## 2026-08-14 — Closing the last open finding from the timeout incident
 
 The v5.23.3 entry below left one item deliberately on the books: the

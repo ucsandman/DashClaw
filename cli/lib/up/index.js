@@ -473,7 +473,15 @@ export async function upCommand(argv) {
   const args = parseUpArgs(argv);
   const baseDir = resolveBaseDir(args);
   const { child, stopDb, reusedServer } = await runUp({ args, baseDir });
+  await holdUntilExit({ child, stopDb, reusedServer });
+}
 
+/**
+ * Keep the process attached to a server started by runUp until the child exits
+ * or the user interrupts; SIGINT/SIGTERM stop the DB cleanly before exiting.
+ * Also used by `dashclaw install openclaw` when its wizard ran `up` inline.
+ */
+export async function holdUntilExit({ child, stopDb, reusedServer }) {
   let stopping = false;
   const shutdown = async () => {
     if (stopping) return;

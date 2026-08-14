@@ -11,12 +11,15 @@ import {
   green, red, yellow,
 } from '../lib/render.js';
 import { runDoctor as runDoctorCommand } from '../lib/doctor.js';
-import { resolveConfig, clearConfigFile, configPath, ask, askSecret } from '../lib/config.js';
+import { resolveConfig, clearConfigFile, configPath, ask, askSecret, readConfigFile, writeConfigFile } from '../lib/config.js';
 import { installCodex, codexConfigPath, codexHooksDir } from '../lib/codex/install.js';
 import { isHelpInvocation } from '../lib/argv.js';
 import { installClaude } from '../lib/claude/install.js';
 import { installOpenclaw, OPENCLAW_PLUGIN_VERSION } from '../lib/openclaw/install.js';
-import { upCommand, runDown, resolveBaseDir } from '../lib/up/index.js';
+import { resolveOpenclawOnboarding } from '../lib/openclaw/wizard.js';
+import { upCommand, runUp, runDown, resolveBaseDir, holdUntilExit } from '../lib/up/index.js';
+import { parseUpArgs } from '../lib/up/args.js';
+import { loadInstance } from '../lib/up/instance.js';
 import { runCodexNotify } from '../lib/codex/notify.js';
 import { apiRequest } from '../lib/api.js';
 import { runBackfill } from '../lib/backfill.js';
@@ -107,8 +110,13 @@ ${bold('Usage:')}
     --no-trust-hooks                     Skip the hook-trust step (codex >= 0.142 silently
                                          skips untrusted hooks — governance won't enforce)
                                          (targets $CODEX_HOME/config.toml when CODEX_HOME is set)
-  dashclaw install openclaw              Provision DashClaw governance into OpenClaw
-    --agent-id <id>                      Ledger identity (default: openclaw; set one per machine)
+  dashclaw install openclaw              Provision DashClaw governance into OpenClaw.
+                                         Run bare in a terminal, it walks you through everything:
+                                         no instance? it offers the hosted trial or a local
+                                         install (dashclaw up); no key? it mints/collects one;
+                                         then it asks for a per-machine agent id.
+    --agent-id <id>                      Ledger identity (prompted with <hostname>-openclaw;
+                                         non-interactive default: openclaw; set one per machine)
     --base-url <url>                     DashClaw instance URL (or DASHCLAW_BASE_URL / saved config)
     --api-key <key>                      API key (or DASHCLAW_API_KEY / saved config / the profile's
                                          .env / a plaintext key in openclaw.json, migrated out)
@@ -551,9 +559,6 @@ async function cmdInstallClaude() {
 }
 
 async function cmdInstallOpenclaw() {
-  const installAgentId = getFlag('--agent-id') || 'openclaw';
-  const installBaseUrl = getFlag('--base-url') || baseUrl;
-  const installApiKey = getFlag('--api-key') || apiKey;
   const writeConfig = args.includes('--write-config');
   const openclawBinPath = getFlag('--openclaw-bin') || null;
   const workspace = getFlag('--workspace') || null;
@@ -561,9 +566,38 @@ async function cmdInstallOpenclaw() {
   const verify = !args.includes('--no-verify');
 
   try {
+    // Fill whatever flags/env/saved config did not provide. Interactive (TTY)
+    // runs get the onboarding wizard — including creating an instance (hosted
+    // trial or an inline `dashclaw up`) and minting a key. Non-TTY runs pass
+    // through untouched so the installer's hard errors keep failing loudly.
+    const onboarding = await resolveOpenclawOnboarding({
+      baseUrl: getFlag('--base-url') || baseUrl || null,
+      apiKey: getFlag('--api-key') || apiKey || null,
+      // DASHCLAW_AGENT_ID (env only) skips the prompt; the saved-config agentId
+      // is deliberately NOT consulted — it defaults to 'cli-operator', the
+      // human operator's identity, which must never become an agent's ledger id.
+      agentId: getFlag('--agent-id') || process.env.DASHCLAW_AGENT_ID || null,
+      prompt: ask,
+      promptSecret: askSecret,
+      logger: console,
+      readConfig: readConfigFile,
+      writeConfig: writeConfigFile,
+      runUpLocal: async () => {
+        const upArgs = parseUpArgs([]);
+        const baseDir = resolveBaseDir(upArgs);
+        const { child, stopDb, baseUrl: localUrl, reusedServer } = await runUp({ args: upArgs, baseDir });
+        return {
+          baseUrl: localUrl,
+          apiKey: loadInstance(baseDir)?.apiKey ?? null,
+          upHandle: { child, stopDb, reusedServer },
+        };
+      },
+    });
+    const installAgentId = onboarding.agentId || 'openclaw';
+
     const result = await installOpenclaw({
-      baseUrl: installBaseUrl,
-      apiKey: installApiKey,
+      baseUrl: onboarding.baseUrl,
+      apiKey: onboarding.apiKey,
       agentId: installAgentId,
       writeConfig,
       openclawBinPath,
@@ -596,6 +630,15 @@ async function cmdInstallOpenclaw() {
       console.log(`  config was patched and AGENTS.md was written. Governance may not be`);
       console.log(`  enforcing yet. Run ${dim('openclaw config validate')} and ${dim('openclaw plugins doctor')} to see why.`);
       process.exitCode = 1;
+    }
+
+    // The wizard's local branch started a DashClaw server as OUR child — it
+    // dies with this process, so stay attached exactly like `dashclaw up`.
+    if (onboarding.upHandle) {
+      console.log();
+      console.log(`  Local DashClaw keeps running at ${onboarding.baseUrl}`);
+      console.log(`  (Ctrl+C stops it; \`dashclaw up\` restarts it later.)`);
+      await holdUntilExit(onboarding.upHandle);
     }
   } catch (err) {
     console.error(red(`Error: ${err.message}`));
