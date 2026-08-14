@@ -424,7 +424,9 @@ describe('evaluateGuard external-verdict seam (ten #220 adversarial cases)', () 
     const b = await run();
     expect(mockSafeFetch).not.toHaveBeenCalled();
     expect(a.context._external_verdict).toBeUndefined();
-    const strip = ({ decision_id, action_id, ...rest }) => rest;
+    // decision_id/action_id are per-run randoms and evaluated_at is the wall
+    // clock — the byte-identical claim is about behavior, not the clock.
+    const strip = ({ decision_id, action_id, evaluated_at, ...rest }) => rest;
     expect(strip(a.result)).toEqual(strip(b.result));
   });
 

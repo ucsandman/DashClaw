@@ -241,7 +241,7 @@ Every instance also serves Streamable HTTP MCP at `/api/mcp`. For Claude Desktop
 
 ## The governance model
 
-Control before execution, not observability after it. Seven points, each falsifiable:
+Control before execution, not observability after it. Eight points, each falsifiable:
 
 1. **Every risky action is evaluated against active policies before it runs.** Policies are declarative. The builder ships with ten pre-built safety switches (Deploy Gate, Risk Threshold, Rate Limiter, Evidence Required, Protected Path, Subagent Constraint, and others across 17 guard policy types), an AI generator, and YAML import.
 2. **The default pack is catastrophe-only.** Seeded automatically for every new self-hosted org, it interrupts for the irreversible class: it blocks mass-destructive filesystem, git, and database actions outright, and holds writes to secret files (`.env`, `*.pem`, `*.key`, `secrets/**`) for one-click approval. A warn-only rate limit nets runaways; everything else runs. This is a documented lesson, not a preference. See below.
@@ -250,6 +250,7 @@ Control before execution, not observability after it. Seven points, each falsifi
 5. **Interruption precision is calibrated, not guessed.** A distribution-free controller ([`/calibration`](docs/architecture/governance-core-theory.md), default off) turns your approve/deny verdicts into a proven false-interruption bound. Shadow-first, tighten-only; loosening always routes through human-ratified proposals.
 6. **Enforcement proves it is still on.** A liveness probe drives a synthetic held action through the real hook seam and verdicts by whether it executed, never by reading the ledger. Because once it did not, and nothing noticed. Stale never renders green.
 7. **Prompt-injection scanning is on by default.** High-confidence system-override patterns force a `block` at guard time; lower-severity patterns raise a `warn`.
+8. **An outside decision engine can tighten decisions, never loosen them.** An org can configure one external decision provider (configured on `/policies`); the guard calls it during every evaluation and joins its verdict stricter-wins — external `deny` is absolute for the evaluated act, external `allow` never overrides a stricter local result, and the verdict is identity-bound to the exact act. An unreachable provider takes an explicit posture (`fail_closed` default) and is always recorded as `external unavailable`, never as governance that happened. Contract: [`docs/external-verdict-provider.md`](docs/external-verdict-provider.md).
 
 <details>
 <summary><strong>Why each of those is the way it is (the incidents behind the design)</strong></summary>

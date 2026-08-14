@@ -141,6 +141,7 @@ const navItems = [
   { href: '#guard', label: 'guard', indent: true },
   { href: '#risk-breakdown', label: 'Risk composition', indent: true },
   { href: '#risk-calibration', label: 'Calibration proposals', indent: true },
+  { href: '#external-verdict', label: 'External provider', indent: true },
   { href: '#tightening-proposals', label: 'Tightening proposals', indent: true },
   { href: '#loosening-proposals', label: 'Loosening proposals', indent: true },
   { href: '#action-recording', label: 'Action Recording' },
@@ -729,6 +730,22 @@ cp -r public/downloads/dashclaw-governance ~/.claude/skills/
                 The same proposals are available at <code className="text-xs">GET /api/calibration/proposals</code>;
                 a ratified proposal is a recorded judgment (<code className="text-xs">?status=ratified</code> is the
                 maintainer&apos;s forge queue). Nothing changes scoring until the vector is forged and committed.
+              </p>
+            </div>
+            <div id="external-verdict" className="scroll-mt-20 mt-6 p-4 rounded-xl bg-surface-secondary border border-border">
+              <h3 className="text-sm font-semibold text-text-primary mb-1.5">External decision provider</h3>
+              <p className="text-sm text-text-secondary leading-relaxed">
+                One outside decision engine per org can join every guard evaluation. Configure it on{' '}
+                <code className="text-xs">/policies → External decision provider</code> (URL, optional bearer token,
+                timeout, unavailability posture); the guard POSTs the evaluated act and joins the verdict{' '}
+                <strong>stricter-wins</strong>: <code className="text-xs">allow/warn/escalate/deny</code> map onto the
+                local lattice, an external <code className="text-xs">deny</code> is absolute for the evaluated act, and
+                an external <code className="text-xs">allow</code> never loosens a stricter local result. The verdict is
+                identity-bound to the exact act via an echoed <code className="text-xs">input_identity</code> digest.
+                If the provider is unreachable, the configured posture applies — fail closed (ask a human, the default)
+                or fail open (local rules only) — and the decision records <em>external unavailable</em> either way.
+                Wire contract for provider implementers:{' '}
+                <code className="text-xs">docs/external-verdict-provider.md</code>.
               </p>
             </div>
             <div id="tightening-proposals" className="scroll-mt-20 mt-6 p-4 rounded-xl bg-surface-secondary border border-border">

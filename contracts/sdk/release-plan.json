@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.22.2",
+    "current_version": "5.23.0",
     "next_bump": "none",
-    "reason": "5.22.2 is a production bugfix: POST/DELETE /api/approval-pause 500d because DASHCLAW_APPROVAL_PAUSE was missing from the VALID_SETTING_KEYS allowlist in settings.repository.ts. sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.22.2 tag fires release.yml, whose publish-npm job publishes whatever version the manifests carry and only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.23.0 ships the external-verdict seam (#219, RFC 2026-08-13): guard-side provider call, stricter-wins join, failure posture, _external_verdict evidence, /policies config panel, regime badges. Entirely platform-side - sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.23.0 tag fires release.yml, whose publish-npm job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.22.2",
+    "current_version": "5.23.0",
     "next_bump": "none",
-    "reason": "5.22.2 is a production bugfix to the approval-pause route, platform-side only. sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.22.2 tag fires release.yml, whose publish-pypi job publishes whatever version the manifests carry and only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.23.0 ships the external-verdict seam (#219), platform-side only. sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.23.0 tag fires release.yml, whose publish-pypi job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.22.2 fixes the approval pause shipped 2026-08-12: every pause window button on /policies and /approvals returned Internal server error because the route wrote its state through upsertSetting and DASHCLAW_APPROVAL_PAUSE was never added to VALID_SETTING_KEYS - the write was rejected as an invalid key. The gap survived CI because every existing test mocked settings.repository, so the allowlist never executed; a new regression suite (approval-pause.route.test.js) now drives the route through the real repository. Neither SDK source changed; the CLI did not change.",
+  "reason": "5.23.0 adds the external decision provider seam accepted in the 2026-08-13 RFC (#219): one optional per-org provider whose verdict joins the guard decision stricter-wins (external deny absolute, external allow never loosening, identity-bound via echoed input_identity), explicit fail_closed/fail_open unavailability posture, _external_verdict decision evidence, EXTERNAL_VERDICT_* org-settings config with a /policies workbench panel, and regime badges on decision detail and /approvals. Conformance suite = the ten #220 adversarial cases. Zero new routes/SDK methods/MCP tools/policy types. Neither SDK source changed; the CLI did not change.",
   "domains": [
     "platform"
   ]

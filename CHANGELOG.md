@@ -13,6 +13,8 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.23.0] — 2026-08-13
+
 ### Added
 
 - **External decision provider (the #219 seam, DashClaw side).** An org can
