@@ -3,10 +3,10 @@
     "generatedAt": "2026-08-14",
     "archiveNote": "UNREACHABLE at runtime, independent of auth/middleware. Next.js App Router treats any path segment starting with an underscore as a private folder (https://nextjs.org/docs/app/building-your-application/routing/colocation#private-folders) and excludes it from route generation entirely. So app/api/_archive/**/route.js files never become live endpoints — a request to /api/_archive/anything 404s before middleware.js or next.config.js are even consulted for that path. Confirmed by reading next.config.js (no rewrites() or redirects() entry references '_archive') and middleware.js in full (zero string matches for '_archive'; its matcher config only lists '/api/:path*' plus specific pages, and none of the demo-mode dispatch tables, PUBLIC_ROUTES, or hosted-public-path checks mention _archive). scripts/lib/route-sql-guard.mjs explicitly skips the '_archive' directory when walking route files, confirming the team already treats it as inert/excluded tooling-side. Net effect: these 48 archived route files are dead code from a routing standpoint — the handlers themselves are syntactically intact and mostly still reference live schema tables (verified goals, milestones, ideas, contacts, interactions, agent_messages, message_threads, shared_docs, context_points, context_entries, calendar_events, snippets, user_observations/preferences/moods/approaches, notification_preferences, workflows, executions, scheduled_jobs, agent_pairings, agent_identities, content, health_snapshots, entities, topics, and feedback all still exist in schema/schema.js), but none of that matters because the folder is never mounted as a route. Un-archiving (renaming _archive -> something routable) would make most of them functional again since they read live tables.",
     "counts": {
-      "total": 437,
+      "total": 438,
       "stable": 305,
       "beta": 25,
-      "experimental": 106,
+      "experimental": 107,
       "archived": 0,
       "deprecated": 1
     }
@@ -3818,7 +3818,7 @@
           "inputs": {
             "query.agent_id": "string, optional"
           },
-          "response": "{ signals: Signal[], counts: { red, amber, total }, lastUpdated }",
+          "response": "{ signals: Signal[], counts: { red, amber, total }, lastUpdated } Also returns `muted`: the signals currently hidden by a dismissal ({ type, label, agent_id, severity, dismiss_key }), which backs the panel’s Restore control.",
           "errors": "500 { error: 'An error occurred while computing risk signals', signals: [], counts: { red:0, amber:0, total:0 } } — error body still includes empty signals/counts so callers don't need special-case handling",
           "gotchas": "Per project memory (reference_dashclaw_signals_rewrite_and_reputation_scale), signals severity here is red/amber (not numeric); the module caches its own sql client at module scope (getSql helper) separate from the shared db.ts default export pattern used elsewhere.",
           "file": "app/api/signals/route.ts"
@@ -3829,14 +3829,30 @@
           "kind": "api",
           "status": "experimental",
           "interface": "POST /api/signals",
-          "purpose": "Dismisses signal occurrences server-side (signal_dismissals table) so every surface — status bar, decisions signals panel, widget pulse, guard warnings, signals cron — subtracts the same set. Keys are per-occurrence signalDismissKey values; a new occurrence of the same condition re-fires.",
+          "purpose": "Dismisses signals server-side (signal_dismissals table) so every surface — status bar, decisions signals panel, widget pulse, guard warnings, signals cron — subtracts the same set. For event-time signal types the key is a per-occurrence signalDismissKey and a new occurrence re-fires. For SAMPLED-time types (autonomy_spike, repeated_failures, assumption_drift, session_stalled, mcp_degraded) the key omits the timestamp and the dismissal is a durable mute on (type, agent), reversed with DELETE.",
           "auth": "x-api-key",
           "inputs": {
             "body.dismiss_keys": "string[], required, 1-1000 keys, each <= 600 chars"
           },
           "response": "{ dismissed: number, received: number } — dismissed counts only newly-inserted keys; re-dismissing is an idempotent no-op",
           "errors": "400 on a missing/empty/oversized dismiss_keys array or non-string keys; 500 { error } on a write failure",
-          "gotchas": "Dismissal is a human triage action surfaced in the /decisions Governance Signals panel — it is deliberately not an SDK method. Browsers holding the legacy localStorage dismissed set (dashclaw_dismissed_signals) bulk-migrate it here once via the SystemStatusBar, then delete the local copy.",
+          "gotchas": "Dismissal is a human triage action surfaced in the /decisions Governance Signals panel — it is deliberately not an SDK method. Sampled-time types mute durably because their detected_at is a sampling time that advances on its own; including it made those signals impossible to clear. Browsers holding the legacy localStorage dismissed set (dashclaw_dismissed_signals) bulk-migrate it here once via the SystemStatusBar, then delete the local copy.",
+          "file": "app/api/signals/route.ts"
+        },
+        {
+          "id": "delete-api-signals",
+          "name": "DELETE /api/signals",
+          "kind": "api",
+          "status": "experimental",
+          "interface": "DELETE /api/signals",
+          "purpose": "Restores (un-mutes) previously dismissed signals by removing their rows from signal_dismissals. Ships alongside the durable mute: sampled-time signal types mute on (type, agent) rather than per occurrence, so without a restore path one click could hide a live condition permanently.",
+          "auth": "x-api-key",
+          "inputs": {
+            "body.dismiss_keys": "string[], required, 1-1000 keys, each <= 600 chars (same caps as POST)"
+          },
+          "response": "{ restored: number, received: number } — restored counts only rows actually deleted; restoring a key that was never dismissed is an idempotent no-op",
+          "errors": "400 on a missing/empty/oversized dismiss_keys array or non-string keys; 500 { error } on a delete failure",
+          "gotchas": "The keys to pass come from the `muted` array on GET /api/signals, not from the live signals list. The /decisions Governance Signals panel exposes this as the \"Muted N\" chip with per-entry and bulk Restore buttons.",
           "file": "app/api/signals/route.ts"
         }
       ]
