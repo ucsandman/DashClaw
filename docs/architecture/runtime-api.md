@@ -186,6 +186,10 @@ A fifth decision sits between `warn` and `require_approval`: **execute now, but 
 
 `block` is never emitted or reached via containment — containment only ever replaces what would otherwise be `require_approval`.
 
+#### External decision provider (optional)
+
+An org can configure **one external decision provider** on `/policies` (URL, optional bearer token, timeout, unavailability posture). During evaluation the guard POSTs the evaluated act to the provider and joins the returned verdict **stricter-wins** into the decision: `allow -> allow`, `warn -> warn`, `escalate -> require_approval`, `deny -> block`. The external authority can tighten the effective decision, never loosen it, and its `deny` is absolute for the evaluated act — no local grant or approval overrides it. Unavailability (timeout, non-2xx, malformed response, identity mismatch, unsupported verdict) takes the configured posture — `fail_closed` (default, joins as `require_approval`) or `fail_open` (local rules decide alone) — and is always recorded honestly as `external unavailable`, never as external governance that happened. Provenance (provider id, raw and mapped verdict, reason code, policy version, identity, latency, posture) is persisted as a `_external_verdict` sibling in the decision evidence, and operators see the regime on decision detail and `/approvals`. Wire contract and provider-side rules: [docs/external-verdict-provider.md](../external-verdict-provider.md) (frozen by the [2026-08-13 RFC](../rfcs/2026-08-13-external-policy-verdict-input.md)).
+
 ### 2. Actions (`POST /api/actions`)
 
 Records an action in the DashClaw ledger. This endpoint also runs guard evaluation internally. If policy blocks the action, DashClaw creates a blocked action record and returns `403`. If approval is required, the action is created with `status: "pending_approval"`.

@@ -13,6 +13,27 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Added
+
+- **External decision provider (the #219 seam, DashClaw side).** An org can
+  configure one external decision engine (URL, optional bearer token, timeout,
+  unavailability posture) in the `/policies` workbench; the guard calls it
+  during every evaluation and joins its verdict **stricter-wins** into the
+  decision (`allow/warn/escalate/deny` → the local lattice, external `deny`
+  absolute, no loosening in either direction, identity-bound via an echoed
+  `input_identity` digest). Unavailability takes an explicit posture —
+  `fail_closed` (default, joins as `require_approval`) or `fail_open` — and is
+  always recorded as `external unavailable`, never as successful external
+  governance. Evidence lands as a `_external_verdict` sibling in
+  `guard_decisions` breakdown; operators see the regime (`External: <verdict>`
+  / `External unavailable`) on decision detail and `/approvals` cards. Config
+  rides the existing org-settings path (six `EXTERNAL_VERDICT_*` keys, URL and
+  token encrypted at rest): zero new routes, SDK methods, MCP tools, or policy
+  types. The ten adversarial cases from #220 ship as the mock-provider
+  conformance suite; provider implementers build against
+  `docs/external-verdict-provider.md`. First committed integrator: Agent
+  Memory / PAMA (#219).
+
 ## [5.22.2] — 2026-08-13
 
 Production bugfix for the approval pause shipped in v5.22.0's era (2026-08-12):

@@ -14,6 +14,33 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-13 — the external-verdict seam, DashClaw side (#219)
+
+The seam accepted in the morning's RFC is now built. One optional external
+decision provider per org; the guard calls it during every evaluation and
+joins the verdict stricter-wins — external `deny` is absolute, external
+`allow` can never loosen a local result, and the verdict binds to the exact
+act via an echoed `input_identity` digest (a mismatch discards it). The call
+sits in the same evaluation slot as the calibration controller — after the
+last policy raise, before the grant post-passes — so an operator approval can
+still cover an external `escalate` on retry; putting it later would loop the
+same act through approval forever. Unavailability takes a configured posture
+(`fail_closed` default → `require_approval`, or `fail_open` → local-only) and
+is recorded as `external unavailable` either way — an unreachable provider
+never reads as governance that happened.
+
+Decisions worth recording. **The identity rule is echo, not recompute:**
+DashClaw computes the digest, sends it, and requires it back verbatim —
+providers never reimplement house canonicalization across languages, and E3
+still holds. **Yesterday's lesson applied:** the settings keys went into
+`VALID_SETTING_KEYS` in the same commit as the cache that reads them, and the
+join was verified by deliberately breaking it and watching the matrix fail
+(the v5.22.2 entry below is what happens otherwise). Kevin's ten adversarial
+cases from #220 are the conformance suite verbatim — none needed ACS to be
+real. Provider implementers get `docs/external-verdict-provider.md`; Kevin
+builds the Agent Memory adapter against it, per the division of labor on the
+issue.
+
 ## 2026-08-13 — the pause button that never worked (v5.22.2)
 
 Wes clicked the "1h" approval-pause button on /policies and got "Internal

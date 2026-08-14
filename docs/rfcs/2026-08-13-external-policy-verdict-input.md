@@ -3,6 +3,7 @@
 - **Status:** ACCEPTED — demand gate satisfied 2026-08-13. First committed integrator: **Agent Memory / PAMA** (MythologIQ Labs), with a real workload (an agent-issued governed durable-memory mutation through its existing runtime path), raised on [issue #219](https://github.com/ucsandman/DashClaw/issues/219). Division of labor: the integrator owns the provider adapter; the DashClaw side (guard seam, join, posture, evidence, surfaces) is built by the maintainer against this frozen contract.
 - **Date:** 2026-08-13
 - **Origin:** [issue #219](https://github.com/ucsandman/DashClaw/issues/219) (Kevin Knapp) — accepted design shape, scoped down
+- **Implementation:** DashClaw side shipped 2026-08-13 — provider guide for implementers: [docs/external-verdict-provider.md](../external-verdict-provider.md); conformance suite: `__tests__/unit/guard-external-verdict.test.js` (the #220 matrix)
 - **Why an RFC and not a spec:** it freezes a wire contract other vendors would build against. Contracts that outside parties depend on get decided in the open before code exists.
 
 ---
