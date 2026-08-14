@@ -1,12 +1,10 @@
 /**
- * ?record=true side effects must be scheduled via next/server after(), not
- * fired-and-forgotten mid-request.
- *
- * On Vercel the function can freeze the moment the response returns; a bare
- * `void promise` / un-awaited Promise.all drops the meter increment (a
- * billing/quota undercount that never self-heals) and the Approvals
- * event. POST /api/actions already wraps the identical side effects in
- * after() — this pins the guard route's record path to the same contract.
+ * FIX B1 (2026-08-14 adversarial review): ?record=true built `dlpFindings`
+ * via redactAny() for agent_name/declared_goal/reasoning/authorization_scope/
+ * trigger/input_summary/systems_touched and then never read it — a hook
+ * could not learn a secret had been redacted out of its payload before
+ * persisting. Mirrors POST /api/actions' `security` response field
+ * (clean/findings_count/critical_count/categories, app/api/actions/route.ts).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeRequest } from '../helpers.js';
@@ -14,7 +12,6 @@ import { makeRequest } from '../helpers.js';
 const {
   mockSql, mockValidateGuardInput, mockEvaluateGuard, mockListGuardDecisions,
   mockGetPriorDecision, mockCreateActionRecord, mockGetActionByKey, mockGetOrgHalt,
-  mockPublishOrgEvent, afterCalls,
 } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockValidateGuardInput: vi.fn(),
@@ -24,17 +21,15 @@ const {
   mockCreateActionRecord: vi.fn(),
   mockGetActionByKey: vi.fn(),
   mockGetOrgHalt: vi.fn(),
-  mockPublishOrgEvent: vi.fn(),
-  afterCalls: [],
 }));
 
-// next/server's after() throws "outside a request scope" in unit tests.
-// Capture the deferred callbacks so the test can flush them explicitly.
+// next/server's after() throws "outside a request scope" in unit tests —
+// invoke the deferred side effects immediately (same idiom as the other
+// guard-route tests).
 vi.mock('next/server', async (importOriginal) => {
   const actual = await importOriginal();
-  return { ...actual, after: (cb) => { afterCalls.push(cb); } };
+  return { ...actual, after: (cb) => { void cb(); } };
 });
-
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
 vi.mock('@/lib/validate', () => ({ validateGuardInput: mockValidateGuardInput, boundedIdField: (v) => (typeof v === 'string' && v.length > 0 && v.length <= 200 ? v : null), enforcementModeField: (v) => (typeof v === 'string' && ['enforce', 'observe', 'warn', 'off'].includes(v.trim().toLowerCase()) ? v.trim().toLowerCase() : null) }));
 vi.mock('@/lib/guard', () => ({ evaluateGuard: mockEvaluateGuard, getOrgHaltState: mockGetOrgHalt }));
@@ -50,14 +45,21 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
 vi.mock('@/lib/repositories/hosted-workspace.repository.js', () => ({ incrementTrialActionCount: vi.fn(async () => undefined) }));
 vi.mock('@/lib/events.js', () => ({
   EVENTS: { ACTION_CREATED: 'action.created', GUARD_DECISION_CREATED: 'guard.decision' },
-  publishOrgEvent: mockPublishOrgEvent,
+  publishOrgEvent: vi.fn(),
 }));
 vi.mock('@/lib/repositories/jti-replay.repository.js', () => ({
   checkAndRecord: vi.fn(async () => 'unique'),
   sweep: vi.fn(async () => 0),
 }));
 
+// security.js is deliberately NOT mocked here — the real redactAny/
+// scanSensitiveData patterns are what actually populate dlpFindings.
+
 import { POST } from '@/api/guard/route.js';
+
+// AWS's own published example access key id (docs.aws.amazon.com) — matches
+// the aws_access_key pattern (AKIA[0-9A-Z]{16}) without being a real credential.
+const FAKE_AWS_KEY = 'AKIA' + 'IOSFODNN7EXAMPLE';
 
 function post(data) {
   mockValidateGuardInput.mockReturnValue({ valid: true, data: { ...data }, errors: [] });
@@ -67,10 +69,9 @@ function post(data) {
   }));
 }
 
-describe('/api/guard?record=true side-effect scheduling', () => {
+describe('/api/guard?record=true security metadata (FIX B1)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    afterCalls.length = 0;
     process.env.DATABASE_URL = 'postgres://unit-test';
     process.env.DASHCLAW_MODE = 'cloud';
     mockSql.mockImplementation(async () => []);
@@ -82,17 +83,35 @@ describe('/api/guard?record=true side-effect scheduling', () => {
     mockCreateActionRecord.mockResolvedValue({ action_id: 'act_new1' });
   });
 
-  it('defers meter increment and org event via after() instead of firing mid-request', async () => {
-    const res = await post({ action_type: 'deploy', declared_goal: 'ship', agent_id: 'agt_1' });
+  it('reports a security object with findings when declared_goal carries a secret pattern', async () => {
+    const res = await post({
+      action_type: 'deploy',
+      declared_goal: `ship using ${FAKE_AWS_KEY}`,
+      agent_id: 'agt_1',
+    });
     const body = await res.json();
+
     expect(body.recorded).toBe(true);
+    expect(body.security).toBeDefined();
+    expect(body.security.clean).toBe(false);
+    expect(body.security.findings_count).toBeGreaterThanOrEqual(1);
+    expect(body.security.critical_count).toBeGreaterThanOrEqual(1);
+    expect(body.security.categories).toContain('cloud_credential');
 
-    // The side effects must be scheduled post-response, not already fired.
-    expect(afterCalls.length).toBeGreaterThan(0);
-    expect(mockPublishOrgEvent).not.toHaveBeenCalled();
+    // The persisted record must carry the REDACTED text, not the raw secret.
+    const insertedData = mockCreateActionRecord.mock.calls[0][1].data;
+    expect(insertedData.declared_goal).not.toContain(FAKE_AWS_KEY);
+  });
 
-    for (const cb of afterCalls) await cb();
+  it('reports clean:true when nothing matches a secret pattern', async () => {
+    const res = await post({
+      action_type: 'deploy',
+      declared_goal: 'ship the release',
+      agent_id: 'agt_1',
+    });
+    const body = await res.json();
 
-    expect(mockPublishOrgEvent).toHaveBeenCalledWith('action.created', expect.objectContaining({ orgId: 'org_1' }));
+    expect(body.recorded).toBe(true);
+    expect(body.security).toEqual({ clean: true, findings_count: 0, critical_count: 0, categories: [] });
   });
 });

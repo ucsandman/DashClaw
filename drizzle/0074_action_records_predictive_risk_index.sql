@@ -1,0 +1,21 @@
+-- 0074_action_records_predictive_risk_index
+--
+-- Predictive-risk hot query (app/lib/predictive-risk.ts queryHistoricalStats,
+-- runs on every guard evaluation for orgs with predictive risk enabled):
+--   SELECT ... FROM action_records
+--   WHERE org_id = $1 AND agent_id = $2 AND action_type = $3
+--     AND timestamp_start::timestamptz > NOW() - INTERVAL '30 days'
+--     AND (executed-basis predicate)
+--
+-- No existing index covers action_type (idx_action_records_org_agent_id only
+-- reaches org_id, agent_id), so Postgres narrowed by (org_id, agent_id) and
+-- then scanned the agent's entire history to filter action_type and the
+-- 30-day window row by row.
+--
+-- The 30-day bound stays a post-filter, not an index column: timestamp_start
+-- is TEXT by design (schema/schema.js, drizzle/0043 intentionally left it
+-- untouched) and the ::timestamptz cast it needs is not IMMUTABLE, so
+-- Postgres refuses an expression index on it. A plain composite index on
+-- (org_id, agent_id, action_type) still narrows the scan to just this
+-- agent+action_type's rows before the timestamp filter runs over them.
+CREATE INDEX IF NOT EXISTS "idx_action_records_org_agent_type" ON "action_records" ("org_id", "agent_id", "action_type");

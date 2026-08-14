@@ -47,6 +47,7 @@ vi.mock('@/lib/repositories/guard.repository.js', () => ({
 vi.mock('@/lib/repositories/actions.repository.js', () => ({
   createActionRecord: mockCreateActionRecord,
   getActionByIdempotencyKey: mockGetActionByKey,
+  getActionIdByIdempotencyKey: mockGetActionByKey,
 }));
 vi.mock('@/lib/repositories/hosted-workspace.repository.js', () => ({ incrementTrialActionCount: vi.fn(async () => undefined) }));
 vi.mock('@/lib/events.js', () => ({

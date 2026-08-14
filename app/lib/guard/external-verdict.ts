@@ -46,7 +46,12 @@ export interface ExternalVerdictEvidence {
   policy_source?: string | null;
   policy_version?: string | null;
   input_identity?: string;
-  failure?: 'timeout' | 'budget' | 'http_error' | 'malformed' | 'identity_mismatch' | 'unsupported_verdict' | 'unsafe_url' | 'error';
+  failure?: 'timeout' | 'budget' | 'http_error' | 'malformed' | 'identity_mismatch' | 'unsupported_verdict' | 'unsafe_url' | 'error'
+    // 'config_unreadable' — enabled with a saved URL that decrypt() could not
+    // read (e.g. after an ENCRYPTION_KEY rotation). 'internal_error' — the
+    // config loaded fine but something after it threw (see runExternalVerdict
+    // in evaluate.ts, A1 #219 adversarial review).
+    | 'config_unreadable' | 'internal_error';
   evidence?: unknown;
   evidence_truncated?: true;
 }

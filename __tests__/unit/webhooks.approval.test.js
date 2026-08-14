@@ -239,6 +239,34 @@ describe('fireWebhooksForApproval', () => {
     await expect(fireWebhooksForApproval('org_1', 'approval_pending', action, throwingSql)).resolves.toBeUndefined();
   });
 
+  it('prunes deliveries past the 30-day retention window alongside the INSERT', async () => {
+    const sql = createSqlMock({
+      taggedResponses: [
+        [{ id: 'wh_1', url: 'https://example.com/hook', secret: 'sec', events: '["all"]' }],
+        [], // delivery INSERT
+        [], // retention DELETE
+      ],
+    });
+    mockFetch.mockResolvedValue({ ok: true, status: 200, text: async () => 'ok' });
+
+    const action = {
+      action_id: 'act_9',
+      agent_id: 'agent_9',
+      action_type: 'tool_call',
+      declared_goal: 'test',
+      risk_score: 0.5,
+      status: 'pending_approval',
+    };
+
+    await fireWebhooksForApproval('org_1', 'approval_pending', action, sql);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const deleteCall = sql.taggedCalls.find((c) => c.text.includes('DELETE FROM webhook_deliveries'));
+    expect(deleteCall).toBeDefined();
+    expect(deleteCall.text).toContain("interval '30 days'");
+    expect(deleteCall.values[0]).toBe('org_1');
+  });
+
   it('uses NEXTAUTH_URL for approval and replay URLs when set', async () => {
     process.env.NEXTAUTH_URL = 'https://myapp.example.com';
 

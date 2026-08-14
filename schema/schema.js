@@ -288,6 +288,18 @@ export const actionRecords = pgTable('action_records', {
   pendingExpiryIdx: index('idx_action_records_pending_expiry')
     .on(table.orgId, table.approvalExpiresAt)
     .where(sql`${table.status} = 'pending_approval'`),
+  // Predictive-risk hot query (drizzle/0074): backs queryHistoricalStats'
+  // WHERE org_id = $1 AND agent_id = $2 AND action_type = $3, which no prior
+  // index covered — Postgres fell back to scanning the agent's whole history.
+  orgAgentTypeIdx: index('idx_action_records_org_agent_type')
+    .on(table.orgId, table.agentId, table.actionType),
+  // End-to-end idempotency (drizzle/0004): one row per (org, idempotency_key)
+  // among rows that carry one at all. Was missing here though it exists on
+  // every physical DB, which misled review agents into thinking the DB was
+  // unindexed.
+  idempotencyIdx: uniqueIndex('action_records_idempotency_idx')
+    .on(table.orgId, table.idempotencyKey)
+    .where(sql`${table.idempotencyKey} IS NOT NULL`),
 }));
 
 export const openLoops = pgTable('open_loops', {

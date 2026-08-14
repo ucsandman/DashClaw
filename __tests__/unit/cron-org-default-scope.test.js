@@ -24,8 +24,7 @@ vi.mock('../../app/lib/timing-safe.js', () => ({ timingSafeCompare: mockTimingSa
 vi.mock('../../app/lib/events.js', () => ({ EVENTS: {}, publishOrgEvent: vi.fn() }));
 vi.mock('../../app/lib/maintenance.js', () => ({ runMemoryMaintenance: mockMaintenance }));
 vi.mock('../../app/lib/repositories/signals.repository.js', () => ({
-  getExistingSignalHashes: vi.fn(async () => []),
-  upsertSignalSnapshots: vi.fn(async () => {}),
+  claimNewSignalSnapshots: vi.fn(async () => []),
 }));
 
 import { GET as signalsCron } from '../../app/api/cron/signals/route';

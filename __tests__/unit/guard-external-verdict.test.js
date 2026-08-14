@@ -8,9 +8,14 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockGetSettings, mockSafeFetch } = vi.hoisted(() => ({
+const { mockGetSettings, mockSafeFetch, mockDecrypt } = vi.hoisted(() => ({
   mockGetSettings: vi.fn(async () => []),
   mockSafeFetch: vi.fn(),
+  // Real decrypt() (app/lib/encryption.ts) catches internally and returns
+  // null on failure — it does not throw. Default here matches that: pass
+  // stored values through unchanged unless a test overrides it to simulate
+  // an undecryptable value (e.g. after an ENCRYPTION_KEY rotation, A1).
+  mockDecrypt: vi.fn((value) => value),
 }));
 
 vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: mockGetSettings }));
@@ -19,6 +24,7 @@ vi.mock('@/lib/webhooks.js', () => ({ deliverGuardWebhook: vi.fn() }));
 vi.mock('@/lib/llm.js', () => ({ checkSemanticGuardrail: vi.fn() }));
 vi.mock('@/lib/security.js', () => ({ scanSensitiveData: vi.fn((text) => ({ findings: [], redacted: text, clean: true })) }));
 vi.mock('@/lib/predictive-risk.js', () => ({ getPredictiveRisk: vi.fn(async () => ({ statistical: null, llm: null, total_adjustment: 0 })) }));
+vi.mock('@/lib/encryption', () => ({ decrypt: mockDecrypt }));
 
 import { evaluateGuard } from '@/lib/guard.js';
 import { createSqlMock } from '../helpers.js';
@@ -39,6 +45,11 @@ function makeSql() {
 
 function settingsRows(map) {
   return Object.entries(map).map(([key, value]) => ({ key, value, encrypted: false, category: 'general' }));
+}
+
+/** A stored setting marked encrypted — exercises the decrypt() path. */
+function encryptedRow(key, storedValue) {
+  return { key, value: storedValue, encrypted: true, category: 'general' };
 }
 
 describe('external verdict config (org-settings → guard cache)', () => {
@@ -68,6 +79,36 @@ describe('external verdict config (org-settings → guard cache)', () => {
     const cfg = await getExternalVerdictConfig(makeSql(), 'org_1');
     expect(cfg.enabled).toBe(false);
     expect(cfg.url).toBe('https://provider.example.com/verdict');
+    // Disabled always reads as 'unset' regardless of what's saved — the
+    // guard skips exactly like it always did for a disabled org.
+    expect(cfg.configState).toBe('unset');
+  });
+
+  it('A1: configState is "unreadable" when an enabled org has a saved URL that fails to decrypt', async () => {
+    mockDecrypt.mockReturnValueOnce(null); // simulates a real decrypt() failure (returns null, does not throw)
+    mockGetSettings.mockResolvedValue([
+      { key: 'EXTERNAL_VERDICT_ENABLED', value: 'true', encrypted: false, category: 'general' },
+      encryptedRow('EXTERNAL_VERDICT_PROVIDER_URL', 'sha256:v2:ciphertext'),
+    ]);
+    const cfg = await getExternalVerdictConfig(makeSql(), 'org_1');
+    expect(cfg.configState).toBe('unreadable');
+    expect(cfg.url).toBeNull();
+    expect(cfg.enabled).toBe(true);
+  });
+
+  it('A1: configState is "unset" when enabled but no URL was ever saved', async () => {
+    mockGetSettings.mockResolvedValue(settingsRows({ EXTERNAL_VERDICT_ENABLED: 'true' }));
+    const cfg = await getExternalVerdictConfig(makeSql(), 'org_1');
+    expect(cfg.configState).toBe('unset');
+  });
+
+  it('A1: configState is "ready" when enabled with a readable URL', async () => {
+    mockGetSettings.mockResolvedValue(settingsRows({
+      EXTERNAL_VERDICT_ENABLED: 'true',
+      EXTERNAL_VERDICT_PROVIDER_URL: 'https://provider.example.com/verdict',
+    }));
+    const cfg = await getExternalVerdictConfig(makeSql(), 'org_1');
+    expect(cfg.configState).toBe('ready');
   });
 
   it('parses an enabled provider config from settings rows', async () => {
@@ -442,6 +483,42 @@ describe('evaluateGuard external-verdict seam (ten #220 adversarial cases)', () 
     // clock — the byte-identical claim is about behavior, not the clock.
     const strip = ({ decision_id, action_id, evaluated_at, ...rest }) => rest;
     expect(strip(a.result)).toEqual(strip(b.result));
+  });
+
+  it('A1: unreadable config + fail_closed → escalates with config_unreadable evidence, never a silent local-only skip', async () => {
+    mockDecrypt.mockReturnValueOnce(null); // simulates a real decrypt() failure after an ENCRYPTION_KEY rotation
+    mockGetSettings.mockResolvedValue([
+      { key: 'EXTERNAL_VERDICT_ENABLED', value: 'true', encrypted: false, category: 'general' },
+      { key: 'EXTERNAL_VERDICT_POSTURE', value: 'fail_closed', encrypted: false, category: 'general' },
+      encryptedRow('EXTERNAL_VERDICT_PROVIDER_URL', 'sha256:v2:ciphertext'),
+    ]);
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx(), sql);
+    expect(mockSafeFetch).not.toHaveBeenCalled(); // no usable URL — never attempts a call
+    expect(result.decision).toBe('require_approval');
+    expect(result.reason).toContain('external_unavailable (config_unreadable; fail_closed)');
+    const xv = persistedContext(sql)._external_verdict;
+    expect(xv).toBeTruthy();
+    expect(xv.failure).toBe('config_unreadable');
+    expect(xv.status).toBe('unavailable');
+    expect(xv.regime).toBe('external_unavailable');
+  });
+
+  it('A1: unreadable config + fail_open → local-only proceed, evidence still attached (not a silent skip)', async () => {
+    mockDecrypt.mockReturnValueOnce(null);
+    mockGetSettings.mockResolvedValue([
+      { key: 'EXTERNAL_VERDICT_ENABLED', value: 'true', encrypted: false, category: 'general' },
+      { key: 'EXTERNAL_VERDICT_POSTURE', value: 'fail_open', encrypted: false, category: 'general' },
+      encryptedRow('EXTERNAL_VERDICT_PROVIDER_URL', 'sha256:v2:ciphertext'),
+    ]);
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx(), sql);
+    expect(mockSafeFetch).not.toHaveBeenCalled();
+    expect(result.decision).toBe('allow');
+    expect(result.signals.join(' ')).toContain('external_unavailable (config_unreadable; fail_open)');
+    const xv = persistedContext(sql)._external_verdict;
+    expect(xv.failure).toBe('config_unreadable');
+    expect(xv.status).toBe('unavailable');
   });
 
   it('extra: fail_open + provider down → local-only proceed with honest evidence', async () => {

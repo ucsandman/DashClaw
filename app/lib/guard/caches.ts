@@ -90,11 +90,20 @@ export interface ExternalVerdictConfig {
   posture: 'fail_closed' | 'fail_open';
   /** Display/provenance id: EXTERNAL_VERDICT_PROVIDER, else the URL host. */
   providerId: string;
+  /**
+   * 'unset' — not enabled, or no URL value was ever saved (nothing to run).
+   * 'unreadable' — enabled AND a stored URL value exists but could not be
+   * decrypted (e.g. after an ENCRYPTION_KEY rotation). 'ready' — usable. The guard
+   * (runExternalVerdict) treats 'unreadable' like a failed call: it applies
+   * the org's posture and attaches evidence, never a silent local-only skip.
+   */
+  configState: 'unset' | 'unreadable' | 'ready';
 }
 export const EXTERNAL_VERDICT_TIMEOUT_DEFAULT_MS = 1_200;
 const DISABLED_EXTERNAL_VERDICT_CONFIG: ExternalVerdictConfig = {
   enabled: false, url: null, authToken: null,
   timeoutMs: EXTERNAL_VERDICT_TIMEOUT_DEFAULT_MS, posture: 'fail_closed', providerId: 'external',
+  configState: 'unset',
 };
 const externalVerdictCache = new Map<string, { cfg: ExternalVerdictConfig; expires: number }>();
 
@@ -142,11 +151,30 @@ export function invalidateGuardRiskTemplateCache(orgId?: string): void {
 }
 
 /**
+ * Per-org generation counter for the shared settings read (loadGeneralSettings
+ * below). A loadGeneralSettings SELECT that started before an invalidate call
+ * commits can still resolve AFTER it — refilling the caches with pre-
+ * invalidation data would silently undo the invalidation (observed live: a
+ * POST /api/halt committing mid-flight left a halt un-enforced on that
+ * instance for up to HALT_CACHE_TTL_MS). loadGeneralSettings captures the
+ * generation before its SELECT and skips every cache.set if it changed by the
+ * time the SELECT resolves. `globalSettingsGeneration` covers the org-less
+ * clear-all branch the same way, without having to enumerate every org that
+ * might have a read in flight.
+ */
+let globalSettingsGeneration = 0;
+const settingsGeneration = new Map<string, number>();
+function currentSettingsGeneration(orgId: string): string {
+  return `${globalSettingsGeneration}:${settingsGeneration.get(orgId) ?? 0}`;
+}
+
+/**
  * Called by the /api/halt endpoint so the org kill switch takes effect
  * immediately instead of after the ~30s settings-cache TTL.
  */
 export function invalidateGuardSettingsCache(orgId?: string): void {
   if (orgId) {
+    settingsGeneration.set(orgId, (settingsGeneration.get(orgId) ?? 0) + 1);
     predictiveSettingsCache.delete(orgId);
     orgHaltCache.delete(orgId);
     approvalPauseCache.delete(orgId);
@@ -154,6 +182,7 @@ export function invalidateGuardSettingsCache(orgId?: string): void {
     calibrationStateCache.delete(orgId);
     externalVerdictCache.delete(orgId);
   } else {
+    globalSettingsGeneration++;
     predictiveSettingsCache.clear();
     orgHaltCache.clear();
     approvalPauseCache.clear();
@@ -261,19 +290,25 @@ export function __resetGuardCaches(): void {
   calibrationStateCache.clear();
   hasLivePlanCache.clear();
   externalVerdictCache.clear();
+  settingsGeneration.clear();
+  globalSettingsGeneration = 0;
 }
 
 /**
  * The org's external verdict provider config, from the shared 30s settings
- * cache. Callers treat `enabled && url` as "configured"; an enabled org whose
- * URL is missing or undecryptable is NOT configured (no call, no evidence) —
- * unavailability posture is reserved for a configured provider that fails.
+ * cache. `configState` tells callers what usable means: 'unset' (nothing to
+ * run — the guard skips silently, same as before), 'unreadable' (enabled AND
+ * a stored URL exists but failed to decrypt — the guard now applies the org's
+ * posture and attaches evidence, it does NOT fall back to a silent
+ * local-only skip), or 'ready'. Overridden 2026-08-14: a decrypt failure
+ * used to collapse into the same "not configured" shape as never-configured,
+ * so an org with posture=fail_closed got silent local-only governance with
+ * no _external_verdict evidence.
  */
 export async function getExternalVerdictConfig(sql: GuardSql, orgId: string): Promise<ExternalVerdictConfig> {
   const hit = externalVerdictCache.get(orgId);
   if (hit && hit.expires > Date.now()) return hit.cfg;
-  await loadGeneralSettings(sql, orgId);
-  return externalVerdictCache.get(orgId)?.cfg ?? DISABLED_EXTERNAL_VERDICT_CONFIG;
+  return (await loadGeneralSettings(sql, orgId)).externalVerdictConfig;
 }
 
 async function parseExternalVerdictConfig(
@@ -285,25 +320,37 @@ async function parseExternalVerdictConfig(
   // URL and token auto-encrypt at the settings API (shouldAutoEncrypt suffix
   // rules); decrypt once per cache fill. Import lazily so orgs without a
   // provider never load the encryption module on the guard hot path.
-  const readMaybeEncrypted = async (key: string): Promise<string | null> => {
+  // Returns `unreadable: true` only when a stored value existed and could not
+  // be recovered — distinct from "no value was ever saved" (configState
+  // below). decrypt() itself catches internally and returns null rather than
+  // throwing (app/lib/encryption.ts), so that's the failure signal to watch
+  // for; the try/catch here is defense in depth for a throw anyway.
+  const readMaybeEncrypted = async (key: string): Promise<{ value: string | null; unreadable: boolean }> => {
     const r = row(key);
-    if (!r || typeof r.value !== 'string' || !r.value) return null;
-    if (!r.encrypted) return r.value;
+    if (!r || typeof r.value !== 'string' || !r.value) return { value: null, unreadable: false };
+    if (!r.encrypted) return { value: r.value, unreadable: false };
     try {
       const { decrypt } = await import('../encryption');
-      return decrypt(r.value, `${orgId}:${key}`);
+      const decrypted = decrypt(r.value, `${orgId}:${key}`);
+      if (decrypted === null) {
+        console.warn('[Guard] external-verdict setting decrypt failed:', key);
+        return { value: null, unreadable: true };
+      }
+      return { value: decrypted, unreadable: false };
     } catch (err) {
       console.warn('[Guard] external-verdict setting decrypt failed:', key, (err as Error).message);
-      return null;
+      return { value: null, unreadable: true };
     }
   };
   // Deliberately NOT gated on `enabled`: the /policies "Test provider" probe
   // reads this config to test a provider BEFORE the org turns it on (enabling
   // an unverified provider under fail_closed starts holding real actions).
-  // The guard itself still requires `enabled && url` (runExternalVerdict), so
-  // a disabled org's decrypted URL never reaches a decision.
-  const url = await readMaybeEncrypted('EXTERNAL_VERDICT_PROVIDER_URL');
-  const authToken = await readMaybeEncrypted('EXTERNAL_VERDICT_AUTH_TOKEN');
+  // The guard itself keys off `configState` (runExternalVerdict): 'unset'
+  // skips exactly like a disabled org always did; 'unreadable' and 'ready'
+  // both reach a decision.
+  const urlResult = await readMaybeEncrypted('EXTERNAL_VERDICT_PROVIDER_URL');
+  const authToken = (await readMaybeEncrypted('EXTERNAL_VERDICT_AUTH_TOKEN')).value;
+  const url = urlResult.value;
   const timeoutRaw = parseInt(String(row('EXTERNAL_VERDICT_TIMEOUT_MS')?.value ?? ''), 10);
   const timeoutMs = Number.isFinite(timeoutRaw)
     ? Math.min(5_000, Math.max(100, timeoutRaw))
@@ -314,7 +361,14 @@ async function parseExternalVerdictConfig(
   if (!providerId && url) {
     try { providerId = new URL(url).host; } catch { /* fall through to default */ }
   }
-  return { enabled, url, authToken, timeoutMs, posture, providerId: providerId ?? 'external' };
+  const configState: ExternalVerdictConfig['configState'] = !enabled
+    ? 'unset'
+    : urlResult.unreadable
+      ? 'unreadable'
+      : !url
+        ? 'unset'
+        : 'ready';
+  return { enabled, url, authToken, timeoutMs, posture, providerId: providerId ?? 'external', configState };
 }
 
 // Active org risk templates, served from the short-TTL cache (same pattern as
@@ -406,7 +460,23 @@ function parseHaltSetting(value: unknown): OrgHaltState | null {
 // halt lag at ~3s; each halt refresh re-fills the other entries too (fresher
 // than their TTL requires, never staler). Cold evaluations still cost exactly
 // one settings query — the guard-hotpath round-trip budget counts on it.
-async function loadGeneralSettings(sql: GuardSql, orgId: string): Promise<{ enabled: boolean; threshold: number; halt: OrgHaltState | null; approvalPause: ApprovalPauseState | null }> {
+//
+// The generation guard below protects against this SELECT losing a race
+// with a concurrent invalidateGuardSettingsCache:
+// if the org's generation moved between the read starting and finishing, an
+// invalidate fired mid-flight and every cache.set is skipped — refilling now
+// would resurrect exactly the stale data the invalidate just cleared. The
+// caller still gets the values this read just fetched either way; only the
+// caching is skipped.
+async function loadGeneralSettings(sql: GuardSql, orgId: string): Promise<{
+  enabled: boolean;
+  threshold: number;
+  halt: OrgHaltState | null;
+  approvalPause: ApprovalPauseState | null;
+  calibrationSettings: CalibrationSettings;
+  externalVerdictConfig: ExternalVerdictConfig;
+}> {
+  const generationAtStart = currentSettingsGeneration(orgId);
   const { getSettings } = await import('../repositories/settings.repository');
   const riskSettings = await getSettings(sql, orgId, { category: 'general' });
   const settingsList = riskSettings as Array<Record<string, unknown>>;
@@ -420,31 +490,27 @@ async function loadGeneralSettings(sql: GuardSql, orgId: string): Promise<{ enab
   const approvalPause = parseJsonSetting<ApprovalPauseState>(
     settingsList.find((s) => s.key === APPROVAL_PAUSE_KEY)?.value,
   );
-  predictiveSettingsCache.set(orgId, predictive);
-  pruneCache(predictiveSettingsCache, now);
-  orgHaltCache.set(orgId, { halt, expires: now + HALT_CACHE_TTL_MS });
-  pruneCache(orgHaltCache, now);
-  approvalPauseCache.set(orgId, { pause: approvalPause, expires: now + HALT_CACHE_TTL_MS });
-  pruneCache(approvalPauseCache, now);
-  calibrationSettingsCache.set(orgId, {
-    settings: parseCalibrationSettings(settingsList as Array<{ key?: unknown; value?: unknown }>),
-    expires: now + GUARD_CACHE_TTL_MS,
-  });
-  pruneCache(calibrationSettingsCache, now);
-  externalVerdictCache.set(orgId, {
-    cfg: await parseExternalVerdictConfig(settingsList, orgId),
-    expires: now + GUARD_CACHE_TTL_MS,
-  });
-  pruneCache(externalVerdictCache, now);
-  return { enabled: predictive.enabled, threshold: predictive.threshold, halt, approvalPause };
+  const calibrationSettings = parseCalibrationSettings(settingsList as Array<{ key?: unknown; value?: unknown }>);
+  const externalVerdictConfig = await parseExternalVerdictConfig(settingsList, orgId);
+  if (currentSettingsGeneration(orgId) === generationAtStart) {
+    predictiveSettingsCache.set(orgId, predictive);
+    pruneCache(predictiveSettingsCache, now);
+    orgHaltCache.set(orgId, { halt, expires: now + HALT_CACHE_TTL_MS });
+    pruneCache(orgHaltCache, now);
+    approvalPauseCache.set(orgId, { pause: approvalPause, expires: now + HALT_CACHE_TTL_MS });
+    pruneCache(approvalPauseCache, now);
+    calibrationSettingsCache.set(orgId, { settings: calibrationSettings, expires: now + GUARD_CACHE_TTL_MS });
+    pruneCache(calibrationSettingsCache, now);
+    externalVerdictCache.set(orgId, { cfg: externalVerdictConfig, expires: now + GUARD_CACHE_TTL_MS });
+    pruneCache(externalVerdictCache, now);
+  }
+  return { enabled: predictive.enabled, threshold: predictive.threshold, halt, approvalPause, calibrationSettings, externalVerdictConfig };
 }
 
 async function getCalibrationSettings(sql: GuardSql, orgId: string): Promise<CalibrationSettings> {
   const hit = calibrationSettingsCache.get(orgId);
   if (hit && hit.expires > Date.now()) return hit.settings;
-  await loadGeneralSettings(sql, orgId);
-  // loadGeneralSettings always fills the entry; fall back defensively anyway.
-  return calibrationSettingsCache.get(orgId)?.settings ?? parseCalibrationSettings([]);
+  return (await loadGeneralSettings(sql, orgId)).calibrationSettings;
 }
 
 /**

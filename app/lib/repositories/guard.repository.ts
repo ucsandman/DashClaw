@@ -31,16 +31,36 @@ interface ListGuardDecisionsResult {
   stats: Row;
 }
 
+// Memoized at module scope (same short-TTL-cache shape as the guard hot-path
+// caches, app/lib/guard/caches.ts): GET /api/guard was hitting
+// information_schema on every list call to answer a question that only
+// changes across a migration. A found 'reasons' column never reverts (schema
+// only moves forward), so a true result is cached indefinitely; a
+// not-yet-migrated false result stays on the short TTL so a live db:migrate
+// is picked up without a restart.
+const REASONS_COLUMN_CACHE_TTL_MS = 30_000;
+let reasonsColumnCache: { value: boolean; expires: number } | null = null;
+
 /**
  * Introspect whether the guard_decisions table uses the 'reasons' column
  * (current schema) or the legacy 'reason' column.
  */
 async function hasReasonsColumn(sql: SqlQueryClient): Promise<boolean> {
+  if (reasonsColumnCache && (reasonsColumnCache.value === true || reasonsColumnCache.expires > Date.now())) {
+    return reasonsColumnCache.value;
+  }
   const rows = await sql.query(
     "SELECT column_name FROM information_schema.columns WHERE table_name = 'guard_decisions' AND column_name IN ('reasons', 'reason')",
     []
   );
-  return rows.some((r) => r.column_name === 'reasons');
+  const value = rows.some((r) => r.column_name === 'reasons');
+  reasonsColumnCache = { value, expires: Date.now() + REASONS_COLUMN_CACHE_TTL_MS };
+  return value;
+}
+
+/** Test-only: clear the memoized hasReasonsColumn() result. */
+export function __resetHasReasonsColumnCache(): void {
+  reasonsColumnCache = null;
 }
 
 /**

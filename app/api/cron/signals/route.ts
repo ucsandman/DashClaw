@@ -10,7 +10,7 @@ import { getSql } from '../../../lib/db';
 import crypto from 'crypto';
 import { timingSafeCompare } from '../../../lib/timing-safe';
 import { publishOrgEvent, EVENTS } from '../../../lib/events';
-import { getExistingSignalHashes, upsertSignalSnapshots } from '../../../lib/repositories/signals.repository';
+import { claimNewSignalSnapshots } from '../../../lib/repositories/signals.repository';
 import { isHostedMode } from '../../../lib/hosted/flag';
 import { listOrganizations } from '../../../lib/repositories/orgs.repository';
 
@@ -89,21 +89,23 @@ export async function GET(request: Request) {
         // Hash each signal
         const currentHashes = signals.map((s) => ({ ...s, _hash: hashSignal(s as Parameters<typeof hashSignal>[0]) } as Record<string, any>));
 
-        // Load existing snapshots for this org, bounded to the current
-        // candidate hashes (the only ones membership is tested against).
-        const existingHashes = await getExistingSignalHashes(
+        // Atomically claim which of these signals are NEW for this org, and
+        // write the snapshot BEFORE any notification fires. Only the run that
+        // wins the underlying INSERT ON CONFLICT DO NOTHING for a signal_hash
+        // gets it back here — so two overlapping invocations (Vercel cron
+        // retry, manual re-trigger) can no longer both classify the same
+        // signal as new and both notify. If this process dies between this
+        // write and the notification below, that signal is never re-notified
+        // (at-most-once, not at-least-once) — acceptable and intended.
+        const now = new Date().toISOString();
+        const insertedHashes = await claimNewSignalSnapshots(
           sql,
           orgId,
-          currentHashes.map((s: Record<string, any>) => s._hash as string)
+          currentHashes as Parameters<typeof claimNewSignalSnapshots>[2],
+          now
         );
-        const existingSet = new Set(existingHashes);
-
-        // Find NEW signals (hash not in snapshot)
-        const newSignals = currentHashes.filter((s: Record<string, any>) => !existingSet.has(s._hash));
-
-        // Upsert all current signals into snapshots (one batched INSERT per chunk).
-        const now = new Date().toISOString();
-        await upsertSignalSnapshots(sql, orgId, currentHashes as Parameters<typeof upsertSignalSnapshots>[2], now);
+        const insertedSet = new Set(insertedHashes);
+        const newSignals = currentHashes.filter((s: Record<string, any>) => insertedSet.has(s._hash));
 
         if (newSignals.length === 0) {
           summary.orgs_processed++;

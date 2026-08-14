@@ -13,7 +13,7 @@ import { scanForPromptInjection } from '../../lib/promptInjection';
 import { scanSensitiveData, redactAny } from '../../lib/security';
 import { getSettings } from '../../lib/repositories/settings.repository';
 import { listGuardDecisions, getGuardDecisionByIdempotencyKey } from '../../lib/repositories/guard.repository';
-import { createActionRecord, createBlockedActionRecord, getActionByIdempotencyKey } from '../../lib/repositories/actions.repository';
+import { createActionRecord, createBlockedActionRecord, getActionIdByIdempotencyKey } from '../../lib/repositories/actions.repository';
 import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository';
 import { fireActionAlert } from '../../lib/actionAlerts';
 import { fireApprovalSurfaces } from '../../lib/approvalSurfaces';
@@ -46,9 +46,31 @@ interface PreparedRecordReads {
 
 async function prepareRecordReads(sql: GuardSql, orgId: string, data: GuardData): Promise<PreparedRecordReads> {
   const existing = typeof data.idempotency_key === 'string' && data.idempotency_key
-    ? await getActionByIdempotencyKey(sql, orgId, data.idempotency_key)
+    ? await getActionIdByIdempotencyKey(sql, orgId, data.idempotency_key)
     : null;
   return { existing: existing as Record<string, unknown> | null };
+}
+
+/**
+ * Two concurrent requests carrying
+ * the SAME idempotency_key can both pass recordRunningAction's pre-insert
+ * `reads.existing` lookup (neither has landed yet) and then race the
+ * createActionRecord/createBlockedActionRecord INSERT. The DB's unique index
+ * (drizzle/0004 action_records_idempotency_idx) lets exactly one insert win;
+ * the loser used to surface as a bare recorded:false — a false negative,
+ * since the action WAS recorded, by the winner. Same 23505-recovery shape as
+ * invites.repository.ts createInvite: re-query by key and treat a found row
+ * as success. Returns null (caller rethrows) for a non-recoverable error.
+ */
+async function recoverIdempotentInsertRace(
+  sql: GuardSql,
+  orgId: string,
+  idempotencyKey: unknown,
+  err: unknown,
+): Promise<Record<string, unknown> | null> {
+  if ((err as { code?: string } | undefined)?.code !== '23505') return null;
+  if (typeof idempotencyKey !== 'string' || !idempotencyKey) return null;
+  return (await getActionIdByIdempotencyKey(sql, orgId, idempotencyKey)) as Record<string, unknown> | null;
 }
 
 async function recordRunningAction(
@@ -58,7 +80,7 @@ async function recordRunningAction(
   result: GuardResult,
   createdBy: string | null,
   prepared?: Promise<PreparedRecordReads | null> | null,
-): Promise<{ recorded: boolean; action_id?: string; reason?: string }> {
+): Promise<{ recorded: boolean; action_id?: string; reason?: string; security?: Record<string, unknown> }> {
   if (!data.agent_id || !data.declared_goal) {
     return { recorded: false, reason: 'agent_id and declared_goal are required to record an action' };
   }
@@ -73,11 +95,22 @@ async function recordRunningAction(
 
   // Same redaction POST /api/actions applies before persisting.
   const record: Record<string, unknown> = { ...data };
-  const dlpFindings: unknown[] = [];
+  const dlpFindings: Array<{ severity?: string; category?: string }> = [];
   for (const k of ['agent_name', 'declared_goal', 'reasoning', 'authorization_scope', 'trigger', 'input_summary']) {
     if (record[k] != null) record[k] = redactAny(record[k], dlpFindings);
   }
   if (record.systems_touched != null) record.systems_touched = redactAny(record.systems_touched, dlpFindings);
+
+  // FIX B1 (2026-08-14 adversarial review): mirror POST /api/actions'
+  // `security` response field — dlpFindings was collected above and then
+  // never read, so a hook could never learn ?record=true had redacted a
+  // secret out of its payload.
+  const security = {
+    clean: dlpFindings.length === 0,
+    findings_count: dlpFindings.length,
+    critical_count: dlpFindings.filter((f) => f.severity === 'critical').length,
+    categories: [...new Set(dlpFindings.map((f) => f.category))],
+  };
 
   // Server-side stamp: links this record to the guard decision that produced
   // it so approval outcomes join back to matched_policies (policy-tuning
@@ -92,16 +125,23 @@ async function recordRunningAction(
   // (no trial-count increment: a blocked action never ran).
   if (result.decision === 'block') {
     const blocked_action_id = `act_${crypto.randomUUID()}`;
-    const blockedAction = await createBlockedActionRecord(sql, {
-      orgId,
-      action_id: blocked_action_id,
-      data: record as Parameters<typeof createBlockedActionRecord>[1]['data'],
-      guardDecision: result,
-      signature: null,
-      verified: data.verification_status === 'verified',
-      timestamp_start: new Date().toISOString(),
-      riskScore: result.risk_score ?? null,
-    });
+    let blockedAction: Record<string, unknown> | null;
+    try {
+      blockedAction = await createBlockedActionRecord(sql, {
+        orgId,
+        action_id: blocked_action_id,
+        data: record as Parameters<typeof createBlockedActionRecord>[1]['data'],
+        guardDecision: result,
+        signature: null,
+        verified: data.verification_status === 'verified',
+        timestamp_start: new Date().toISOString(),
+        riskScore: result.risk_score ?? null,
+      }) as Record<string, unknown> | null;
+    } catch (err) {
+      const recovered = await recoverIdempotentInsertRace(sql, orgId, record.idempotency_key, err);
+      if (recovered) return { recorded: true, action_id: String(recovered.action_id ?? recovered.id), security };
+      throw err;
+    }
     // after() keeps the invocation alive only until the value the callback
     // RETURNS settles: the earlier `void` on both calls made this callback
     // return undefined, so it resolved instantly and Vercel froze the function
@@ -112,7 +152,7 @@ async function recordRunningAction(
       publishOrgEvent(EVENTS.ACTION_CREATED, { orgId, action: blockedAction }),
       fireActionAlert('blocked', blockedAction as Record<string, unknown>, sql, orgId),
     ]));
-    return { recorded: true, action_id: blocked_action_id };
+    return { recorded: true, action_id: blocked_action_id, security };
   }
 
   // Containment Verdicts (drizzle/0064): a negotiated+eligible allow_contained
@@ -128,19 +168,26 @@ async function recordRunningAction(
   }
 
   const action_id = `act_${crypto.randomUUID()}`;
-  const createdAction = await createActionRecord(sql, {
-    orgId,
-    action_id,
-    data: record as Parameters<typeof createActionRecord>[1]['data'],
-    actionStatus: result.decision === 'require_approval' ? 'pending_approval' : 'running',
-    costEstimate: Math.max(0, Number(record.cost_estimate) || 0),
-    signature: null,
-    verified: data.verification_status === 'verified',
-    timestamp_start: new Date().toISOString(),
-    riskScore: result.risk_score ?? null,
-    // Separation of duties (drizzle/0055): trusted middleware principal.
-    createdBy,
-  });
+  let createdAction: Record<string, unknown> | null;
+  try {
+    createdAction = await createActionRecord(sql, {
+      orgId,
+      action_id,
+      data: record as Parameters<typeof createActionRecord>[1]['data'],
+      actionStatus: result.decision === 'require_approval' ? 'pending_approval' : 'running',
+      costEstimate: Math.max(0, Number(record.cost_estimate) || 0),
+      signature: null,
+      verified: data.verification_status === 'verified',
+      timestamp_start: new Date().toISOString(),
+      riskScore: result.risk_score ?? null,
+      // Separation of duties (drizzle/0055): trusted middleware principal.
+      createdBy,
+    }) as Record<string, unknown> | null;
+  } catch (err) {
+    const recovered = await recoverIdempotentInsertRace(sql, orgId, record.idempotency_key, err);
+    if (recovered) return { recorded: true, action_id: String(recovered.action_id ?? recovered.id), security };
+    throw err;
+  }
 
   // Same post-response side effects as POST /api/actions (event for the live
   // decision stream, hosted-trial action count). after() — not a bare
@@ -165,7 +212,7 @@ async function recordRunningAction(
     after(() => fireActionAlert('pending_approval', createdAction as Record<string, unknown>, sql, orgId));
   }
 
-  return { recorded: true, action_id };
+  return { recorded: true, action_id, security };
 }
 
 /**
@@ -315,6 +362,7 @@ async function tryIdempotentReplay(
       replay.recorded = rec.recorded;
       if (rec.recorded && rec.action_id) replay.action_id = rec.action_id;
       else if (rec.reason) replay.recorded_error = rec.reason;
+      if (rec.security) replay.security = rec.security;
     } catch (err) {
       console.error('[Guard] record=true replay record failed:', (err as Error).message);
       replay.recorded = false;
@@ -555,6 +603,7 @@ export async function POST(request: Request) {
         } else if (rec.reason) {
           mutable.recorded_error = rec.reason;
         }
+        if (rec.security) mutable.security = rec.security;
       } catch (err) {
         console.error('[Guard] record=true action creation failed:', (err as Error).message);
         mutable.recorded = false;

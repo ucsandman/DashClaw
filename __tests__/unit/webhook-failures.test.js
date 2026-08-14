@@ -32,7 +32,12 @@ describe('fireWebhooksForOrg failure count handling', () => {
   // Tagged template call order:
   //   [0] SELECT webhooks
   //   [1] INSERT INTO webhook_deliveries (from deliverWebhook)
-  //   [2] UPDATE webhooks failure_count/active
+  //   [2] DELETE FROM webhook_deliveries (retention ride-along)
+  //   [3] UPDATE webhooks failure_count/active
+  // Tests locate the UPDATE by content, not position, so retention/log
+  // statements can move without breaking them.
+  const findUpdateCall = (sql) =>
+    sql.taggedCalls.find((c) => c.text.includes('UPDATE webhooks'));
 
   it('resets failure_count to 0 on successful delivery', async () => {
     const sql = createSqlMock({
@@ -49,7 +54,7 @@ describe('fireWebhooksForOrg failure count handling', () => {
     expect(results).toHaveLength(1);
     expect(results[0].success).toBe(true);
     expect(sql.taggedCalls.length).toBeGreaterThanOrEqual(3);
-    const updateCall = sql.taggedCalls[2];
+    const updateCall = findUpdateCall(sql);
     // failure_count = 0 is a literal in the template (reset to zero)
     expect(updateCall.text).toContain('failure_count = 0');
   });
@@ -67,7 +72,7 @@ describe('fireWebhooksForOrg failure count handling', () => {
     const results = await fireWebhooksForOrg('org_1', [{ type: 'test', severity: 'red' }], sql);
 
     expect(results[0].success).toBe(false);
-    const updateCall = sql.taggedCalls[2];
+    const updateCall = findUpdateCall(sql);
     // Atomic: the increment is computed from the row Postgres holds, not from
     // the caller's earlier SELECT. Three overlapping failures used to all read
     // 0 and all write 1, so the disable-at-10 breaker never tripped.
@@ -90,7 +95,7 @@ describe('fireWebhooksForOrg failure count handling', () => {
 
     await fireWebhooksForOrg('org_1', [{ type: 'test', severity: 'red' }], sql);
 
-    const updateCall = sql.taggedCalls[2];
+    const updateCall = findUpdateCall(sql);
     // Atomic: the increment is computed from the row Postgres holds, not from
     // the caller's earlier SELECT. Three overlapping failures used to all read
     // 0 and all write 1, so the disable-at-10 breaker never tripped.

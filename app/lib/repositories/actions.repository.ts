@@ -858,6 +858,26 @@ export async function getActionByIdempotencyKey(
   return rows[0] || null;
 }
 
+/**
+ * Narrow variant of getActionByIdempotencyKey for the guard ?record=true hot
+ * path, which only ever reads action_id/id from the row. POST /api/actions
+ * keeps the full-row variant above because its idempotent-replay response
+ * returns the entire row.
+ */
+export async function getActionIdByIdempotencyKey(
+  sql: SqlClient,
+  orgId: string,
+  idempotencyKey: string | null | undefined,
+): Promise<{ action_id: string | null; id: number | null } | null> {
+  if (!idempotencyKey) return null;
+  const rows = await sql`
+    SELECT action_id, id FROM action_records
+    WHERE org_id = ${orgId} AND idempotency_key = ${idempotencyKey}
+    LIMIT 1
+  `;
+  return (rows[0] as { action_id: string | null; id: number | null } | undefined) || null;
+}
+
 interface ActionData {
   agent_id?: string | null;
   agent_name?: string | null;

@@ -417,6 +417,14 @@ async function logWebhookDelivery({
       INSERT INTO webhook_deliveries (id, webhook_id, org_id, event_type, payload, status, response_status, response_body, attempted_at, duration_ms)
       VALUES (${deliveryId}, ${webhookId}, ${orgId}, ${eventType}, ${storedPayload}, ${status}, ${responseStatus}, ${storedResponseBody}, ${now}, ${durationMs})
     `;
+    // Prune this org's deliveries past the retention window in the same
+    // call — deliveries fire per-webhook-event, so retention rides along
+    // instead of needing its own cron (live-canary precedent). attempted_at
+    // casts ::timestamptz because it's TEXT on fresh drizzle schemas.
+    await sql`
+      DELETE FROM webhook_deliveries
+      WHERE org_id = ${orgId} AND attempted_at::timestamptz < now() - interval '30 days'
+    `;
     return true;
   } catch (err) {
     console.error(`${logPrefix} Failed to log delivery:`, (err as Error)?.message);

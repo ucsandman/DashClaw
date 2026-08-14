@@ -15,6 +15,7 @@ import { DECISION_SEVERITY, sevOf } from './internal';
 import type { GuardSql, GuardEvalContext, PolicyRow, PolicyRules, PolicyResult, Preliminary, GuardDecisionInsert } from './types';
 import { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, isKnownPolicyType } from './policy';
 import { getOrgHaltState, getActiveApprovalPause, loadApplicablePolicies, getPredictiveSettings, getCalibrationRuntime, getHasLivePlan, getExternalVerdictConfig } from './caches';
+import type { ExternalVerdictConfig } from './caches';
 import type { ExternalVerdictEvidence } from './external-verdict';
 import { classifyDeviation, summarizeAct } from './deviation';
 import type { DeviationFinding, LivePlanStep } from './deviation';
@@ -227,6 +228,22 @@ const EXTERNAL_SAFETY_MARGIN_MS = 600;
  * Fail-soft like every optional phase: an unexpected throw costs the external
  * input, never the decision.
  */
+// Applies cfg.posture to a non-'ok' outcome the same way for every failure
+// shape (decrypt-broken config, provider unavailable, an unexpected throw):
+// fail_closed escalates and records why; fail_open records and continues.
+function applyExternalUnavailablePosture(
+  acc: GuardAccumulator,
+  posture: ExternalVerdictConfig['posture'],
+  failure: NonNullable<ExternalVerdictEvidence['failure']>,
+): void {
+  if (posture === 'fail_closed') {
+    raiseDecision(acc, 'require_approval');
+    acc.reasons.push(`external_unavailable (${failure}; fail_closed)`);
+  } else {
+    acc.warnings.push(`external_unavailable (${failure}; fail_open)`);
+  }
+}
+
 async function runExternalVerdict(
   sql: GuardSql,
   orgId: string,
@@ -234,9 +251,26 @@ async function runExternalVerdict(
   acc: GuardAccumulator,
   remainingBudgetMs: number,
 ): Promise<ExternalVerdictEvidence | null> {
+  let cfg: ExternalVerdictConfig | null = null;
   try {
-    const cfg = await getExternalVerdictConfig(sql, orgId);
-    if (!cfg.enabled || !cfg.url) return null;
+    cfg = await getExternalVerdictConfig(sql, orgId);
+    if (cfg.configState === 'unset') return null;
+    if (cfg.configState === 'unreadable') {
+      // Enabled and a URL was saved, but it could not be decrypted (e.g.
+      // after an ENCRYPTION_KEY rotation) — a failed provider call in every
+      // way that matters to posture, not a "nothing configured" no-op:
+      // fail_closed must still escalate.
+      const ev: ExternalVerdictEvidence = {
+        provider_id: cfg.providerId,
+        posture: cfg.posture,
+        status: 'unavailable',
+        regime: 'external_unavailable',
+        latency_ms: 0,
+        failure: 'config_unreadable',
+      };
+      applyExternalUnavailablePosture(acc, cfg.posture, 'config_unreadable');
+      return ev;
+    }
     const { computeInputIdentity, fetchExternalVerdict } = await import('./external-verdict');
     // The wire request is the act tuple the guard already evaluates — not the
     // whole context. input_identity digests exactly this tuple (E3).
@@ -264,15 +298,33 @@ async function runExternalVerdict(
           `external verdict ${ev.raw_verdict} from ${ev.provider_id}${ev.reason_code ? ` (${ev.reason_code})` : ''}`,
         );
       }
-    } else if (ev.posture === 'fail_closed') {
-      raiseDecision(acc, 'require_approval');
-      acc.reasons.push(`external_unavailable (${ev.failure}; fail_closed)`);
     } else {
-      acc.warnings.push(`external_unavailable (${ev.failure}; fail_open)`);
+      applyExternalUnavailablePosture(acc, ev.posture, ev.failure ?? 'error');
     }
     return ev;
   } catch (e) {
-    console.warn('[Guard] external verdict failed (continuing local-only):', (e as Error).message);
+    if (cfg && cfg.configState === 'ready') {
+      // The config loaded fine; something after it threw (wire client,
+      // identity digest, ...). We KNOW the org configured a provider, so
+      // silently dropping to local-only would repeat the A1 bug one layer
+      // up — apply the posture instead.
+      console.warn('[Guard] external verdict failed (applying posture):', (e as Error).message);
+      const ev: ExternalVerdictEvidence = {
+        provider_id: cfg.providerId,
+        posture: cfg.posture,
+        status: 'unavailable',
+        regime: 'external_unavailable',
+        latency_ms: 0,
+        failure: 'internal_error',
+      };
+      applyExternalUnavailablePosture(acc, cfg.posture, 'internal_error');
+      return ev;
+    }
+    // The config load itself threw (e.g. the settings query failed) — we
+    // cannot know whether the org configured a provider, so this stays a
+    // genuine best-effort skip (never a decision-affecting failure), just
+    // logged loudly instead of swallowed.
+    console.error('[Guard] external verdict config load failed (continuing local-only):', (e as Error).message);
     return null;
   }
 }
@@ -740,17 +792,35 @@ async function runWebhookPolicies(
     warnings: [...acc.warnings],
     matchedPolicies: [...acc.matchedPolicies],
   };
-  for (const policy of webhookPolicies) {
+  // Each policy's outbound HTTP call is independent and reads only the
+  // frozen `preliminary` snapshot above — launch them all concurrently
+  // instead of awaiting one at a time inside the shared 3500ms guard
+  // deadline (N policies used to cost up to N * 10s of sequential timeout
+  // headroom). Outcomes are applied to `acc`
+  // sequentially in ORIGINAL policy order below so reasons/warnings/
+  // matchedPolicies ordering stays deterministic regardless of which
+  // provider answers first.
+  type WebhookOutcome =
+    | { policy: PolicyRow; kind: 'unenforceable'; why: string }
+    | { policy: PolicyRow; kind: 'result'; webhookResult: PolicyResult | null };
+  const outcomes = await Promise.all(webhookPolicies.map(async (policy): Promise<WebhookOutcome> => {
     let rules: PolicyRules;
-    try { rules = JSON.parse(policy.rules); } catch {
-      notePolicyUnenforceable(acc, policy, 'rules is not valid JSON');
+    try {
+      rules = JSON.parse(policy.rules);
+    } catch {
+      return { policy, kind: 'unenforceable', why: 'rules is not valid JSON' };
+    }
+    const webhookResult = await evaluateWebhookPolicy(policy, rules, context, orgId, sql, preliminary);
+    return { policy, kind: 'result', webhookResult };
+  }));
+  for (const outcome of outcomes) {
+    if (outcome.kind === 'unenforceable') {
+      notePolicyUnenforceable(acc, outcome.policy, outcome.why);
       continue;
     }
-
-    const webhookResult = await evaluateWebhookPolicy(policy, rules, context, orgId, sql, preliminary);
-    if (!webhookResult) continue;
-    applyResult(webhookResult, policy, acc);
-    raiseDecision(acc, webhookResult.action);
+    if (!outcome.webhookResult) continue;
+    applyResult(outcome.webhookResult, outcome.policy, acc);
+    raiseDecision(acc, outcome.webhookResult.action);
   }
 }
 

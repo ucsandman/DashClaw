@@ -77,12 +77,23 @@ describe('POST /api/settings/test — external_verdict probe', () => {
   });
 
   it('answers success:false when no provider URL is saved', async () => {
-    mockGetConfig.mockResolvedValue({ ...CFG, url: null });
+    mockGetConfig.mockResolvedValue({ ...CFG, url: null, configState: 'unset' });
     const res = await POST(req());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(false);
     expect(body.message).toMatch(/provider url/i);
+    expect(mockFetchVerdict).not.toHaveBeenCalled();
+  });
+
+  it('A1: distinguishes a decrypt-broken saved URL from never-configured', async () => {
+    mockGetConfig.mockResolvedValue({ ...CFG, url: null, configState: 'unreadable' });
+    const res = await POST(req());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.message).toMatch(/cannot be decrypted/i);
+    expect(body.message).not.toMatch(/no provider url saved/i);
     expect(mockFetchVerdict).not.toHaveBeenCalled();
   });
 

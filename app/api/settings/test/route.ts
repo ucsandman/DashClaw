@@ -483,6 +483,8 @@ const EXTERNAL_VERDICT_FAILURE_SUMMARY: Record<NonNullable<ExternalVerdictEviden
   unsupported_verdict: 'Provider returned a verdict outside the v1 contract (allow/warn/escalate/deny).',
   identity_mismatch: 'Provider did not echo input_identity verbatim — the verdict binds to nothing.',
   error: 'Request failed before reaching the provider — check the URL.',
+  config_unreadable: 'A provider URL is saved but cannot be decrypted (this happens after an ENCRYPTION_KEY change). Re-save the provider settings.',
+  internal_error: 'Provider test failed unexpectedly — check server logs.',
 };
 
 async function testExternalVerdict(request: Request) {
@@ -493,6 +495,12 @@ async function testExternalVerdict(request: Request) {
   invalidateGuardExternalVerdictCache(orgId);
   const cfg = await getExternalVerdictConfig(getSql(), orgId);
 
+  if (cfg.configState === 'unreadable') {
+    return NextResponse.json({
+      success: false,
+      message: EXTERNAL_VERDICT_FAILURE_SUMMARY.config_unreadable,
+    });
+  }
   if (!cfg.url) {
     return NextResponse.json({
       success: false,

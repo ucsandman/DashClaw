@@ -14,8 +14,7 @@ vi.mock('../../app/lib/audit.js', () => ({ logActivity: vi.fn() }));
 vi.mock('../../app/lib/timing-safe.js', () => ({ timingSafeCompare: vi.fn() }));
 vi.mock('../../app/lib/events.js', () => ({ EVENTS: {}, publishOrgEvent: vi.fn() }));
 vi.mock('../../app/lib/repositories/signals.repository.js', () => ({
-  getExistingSignalHashes: vi.fn(),
-  upsertSignalSnapshots: vi.fn(),
+  claimNewSignalSnapshots: vi.fn(),
 }));
 
 import { computeSignals } from '../../app/lib/signals';

@@ -126,6 +126,68 @@ describe('guard degradation contract', () => {
     });
   });
 
+  // A2 (#219 adversarial review): webhook_check policies used to be awaited
+  // one at a time inside the shared 3500ms guard deadline — N independent
+  // outbound calls cost up to N * per-call timeout instead of max(). They
+  // read only the frozen `preliminary` snapshot, so nothing stops them
+  // running concurrently; results still apply in original policy order.
+  describe('A2: webhook_check policies run concurrently', () => {
+    it('evaluates all policies concurrently (wall time close to the slowest call, not their sum)', async () => {
+      mockDeliverGuardWebhook.mockImplementation(async ({ policyId }) => {
+        // Resolve in REVERSE order of policy/invocation order — proves the
+        // implementation does not wait on policy N before starting N+1.
+        const delay = { gp_a: 30, gp_b: 20, gp_c: 10 }[policyId] ?? 0;
+        await new Promise((r) => setTimeout(r, delay));
+        return { success: true, response: { decision: 'allow', reasons: [], warnings: [] } };
+      });
+      const sql = makeSql([
+        makePolicy('webhook_check', { url: 'https://a.example.com' }, { id: 'gp_a', name: 'A' }),
+        makePolicy('webhook_check', { url: 'https://b.example.com' }, { id: 'gp_b', name: 'B' }),
+        makePolicy('webhook_check', { url: 'https://c.example.com' }, { id: 'gp_c', name: 'C' }),
+      ]);
+      const started = Date.now();
+      await evaluateGuard('org_wd_concurrent1', { action_type: 'deploy' }, sql);
+      const elapsed = Date.now() - started;
+      // Sequential would cost >= 30+20+10 = 60ms; concurrent costs ~= max = 30ms.
+      expect(elapsed).toBeLessThan(55);
+      expect(mockDeliverGuardWebhook).toHaveBeenCalledTimes(3);
+    });
+
+    it('applies results in ORIGINAL policy order regardless of which provider answers first', async () => {
+      mockDeliverGuardWebhook.mockImplementation(async ({ policyId }) => {
+        const delay = { gp_a: 30, gp_b: 20, gp_c: 10 }[policyId] ?? 0;
+        await new Promise((r) => setTimeout(r, delay));
+        // Every policy escalates to warn (decision severity > the allow
+        // preliminary), so each one produces a non-null result to apply.
+        return { success: true, response: { decision: 'warn', reasons: [], warnings: [`warn from ${policyId}`] } };
+      });
+      const sql = makeSql([
+        makePolicy('webhook_check', { url: 'https://a.example.com' }, { id: 'gp_a', name: 'A' }),
+        makePolicy('webhook_check', { url: 'https://b.example.com' }, { id: 'gp_b', name: 'B' }),
+        makePolicy('webhook_check', { url: 'https://c.example.com' }, { id: 'gp_c', name: 'C' }),
+      ]);
+      const result = await evaluateGuard('org_wd_concurrent2', { action_type: 'deploy' }, sql);
+      expect(result.decision).toBe('warn');
+      // Resolution order was C, B, A — applied order stays the original
+      // policy order A, B, C, so matched_policies/warnings are deterministic.
+      expect(result.matched_policies).toEqual(['gp_a', 'gp_b', 'gp_c']);
+      expect(result.warnings.join(' ')).toMatch(/warn from gp_a.*warn from gp_b.*warn from gp_c/s);
+    });
+
+    it('an unparseable policy alongside valid ones does not block the others from evaluating', async () => {
+      mockDeliverGuardWebhook.mockResolvedValue({ success: true, response: { decision: 'warn', reasons: [], warnings: ['ok'] } });
+      const sql = makeSql([
+        { id: 'gp_bad', name: 'Bad', policy_type: 'webhook_check', rules: '{not json' },
+        makePolicy('webhook_check', { url: 'https://b.example.com' }, { id: 'gp_good', name: 'Good' }),
+      ]);
+      const result = await evaluateGuard('org_wd_concurrent3', { action_type: 'deploy' }, sql);
+      expect(result.decision).toBe('warn');
+      expect(result.matched_policies).toEqual(['gp_good']);
+      expect(result.warnings.some((w) => w.includes('cannot enforce'))).toBe(true);
+      expect(mockDeliverGuardWebhook).toHaveBeenCalledTimes(1); // only the parseable policy calls out
+    });
+  });
+
   describe('evaluation deadline', () => {
     it('returns a persisted degraded require_approval when a phase overruns the deadline', async () => {
       process.env.DASHCLAW_GUARD_DEADLINE_MS = '50';

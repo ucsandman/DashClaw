@@ -62,4 +62,34 @@ describe('getOrgHaltState cache bounds', () => {
     const second = await getOrgHaltState(sql, 'org_1');
     expect(second?.halted).toBe(true);
   });
+
+  // A3 (#219 adversarial review): a loadGeneralSettings SELECT that started
+  // BEFORE POST /api/halt commits can still resolve AFTER invalidateGuardSettingsCache
+  // ran on that instance. Refilling orgHaltCache with the pre-halt data it just
+  // read would silently undo the invalidation and leave the halt un-enforced
+  // for up to HALT_CACHE_TTL_MS.
+  it('A3: a settings read in flight when invalidate fires does not refill the cache with stale data', async () => {
+    let resolveSettings;
+    const pending = new Promise((resolve) => { resolveSettings = resolve; });
+    mockGetSettings.mockReturnValueOnce(pending);
+
+    // Starts the SELECT and captures the pre-invalidation generation.
+    const readPromise = getOrgHaltState(sql, 'org_1');
+
+    // /api/halt commits and invalidates WHILE the read above is still in flight.
+    invalidateGuardSettingsCache('org_1');
+
+    // The in-flight SELECT now resolves with the STALE (pre-halt) rows.
+    resolveSettings([]);
+    const first = await readPromise;
+    expect(first?.halted ?? false).toBe(false); // the caller still gets what it fetched
+
+    // The cache must NOT have been refilled with that stale value: a
+    // subsequent read has to hit the settings query again rather than
+    // serving the stale "not halted" answer from cache.
+    mockGetSettings.mockResolvedValue([HALTED_ROW]);
+    const second = await getOrgHaltState(sql, 'org_1');
+    expect(second?.halted).toBe(true);
+    expect(mockGetSettings).toHaveBeenCalledTimes(2);
+  });
 });

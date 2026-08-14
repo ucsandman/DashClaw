@@ -43,6 +43,7 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   createActionRecord: mockCreateActionRecord,
   createBlockedActionRecord: mockCreateBlockedActionRecord,
   getActionByIdempotencyKey: mockGetActionByKey,
+  getActionIdByIdempotencyKey: mockGetActionByKey,
 }));
 vi.mock('@/lib/repositories/hosted-workspace.repository.js', () => ({ incrementTrialActionCount: vi.fn(async () => undefined) }));
 vi.mock('@/lib/actionAlerts.js', () => ({ fireActionAlert: mockFireActionAlert }));
