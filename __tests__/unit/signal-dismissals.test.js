@@ -39,6 +39,26 @@ describe('computeSignals server-side dismissals', () => {
     expect(signals).toEqual([]);
   });
 
+  // Regression: pg drivers return Date objects for timestamptz columns
+  // (e.g. MAX(timestamp_start::timestamptz) AS last_seen). The client computes
+  // its dismiss key from the JSON-serialized signal (ISO string), so the
+  // server-side subtraction must produce the same key from the Date object —
+  // otherwise every dismissal is silently ignored on the next fetch.
+  it('matches client keys when detected_at is a driver Date object', async () => {
+    const rowWithDate = [{
+      agent_id: 'a1', agent_name: 'Bot', action_count: '150',
+      last_seen: new Date('2026-08-14T16:00:00.000Z'),
+    }];
+    const baseline = await computeSignals('org_1', null, createSignalSqlMock([rowWithDate]));
+    expect(baseline).toHaveLength(1);
+
+    // What the browser sees: the signal after JSON serialization.
+    const clientSignal = JSON.parse(JSON.stringify(baseline[0]));
+    mockListDismissKeys.mockResolvedValueOnce([signalDismissKey(clientSignal)]);
+    const signals = await computeSignals('org_1', null, createSignalSqlMock([rowWithDate]));
+    expect(signals).toEqual([]);
+  });
+
   it('leaves signals with non-matching keys untouched', async () => {
     mockListDismissKeys.mockResolvedValueOnce(['some:other:occurrence:key']);
     const signals = await computeSignals('org_1', null, createSignalSqlMock([SPIKE_ROW]));

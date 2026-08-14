@@ -19,14 +19,19 @@ export function signalDismissKey(s: {
   action_id?: string | null;
   loop_id?: string | null;
   assumption_id?: string | null;
-  detected_at?: string | null;
+  detected_at?: string | Date | null;
 }): string {
+  // pg drivers hand computeSignals a Date for timestamptz columns, while the
+  // browser computes this key from the JSON-serialized signal (ISO string).
+  // Normalize to the ISO form so both sides mint the identical key — a raw
+  // Date in join() would stringify as "Thu Aug 14 2026 …" and never match.
+  const detectedAt = s.detected_at instanceof Date ? s.detected_at.toISOString() : s.detected_at;
   return [
     s.type || s.signal_type || '',
     s.agent_id || '',
     s.action_id || '',
     s.loop_id || '',
     s.assumption_id || '',
-    s.detected_at || '',
+    detectedAt || '',
   ].join(':');
 }
