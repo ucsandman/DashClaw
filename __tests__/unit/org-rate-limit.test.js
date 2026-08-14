@@ -130,6 +130,43 @@ describe('checkOrgRateLimit', () => {
 
       expect(mockRedisClient.disconnect).toHaveBeenCalledTimes(1);
     });
+
+    it('falls back to the memory limiter when a Redis command never settles (bounded, no hang)', async () => {
+      // The connect-time hang was fixed in #222; this is the same failure mode
+      // one layer later: connect() succeeded on a warm instance, then the
+      // socket went half-open (serverless NAT idle-drop — no FIN, no error
+      // event, no reconnect) and INCR never settles. The governance path must
+      // still return within bounded time, degraded to memory.
+      mockRedisClient.incr.mockImplementationOnce(() => new Promise(() => {}));
+
+      const backend = await Promise.race([
+        checkOrgRateLimit('org_a').then((r) => r.backend),
+        vi.advanceTimersByTimeAsync(30000).then(() => 'PENDING'),
+      ]);
+
+      expect(backend).toBe('memory');
+    });
+
+    it('discards the stalled client after a command timeout so the cooldown retry reconnects', async () => {
+      mockRedisClient.incr.mockImplementationOnce(() => new Promise(() => {}));
+
+      const first = await Promise.race([
+        checkOrgRateLimit('org_a'),
+        vi.advanceTimersByTimeAsync(30000).then(() => null),
+      ]);
+      expect(first?.backend).toBe('memory');
+      // The half-open client is torn down, not left cached: without this, the
+      // post-cooldown retry reuses the dead socket and hangs on every window.
+      expect(mockRedisClient.disconnect).toHaveBeenCalledTimes(1);
+
+      // Past the 30s retry cooldown a NEW client must be created and Redis
+      // resumes as the backend.
+      await vi.advanceTimersByTimeAsync(31000);
+      mockRedisClient.incr.mockResolvedValue(1);
+      const recovered = await checkOrgRateLimit('org_a');
+      expect(recovered.backend).toBe('redis');
+      expect(mockCreateClient).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('disable escape hatch', () => {
