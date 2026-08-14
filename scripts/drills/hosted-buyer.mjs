@@ -466,6 +466,97 @@ async function main() {
       return `plan=${row.plan} status=${row.subscription_status} cap=null`;
     });
 
+    // 12. Seat cap — free/indie both cap at 2 seats (1 admin member + N
+    //     pending invites). First invite succeeds (1 member + 0 invites < 2);
+    //     second hits the cap. --sabotage flips the SECOND assertion to
+    //     expect 200, which the real route never returns once capped — this
+    //     is the drill's own make-it-fail switch (L1: prove the check can go
+    //     red before trusting it green).
+    await step('seat-cap', async () => {
+      const first = await jsonFetch(`${baseUrl}/api/team/invites`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: sessionCookie() },
+        body: JSON.stringify({ email: `drill-invite-1-${runId}@example.com` }),
+      });
+      if (first.status !== 201) {
+        throw new Error(`first invite -> ${first.status}: ${first.text.slice(0, 200)}`);
+      }
+      const second = await jsonFetch(`${baseUrl}/api/team/invites`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: sessionCookie() },
+        body: JSON.stringify({ email: `drill-invite-2-${runId}@example.com` }),
+      });
+      const expectedStatus = sabotage ? 200 : 409;
+      const ok = sabotage
+        ? second.status === expectedStatus
+        : second.status === 409 && second.json?.code === 'SEAT_CAP_REACHED' && second.json?.seat_cap === 2;
+      if (!ok) {
+        throw new Error(`second invite -> ${second.status} code=${second.json?.code} seat_cap=${second.json?.seat_cap}`);
+      }
+      // seat_invites.org_id REFERENCES organizations(id) — the FK-child
+      // sweep in purgeOrg discovers it automatically (confirmed against
+      // drizzle/0069_claim_and_invites.sql), so no explicit delete needed
+      // here.
+      return `first=${first.status} second=${second.status}${sabotage ? ' (--sabotage armed)' : ` code=${second.json?.code}`}`;
+    });
+
+    // 13. Seed the action ceiling directly — 50000 governed actions this
+    //     period, matching the indie plan's ceiling exactly.
+    const period = new Date().toISOString().slice(0, 7); // 'YYYY-MM' UTC
+    await step('ceiling-seed', async () => {
+      await sql`
+        INSERT INTO usage_rollups (org_id, period, governed_actions, blocked_actions)
+        VALUES (${orgId}, ${period}, 50000, 0)
+        ON CONFLICT (org_id, period) DO UPDATE SET governed_actions = 50000, updated_at = NOW()
+      `;
+      // Registered here (after the claimed-trial-org purge teardown, which
+      // was registered back at the claim step) so in reverse-registration
+      // execution order this delete runs BEFORE that FK sweep — double
+      // delete is harmless either way since the sweep also matches
+      // usage_rollups.org_id.
+      registerTeardown('usage_rollups row', async () => {
+        const deleted = await sql`
+          DELETE FROM usage_rollups WHERE org_id = ${orgId} AND period = ${period} RETURNING org_id
+        `;
+        return `${deleted.length} row(s) removed`;
+      });
+      return `org=${orgId} period=${period} governed_actions=50000`;
+    });
+
+    // 14. Poll until the ceiling arms — middleware caches org facts for 60s,
+    //     so the plan-flip (already visible in DB) needs time to be visible
+    //     to the enforcement check. A 2xx during that window is expected and
+    //     tolerated; each tolerated call is itself a real governed action, so
+    //     the exact governed_actions count is not asserted, only >= 50000
+    //     behavior server-side.
+    await step('ceiling-403', async () => {
+      let last = null;
+      const deadline = Date.now() + 75_000;
+      while (Date.now() < deadline) {
+        const res = await jsonFetch(`${baseUrl}/api/actions`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': apiKey },
+          body: JSON.stringify({
+            agent_id: 'smoke-drill-buyer',
+            action_type: 'smoke.drill',
+            declared_goal: 'hosted-buyer drill: ceiling probe',
+          }),
+        });
+        last = res;
+        if (res.status === 403 && res.json?.code === 'ACTION_CEILING_REACHED') break;
+        if (res.status !== 200 && res.status !== 201) {
+          throw new Error(`POST /api/actions -> ${res.status}: ${res.text.slice(0, 200)}`);
+        }
+        await new Promise((r) => setTimeout(r, 5_000));
+      }
+      const ok = last?.status === 403 && last?.json?.code === 'ACTION_CEILING_REACHED'
+        && last?.json?.monthly_action_ceiling === 50000;
+      if (!ok) {
+        throw new Error(`status=${last?.status} code=${last?.json?.code} ceiling=${last?.json?.monthly_action_ceiling}`);
+      }
+      return `status=403 code=ACTION_CEILING_REACHED monthly_action_ceiling=${last.json.monthly_action_ceiling}`;
+    });
+
     return finish();
   } finally {
     await runTeardowns();
