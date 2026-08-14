@@ -59,6 +59,57 @@ describe('computeSignals server-side dismissals', () => {
     expect(signals).toEqual([]);
   });
 
+  // THE production bug (2026-08-14): autonomy_spike's detected_at is
+  // MAX(timestamp_start) over a ROLLING 1-hour window, so it advanced every
+  // time the agent did anything. The dismiss key moved with it, so a dismissal
+  // could never match twice and the signal was literally undismissable — one
+  // agent was dismissed 3 times in 23 minutes and came straight back each time.
+  it('sampled-time signals stay dismissed when their timestamp advances', async () => {
+    const at = (iso) => [{
+      agent_id: 'a1', agent_name: 'Bot', action_count: '150', last_seen: new Date(iso),
+    }];
+
+    const baseline = await computeSignals('org_1', null, createSignalSqlMock([at('2026-08-14T17:00:33.000Z')]));
+    expect(baseline).toHaveLength(1);
+    const dismissedKey = signalDismissKey(baseline[0]);
+
+    // 23 minutes and many actions later the window has slid forward.
+    mockListDismissKeys.mockResolvedValueOnce([dismissedKey]);
+    const later = await computeSignals('org_1', null, createSignalSqlMock([at('2026-08-14T17:23:24.076Z')]));
+    expect(later).toEqual([]);
+  });
+
+  // Guard against over-applying the fix: event-time signals are anchored to a
+  // real entity, so a genuinely new occurrence MUST still re-fire.
+  it('event-time signals still re-fire on a new occurrence', async () => {
+    const highImpact = (actionId, ts) => [[], [{
+      action_id: actionId, agent_id: 'a2', agent_name: 'Bot2',
+      declared_goal: 'drop the prod table', risk_score: '90',
+      action_type: 'delete', timestamp_start: ts,
+    }]];
+
+    const first = await computeSignals('org_1', null, createSignalSqlMock(highImpact('act_1', '2026-08-14T17:00:00.000Z')));
+    const firstSignal = first.find((s) => s.type === 'high_impact_low_oversight');
+    expect(firstSignal).toBeTruthy();
+
+    mockListDismissKeys.mockResolvedValueOnce([signalDismissKey(firstSignal)]);
+    const second = await computeSignals('org_1', null, createSignalSqlMock(highImpact('act_2', '2026-08-14T17:30:00.000Z')));
+    expect(second.find((s) => s.type === 'high_impact_low_oversight')).toBeTruthy();
+  });
+
+  // The muted sink backs the panel's Restore control. Without it a durable
+  // mute is invisible and the operator cannot get the signal back.
+  it('reports suppressed signals through the muted sink', async () => {
+    const baseline = await computeSignals('org_1', null, createSignalSqlMock([SPIKE_ROW]));
+    mockListDismissKeys.mockResolvedValueOnce([signalDismissKey(baseline[0])]);
+
+    const muted = [];
+    const signals = await computeSignals('org_1', null, createSignalSqlMock([SPIKE_ROW]), muted);
+    expect(signals).toEqual([]);
+    expect(muted).toHaveLength(1);
+    expect(muted[0].type).toBe('autonomy_spike');
+  });
+
   it('leaves signals with non-matching keys untouched', async () => {
     mockListDismissKeys.mockResolvedValueOnce(['some:other:occurrence:key']);
     const signals = await computeSignals('org_1', null, createSignalSqlMock([SPIKE_ROW]));

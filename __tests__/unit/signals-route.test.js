@@ -7,6 +7,7 @@ const mockSqlInstance = vi.fn();
 const mockGetOrgId = vi.fn(() => 'org_test');
 const mockComputeSignals = vi.fn();
 const mockAddDismissals = vi.fn();
+const mockRemoveDismissals = vi.fn();
 
 vi.mock('../../app/lib/db.js', () => ({ getSql: () => mockSqlInstance }));
 vi.mock('../../app/lib/org.js', () => ({ getOrgId: (...a) => mockGetOrgId(...a) }));
@@ -15,9 +16,10 @@ vi.mock('../../app/lib/signals.js', () => ({
 }));
 vi.mock('../../app/lib/repositories/signal-dismissals.repository.js', () => ({
   addDismissals: (...a) => mockAddDismissals(...a),
+  removeDismissals: (...a) => mockRemoveDismissals(...a),
 }));
 
-const { GET, POST } = await import('../../app/api/signals/route.js');
+const { GET, POST, DELETE } = await import('../../app/api/signals/route.js');
 
 // --- Helpers ---
 
@@ -64,7 +66,8 @@ describe('GET /api/signals', () => {
 
     await GET(getReq('?agent_id=agent_42'));
 
-    expect(mockComputeSignals).toHaveBeenCalledWith('org_test', 'agent_42', expect.anything());
+    // 4th arg is the muted sink computeSignals pushes suppressed signals into.
+    expect(mockComputeSignals).toHaveBeenCalledWith('org_test', 'agent_42', expect.anything(), expect.any(Array));
   });
 
   it('passes null when no agent_id filter', async () => {
@@ -72,7 +75,7 @@ describe('GET /api/signals', () => {
 
     await GET(getReq());
 
-    expect(mockComputeSignals).toHaveBeenCalledWith('org_test', null, expect.anything());
+    expect(mockComputeSignals).toHaveBeenCalledWith('org_test', null, expect.anything(), expect.any(Array));
   });
 
   it('returns 500 with safe defaults on error', async () => {
@@ -133,5 +136,38 @@ describe('POST /api/signals (dismissals)', () => {
     mockAddDismissals.mockRejectedValueOnce(new Error('DB down'));
     const res = await POST(postReq({ dismiss_keys: ['k1'] }));
     expect(res.status).toBe(500);
+  });
+});
+
+// Restore is the way back from a durable mute. Sampled-time signal types mute
+// on (type, agent) rather than per occurrence, so without this endpoint one
+// click could hide a live condition permanently.
+describe('DELETE /api/signals (restore)', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('removes the given dismiss keys and reports the count', async () => {
+    mockRemoveDismissals.mockResolvedValueOnce(2);
+
+    const res = await DELETE(postReq({ dismiss_keys: ['k1', 'k2'] }));
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.restored).toBe(2);
+    expect(data.received).toBe(2);
+    expect(mockRemoveDismissals).toHaveBeenCalledWith(expect.anything(), 'org_test', ['k1', 'k2']);
+  });
+
+  it('applies the same validation caps as POST', async () => {
+    expect((await DELETE(postReq({}))).status).toBe(400);
+    expect((await DELETE(postReq({ dismiss_keys: [] }))).status).toBe(400);
+    expect((await DELETE(postReq({ dismiss_keys: [123] }))).status).toBe(400);
+    const tooMany = Array.from({ length: 1001 }, (_, i) => `k${i}`);
+    expect((await DELETE(postReq({ dismiss_keys: tooMany }))).status).toBe(400);
+    expect(mockRemoveDismissals).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when the repository delete fails', async () => {
+    mockRemoveDismissals.mockRejectedValueOnce(new Error('DB down'));
+    expect((await DELETE(postReq({ dismiss_keys: ['k1'] }))).status).toBe(500);
   });
 });

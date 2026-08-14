@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, ChevronDown, ChevronRight, ShieldCheck, X } from 'lucide-react';
+import { AlertTriangle, BellOff, ChevronDown, ChevronRight, RotateCcw, ShieldCheck, X } from 'lucide-react';
 import { Card, CardContent } from './ui/Card';
 import { CollapsibleSection } from './ui/CollapsibleSection';
 import { EmptyState } from './ui/EmptyState';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { filterSignalsBySeverity } from '../lib/security-filter';
-import { signalDismissKey } from '../lib/signal-hash';
+import { SAMPLED_TIME_SIGNAL_TYPES, signalDismissKey } from '../lib/signal-hash';
 
 type Signal = {
   type: string;
@@ -21,6 +21,15 @@ type Signal = {
   assumption_id?: string | null;
   session_id?: string | null;
   detected_at?: string | null;
+};
+
+// A signal currently hidden by a dismissal, as reported by /api/signals.
+type MutedSignal = {
+  type: string;
+  label: string;
+  agent_id?: string | null;
+  severity: 'red' | 'amber';
+  dismiss_key: string;
 };
 
 const SEVERITY_META = {
@@ -77,6 +86,8 @@ function formatDetectedAt(ts: string | null | undefined) {
 export default function GovernanceSignalsPanel({ initialSeverity }: { initialSeverity: 'red' | 'amber' | null }) {
   const { agentId } = useAgentFilter();
   const [signals, setSignals] = useState<Signal[] | null>(null);
+  const [muted, setMuted] = useState<MutedSignal[]>([]);
+  const [showMuted, setShowMuted] = useState(false);
   const [severity, setSeverity] = useState<'red' | 'amber' | ''>(initialSeverity || '');
   // Deep links must render the section open even if a past collapse was
   // persisted; released on the first manual toggle (same pattern as /policies).
@@ -88,6 +99,7 @@ export default function GovernanceSignalsPanel({ initialSeverity }: { initialSev
       if (!res.ok) return;
       const data = await res.json();
       setSignals(data.signals || []);
+      setMuted(data.muted || []);
     } catch {
       // Panel just stays in its loading-empty state; the ledger below is unaffected.
     }
@@ -147,10 +159,40 @@ export default function GovernanceSignalsPanel({ initialSeverity }: { initialSev
       }
     } catch {
       fetchSignals();
+      return;
     }
+    // Refetch on success too: the dismissed rows move into the muted list, and
+    // that list is the only thing standing between a durable mute and an
+    // operator who can't tell why the panel went quiet.
+    fetchSignals();
   };
 
   const dismissSignal = (s: Signal) => dismissMany([s]);
+
+  const restoreMany = async (keys: string[]) => {
+    if (keys.length === 0) return;
+    const keySet = new Set(keys);
+    setMuted((prev) => prev.filter((m) => !keySet.has(m.dismiss_key)));
+    try {
+      for (let i = 0; i < keys.length; i += DISMISS_CHUNK) {
+        await fetch('/api/signals', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dismiss_keys: keys.slice(i, i + DISMISS_CHUNK) }),
+        });
+      }
+    } finally {
+      fetchSignals();
+    }
+  };
+
+  // Dismissal means two different things depending on the signal type, and the
+  // operator should not have to guess which. Sampled-time types (rolling-window
+  // aggregates) mute durably; everything else suppresses one occurrence.
+  const dismissTitle = (type: string) =>
+    SAMPLED_TIME_SIGNAL_TYPES.has(type)
+      ? 'Mute this condition. It stays hidden until you restore it from the Muted list.'
+      : 'Dismiss this occurrence. A genuinely new occurrence will re-fire.';
 
   const chipClass = (active: boolean) =>
     `rounded-full border px-2.5 py-0.5 text-[11px] font-medium tabular-nums transition-colors ${
@@ -184,10 +226,23 @@ export default function GovernanceSignalsPanel({ initialSeverity }: { initialSev
               <button
                 type="button"
                 onClick={() => dismissMany(visible)}
-                title="Dismiss every signal occurrence currently shown (new occurrences will re-fire)"
+                title="Dismiss every signal currently shown. Restore any of them from the Muted list."
                 className="ml-1 rounded-full border border-border bg-white/5 px-2.5 py-0.5 text-[11px] font-medium text-secondary transition-colors hover:border-border-hover hover:text-white"
               >
                 Dismiss all {visible.length}
+              </button>
+            )}
+            {muted.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowMuted((v) => !v)}
+                aria-expanded={showMuted}
+                data-testid="muted-signals-toggle"
+                title="Signals hidden by a dismissal. Open to restore any of them."
+                className={chipClass(showMuted)}
+              >
+                <BellOff size={11} className="mr-1 inline-block align-[-1px]" />
+                Muted {muted.length}
               </button>
             )}
           </div>
@@ -201,7 +256,10 @@ export default function GovernanceSignalsPanel({ initialSeverity }: { initialSev
                 title={activeSignals.length === 0 ? 'All clear' : `No ${severity ? SEVERITY_META[severity as 'red' | 'amber'].label.toLowerCase() : ''} signals`}
                 description={
                   activeSignals.length === 0
-                    ? 'No active governance signals for this workspace'
+                    ? muted.length > 0
+                      // "All clear" while signals sit muted would be a lie.
+                      ? `No active governance signals. ${muted.length} ${muted.length === 1 ? 'signal is' : 'signals are'} muted — open Muted above to restore.`
+                      : 'No active governance signals for this workspace'
                     : 'Switch tiers above to see the remaining signals'
                 }
               />
@@ -233,7 +291,7 @@ export default function GovernanceSignalsPanel({ initialSeverity }: { initialSev
                           type="button"
                           onClick={() => dismissMany(g.signals)}
                           aria-label={`Dismiss all ${typeLabel(g.type)} signals`}
-                          title="Dismiss every occurrence in this group (new occurrences will re-fire)"
+                          title={dismissTitle(g.type)}
                           className="shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-tertiary transition-colors hover:bg-white/5 hover:text-white"
                         >
                           Dismiss {g.signals.length > 1 ? `all ${g.signals.length}` : ''}
@@ -245,7 +303,10 @@ export default function GovernanceSignalsPanel({ initialSeverity }: { initialSev
                             const meta = SEVERITY_META[s.severity] || SEVERITY_META.amber;
                             return (
                               <div
-                                key={signalDismissKey(s)}
+                                // Sampled-time types share ONE dismiss key across
+                                // occurrences, so the key alone is no longer
+                                // unique enough for React.
+                                key={`${signalDismissKey(s)}|${s.detected_at || ''}|${s.session_id || ''}`}
                                 data-testid="signal-row"
                                 className="flex items-start gap-3 rounded-lg border border-border bg-surface p-3 transition-colors hover:border-border-hover"
                               >
@@ -288,7 +349,7 @@ export default function GovernanceSignalsPanel({ initialSeverity }: { initialSev
                                 <button
                                   type="button"
                                   onClick={() => dismissSignal(s)}
-                                  title="Dismiss this signal occurrence (also removes it from the top-bar count)"
+                                  title={dismissTitle(s.type)}
                                   aria-label="Dismiss signal"
                                   className="rounded-md p-1 text-tertiary transition-colors hover:bg-white/5 hover:text-white"
                                 >
@@ -302,6 +363,53 @@ export default function GovernanceSignalsPanel({ initialSeverity }: { initialSev
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {showMuted && muted.length > 0 && (
+              <div data-testid="muted-signals-list" className="mt-4 rounded-lg border border-border bg-surface-tertiary p-3">
+                <div className="flex items-center gap-2">
+                  <BellOff size={13} className="shrink-0 text-tertiary" />
+                  <span className="text-sm font-medium text-white">Muted signals</span>
+                  <span className="rounded-full border border-border bg-white/5 px-2 py-0.5 text-[11px] font-medium tabular-nums text-secondary">
+                    {muted.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => restoreMany(muted.map((m) => m.dismiss_key))}
+                    className="ml-auto shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-tertiary transition-colors hover:bg-white/5 hover:text-white"
+                  >
+                    Restore all {muted.length}
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-tertiary">
+                  These conditions are live right now but hidden because you dismissed them. Restore one to see it again.
+                </p>
+                <div className="mt-2 space-y-1.5">
+                  {muted.map((m) => (
+                    <div
+                      key={m.dismiss_key}
+                      data-testid="muted-signal-row"
+                      className="flex items-center gap-3 rounded-lg border border-border bg-surface p-2.5"
+                    >
+                      <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${(SEVERITY_META[m.severity] || SEVERITY_META.amber).dot}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-xs text-secondary">{m.label}</div>
+                        <div className="font-mono text-[10px] text-tertiary">{m.type}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => restoreMany([m.dismiss_key])}
+                        aria-label={`Restore ${m.label}`}
+                        title="Restore this signal"
+                        className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-tertiary transition-colors hover:bg-white/5 hover:text-white"
+                      >
+                        <RotateCcw size={11} />
+                        Restore
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>

@@ -98,7 +98,7 @@ describe('session_stalled signal', () => {
 
   it('emits amber when session stalled for 2–3h (< 4h)', async () => {
     const sql = makeIntelSql({
-      stalledSessions: [{ id: 'sess_1', agent_id: 'agent_a', status: 'running', last_activity: last2h30m }],
+      stalledSessions: [{ agent_id: 'agent_a', stalled_count: 1, oldest_activity: last2h30m, sample_session_id: 'sess_1' }],
     });
     const signals = await computeSignals('org1', null, sql);
     const s = signals.find((sig) => sig.type === 'session_stalled');
@@ -110,7 +110,7 @@ describe('session_stalled signal', () => {
 
   it('emits red when session stalled 4h or more', async () => {
     const sql = makeIntelSql({
-      stalledSessions: [{ id: 'sess_2', agent_id: 'agent_b', status: 'running', last_activity: last4h30m }],
+      stalledSessions: [{ agent_id: 'agent_b', stalled_count: 1, oldest_activity: last4h30m, sample_session_id: 'sess_2' }],
     });
     const signals = await computeSignals('org1', null, sql);
     const s = signals.find((sig) => sig.type === 'session_stalled');
@@ -127,11 +127,23 @@ describe('session_stalled signal', () => {
 
   it('signal carries detected_at from last_activity', async () => {
     const sql = makeIntelSql({
-      stalledSessions: [{ id: 'sess_3', agent_id: 'agent_c', status: 'running', last_activity: last2h30m }],
+      stalledSessions: [{ agent_id: 'agent_c', stalled_count: 1, oldest_activity: last2h30m, sample_session_id: 'sess_3' }],
     });
     const signals = await computeSignals('org1', null, sql);
     const s = signals.find((sig) => sig.type === 'session_stalled');
     expect(s.detected_at).toBe(last2h30m);
+  });
+
+  it('collapses many stalled sessions for one agent into a single signal', async () => {
+    const sql = makeIntelSql({
+      stalledSessions: [
+        { agent_id: 'forge', stalled_count: 134, oldest_activity: last4h30m, sample_session_id: 'sess_oldest' },
+      ],
+    });
+    const signals = await computeSignals('org1', null, sql);
+    const stalled = signals.filter((sig) => sig.type === 'session_stalled');
+    expect(stalled).toHaveLength(1);
+    expect(stalled[0].label).toContain('134 sessions stalled');
   });
 });
 

@@ -33,14 +33,26 @@ const SIGNALS = [
   },
 ];
 
-function stubSignalsFetch(signals = SIGNALS) {
+function stubSignalsFetch(signals = SIGNALS, muted = []) {
   return vi.fn(async (_url, opts = {}) => {
-    if ((opts.method || 'GET') === 'POST') {
+    const method = opts.method || 'GET';
+    if (method === 'POST') {
       return { ok: true, status: 200, json: async () => ({ dismissed: 1 }) };
     }
-    return { ok: true, status: 200, json: async () => ({ signals }) };
+    if (method === 'DELETE') {
+      return { ok: true, status: 200, json: async () => ({ restored: 1 }) };
+    }
+    return { ok: true, status: 200, json: async () => ({ signals, muted }) };
   });
 }
+
+const MUTED = [
+  {
+    type: 'autonomy_spike', severity: 'amber',
+    label: 'Governance alert: agent-c (40 ungoverned decisions/hr)',
+    agent_id: 'agent-c', dismiss_key: 'autonomy_spike:agent-c::::',
+  },
+];
 
 describe('GovernanceSignalsPanel', () => {
   beforeEach(() => {
@@ -56,6 +68,33 @@ describe('GovernanceSignalsPanel', () => {
     expect(chips.textContent).toContain('All 3');
     expect(chips.textContent).toContain('Critical 2');
     expect(chips.textContent).toContain('Elevated 1');
+  });
+
+  // A durable mute with no visible way back would let one click permanently
+  // blind the operator to a live condition.
+  it('shows a Muted count and restores a muted signal with one click', async () => {
+    global.fetch = stubSignalsFetch(SIGNALS, MUTED);
+    render(<GovernanceSignalsPanel initialSeverity={null} />);
+
+    const toggle = await screen.findByTestId('muted-signals-toggle');
+    expect(toggle.textContent).toContain('Muted 1');
+
+    fireEvent.click(toggle);
+    const rows = await screen.findAllByTestId('muted-signal-row');
+    expect(rows).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: /Restore Governance alert/ }));
+    await waitFor(() => {
+      const del = global.fetch.mock.calls.find(([, o]) => o?.method === 'DELETE');
+      expect(del).toBeTruthy();
+      expect(JSON.parse(del[1].body).dismiss_keys).toEqual(['autonomy_spike:agent-c::::']);
+    });
+  });
+
+  it('hides the Muted control when nothing is muted', async () => {
+    render(<GovernanceSignalsPanel initialSeverity={null} />);
+    await waitFor(() => expect(screen.getAllByTestId('signal-row')).toHaveLength(3));
+    expect(screen.queryByTestId('muted-signals-toggle')).toBeNull();
   });
 
   it('?severity deep link (initialSeverity) shows only that tier', async () => {

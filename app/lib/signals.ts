@@ -228,20 +228,33 @@ export function buildIntegrationMismatchSignals(connections: Row[] | null, healt
   return signals;
 }
 
-/** Sessions in 'running' status with no activity for 2+ hours. */
+/**
+ * Sessions in 'running' status with no activity for 2+ hours, ONE signal per
+ * agent. Rows arrive pre-aggregated (agent_id, stalled_count, oldest_activity,
+ * sample_session_id) — see the agent_sessions query for why per-session rows
+ * were a dead end. Severity and the reported age both come from the OLDEST
+ * stalled session, so a growing backlog can only escalate, never soften.
+ */
 export function buildStalledSessionSignals(stalledSessions: Row[] | null): Signal[] {
   const signals: Signal[] = [];
-  for (const sess of stalledSessions || []) {
-    const hoursStalled = Math.round((Date.now() - new Date(sess.last_activity).getTime()) / 3600000);
+  for (const row of stalledSessions || []) {
+    const count = Math.max(1, parseInt(row.stalled_count, 10) || 1);
+    const oldest = row.oldest_activity;
+    const hoursStalled = Math.round((Date.now() - new Date(oldest).getTime()) / 3600000);
+    const sessionId = row.sample_session_id;
     signals.push({
       type: 'session_stalled',
       severity: hoursStalled >= 4 ? 'red' : 'amber',
-      label: `Session stalled (${hoursStalled}h): ${sess.agent_id}`,
-      detail: `Session ${sess.id} has been running with no tool activity for ${hoursStalled} hours`,
+      label: count === 1
+        ? `Session stalled (${hoursStalled}h): ${row.agent_id}`
+        : `${count} sessions stalled (oldest ${hoursStalled}h): ${row.agent_id}`,
+      detail: count === 1
+        ? `Session ${sessionId} has been running with no tool activity for ${hoursStalled} hours`
+        : `${count} sessions for ${row.agent_id} are running with no tool activity. The oldest (${sessionId}) has been idle for ${hoursStalled} hours.`,
       help: 'Consider restarting the agent session or checking for blockers',
-      agent_id: sess.agent_id,
-      session_id: sess.id,
-      detected_at: sess.last_activity || null,
+      agent_id: row.agent_id,
+      session_id: sessionId,
+      detected_at: oldest || null,
     });
   }
   return signals;
@@ -464,6 +477,11 @@ export async function computeSignals(
   orgId: string,
   filterAgentId: string | null,
   sql: SqlClient,
+  // Optional sink. Signals suppressed by a dismissal are pushed here instead of
+  // vanishing silently, so /api/signals can tell the operator WHAT is muted and
+  // offer a one-click restore. Every existing caller passes three args and is
+  // unaffected.
+  mutedOut?: Signal[],
 ): Promise<Signal[]> {
   // Autonomy-spike threshold (decisions/hr) is configurable per org. A fixed
   // low bar is noise on a busy fleet — claude-code alone runs ~280/hr of normal
@@ -601,15 +619,26 @@ export async function computeSignals(
     // nothing used to reap a session left in 'running', so week-old dead
     // sessions fired "stalled (850h)" criticals forever and buried real
     // incidents. Past 48h the outcome-sweep cron closes the session instead.
+    // Aggregated PER AGENT, not per session. The old query was `LIMIT 10` with
+    // no ORDER BY over a pool that reached 266 stalled sessions in production:
+    // Postgres could hand back a different arbitrary 10 on every sweep, so
+    // dismissing the visible rows just surfaced ten more and the operator could
+    // never drain the queue. One row per agent makes the signal countable,
+    // dismissible, and deterministic.
     sql`
-      SELECT id, agent_id, status, last_activity, status_since
+      SELECT agent_id,
+             COUNT(*)::int AS stalled_count,
+             MIN(last_activity) AS oldest_activity,
+             (ARRAY_AGG(id ORDER BY last_activity ASC))[1] AS sample_session_id
       FROM agent_sessions
       WHERE org_id = ${orgId}
         AND status = 'running'
         AND last_activity < NOW() - INTERVAL '2 hours'
         AND last_activity > NOW() - INTERVAL '48 hours'
         ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
-      LIMIT 10
+      GROUP BY agent_id
+      ORDER BY COUNT(*) DESC, MIN(last_activity) ASC
+      LIMIT 20
     `.catch(() => null),
     // Guard-decision intel categories — best-effort, warn on failure.
     sql`
@@ -730,7 +759,11 @@ export async function computeSignals(
     const { signalDismissKey } = await import('./signal-hash');
     const dismissed = new Set(await listDismissKeys(sql as never, orgId));
     if (dismissed.size > 0) {
-      visibleSignals = signals.filter((s) => !dismissed.has(signalDismissKey(s)));
+      visibleSignals = signals.filter((s) => {
+        if (!dismissed.has(signalDismissKey(s))) return true;
+        mutedOut?.push(s);
+        return false;
+      });
     }
   } catch (e) { warnNull('signal_dismissals')(e); }
 

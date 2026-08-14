@@ -55,3 +55,26 @@ export async function addDismissals(
   }
   return added;
 }
+
+// Un-mute. Sampled-time signal types (see SAMPLED_TIME_SIGNAL_TYPES) mute
+// durably rather than per-occurrence, so a dismissal with no way back could
+// permanently blind the operator to a live condition. This is that way back —
+// it backs the panel's Restore control. Removing an absent key is a no-op.
+export async function removeDismissals(
+  sql: SqlTag,
+  orgId: string,
+  dismissKeys: string[],
+): Promise<number> {
+  if (dismissKeys.length === 0) return 0;
+  await ensureTable(sql);
+  let removed = 0;
+  for (const key of dismissKeys) {
+    const rows = await sql`
+      DELETE FROM signal_dismissals
+      WHERE org_id = ${orgId} AND dismiss_key = ${key}
+      RETURNING id
+    `;
+    removed += (rows as unknown[]).length;
+  }
+  return removed;
+}

@@ -113,14 +113,39 @@ describe('severity thresholds', () => {
     expect(amber.severity).toBe('amber');
   });
 
+  // Rows arrive pre-aggregated per agent (see the agent_sessions query).
   it('session_stalled: red at 4+ hours idle; null input yields no signals', () => {
     const [red, amber] = buildStalledSessionSignals([
-      { id: 's1', agent_id: 'a1', last_activity: hoursAgo(4) },
-      { id: 's2', agent_id: 'a2', last_activity: hoursAgo(3) },
+      { agent_id: 'a1', stalled_count: 1, oldest_activity: hoursAgo(4), sample_session_id: 's1' },
+      { agent_id: 'a2', stalled_count: 1, oldest_activity: hoursAgo(3), sample_session_id: 's2' },
     ]);
     expect(red.severity).toBe('red');
+    expect(red.session_id).toBe('s1');
     expect(amber.severity).toBe('amber');
     expect(buildStalledSessionSignals(null)).toEqual([]);
+  });
+
+  // Regression: 266 stalled sessions used to emit 266 separate criticals behind
+  // a `LIMIT 10` with no ORDER BY, so dismissing them was unwinnable whack-a-mole.
+  it('session_stalled: one signal per agent, count in the label', () => {
+    const signals = buildStalledSessionSignals([
+      { agent_id: 'forge-openclaw', stalled_count: 134, oldest_activity: hoursAgo(45), sample_session_id: 'sess_old' },
+    ]);
+    expect(signals).toHaveLength(1);
+    expect(signals[0].label).toContain('134 sessions stalled');
+    expect(signals[0].label).toContain('forge-openclaw');
+    expect(signals[0].detail).toContain('sess_old');
+    expect(signals[0].severity).toBe('red');
+  });
+
+  // Severity and the reported age track the OLDEST session, so a growing
+  // backlog can only escalate.
+  it('session_stalled: age comes from the oldest session in the group', () => {
+    const [s] = buildStalledSessionSignals([
+      { agent_id: 'a1', stalled_count: 3, oldest_activity: hoursAgo(9), sample_session_id: 's9' },
+    ]);
+    expect(s.label).toContain('oldest 9h');
+    expect(s.detected_at).toBe(hoursAgo(9));
   });
 });
 

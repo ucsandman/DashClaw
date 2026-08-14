@@ -1163,6 +1163,7 @@
     {
       "path": "/api/signals",
       "methods": [
+        "DELETE",
         "GET",
         "POST"
       ],
