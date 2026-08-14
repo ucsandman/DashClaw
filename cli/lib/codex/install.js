@@ -39,6 +39,8 @@ import {
 import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 
+import { parse as parseToml } from 'smol-toml';
+
 import { autoTrustHooks } from './trust.js';
 
 // -----------------------------------------------------------------------------
@@ -177,6 +179,116 @@ function stripTrailingBlankLines(s) {
 
 function ensureTrailingNewline(s) {
   return s.endsWith('\n') ? s : s + '\n';
+}
+
+// -----------------------------------------------------------------------------
+// Duplicate-definition neutralization (2026-08-14 incident)
+// -----------------------------------------------------------------------------
+
+// TOML rejects a table defined twice, so a hand-written [mcp_servers.dashclaw]
+// outside our markers plus the managed one makes the WHOLE config unparseable
+// and every `codex` invocation fails. Comment such tables out (preserving the
+// user's content visibly) instead of leaving a file codex cannot load.
+
+const MANUAL_DASHCLAW_TABLE_RE =
+  /^\s*\[\[?\s*mcp_servers\s*\.\s*(?:dashclaw|"dashclaw"|'dashclaw')\s*(?:\]|\.)/;
+const ANY_TABLE_HEADER_RE = /^\s*\[/;
+
+export function neutralizeManualDashclawTables(source) {
+  const lines = source.split('\n');
+  const out = [];
+  let inManaged = false;
+  let commenting = false;
+  let neutralized = false;
+
+  for (const line of lines) {
+    if (line.includes(MANAGED_START) || line.includes(ROOT_MANAGED_START)) {
+      inManaged = true;
+      commenting = false;
+      out.push(line);
+      continue;
+    }
+    if (line.includes(MANAGED_END) || line.includes(ROOT_MANAGED_END)) {
+      inManaged = false;
+      out.push(line);
+      continue;
+    }
+    if (inManaged) {
+      out.push(line);
+      continue;
+    }
+    if (MANUAL_DASHCLAW_TABLE_RE.test(line)) {
+      if (!commenting) {
+        out.push(
+          '# dashclaw install: the manual mcp_servers.dashclaw table below was disabled —',
+          '# it duplicated the managed block, and TOML rejects duplicate tables.',
+        );
+      }
+      commenting = true;
+      neutralized = true;
+      out.push('# ' + line);
+      continue;
+    }
+    if (commenting && ANY_TABLE_HEADER_RE.test(line)) commenting = false;
+    if (commenting && line.trim() !== '' && !line.trim().startsWith('#')) {
+      out.push('# ' + line);
+    } else {
+      out.push(line);
+    }
+  }
+
+  return { source: out.join('\n'), neutralized };
+}
+
+// Same class of conflict one level up: a hand-written root-level
+// approval_policy (or notify, when we write one) duplicates the key our
+// root-keys block carries, and TOML rejects duplicate keys. Only the region
+// before the first table header holds root keys, so only that region is
+// scanned.
+export function neutralizeManualRootKeys(source, { includeNotify = false } = {}) {
+  const keyRe = includeNotify
+    ? /^\s*(approval_policy|notify)\s*=/
+    : /^\s*approval_policy\s*=/;
+  const lines = source.split('\n');
+  const out = [];
+  let done = false;
+  let neutralized = false;
+
+  for (const line of lines) {
+    if (
+      !done &&
+      (ANY_TABLE_HEADER_RE.test(line) ||
+        line.includes(MANAGED_START) ||
+        line.includes(ROOT_MANAGED_START))
+    ) {
+      done = true;
+    }
+    if (!done && keyRe.test(line)) {
+      neutralized = true;
+      out.push('# dashclaw install: superseded by the managed root-keys block:');
+      out.push('# ' + line);
+    } else {
+      out.push(line);
+    }
+  }
+
+  return { source: out.join('\n'), neutralized };
+}
+
+// Round-trip gate: the merged config MUST parse, or codex fails on every
+// invocation (2026-08-14: an appended bare root key landed inside the last
+// user table and broke `codex exec` machine-wide). Called on the merged text
+// BEFORE writing — a bad merge leaves the user's file untouched — and again
+// on the bytes read back after the write.
+export function assertParseableToml(text, { path, phase }) {
+  try {
+    parseToml(text);
+  } catch (err) {
+    throw new Error(
+      `dashclaw install codex: ${phase} config for ${path} is not valid TOML — ` +
+        `refusing to leave an unparseable config. Parser said: ${err.message}`,
+    );
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -419,14 +531,37 @@ export function mergeConfigToml({
     includeNotify,
     dashclawCliPath,
   });
+  const manualTables = neutralizeManualDashclawTables(before);
+  const manualRootKeys = neutralizeManualRootKeys(manualTables.source, {
+    includeNotify,
+  });
   const after = upsertRootKeysBlock(
-    replaceManagedBlock(before, tablesBlock),
+    replaceManagedBlock(manualRootKeys.source, tablesBlock),
     rootBlock,
   );
+
+  assertParseableToml(after, { path: configPath, phase: 'merged' });
+
   mkdirSync(dirname(configPath), { recursive: true });
   const backup = backupOnce(configPath);
   writeFileSync(configPath, after);
-  return { changed: before !== after, backup };
+
+  try {
+    assertParseableToml(readFileSync(configPath, 'utf8'), {
+      path: configPath,
+      phase: 'written',
+    });
+  } catch (err) {
+    writeFileSync(configPath, before);
+    throw err;
+  }
+
+  return {
+    changed: before !== after,
+    backup,
+    neutralizedManualTables: manualTables.neutralized,
+    neutralizedRootKeys: manualRootKeys.neutralized,
+  };
 }
 
 export function mergeAgentsMd({ agentsMdPath, baseUrl }) {
@@ -490,6 +625,18 @@ export async function installCodex({
     includeNotify,
     dashclawCliPath: includeNotify ? dashclawCliPath : null,
   });
+  if (configResult.neutralizedManualTables) {
+    logger.warn(
+      'Found a hand-written [mcp_servers.dashclaw] table outside the managed block — ' +
+        'commented it out (TOML rejects duplicate tables; the managed block supersedes it).',
+    );
+  }
+  if (configResult.neutralizedRootKeys) {
+    logger.warn(
+      'Found a hand-written root key the managed root-keys block also sets — ' +
+        'commented it out to avoid a duplicate-key TOML error.',
+    );
+  }
 
   logger.info(`Merging governance protocol → ${agentsMdPath}`);
   const agentsResult = mergeAgentsMd({ agentsMdPath, baseUrl });

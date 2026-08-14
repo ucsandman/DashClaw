@@ -15,7 +15,10 @@ import { join, resolve } from 'node:path';
 //      parser ignores (the serde field is renamed `timeout`).
 //   5. `dashclaw install codex --help` RAN the install instead of printing
 //      usage.
+import { parse as parseToml } from 'smol-toml';
+
 import {
+  assertParseableToml,
   buildConfigTomlBlock,
   buildRootKeysBlock,
   mergeConfigToml,
@@ -142,6 +145,124 @@ describe('mergeConfigToml placement', () => {
     expect(out).not.toContain('command = "python"\n');
     const policyAt = out.indexOf('approval_policy');
     expect(policyAt).toBeLessThan(out.search(/^\s*\[/m));
+  });
+});
+
+// Defects found live on this machine (2026-08-14): a hand-written
+// [mcp_servers.dashclaw] table coexisting with the managed one is a duplicate
+// TOML table (whole config fails to parse), and the old installer's bare
+// approval_policy appended after the last user table ([tui.model_availability_nux])
+// bound to that table and broke codex's schema validation. Every `codex exec`
+// on the machine failed until the file was repaired by hand.
+describe('mergeConfigToml corruption regressions (2026-08-14)', () => {
+  // Shape of the real broken config: manual dashclaw server (with env
+  // subtable), user tables after it, and the file ENDING on an open table.
+  const INCIDENT_FILE = [
+    '# my hand-wired dashclaw server',
+    '[mcp_servers.dashclaw]',
+    'command = "python"',
+    "args = ['C:\\Projects\\DashClaw\\mcp-server\\bin\\dashclaw-mcp.js']",
+    '[mcp_servers.dashclaw.env]',
+    'DASHCLAW_URL = "http://localhost:3000"',
+    '',
+    "[projects.'c:\\users\\me\\ws']",
+    'trust_level = "trusted"',
+    '',
+    '[tui.model_availability_nux]',
+    'seen = 1',
+    '',
+  ].join('\n');
+
+  function merge(dir, initial) {
+    const configPath = join(dir, 'config.toml');
+    if (initial != null) writeFileSync(configPath, initial);
+    mergeConfigToml({
+      configPath,
+      mcpServerPath: MCP,
+      hooksDir: HOOKS,
+      approvalPolicy: 'never',
+      agentId: 'codex',
+    });
+    return readFileSync(configPath, 'utf8');
+  }
+
+  it('produces parseable TOML with exactly one dashclaw server table', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dc-codex-'));
+    const out = merge(dir, INCIDENT_FILE);
+
+    const parsed = parseToml(out); // throws if the duplicate-table bug is back
+    const activeHeaders = out
+      .split('\n')
+      .filter((l) => /^\s*\[\[?\s*mcp_servers\.dashclaw/.test(l));
+    expect(activeHeaders).toHaveLength(1);
+    expect(parsed.mcp_servers.dashclaw.command).toBe('node');
+    // the manual table (and its env subtable) was neutralized, not merged
+    expect(parsed.mcp_servers.dashclaw.env).toBeUndefined();
+    // ...but the user's content is still visible as comments
+    expect(out).toContain('# [mcp_servers.dashclaw]');
+    expect(out).toContain('# DASHCLAW_URL = "http://localhost:3000"');
+  });
+
+  it('keeps approval_policy at root even when the file ends on an open table', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dc-codex-'));
+    const parsed = parseToml(merge(dir, INCIDENT_FILE));
+    expect(parsed.approval_policy).toBe('never');
+    expect(parsed.tui.model_availability_nux).toEqual({ seen: 1 });
+  });
+
+  it('is idempotent across re-runs on the incident file', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dc-codex-'));
+    const once = merge(dir, INCIDENT_FILE);
+    const twice = merge(dir, null);
+    expect(twice).toBe(once);
+  });
+
+  it('dedupes a hand-moved root-level approval_policy instead of doubling it', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dc-codex-'));
+    const out = merge(dir, 'approval_policy = "untrusted"\n\n' + INCIDENT_FILE);
+    const parsed = parseToml(out);
+    expect(parsed.approval_policy).toBe('never');
+    const active = out
+      .split('\n')
+      .filter((l) => /^\s*approval_policy\s*=/.test(l));
+    expect(active).toHaveLength(1);
+  });
+
+  // L1: prove the round-trip gate can actually fail — duplicate tables are
+  // exactly what the 2026-08-14 config died on.
+  it('assertParseableToml rejects duplicate tables loudly', () => {
+    const dupe = '[a]\nx = 1\n[a]\ny = 2\n';
+    expect(() =>
+      assertParseableToml(dupe, { path: 'config.toml', phase: 'merged' }),
+    ).toThrow(/not valid TOML/);
+  });
+
+  it('neutralizes the quoted-key spelling of the manual table too', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dc-codex-'));
+    const quoted = '[mcp_servers."dashclaw"]\ncommand = "python"\n';
+    const out = merge(dir, quoted);
+    const parsed = parseToml(out);
+    expect(parsed.mcp_servers.dashclaw.command).toBe('node');
+    expect(out).toContain('# [mcp_servers."dashclaw"]');
+  });
+
+  it('refuses to write when the merge result would not parse', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dc-codex-'));
+    const configPath = join(dir, 'config.toml');
+    // User content that is already broken TOML stays broken after the merge —
+    // the gate must throw and leave the file byte-identical.
+    const trap = '[projects\ntrust_level = "trusted"\n';
+    writeFileSync(configPath, trap);
+    expect(() =>
+      mergeConfigToml({
+        configPath,
+        mcpServerPath: MCP,
+        hooksDir: HOOKS,
+        approvalPolicy: 'never',
+        agentId: 'codex',
+      }),
+    ).toThrow(/not valid TOML/);
+    expect(readFileSync(configPath, 'utf8')).toBe(trap);
   });
 });
 
