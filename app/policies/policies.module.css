@@ -781,6 +781,44 @@
   color: var(--color-error);
   font-size: 12px;
 }
+
+/* ── External decision provider panel (RFC 2026-08-13 §6) ── */
+.extPanel { display: flex; flex-direction: column; gap: 14px; padding: 16px; }
+.extLead { margin: 0; color: var(--color-text-secondary); font-size: 13px; max-width: 68ch; }
+.extRow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.extRowLabel { color: var(--color-text-primary); font-size: 13px; font-weight: 500; }
+.extSwitch {
+  width: 32px; height: 18px; border-radius: 20px; cursor: pointer;
+  background: var(--color-bg-elevated); border: 1px solid var(--color-border);
+  position: relative; flex: none; transition: background 0.14s, border-color 0.14s;
+}
+.extSwitch::after {
+  content: ""; position: absolute; top: 1px; left: 1px; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--color-text-disabled);
+  transition: transform 0.14s, background 0.14s;
+}
+.extSwitchOn { background: var(--color-success-subtle); border-color: color-mix(in srgb, var(--color-success) 40%, transparent); }
+.extSwitchOn::after { transform: translateX(14px); background: var(--color-success); }
+.extGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.extField { display: flex; flex-direction: column; gap: 5px; }
+.extField span { color: var(--color-text-tertiary); font-size: 12px; }
+.extField input {
+  background: var(--color-bg-primary); border: 1px solid var(--color-border);
+  border-radius: 8px; padding: 7px 10px; color: var(--color-text-primary);
+  font-size: 13px; font-family: inherit; outline: none;
+}
+.extField input:focus { border-color: var(--color-border-active); }
+.extSeg { display: inline-flex; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; }
+.extSeg button {
+  background: transparent; border: none; cursor: pointer; padding: 6px 12px;
+  color: var(--color-text-tertiary); font-size: 12px; font-family: inherit;
+}
+.extSeg button + button { border-left: 1px solid var(--color-border); }
+.extSegOn { color: var(--color-text-primary) !important; background: var(--color-bg-elevated) !important; }
+.extHint { margin: -6px 0 0; color: var(--color-text-tertiary); font-size: 12px; max-width: 68ch; }
+.extFoot { display: flex; align-items: center; gap: 12px; }
+.extSaved { display: inline-flex; align-items: center; gap: 5px; color: var(--color-success); font-size: 12px; }
+
 .spin { animation: pauseSpin 0.9s linear infinite; }
 @keyframes pauseSpin { to { transform: rotate(360deg); } }
 

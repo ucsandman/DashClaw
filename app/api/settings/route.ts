@@ -13,6 +13,18 @@ import {
   VALID_SETTING_KEYS,
   VALID_CATEGORIES
 } from '../../lib/repositories/settings.repository';
+import { invalidateGuardSettingsCache, invalidateGuardExternalVerdictCache } from '../../lib/guard/caches';
+
+// Guard-hot-path keys written through this generic route need eager cache
+// invalidation on this instance (other warm instances converge within the
+// 30s settings TTL). The admin routes (/api/halt, /api/calibration/controller)
+// do their own; EXTERNAL_VERDICT_* config only rides this route.
+function maybeInvalidateGuardCaches(key: unknown, orgId: string): void {
+  if (typeof key === 'string' && key.startsWith('EXTERNAL_VERDICT_')) {
+    invalidateGuardSettingsCache(orgId);
+    invalidateGuardExternalVerdictCache(orgId);
+  }
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -116,6 +128,7 @@ export async function POST(request: Request) {
     }
 
     await upsertSetting(sql, orgId, { key, value: finalValue, category, encrypted: isEncrypted, agent_id });
+    maybeInvalidateGuardCaches(key, orgId);
 
     logActivity({
       orgId, actorId: getUserId(request) || 'unknown', action: 'setting.updated',
@@ -149,6 +162,7 @@ export async function DELETE(request: Request) {
     const agentId = searchParams.get('agent_id');
 
     await deleteSetting(sql, orgId, key as string, agentId);
+    maybeInvalidateGuardCaches(key, orgId);
 
     logActivity({
       orgId, actorId: getUserId(request) || 'unknown', action: 'setting.deleted',

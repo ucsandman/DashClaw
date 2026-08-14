@@ -10,6 +10,7 @@ import { fetchContract, type ContractView } from '../lib/contractClient';
 import PostureHero from './PostureHero';
 import TriageInbox from './TriageInbox';
 import PresetsShields from './PresetsShields';
+import ExternalVerdictPanel from './ExternalVerdictPanel';
 import Ledger, { type LedgerActions } from './Ledger';
 import GlossaryStrip from './GlossaryStrip';
 import styles from '../policies.module.css';
@@ -141,6 +142,20 @@ export default function PolicyWorkbench() {
       <TriageInbox onChanged={refresh} onCount={setInboxCount} />
 
       <PresetsShields summary={summary} onChanged={refresh} />
+
+      <CollapsibleSection
+        id="policies.external"
+        title={
+          <>
+            External decision provider
+            <span className={styles.secHelp} style={{ marginLeft: 10, fontWeight: 400 }}>
+              An outside engine can tighten decisions here. It can never loosen them.
+            </span>
+          </>
+        }
+      >
+        <ExternalVerdictPanel />
+      </CollapsibleSection>
 
       <CollapsibleSection
         id="policies.ledger"
