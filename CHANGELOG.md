@@ -13,6 +13,52 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.23.2] — 2026-08-14
+
+Hardening release from a whole-codebase adversarial review (five finder
+dimensions, an independent skeptic per finding; 10 findings confirmed, 2
+refuted, 1 downgraded on spot-check). No new public surface; no SDK source
+change, so the Node/Python SDKs are not republished.
+
+### Fixed
+
+- **External-verdict `fail_closed` posture now applies when the saved provider
+  config can't be read.** An undecryptable provider URL (e.g. after an
+  `ENCRYPTION_KEY` rotation) used to collapse into "not configured" — the guard
+  silently proceeded local-only with no evidence. It now takes the org's
+  posture with a distinct `config_unreadable` failure code, and an unexpected
+  throw after the config loaded takes it as `internal_error`. The `/policies`
+  Test provider probe distinguishes "never configured" from "saved but
+  undecryptable."
+- **Org halt (and approval-pause) can no longer be un-enforced by a cache
+  race.** A settings read in flight when `POST /api/halt` invalidated the guard
+  caches could refill them with pre-halt state for up to 3s; a per-org
+  generation counter now discards those stale refills.
+- **`GET /api/cron/signals` no longer double-fires operator alerts when runs
+  overlap.** New-signal detection is now an atomic `ON CONFLICT DO NOTHING
+  RETURNING` claim, and webhooks/emails/native/SSE notifications fire only for
+  signals the run actually claimed.
+- **Guard `?record=true` returns the DLP `security` summary** (parity with
+  `POST /api/actions`) instead of silently dropping redaction findings, and a
+  lost idempotency-key insert race now recovers the winner's `action_id`
+  instead of reporting a false `recorded: false`.
+- **Org rate limiting: the Redis connection attempt is now explicitly bounded**
+  so a dead endpoint can't stall the guard hot path while the client falls back
+  to the in-memory limiter. (#222)
+
+### Performance
+
+- `webhook_check` policies evaluate their outbound calls concurrently (was
+  serial inside the shared 3500ms guard deadline).
+- New `(org_id, agent_id, action_type)` index (migration 0074) for the
+  predictive-risk 30-day history query, which previously scanned an agent's
+  entire action history per guard call.
+- The guard decisions list no longer probes `information_schema` on every
+  request (memoized), and the guard-path idempotency lookup selects two columns
+  instead of the full row.
+- `webhook_deliveries` gets 30-day ride-along retention — it was the one
+  delivery-log table with no reaper and grew without bound.
+
 ## [5.23.1] — 2026-08-14
 
 ### Added

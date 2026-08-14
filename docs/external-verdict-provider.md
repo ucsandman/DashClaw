@@ -84,8 +84,10 @@ Rules:
 
 The call runs inside the guard hot path under a hard budget
 (`min(configured timeout, remaining evaluation budget)`; timeouts clamp to
-100–5000 ms). Timeouts, non-2xx, malformed bodies, unsupported verdicts, and
-identity mismatches all take the org's configured posture:
+100–5000 ms). Timeouts, non-2xx, malformed bodies, unsupported verdicts, identity
+mismatches — and a saved provider config the server can no longer read (an
+undecryptable URL after an `ENCRYPTION_KEY` rotation, recorded as
+`config_unreadable`) — all take the org's configured posture:
 
 | Posture | Effect on the decision |
 |---|---|

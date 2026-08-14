@@ -14,6 +14,50 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-14 — Adversarial review sweep (v5.23.2)
+
+I turned a two-stage adversarial review loose on the whole codebase: five
+read-only finders (correctness, silent failures, performance, concurrency,
+resource growth), then an independent skeptic per finding instructed to
+refute it. Seventeen agents, twelve findings, ten confirmed, two refuted —
+and the one finding rated *critical* did not survive my own spot-check. The
+finder claimed the guard idempotency lookup had no index; the index has
+existed since migration 0004, but `schema/schema.js` never declared it, and
+both the finder and its verifier read only the declarative schema. The
+lesson is now in the tree twice: the missing declarations are backfilled,
+and the physical `drizzle/*.sql` chain is the thing to trust.
+
+The fix that matters most is a semantics reversal I want on the record: the
+v5.23.0 external-verdict seam deliberately treated an *undecryptable* saved
+provider URL as "not configured" — no call, no evidence, local-only
+governance. The review argued, and I agree, that an org that chose
+`fail_closed` meant "hold my actions when the external check can't run,"
+and a config that rots after an `ENCRYPTION_KEY` rotation is exactly that
+case. So `configState` now distinguishes `unset` from `unreadable`, the
+posture applies with a `config_unreadable` failure code, and the Test
+provider button says which state you're in. Fair warning: after a key
+rotation, fail-closed orgs will now see approval holds instead of silence —
+that is the feature working.
+
+The rest: a generation counter closes the window where an in-flight
+settings read could resurrect pre-halt cache state after `POST /api/halt`;
+cron signals claims new signals atomically so overlapping runs can't
+double-notify; webhook policies run their outbound calls concurrently
+instead of serially inside the 3500ms deadline; `webhook_deliveries` gets
+the ride-along retention its sibling tables always had; the guard record
+path stops swallowing DLP findings and idempotency-race outcomes; and
+migration 0074 gives the predictive-risk query an index so it stops
+scanning an agent's whole history per guard call. A parallel session
+independently bounded the Redis connect on the rate-limit path (#222) —
+the review had flagged that spot and refuted its own worst-case claim
+(node-redis defaults to a 5s ceiling), and the bound makes it moot.
+
+Honest notes: the review's decrypt story was wrong in one detail —
+`decrypt()` returns null rather than throwing, so the fix keys on the null;
+and my retention DELETE broke three webhook tests that asserted SQL by
+positional call index, which is its own small lesson about writing
+assertions against content, not order.
+
 ## 2026-08-14 — Test provider button (v5.23.1, #219 follow-up)
 
 With the seam live and the adapter on the Agent Memory side, the gap most
