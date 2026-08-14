@@ -14,6 +14,43 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-13 — the drill that found the dead key
+
+v5.22.1 ships `scripts/drills/hosted-buyer.mjs`: a 19-step scripted proof of
+the hosted money path against a live instance — mint → key works → first
+governed action → claim (seeded user + forged NextAuth session) → checkout
+with a real Stripe customer → signed synthetic webhooks (idempotency replay
+included) → plan flip to indie → seat-cap 409 → action-ceiling 403 → billing
+portal → cancel webhook → free-plan restore → workspace export — with a
+teardown registry that unwinds everything and a `--sabotage` switch that
+breaks one assertion on purpose so a green run can be trusted.
+
+The build was reviewed clean, but the story is the first run. Arming the
+drill against hosted.dashclaw.io surfaced three production faults nobody had
+noticed: the instance's live-mode `STRIPE_SECRET_KEY` was **expired** — Stripe
+said so verbatim — meaning any real buyer clicking upgrade got a failed
+checkout; the Stripe account had **no Customer Portal configuration**, so
+"manage billing" would have failed even with a valid key; and the instance's
+`NEXTAUTH_SECRET` was stored nowhere recoverable (sensitive-type Vercel env
+vars pull back blank). All three were fixed before the run: key replaced,
+default portal configuration created via API and proven with a throwaway
+portal session, secret rotated (cost: the one signed-in hosted user gets
+logged out once). That is the drill argument in miniature — the money path
+was broken in production, no test caught it, and a scripted buyer did.
+
+What went wrong, for the record. The first run failed at `claim` because the
+`NEXTAUTH_SECRET` candidate copied from local dev was not hosted's — a
+discriminating probe (forge a session for the one real user, ask the claim
+preview if it counts as signed in) separated wrong-secret from
+middleware-rejection before rotating. The first *green* run stranded one
+Stripe customer: the operator env file still carried the expired key for the
+drill's own teardown client even though the instance had the new one —
+deleted by hand, operator env refreshed, and the sabotage rerun's teardown
+came back fully clean. Also a trap worth naming: `scripts/_load-env.mjs`
+force-loads `.env.local` over shell env, so hosted drill runs must swap the
+file, not export variables. `HOSTED_DRILL_TOKEN` was rotated after the run
+per the drill-mint spec and verified with a mint-probe (mint 200 → purge).
+
 ## 2026-08-13 — the diff we were already computing
 
 v5.22.0 ships Plan Deviation Events, and the honest framing is that the

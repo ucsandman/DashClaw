@@ -13,6 +13,36 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.22.1] — 2026-08-13
+
+Hosted-buyer money-path drill — maintainer tooling; no SDK or runtime surface
+change. First live run against hosted.dashclaw.io surfaced and fixed three
+production billing faults (details in the maintainer log).
+
+### Added
+
+- **`scripts/drills/hosted-buyer.mjs`** — a 19-step scripted buyer that proves
+  the hosted billing path end to end against a running hosted-mode instance:
+  mint → key works → first governed action → claim (seeded user + forged
+  NextAuth session) → Stripe checkout (real customer, created by the checkout
+  route) → signed synthetic `checkout.session.completed` webhook → idempotency
+  replay → plan flip to indie → seat-cap 409 → action-ceiling 403 → billing
+  portal → signed `customer.subscription.deleted` webhook → free-plan restore →
+  ceiling gone → workspace export. Every webhook step asserts database truth,
+  teardown unwinds all created state (Stripe customer included), and
+  `--sabotage` deliberately breaks the seat-cap assertion so the drill can be
+  proven able to fail. Documented in `scripts/drills/README.md`.
+
+### Fixed (production ops, found by the drill's first run)
+
+- Replaced the **expired live `STRIPE_SECRET_KEY`** on the hosted instance —
+  real checkout had been failing since the key expired.
+- Created the missing **default Customer Portal configuration** on the live
+  Stripe account (portal sessions previously had no configuration to use).
+- Rotated the hosted instance's **`NEXTAUTH_SECRET`** (previous value
+  unrecoverable) and **`HOSTED_DRILL_TOKEN`** (post-run hygiene per the
+  drill-mint spec).
+
 ## [5.22.0] — 2026-08-13
 
 Plan Deviation Events — the follow-on the preflight-plan RFC explicitly

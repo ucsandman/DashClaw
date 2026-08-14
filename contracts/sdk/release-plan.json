@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.22.0",
+    "current_version": "5.22.1",
     "next_bump": "none",
-    "reason": "5.22.0 is Plan Deviation Events (RFC 2026-08-11): plan-vs-actual deviation recording, the deviation_response policy type (guard policy types 16 -> 17, THESIS amendment), and operator resolution surfaces - all platform-side. sdk/ source did NOT change this release; deviations ride existing response payloads so no new SDK methods. The unified-version model advances the number anyway. Pushing the v5.22.0 tag fires release.yml, whose publish-npm job publishes whatever version the manifests carry and only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.22.1 is the hosted-buyer money-path drill (scripts/drills/hosted-buyer.mjs): maintainer tooling only, verified live against hosted.dashclaw.io (19/19 green + sabotage red). sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.22.1 tag fires release.yml, whose publish-npm job publishes whatever version the manifests carry and only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.22.0",
+    "current_version": "5.22.1",
     "next_bump": "none",
-    "reason": "5.22.0 is Plan Deviation Events (RFC 2026-08-11), platform-side only. sdk-python/ source did NOT change this release; deviations ride existing response payloads so no new SDK methods. The unified-version model advances the number anyway. Pushing the v5.22.0 tag fires release.yml, whose publish-pypi job publishes whatever version the manifests carry and only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.22.1 is the hosted-buyer money-path drill, platform-side maintainer tooling only. sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.22.1 tag fires release.yml, whose publish-pypi job publishes whatever version the manifests carry and only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.22.0 ships Plan Deviation Events (docs/rfcs/2026-08-11-plan-deviation-events.md): the runtime already computed the plan-vs-actual diff in consumePlanStepGrant's no-match branch and threw it away - now it is durable (plan_deviations), classified (six kinds, act_substitution the flagship), policy-visible (deviation_response, tighten-only, no default row - a fresh install changes behavior not at all), and operator-resolvable on /approvals with an Accept-&-amend-plan path that turns acceptance into a recorded amendment. Neither SDK's source changed; the CLI did not change. Guard hot-path cost is one cached EXISTS probe per org:agent per 30s (cold budget 5 -> 6, warm unchanged; measured ~2ms marginal in-plan, ~0 planless).",
+  "reason": "5.22.1 ships the hosted-buyer money-path drill (scripts/drills/README.md 'hosted-buyer'): a 19-step scripted proof of the hosted billing path - mint -> key -> first governed action -> claim (seeded user + forged NextAuth session) -> real Stripe test/live checkout customer -> signed synthetic webhooks with idempotency replay -> plan flip -> seat-cap 409 -> action-ceiling 403 -> portal -> cancel -> free restore -> export - with full teardown and a --sabotage make-it-fail switch. First run against hosted.dashclaw.io went 19/19 green after surfacing and fixing three production faults: an EXPIRED live STRIPE_SECRET_KEY (real buyers' checkout was broken), a missing default Customer Portal configuration, and an unrecoverable NEXTAUTH_SECRET (rotated). HOSTED_DRILL_TOKEN rotated after the run per the drill-mint spec. Neither SDK's source changed; the CLI did not change.",
   "domains": [
     "platform"
   ]
