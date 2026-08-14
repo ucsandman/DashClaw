@@ -9,8 +9,10 @@ One-tap approve/reject from your phone for any DashClaw action that lands on `pe
 ## The fast path — interactive wizard
 
 ```bash
-npm run telegram:setup
+dashclaw install telegram
 ```
+
+No repo clone needed — the wizard ships in the [`@dashclaw/cli`](https://www.npmjs.com/package/@dashclaw/cli) package (`npm i -g @dashclaw/cli`, or `npx @dashclaw/cli install telegram`). From a repo clone, `npm run telegram:setup` runs the identical wizard and can additionally write the env vars into your local `.env`.
 
 Walks you through all 8 steps: bot creation, chat ID discovery, secret generation, deploy URL, API key + org discovery, env block, webhook registration, and round-trip smoke test. Auto-discovers your chat ID from Telegram, auto-generates the webhook secret, auto-discovers your org ID from your API key, and prints the exact env block to paste into Vercel. Most people are done in ~3 minutes.
 

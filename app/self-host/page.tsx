@@ -167,7 +167,7 @@ dashclaw doctor`}</pre>
               <p className="text-xs text-text-secondary leading-relaxed mb-3">
                 Pending actions push to an admin chat with inline buttons. If Telegram is unreachable, DashClaw warn-logs and approvals stay available via the other surfaces; it is purely additive.
               </p>
-              <pre className="overflow-x-auto rounded-xl border border-border bg-surface-primary p-3 text-xs leading-relaxed text-text-secondary font-mono">{`npm run telegram:setup`}</pre>
+              <pre className="overflow-x-auto rounded-xl border border-border bg-surface-primary p-3 text-xs leading-relaxed text-text-secondary font-mono">{`dashclaw install telegram`}</pre>
             </div>
           </div>
 

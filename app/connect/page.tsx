@@ -451,7 +451,7 @@ DISCORD_PUBLIC_KEY=<discord-app-public-key>`}</CodeBlock>
                   Inline Approve and Deny buttons pushed to an admin chat. Warns and moves on if Telegram is unreachable.
                 </p>
                 <div className="mt-auto">
-                  <CodeBlock>{`npm run telegram:setup`}</CodeBlock>
+                  <CodeBlock>{`dashclaw install telegram`}</CodeBlock>
                   <Link href="/self-host#approve-from-anywhere" className="mt-3 inline-flex items-center gap-1.5 text-xs text-brand hover:text-brand-hover transition-colors font-medium">
                     Telegram setup guide <ArrowRight size={12} aria-hidden="true" />
                   </Link>

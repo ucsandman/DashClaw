@@ -17,6 +17,7 @@ import { isHelpInvocation } from '../lib/argv.js';
 import { installClaude } from '../lib/claude/install.js';
 import { installOpenclaw, OPENCLAW_PLUGIN_VERSION } from '../lib/openclaw/install.js';
 import { resolveOpenclawOnboarding } from '../lib/openclaw/wizard.js';
+import { runTelegramSetup } from '../lib/telegram/setup.js';
 import { upCommand, runUp, runDown, resolveBaseDir, holdUntilExit } from '../lib/up/index.js';
 import { parseUpArgs } from '../lib/up/args.js';
 import { loadInstance } from '../lib/up/instance.js';
@@ -128,6 +129,12 @@ ${bold('Usage:')}
                                          equal-or-newer installed build is kept, never downgraded
     --no-verify                          Skip the post-install check (config validate, plugins
                                          doctor, and reading plugins.entries.*.enabled back)
+  dashclaw install telegram              Wire Telegram approvals to your instance: BotFather
+                                         bot, chat-id discovery, webhook registration, and a
+                                         round-trip smoke test. Interactive wizard (~3 min);
+                                         your instance must be reachable from the internet.
+    --base-url <url>                     DashClaw instance URL default (or DASHCLAW_BASE_URL / saved config)
+    --api-key <key>                      Admin API key default (or DASHCLAW_API_KEY / saved config)
   dashclaw codex notify '<json>'         Record a Codex turn-complete event
     --agent-id <id>                      Ledger identity for the turn (beats DASHCLAW_AGENT_ID)
                                          (called by Codex's notify config; always exits 0)
@@ -646,6 +653,28 @@ async function cmdInstallOpenclaw() {
   }
 }
 
+async function cmdInstallTelegram() {
+  // The wizard cannot run headless: BotFather and the "message your bot"
+  // chat-id discovery need a human. Fail loudly instead of hanging a pipe.
+  if (!process.stdin.isTTY) {
+    console.error('Error: `dashclaw install telegram` is an interactive wizard — run it in a terminal.');
+    process.exit(1);
+  }
+  try {
+    const result = await runTelegramSetup({
+      baseUrl: getFlag('--base-url') || baseUrl || null,
+      apiKey: getFlag('--api-key') || apiKey || null,
+      prompt: ask,
+      promptSecret: askSecret,
+      logger: console,
+    });
+    if (!result.completed) process.exitCode = 1;
+  } catch (err) {
+    console.error(red(`Error: ${err.message}`));
+    process.exit(1);
+  }
+}
+
 async function cmdInstall() {
   const target = args[1];
   switch (target) {
@@ -655,9 +684,11 @@ async function cmdInstall() {
       return cmdInstallClaude();
     case 'openclaw':
       return cmdInstallOpenclaw();
+    case 'telegram':
+      return cmdInstallTelegram();
     default:
       console.error(`Unknown install target: dashclaw install ${target || '(missing)'}\n` +
-                    'Try: dashclaw install claude [--trial] | dashclaw install codex [--project <path>] | dashclaw install openclaw');
+                    'Try: dashclaw install claude [--trial] | dashclaw install codex [--project <path>] | dashclaw install openclaw | dashclaw install telegram');
       process.exitCode = 1;
   }
 }

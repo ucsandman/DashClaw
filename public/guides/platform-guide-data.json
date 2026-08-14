@@ -7330,7 +7330,7 @@
           "kind": "setup",
           "status": "stable",
           "interface": "TELEGRAM_BOT_TOKEN / TELEGRAM_ADMIN_CHAT_ID / TELEGRAM_WEBHOOK_SECRET / TELEGRAM_APPROVER_ORG_ID / DASHCLAW_ALERTS_TELEGRAM",
-          "purpose": "Telegram approval bridge; feature off when token unset. `npm run telegram:setup` populates.",
+          "purpose": "Telegram approval bridge; feature off when token unset. `dashclaw install telegram` populates.",
           "required": false
         },
         {
