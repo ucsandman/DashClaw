@@ -210,7 +210,11 @@ export default function DownloadsPage() {
               manifest="plugins/dashclaw/.claude-plugin/plugin.json"
               agentId="claude-code"
               description="MCP server + governance skill, plus a hooks installer for PreToolUse / PostToolUse / Stop guards over Bash, Edit, Write, and MultiEdit."
-              installCommand={`# No clone required:
+              installCommand={`# Native plugin marketplace (inside Claude Code):
+/plugin marketplace add ucsandman/DashClaw
+/plugin install dashclaw@dashclaw
+
+# Or via the CLI, no clone required:
 npm i -g @dashclaw/cli
 dashclaw install claude            # prompts for endpoint + API key
 dashclaw install claude --trial    # hosted signup, paste the key
