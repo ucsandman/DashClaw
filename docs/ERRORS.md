@@ -4,7 +4,7 @@ Newest first. Full entries for multi-attempt debugging or reusable lessons; one-
 
 ---
 
-- 2026-08-14 — CI-only flake in `policies-inert-banner-reveal.test.jsx`: one-shot `getByRole(...).getAttribute('aria-selected')` read a batched lens update a frame early under CI load while the sibling `findByText` retried its way past it / root cause: mixed retrying + one-shot assertions over the same state transition / prevention: assert post-transition state via `waitFor`, never a bare read next to a `findBy*`.
+- 2026-08-14 (amended) — CI-only failure in `policies-inert-banner-reveal.test.jsx`: first diagnosed as a one-shot-read race and "fixed" with `waitFor` — WRONG, it failed again in CI with the retry in place / status: not reproducible locally (0/15 isolated, 0/5 with 120ms-delayed mocks); text renders while the sentences tab reads unselected for >1s, which no single-tree state can produce / action: failure-time DOM diagnostics now ship in the test (tablist count, per-tab aria state, hidden ancestry, text presence) so the next CI failure names the mechanism / lesson: a "flake" fix that only adds retries is a hypothesis, not a fix — it was falsified by the very next run.
 
 ---
 

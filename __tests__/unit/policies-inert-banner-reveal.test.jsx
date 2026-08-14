@@ -106,12 +106,22 @@ describe('/policies — inert-rule banner reveals the suppressing grant (F1)', (
     fireEvent.click(screen.getByRole('button', { name: /review suppressed patterns/i }));
 
     expect(await screen.findByText(/never bother me about/i)).toBeTruthy();
-    // waitFor, not a one-shot read: under CI load jsdom can yield the text
-    // assertion's retry loop a frame before the tab's aria state commits
-    // (flaked remotely 2026-08-14; same tree, one-shot read of a batched
-    // update). The asserted landing state is unchanged.
-    await waitFor(() =>
-      expect(screen.getByRole('tab', { name: /sentences/i }).getAttribute('aria-selected')).toBe('true'));
+    // This assertion fails ONLY in CI full-suite runs (2026-08-14, twice) and
+    // has never reproduced locally — in isolation, repeated, or with slowed
+    // mocks. The catch block prints the discriminating evidence so the next
+    // CI failure identifies the mechanism instead of just the symptom.
+    try {
+      await waitFor(() =>
+        expect(screen.getByRole('tab', { name: /sentences/i }).getAttribute('aria-selected')).toBe('true'));
+    } catch (err) {
+      const tablists = document.querySelectorAll('[role="tablist"]');
+      const tabs = document.querySelectorAll('[role="tab"]');
+      console.error('[inert-banner diag] tablists:', tablists.length,
+        '| tabs:', [...tabs].map((t) => `${t.textContent}=${t.getAttribute('aria-selected')}${t.closest('[hidden]') ? '(hidden)' : ''}`).join(' '),
+        '| sentences text still in DOM:', !!screen.queryByText(/never bother me about/i),
+        '| inert banner present:', !!screen.queryByText(/currently inert/i));
+      throw err;
+    }
     // The human's whole job here is one click: remove the grant.
     expect(screen.getByRole('button', { name: 'Remove' })).toBeTruthy();
   });
