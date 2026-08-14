@@ -113,6 +113,20 @@ FAIL missing env: ...` if any are unset. Rotate `HOSTED_DRILL_TOKEN`
 afterward, per the drill-mint spec (`app/lib/hosted/drill-mint.ts`) — don't
 leave a live mint-bypass token sitting around after the run.
 
+**`HOSTED_ADMIN_API_KEY`** (optional, recommended) — the primary org-cleanup
+path is `purgeOrg` via `DATABASE_URL`, registered unconditionally right after
+mint, so `hosted-buyer.mjs` itself doesn't read this key. It's still worth
+setting: `hosted-stranger.mjs` in this same directory backs its own teardown
+with it, and without it there an early-aborted stranger run leaves a trial
+workspace to auto-expire instead of being deleted immediately.
+
+**Month-boundary caution.** `period` (`'YYYY-MM'`, UTC) is computed once at
+run start and reused for both the ceiling seed and the ceiling-gone re-read.
+A run that straddles 00:00 UTC on the 1st seeds `usage_rollups` for the
+*previous* month, and the action-ceiling check enforces on the *current*
+month's row — the `ceiling-403` step will spuriously fail. Avoid starting a
+run in the few minutes around that boundary.
+
 **`--sabotage`**: the same seeded-break idea as above, built into the script
 itself. It flips the seat-cap step's expected second-invite status from 409
 to 200, which the real route never returns once the cap is hit. Run it once
