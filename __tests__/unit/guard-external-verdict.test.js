@@ -15,7 +15,12 @@ const { mockGetSettings, mockSafeFetch } = vi.hoisted(() => ({
 
 vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: mockGetSettings }));
 vi.mock('@/lib/url-safety.js', () => ({ safeFetch: mockSafeFetch }));
+vi.mock('@/lib/webhooks.js', () => ({ deliverGuardWebhook: vi.fn() }));
+vi.mock('@/lib/llm.js', () => ({ checkSemanticGuardrail: vi.fn() }));
+vi.mock('@/lib/security.js', () => ({ scanSensitiveData: vi.fn((text) => ({ findings: [], redacted: text, clean: true })) }));
+vi.mock('@/lib/predictive-risk.js', () => ({ getPredictiveRisk: vi.fn(async () => ({ statistical: null, llm: null, total_adjustment: 0 })) }));
 
+import { evaluateGuard } from '@/lib/guard.js';
 import { createSqlMock } from '../helpers.js';
 import {
   getExternalVerdictConfig,
@@ -245,5 +250,206 @@ describe('computeInputIdentity', () => {
     expect(a).toMatch(/^sha256:/);
     expect(a).toBe(b);
     expect(c).not.toBe(a);
+  });
+});
+
+// --- Layer 3: the seam — the ten #220 adversarial cases -------------------
+
+const PROVIDER_SETTINGS = {
+  EXTERNAL_VERDICT_ENABLED: 'true',
+  EXTERNAL_VERDICT_PROVIDER: 'agent-memory-pama',
+  EXTERNAL_VERDICT_PROVIDER_URL: 'https://provider.example.com/verdict',
+};
+
+function makePolicy(type, rules, overrides = {}) {
+  return {
+    id: `gp_${type}`,
+    name: `Policy ${type}`,
+    policy_type: type,
+    rules: JSON.stringify(rules),
+    ...overrides,
+  };
+}
+
+function ctx(overrides = {}) {
+  return {
+    agent_id: 'agt_1',
+    action_type: 'http_request',
+    declared_goal: 'post release notes',
+    act: { kind: 'http', method: 'POST', url: 'https://api.example.com/notes' },
+    risk_score: 10,
+    ...overrides,
+  };
+}
+
+/** Provider that echoes the request's input_identity — the contract's E3 rule. */
+function providerAnswers(decision, { identity, status = 200 } = {}) {
+  mockSafeFetch.mockImplementation(async (_url, opts) => {
+    const req = JSON.parse(opts.body);
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      json: async () => ({
+        decision,
+        reason: 'memory_policy',
+        policy_source: 'agent-memory-pama',
+        policy_version: 'v3',
+        input_identity: identity ?? req.input_identity,
+        evidence: {},
+      }),
+    };
+  });
+}
+
+function persistedContext(sql) {
+  const call = sql.taggedCalls.find((c) => c.text.includes('guard_decisions'));
+  expect(call).toBeTruthy();
+  const json = call.values.find((v) => typeof v === 'string' && v.includes('_risk_breakdown'));
+  expect(json).toBeTruthy();
+  return JSON.parse(json);
+}
+
+describe('evaluateGuard external-verdict seam (ten #220 adversarial cases)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    __resetGuardCaches();
+    mockGetSettings.mockResolvedValue(settingsRows(PROVIDER_SETTINGS));
+  });
+
+  it('case 1: local allow + external deny → block (E2 — and no approval escape: grant passes only cover require_approval)', async () => {
+    providerAnswers('deny');
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx(), sql);
+    expect(result.decision).toBe('block');
+    expect(result.reason).toContain('external verdict deny from agent-memory-pama');
+    expect(persistedContext(sql)._external_verdict.mapped_verdict).toBe('block');
+  });
+
+  it('case 2: local block + external allow → block (provider allow never loosens)', async () => {
+    providerAnswers('allow');
+    const sql = createSqlMock({ taggedResponses: [[makePolicy('risk_threshold', { threshold: 80 })]] });
+    const result = await evaluateGuard('org_1', ctx({ risk_score: 95 }), sql);
+    expect(result.decision).toBe('block');
+    expect(persistedContext(sql)._external_verdict.raw_verdict).toBe('allow');
+  });
+
+  it('case 3: local allow + external escalate → require_approval', async () => {
+    providerAnswers('escalate');
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx(), sql);
+    expect(result.decision).toBe('require_approval');
+    expect(result.reason).toContain('external verdict escalate');
+  });
+
+  it('case 4: local require_approval + external allow → require_approval (local never loosened)', async () => {
+    providerAnswers('allow');
+    const sql = createSqlMock({
+      taggedResponses: [[makePolicy('require_approval', { action_types: ['http_request'] })]],
+    });
+    const result = await evaluateGuard('org_1', ctx(), sql);
+    expect(result.decision).toBe('require_approval');
+    expect(persistedContext(sql)._external_verdict.mapped_verdict).toBe('allow');
+  });
+
+  it('case 5: input-identity mismatch → posture failure, the verdict is never reused', async () => {
+    providerAnswers('allow', { identity: 'sha256:WRONG' });
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx(), sql);
+    // fail_closed default: the discarded verdict costs an approval, and the
+    // mismatched allow is nowhere in the outcome.
+    expect(result.decision).toBe('require_approval');
+    const xv = persistedContext(sql)._external_verdict;
+    expect(xv.failure).toBe('identity_mismatch');
+    expect(xv.status).toBe('unavailable');
+    expect(xv.mapped_verdict).toBeUndefined();
+  });
+
+  it('case 6: provider failure under fail_closed stays conservative (500 → require_approval)', async () => {
+    providerAnswers('deny', { status: 500 });
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx(), sql);
+    expect(result.decision).toBe('require_approval');
+    expect(result.reason).toContain('external_unavailable');
+    expect(persistedContext(sql)._external_verdict.failure).toBe('http_error');
+  });
+
+  it('case 7: timeout is VISIBLY unavailable — never a fake success', async () => {
+    mockSafeFetch.mockRejectedValue(Object.assign(new Error('aborted'), { name: 'TimeoutError' }));
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx(), sql);
+    expect(result.decision).toBe('require_approval');
+    expect(result.reason).toContain('external_unavailable (timeout; fail_closed)');
+    const xv = persistedContext(sql)._external_verdict;
+    expect(xv.status).toBe('unavailable');
+    expect(xv.regime).toBe('external_unavailable');
+  });
+
+  it('case 8: unsupported verdict (transform) under fail_open never becomes an implicit allow claim', async () => {
+    providerAnswers('transform');
+    mockGetSettings.mockResolvedValue(settingsRows({ ...PROVIDER_SETTINGS, EXTERNAL_VERDICT_POSTURE: 'fail_open' }));
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx(), sql);
+    // fail_open: the local allow proceeds — but as LOCAL-ONLY governance,
+    // recorded unavailable, never as an external approval of the act.
+    expect(result.decision).toBe('allow');
+    const xv = persistedContext(sql)._external_verdict;
+    expect(xv.failure).toBe('unsupported_verdict');
+    expect(xv.regime).toBe('external_unavailable');
+    expect(result.signals.join(' ')).toContain('external_unavailable');
+  });
+
+  it('case 9: provider evidence is decision evidence — a context sibling, never score input or witness state', async () => {
+    providerAnswers('deny');
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx(), sql);
+    const context = persistedContext(sql);
+    expect(context._external_verdict).toBeTruthy();
+    // Never inside the score vector (score-provenance rule).
+    expect(JSON.stringify(context._risk_breakdown)).not.toContain('external');
+    expect(JSON.stringify(result.risk_breakdown)).not.toContain('external');
+    // Never mistaken for execution-witness state: audit statuses untouched.
+    const call = sql.taggedCalls.find((c) => c.text.includes('guard_decisions'));
+    expect(call.values).toContain('not_applicable'); // replay/act statuses keep their defaults
+  });
+
+  it('case 10: no provider configured → behavior identical, no fetch, no evidence key', async () => {
+    mockGetSettings.mockResolvedValue([]);
+    const run = async () => {
+      __resetGuardCaches();
+      const sql = createSqlMock({ taggedResponses: [[]] });
+      const result = await evaluateGuard('org_1', ctx(), sql);
+      return { result, context: persistedContext(sql) };
+    };
+    const a = await run();
+    const b = await run();
+    expect(mockSafeFetch).not.toHaveBeenCalled();
+    expect(a.context._external_verdict).toBeUndefined();
+    const strip = ({ decision_id, action_id, ...rest }) => rest;
+    expect(strip(a.result)).toEqual(strip(b.result));
+  });
+
+  it('extra: fail_open + provider down → local-only proceed with honest evidence', async () => {
+    mockSafeFetch.mockRejectedValue(Object.assign(new Error('down'), { name: 'TimeoutError' }));
+    mockGetSettings.mockResolvedValue(settingsRows({ ...PROVIDER_SETTINGS, EXTERNAL_VERDICT_POSTURE: 'fail_open' }));
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx(), sql);
+    expect(result.decision).toBe('allow');
+    expect(persistedContext(sql)._external_verdict.failure).toBe('timeout');
+  });
+
+  it('extra: simulate previews never call the provider', async () => {
+    providerAnswers('deny');
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx(), sql, { simulate: true });
+    expect(result.simulated).toBe(true);
+    expect(mockSafeFetch).not.toHaveBeenCalled();
+  });
+
+  it('extra: external warn joins as warn and keeps the external+local regime', async () => {
+    providerAnswers('warn');
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    const result = await evaluateGuard('org_1', ctx(), sql);
+    expect(result.decision).toBe('warn');
+    expect(persistedContext(sql)._external_verdict.regime).toBe('external+local');
   });
 });

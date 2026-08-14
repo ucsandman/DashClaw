@@ -14,7 +14,8 @@ import { grantMatches, grantIsExpired, grantCoversRisk, grantMaxRisk } from '../
 import { DECISION_SEVERITY, sevOf } from './internal';
 import type { GuardSql, GuardEvalContext, PolicyRow, PolicyRules, PolicyResult, Preliminary, GuardDecisionInsert } from './types';
 import { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, isKnownPolicyType } from './policy';
-import { getOrgHaltState, getActiveApprovalPause, loadApplicablePolicies, getPredictiveSettings, getCalibrationRuntime, getHasLivePlan } from './caches';
+import { getOrgHaltState, getActiveApprovalPause, loadApplicablePolicies, getPredictiveSettings, getCalibrationRuntime, getHasLivePlan, getExternalVerdictConfig } from './caches';
+import type { ExternalVerdictEvidence } from './external-verdict';
 import { classifyDeviation, summarizeAct } from './deviation';
 import type { DeviationFinding, LivePlanStep } from './deviation';
 import { assessCalibration, CALIBRATION_POLICY_ID } from './calibration';
@@ -206,6 +207,72 @@ async function computePredictiveRisk(
     return null;
   } catch (e) {
     console.warn('[Guard] Predictive risk failed:', (e as Error).message);
+    return null;
+  }
+}
+
+// The external provider call shares the deadline economics of the LLM
+// amplifier: it only gets what's left of the evaluation budget minus this
+// headroom for the phases that still have to run after it.
+const EXTERNAL_SAFETY_MARGIN_MS = 600;
+
+/**
+ * External policy verdict (RFC 2026-08-13-external-policy-verdict-input,
+ * frozen v1 contract, #219). Calls the org's configured provider and JOINS
+ * the mapped verdict with the local outcome via raiseDecision — the join is
+ * tighten-only by construction (E1), and a mapped `deny` raises to block,
+ * which no later pass downgrades (E2: the grant passes only ever cover
+ * require_approval). Unavailability takes the org's configured posture and is
+ * recorded as exactly that — never as successful external governance.
+ * Fail-soft like every optional phase: an unexpected throw costs the external
+ * input, never the decision.
+ */
+async function runExternalVerdict(
+  sql: GuardSql,
+  orgId: string,
+  context: GuardEvalContext,
+  acc: GuardAccumulator,
+  remainingBudgetMs: number,
+): Promise<ExternalVerdictEvidence | null> {
+  try {
+    const cfg = await getExternalVerdictConfig(sql, orgId);
+    if (!cfg.enabled || !cfg.url) return null;
+    const { computeInputIdentity, fetchExternalVerdict } = await import('./external-verdict');
+    // The wire request is the act tuple the guard already evaluates — not the
+    // whole context. input_identity digests exactly this tuple (E3).
+    const identityPayload = {
+      org_id: orgId,
+      agent_id: context.agent_id || null,
+      action_type: context.action_type || null,
+      declared_goal: context.declared_goal || null,
+      act: context.act ?? null,
+    };
+    const request = {
+      request_id: `evr_${randomUUID()}`,
+      ...identityPayload,
+      input_identity: computeInputIdentity(identityPayload),
+    };
+    const ev = await fetchExternalVerdict(
+      cfg,
+      request,
+      Math.min(cfg.timeoutMs, remainingBudgetMs - EXTERNAL_SAFETY_MARGIN_MS),
+    );
+    if (ev.status === 'ok' && ev.mapped_verdict) {
+      raiseDecision(acc, ev.mapped_verdict);
+      if (sevOf(ev.mapped_verdict) > sevOf('allow')) {
+        acc.reasons.push(
+          `external verdict ${ev.raw_verdict} from ${ev.provider_id}${ev.reason_code ? ` (${ev.reason_code})` : ''}`,
+        );
+      }
+    } else if (ev.posture === 'fail_closed') {
+      raiseDecision(acc, 'require_approval');
+      acc.reasons.push(`external_unavailable (${ev.failure}; fail_closed)`);
+    } else {
+      acc.warnings.push(`external_unavailable (${ev.failure}; fail_open)`);
+    }
+    return ev;
+  } catch (e) {
+    console.warn('[Guard] external verdict failed (continuing local-only):', (e as Error).message);
     return null;
   }
 }
@@ -904,6 +971,7 @@ interface GuardFinalizeInput {
   calibration: CalibrationAssessment | null;
   planGrant: PlanGrantInfo | null;
   planDeviation: PlanDeviationOutcome | null;
+  externalVerdict: ExternalVerdictEvidence | null;
   timings: Record<string, number> | null;
   degraded: { kind: string; deadline_ms: number; action: string; phase_in_flight: string | null } | null;
   containment: { status: 'contained'; basis: string; ref: string } | null;
@@ -944,6 +1012,10 @@ function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionInsert {
       // Score-provenance rule: a SIBLING key beside _plan_grant/_calibration —
       // never inside the hashed score vector.
       ...(input.planDeviation ? { _plan_deviation: input.planDeviation } : {}),
+      // External provider verdict + provenance (RFC 2026-08-13 §5) — a
+      // SIBLING beside _calibration/_plan_grant, never inside the hashed
+      // score vector.
+      ...(input.externalVerdict ? { _external_verdict: input.externalVerdict } : {}),
       ...(input.timings ? { _timings: input.timings } : {}),
       ...(input.degraded ? { _degraded: input.degraded } : {}),
     },
@@ -1154,6 +1226,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   let calibration: CalibrationAssessment | null = null;
   let planGrant: PlanGrantInfo | null = null;
   let planDeviation: PlanDeviationOutcome | null = null;
+  let externalVerdict: ExternalVerdictEvidence | null = null;
   let riskBreakdown: RiskBreakdown = {
     base: syncTerms.base,
     modifiers: syncTerms.modifiers,
@@ -1239,6 +1312,15 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     // below (options.simulate short-circuits before any side effect).
     if (!options.simulate) {
       await timed('webhooks', () => runWebhookPolicies(policies, deps, liveAcc));
+      // External policy verdict (RFC 2026-08-13, #219) — same slot rationale
+      // as the calibration controller below: after the last phase where
+      // policies can raise, BEFORE the grant post-passes, so an operator
+      // approval can still cover an external `escalate` on retry (otherwise
+      // an escalating provider would loop the same act through approval
+      // forever). Same simulate gate as webhook_check: a dry-run preview
+      // must not fire outbound HTTP at a customer-configured endpoint.
+      externalVerdict = await timed('external_verdict', () =>
+        runExternalVerdict(sql, orgId, context, liveAcc, deadlineMs - (Date.now() - evalStart)));
     }
     // Calibrated interruption controller — after every phase that can raise
     // via policies, before grants (so grants can still cover its raise).
@@ -1408,7 +1490,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   const input: GuardFinalizeInput = {
     decisionId, orgId, context, acc, safeContextForLog, evidenceJson, statuses,
     adjustedRiskScore, agentRiskScore, evaluatedAt, predictiveRisk,
-    riskBreakdown, intentSource, evidenceDerived, calibration, planGrant, planDeviation, timings, degraded: degradedDetail,
+    riskBreakdown, intentSource, evidenceDerived, calibration, planGrant, planDeviation, externalVerdict, timings, degraded: degradedDetail,
     containment: containmentOut.containment ?? null,
   };
 
