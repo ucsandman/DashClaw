@@ -6,6 +6,7 @@ const { mockRedisClient, mockCreateClient } = vi.hoisted(() => {
     on: vi.fn(),
     incr: vi.fn(async () => 1),
     pExpire: vi.fn(async () => true),
+    disconnect: vi.fn(async () => {}),
   };
   return { mockRedisClient, mockCreateClient: vi.fn(() => mockRedisClient) };
 });
@@ -100,6 +101,34 @@ describe('checkOrgRateLimit', () => {
       }
       const blocked = await checkOrgRateLimit('org_a');
       expect(blocked.allowed).toBe(false);
+    });
+
+    it('falls back to the memory limiter when Redis connect never settles (bounded, no hang)', async () => {
+      // Reproduces the production hang: a stalled/unreachable endpoint where
+      // client.connect() never resolves or rejects. The governance path must
+      // still return within a bounded amount of (virtual) time, degraded to
+      // the in-memory backend rather than pending until the 30s client timeout.
+      mockRedisClient.connect.mockImplementationOnce(() => new Promise(() => {}));
+
+      const backend = await Promise.race([
+        checkOrgRateLimit('org_a').then((r) => r.backend),
+        // Drain the entire client-timeout window of virtual time. If connect
+        // was left unbounded, checkOrgRateLimit is still pending here and this
+        // sentinel wins — a clean, fast failure instead of a real 30s hang.
+        vi.advanceTimersByTimeAsync(30000).then(() => 'PENDING'),
+      ]);
+
+      expect(backend).toBe('memory');
+    });
+
+    it('destroys the timed-out client so a stalled socket cannot leak', async () => {
+      mockRedisClient.connect.mockImplementationOnce(() => new Promise(() => {}));
+
+      const promise = checkOrgRateLimit('org_a');
+      await vi.advanceTimersByTimeAsync(30000);
+      await promise;
+
+      expect(mockRedisClient.disconnect).toHaveBeenCalledTimes(1);
     });
   });
 

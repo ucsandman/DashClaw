@@ -28,8 +28,17 @@ type RedisLike = {
   pExpire: (key: string, ms: number) => Promise<unknown>;
 };
 
+type CleanableClient = {
+  destroy?: () => void;
+  disconnect?: () => Promise<unknown>;
+};
+
 const MEMORY_MAX_ENTRIES = 10000;
 const REDIS_RETRY_COOLDOWN_MS = 30000;
+// Bound the node-redis connect(): a cold serverless instance pointed at a
+// stalled or unreachable endpoint could otherwise hang the whole governance
+// path until the client's 30s timeout. Fail over to memory well before that.
+const REDIS_CONNECT_TIMEOUT_MS = 3000;
 
 let memoryCounters = new Map<string, MemoryEntry>();
 let redisClientPromise: Promise<RedisLike | null> | null = null;
@@ -51,6 +60,21 @@ function redisUrl(): string {
   return process.env.REDIS_URL || process.env.REALTIME_REDIS_URL || '';
 }
 
+// Forcibly release a client whose connect() failed or timed out so a half-open
+// socket can't leak across cold starts. Best-effort: never throws, never blocks
+// the fallback (node-redis v4 exposes disconnect(); v5 adds destroy()).
+function safeDisconnect(client: CleanableClient): void {
+  try {
+    if (typeof client.destroy === 'function') {
+      client.destroy();
+    } else if (typeof client.disconnect === 'function') {
+      void Promise.resolve(client.disconnect()).catch(() => {});
+    }
+  } catch {
+    // teardown is best-effort
+  }
+}
+
 async function getRedisClient(): Promise<RedisLike | null> {
   const url = redisUrl();
   if (!url) return null;
@@ -58,10 +82,33 @@ async function getRedisClient(): Promise<RedisLike | null> {
   if (!redisClientPromise) {
     redisClientPromise = (async () => {
       const mod = await import('redis');
-      const client = mod.createClient({ url });
+      const client = mod.createClient({
+        url,
+        // First line of defense: let node-redis abort the TCP connect itself.
+        socket: { connectTimeout: REDIS_CONNECT_TIMEOUT_MS },
+      });
       // Without an error listener node-redis throws unhandled on disconnects.
       client.on('error', () => {});
-      await client.connect();
+      // Second line of defense: race connect() against our own timer so this
+      // never stays pending even if the client ignores connectTimeout (the
+      // observed production hang). Clean up the client on either failure path.
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          client.connect(),
+          new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(
+              () => reject(new Error(`Redis connect exceeded ${REDIS_CONNECT_TIMEOUT_MS}ms`)),
+              REDIS_CONNECT_TIMEOUT_MS,
+            );
+          }),
+        ]);
+      } catch (err) {
+        safeDisconnect(client as unknown as CleanableClient);
+        throw err;
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
       return client as unknown as RedisLike;
     })().catch((err) => {
       console.warn('[org-rate-limit] Redis connect failed, using memory fallback:', err?.message || err);
