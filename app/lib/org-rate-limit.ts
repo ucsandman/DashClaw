@@ -39,6 +39,25 @@ const REDIS_RETRY_COOLDOWN_MS = 30000;
 // stalled or unreachable endpoint could otherwise hang the whole governance
 // path until the client's 30s timeout. Fail over to memory well before that.
 const REDIS_CONNECT_TIMEOUT_MS = 3000;
+// Bound the commands too: a warm instance can hold a half-open socket (NAT
+// idle-drop emits no error, so node-redis never reconnects) and INCR would
+// then pend forever — the connect-time hang one layer later.
+const REDIS_COMMAND_TIMEOUT_MS = 2000;
+
+class RedisCommandTimeout extends Error {}
+
+/** Race a Redis command against a timer so it can never pend unbounded. */
+function withCommandTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    promise,
+    new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new RedisCommandTimeout(`Redis command exceeded ${ms}ms`)), ms);
+    }),
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
 
 let memoryCounters = new Map<string, MemoryEntry>();
 let redisClientPromise: Promise<RedisLike | null> | null = null;
@@ -176,15 +195,22 @@ export async function checkOrgRateLimit(orgId: string): Promise<OrgRateLimitResu
   const client = await getRedisClient();
   if (client) {
     try {
-      const count = await client.incr(key);
+      const count = await withCommandTimeout(client.incr(key), REDIS_COMMAND_TIMEOUT_MS);
       if (count === 1) {
         // Grace second so the key outlives its window even under clock skew.
-        await client.pExpire(key, windowMs + 1000);
+        await withCommandTimeout(client.pExpire(key, windowMs + 1000), REDIS_COMMAND_TIMEOUT_MS);
       }
       return buildResult(count, limit, msUntilReset, 'redis');
     } catch (err) {
       console.warn('[org-rate-limit] Redis check failed, using memory fallback:', (err as Error)?.message || err);
       redisFailedAt = now;
+      if (err instanceof RedisCommandTimeout) {
+        // A timed-out command means the cached client's socket is likely
+        // half-open; drop it so the post-cooldown retry builds a fresh
+        // connection instead of reusing the dead one every window.
+        safeDisconnect(client as unknown as CleanableClient);
+        redisClientPromise = null;
+      }
     }
   }
 
