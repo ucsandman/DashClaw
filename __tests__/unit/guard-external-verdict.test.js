@@ -8,11 +8,13 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockGetSettings } = vi.hoisted(() => ({
+const { mockGetSettings, mockSafeFetch } = vi.hoisted(() => ({
   mockGetSettings: vi.fn(async () => []),
+  mockSafeFetch: vi.fn(),
 }));
 
 vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: mockGetSettings }));
+vi.mock('@/lib/url-safety.js', () => ({ safeFetch: mockSafeFetch }));
 
 import { createSqlMock } from '../helpers.js';
 import {
@@ -20,6 +22,11 @@ import {
   invalidateGuardExternalVerdictCache,
   __resetGuardCaches,
 } from '../../app/lib/guard/caches';
+import {
+  fetchExternalVerdict,
+  computeInputIdentity,
+  EXTERNAL_VERDICT_MAP,
+} from '../../app/lib/guard/external-verdict';
 
 function makeSql() {
   return createSqlMock({ taggedResponses: [[]] });
@@ -91,5 +98,152 @@ describe('external verdict config (org-settings → guard cache)', () => {
     invalidateGuardExternalVerdictCache('org_1');
     await getExternalVerdictConfig(sql, 'org_1');
     expect(mockGetSettings).toHaveBeenCalledTimes(2);
+  });
+});
+
+// --- Layer 2: wire client -------------------------------------------------
+
+const CFG = {
+  enabled: true,
+  url: 'https://provider.example.com/verdict',
+  authToken: 'tok_abc',
+  timeoutMs: 1200,
+  posture: 'fail_closed',
+  providerId: 'agent-memory-pama',
+};
+
+function wireRequest(identity = 'sha256:test-identity') {
+  return {
+    request_id: 'evr_test',
+    org_id: 'org_1',
+    agent_id: 'agt_1',
+    action_type: 'http_request',
+    declared_goal: 'test goal',
+    act: { kind: 'http' },
+    input_identity: identity,
+  };
+}
+
+function providerResponse(overrides = {}) {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({
+      decision: 'deny',
+      reason: 'memory_policy_violation',
+      policy_source: 'agent-memory-pama',
+      policy_version: 'v3',
+      input_identity: 'sha256:test-identity',
+      evidence: { rule: 'no_unreviewed_mutation' },
+      ...overrides,
+    }),
+  };
+}
+
+describe('fetchExternalVerdict (wire client)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('maps deny → block with full provenance on the happy path', async () => {
+    mockSafeFetch.mockResolvedValue(providerResponse());
+    const ev = await fetchExternalVerdict(CFG, wireRequest(), 1000);
+    expect(ev.status).toBe('ok');
+    expect(ev.regime).toBe('external+local');
+    expect(ev.raw_verdict).toBe('deny');
+    expect(ev.mapped_verdict).toBe('block');
+    expect(ev.reason_code).toBe('memory_policy_violation');
+    expect(ev.policy_version).toBe('v3');
+    expect(ev.provider_id).toBe('agent-memory-pama');
+    expect(ev.evidence).toEqual({ rule: 'no_unreviewed_mutation' });
+  });
+
+  it('maps escalate → require_approval', async () => {
+    mockSafeFetch.mockResolvedValue(providerResponse({ decision: 'escalate' }));
+    const ev = await fetchExternalVerdict(CFG, wireRequest(), 1000);
+    expect(ev.mapped_verdict).toBe('require_approval');
+  });
+
+  it('sends the bearer token and posts the wire request as JSON', async () => {
+    mockSafeFetch.mockResolvedValue(providerResponse());
+    await fetchExternalVerdict(CFG, wireRequest(), 1000);
+    const [url, opts] = mockSafeFetch.mock.calls[0];
+    expect(url).toBe(CFG.url);
+    expect(opts.method).toBe('POST');
+    expect(opts.headers.authorization).toBe('Bearer tok_abc');
+    expect(JSON.parse(opts.body).input_identity).toBe('sha256:test-identity');
+  });
+
+  it('E3: discards a verdict whose input_identity does not echo the request', async () => {
+    mockSafeFetch.mockResolvedValue(providerResponse({ input_identity: 'sha256:DIFFERENT' }));
+    const ev = await fetchExternalVerdict(CFG, wireRequest(), 1000);
+    expect(ev.status).toBe('unavailable');
+    expect(ev.failure).toBe('identity_mismatch');
+    expect(ev.mapped_verdict).toBeUndefined();
+  });
+
+  it('#220 case 8: an unsupported verdict (transform) is a posture failure, never an allow', async () => {
+    mockSafeFetch.mockResolvedValue(providerResponse({ decision: 'transform' }));
+    const ev = await fetchExternalVerdict(CFG, wireRequest(), 1000);
+    expect(ev.status).toBe('unavailable');
+    expect(ev.failure).toBe('unsupported_verdict');
+    expect(ev.mapped_verdict).toBeUndefined();
+  });
+
+  it('treats non-2xx as http_error', async () => {
+    mockSafeFetch.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
+    const ev = await fetchExternalVerdict(CFG, wireRequest(), 1000);
+    expect(ev.failure).toBe('http_error');
+  });
+
+  it('treats unparseable or decision-less bodies as malformed', async () => {
+    mockSafeFetch.mockResolvedValue({ ok: true, status: 200, json: async () => { throw new Error('bad json'); } });
+    expect((await fetchExternalVerdict(CFG, wireRequest(), 1000)).failure).toBe('malformed');
+    mockSafeFetch.mockResolvedValue(providerResponse({ decision: undefined }));
+    expect((await fetchExternalVerdict(CFG, wireRequest(), 1000)).failure).toBe('malformed');
+  });
+
+  it('treats an aborted call as timeout', async () => {
+    mockSafeFetch.mockRejectedValue(Object.assign(new Error('aborted'), { name: 'TimeoutError' }));
+    const ev = await fetchExternalVerdict(CFG, wireRequest(), 1000);
+    expect(ev.failure).toBe('timeout');
+  });
+
+  it('surfaces safeFetch UNSAFE_URL rejections as unsafe_url', async () => {
+    mockSafeFetch.mockRejectedValue(Object.assign(new Error('private IP'), { code: 'UNSAFE_URL' }));
+    const ev = await fetchExternalVerdict(CFG, wireRequest(), 1000);
+    expect(ev.failure).toBe('unsafe_url');
+  });
+
+  it('skips the call entirely when the remaining budget is too small', async () => {
+    const ev = await fetchExternalVerdict(CFG, wireRequest(), 50);
+    expect(ev.failure).toBe('budget');
+    expect(mockSafeFetch).not.toHaveBeenCalled();
+  });
+
+  it('drops oversized provider evidence with a truncation marker', async () => {
+    mockSafeFetch.mockResolvedValue(providerResponse({ evidence: { blob: 'x'.repeat(5000) } }));
+    const ev = await fetchExternalVerdict(CFG, wireRequest(), 1000);
+    expect(ev.status).toBe('ok');
+    expect(ev.evidence).toBeUndefined();
+    expect(ev.evidence_truncated).toBe(true);
+  });
+
+  it('exposes the exact four-verdict map from the frozen contract', () => {
+    expect(EXTERNAL_VERDICT_MAP).toEqual({
+      allow: 'allow', warn: 'warn', escalate: 'require_approval', deny: 'block',
+    });
+  });
+});
+
+describe('computeInputIdentity', () => {
+  it('is deterministic and act-sensitive, in the house sha256 format', () => {
+    const payload = { org_id: 'org_1', agent_id: 'agt_1', action_type: 'http_request', declared_goal: 'g', act: { kind: 'http' } };
+    const a = computeInputIdentity(payload);
+    const b = computeInputIdentity({ ...payload });
+    const c = computeInputIdentity({ ...payload, act: { kind: 'shell' } });
+    expect(a).toMatch(/^sha256:/);
+    expect(a).toBe(b);
+    expect(c).not.toBe(a);
   });
 });
