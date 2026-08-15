@@ -491,6 +491,12 @@ export default async function SetupPage() {
             >
               Connect an agent
             </Link>
+            <Link
+              href="/policies/packs"
+              className="rounded-lg border border-border-hover bg-surface-tertiary px-4 py-2 text-sm font-medium text-secondary transition-colors hover:bg-surface-elevated hover:text-primary"
+            >
+              Browse policy packs
+            </Link>
           </div>
         </section>
 

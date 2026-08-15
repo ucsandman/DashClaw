@@ -1,0 +1,101 @@
+version: 1
+project: support-agent
+description: >
+  For customer-facing helper agents. Refunds, credits, and order changes wait
+  for a human; replies about a customer's account are verified against a source
+  of truth before sending; account-money claims graded from self-declared
+  intent escalate; reply bursts trip a rate warning.
+
+policies:
+  - id: hold_refunds_and_credits
+    description: "Support Agent — Hold Refunds, Credits, Order Changes"
+    policy_type: require_approval
+    rules:
+      action_types:
+        - refund
+        - credit
+        - order_change
+        - cancellation
+    tests:
+      - name: holds_refund
+        input:
+          action_type: refund
+          declared_goal: "Refund $25.00 USD to order #1234"
+        expect:
+          decision: require_approval
+
+      - name: allows_lookup
+        input:
+          action_type: review
+          declared_goal: "Look up order #1234 status"
+        expect:
+          decision: allow
+
+  # Replies that state account facts must verify against an attached source of
+  # truth. A violation escalates to approval (a human reads the draft) rather
+  # than a silent block, so support flow keeps moving.
+  - id: grounded_replies
+    description: "Support Agent — Verify Replies Against the Record"
+    policy_type: non_fabrication
+    rules:
+      action_types:
+        - message
+        - email
+        - reply
+      on_violation: require_approval
+    tests:
+      - name: blocks_reply_without_source_of_truth
+        input:
+          action_type: reply
+          declared_goal: "Reply to customer ticket"
+          content: "Your order shipped on Monday and arrives tomorrow."
+        expect:
+          decision: block
+
+      - name: ignores_replies_without_content
+        input:
+          action_type: reply
+          declared_goal: "Reply to customer ticket"
+        expect:
+          decision: allow
+
+  - id: money_claims_need_evidence
+    description: "Support Agent — Refund Claims Need an Attached Act"
+    policy_type: require_evidence
+    rules:
+      action_types:
+        - refund
+        - credit
+      enforcement: require_approval
+    tests:
+      - name: escalates_declared_intent_refund
+        input:
+          action_type: refund
+          intent_source: declared
+          declared_goal: "Refund $25.00 USD"
+        expect:
+          decision: require_approval
+
+      - name: allows_evidence_graded_refund
+        input:
+          action_type: refund
+          intent_source: evidence
+          declared_goal: "Refund $25.00 USD"
+        expect:
+          decision: allow
+
+  - id: reply_burst_brake
+    description: "Support Agent — Rate-Warn Reply Bursts"
+    policy_type: rate_limit
+    rules:
+      max_actions: 60
+      window_minutes: 10
+      action: warn
+    tests:
+      - name: warns_on_burst
+        input:
+          agent_id: support-bot
+          action_count: 90
+          window_minutes: 10
+        expect:
+          decision: warn

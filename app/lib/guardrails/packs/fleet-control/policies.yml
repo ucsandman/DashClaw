@@ -1,0 +1,79 @@
+version: 1
+project: fleet-control
+description: >
+  For orchestrators that spawn subagents. Composed subagent identities
+  (parent:child ids) are depth-capped and locked out of deploys and spend, an
+  agent whose tool demands more permission than its pairing grants is blocked,
+  and each agent gets a per-agent rate warning. Constraints only tighten — a
+  child's authority is a provable subset of its parent's.
+
+policies:
+  # Fires only on composed ids (agent:child). Plain single agents are untouched.
+  - id: subagent_attenuation
+    description: "Fleet Control — Attenuate Subagent Authority"
+    policy_type: delegation_constraint
+    rules:
+      max_depth: 2
+      escalate_action: require_approval
+      blocked_action_types:
+        - deploy
+        - payment
+        - purchase
+        - spend
+        - migration
+    tests:
+      - name: escalates_subagent_deploy
+        input:
+          agent_id: "orchestrator:worker"
+          action_type: deploy
+          declared_goal: "Deploy to staging"
+        expect:
+          decision: require_approval
+
+      - name: ignores_top_level_agent
+        input:
+          agent_id: orchestrator
+          action_type: deploy
+          declared_goal: "Deploy to staging"
+        expect:
+          decision: allow
+
+      - name: escalates_past_max_depth
+        input:
+          agent_id: "orchestrator:worker:helper:gopher"
+          action_type: apply
+          declared_goal: "Edit: src/app.js"
+        expect:
+          decision: require_approval
+
+  # A tool demanding more permission than the agent's approved pairing level is
+  # blocked. Informational unless enforce is true — this pack enforces.
+  - id: no_permission_escalation
+    description: "Fleet Control — Block Permission Escalation"
+    policy_type: permission_escalation
+    rules:
+      enforce: true
+      action: block
+    tests:
+      - name: ignores_actions_without_tool_permission
+        input:
+          action_type: apply
+          declared_goal: "Edit: src/app.js"
+        expect:
+          decision: allow
+
+  - id: fleet_runaway_brake
+    description: "Fleet Control — Per-Agent Rate Warning"
+    policy_type: rate_limit
+    rules:
+      max_actions: 100
+      window_minutes: 10
+      action: warn
+    tests:
+      - name: warns_on_burst
+        input:
+          agent_id: "orchestrator:worker"
+          action_count: 150
+          window_minutes: 10
+        expect:
+          decision: warn

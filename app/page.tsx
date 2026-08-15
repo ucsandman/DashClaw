@@ -107,7 +107,7 @@ const SUPPORT_SURFACES = [
   {
     icon: SlidersHorizontal,
     title: 'Policies',
-    desc: 'A small set of safety switches plus calibration review, including caps on what spawned subagents may do. The default pack is catastrophe-only; anything that loosens enforcement is a proposal you ratify with one click. Your own decision engine can plug in too — its verdict joins stricter-wins, and it can never loosen a local result.',
+    desc: 'A small set of safety switches plus calibration review, including caps on what spawned subagents may do. The default pack is catastrophe-only; a gallery of curated packs covers spend, outbound comms, unattended overnight runs, and more, each previewable against your own history before a one-click install. Anything that loosens enforcement is a proposal you ratify with one click, and your own decision engine can plug in too: its verdict joins stricter-wins, and it can never loosen a local result.',
     href: '/policies',
   },
   {

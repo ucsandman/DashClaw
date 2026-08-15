@@ -1,0 +1,81 @@
+version: 1
+project: ci-release-bot
+description: >
+  Fast lane for build and test, hard gate at the release edge. Build, test, and
+  lint run ungoverned (default allow — no policy needed); a deploy or release
+  without merge-ready verification evidence, or from a stale branch, is blocked;
+  production deploys additionally wait for a human.
+
+policies:
+  - id: green_before_release
+    description: "CI Release Bot — Block Releases Without Green Verification"
+    policy_type: green_contract
+    rules:
+      action_types:
+        - deploy
+        - release
+      required_level: merge_ready
+      action: block
+    tests:
+      - name: blocks_release_without_test_status
+        input:
+          action_type: release
+          declared_goal: "Publish v2.1.0"
+        expect:
+          decision: block
+
+      - name: ignores_builds
+        input:
+          action_type: build
+          declared_goal: "Bash: npm run build"
+        expect:
+          decision: allow
+
+  - id: fresh_branch_releases
+    description: "CI Release Bot — Block Releases From Stale Branches"
+    policy_type: branch_freshness
+    rules:
+      action_types:
+        - deploy
+        - release
+      action: block
+    tests:
+      - name: blocks_diverged_branch_release
+        input:
+          action_type: release
+          declared_goal: "Publish from feature branch"
+          intel:
+            branch:
+              name: feat/xyz
+              freshness: diverged
+              commits_behind: 4
+        expect:
+          decision: block
+
+      - name: allows_when_no_branch_info
+        input:
+          action_type: release
+          declared_goal: "Publish v2.1.0"
+        expect:
+          decision: allow
+
+  - id: hold_production_deploys
+    description: "CI Release Bot — Hold Production Deploys"
+    policy_type: require_approval
+    rules:
+      action_types:
+        - deploy
+    tests:
+      - name: holds_deploy
+        input:
+          action_type: deploy
+          declared_goal: "Deploy v2.1.0 to production"
+        expect:
+          decision: require_approval
+
+      - name: allows_test_run
+        input:
+          action_type: test
+          declared_goal: "Bash: npm test"
+        expect:
+          decision: allow

@@ -1,0 +1,44 @@
+version: 1
+project: read-only-analyst
+description: >
+  A role for research and analysis agents that must never change anything.
+  Everything outside the read/record envelope escalates to approval. IMPORTANT:
+  this imports as an ORG-WIDE policy — after installing, scope it to your
+  analyst agent(s) via the policy's agent list in the ledger, or every agent in
+  the org inherits the read-only envelope.
+
+policies:
+  - id: analyst_role
+    description: "Read-Only Analyst — Enforce the Read/Record Envelope"
+    policy_type: role_constraint
+    rules:
+      escalate_action: require_approval
+      allowed_action_types:
+        - review
+        - research
+        - read
+        - query
+        - record
+        - retro
+        - test
+    tests:
+      - name: escalates_write_attempt
+        input:
+          action_type: apply
+          declared_goal: "Edit: src/app.js"
+        expect:
+          decision: require_approval
+
+      - name: escalates_deploy_attempt
+        input:
+          action_type: deploy
+          declared_goal: "Deploy to staging"
+        expect:
+          decision: require_approval
+
+      - name: allows_reads
+        input:
+          action_type: review
+          declared_goal: "Read: docs/architecture.md"
+        expect:
+          decision: allow

@@ -13,8 +13,59 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.25.0] — 2026-08-14
+
+The Policy Pack Gallery. Platform-only ship — neither SDK's source changed, so
+npm/PyPI stay at the last SDK release.
+
+### Added
+
+- **Policy Pack Gallery at `/policies/packs`.** The pack catalog — previously
+  buried inside the Import modal — is now a browsable surface: 18 curated packs
+  filterable by audience (coding agents, money, comms, infra, data, fleets,
+  support, unattended) and strictness, each card opening a drawer with the
+  pack's rules, a **"preview against my history"** dry run (what the pack would
+  have blocked / held / warned on over the org's last 30 days), and a one-click
+  install. Entry points: a "Browse packs" button on the `/policies` Ledger
+  toolbar, a "Pick your rules" card on `/connect`, and a link on `/setup`.
+  Spec: `docs/rfcs/2026-08-14-policy-pack-gallery.md`.
+- **11 new policy packs**, all new-format (explicit `policy_type` + `rules`)
+  with embedded test recipes proven against the real evaluator:
+  `spend-lockdown` (every real-money action held for approval of the exact
+  amount), `outbound-comms-guard` (external sends held + non-fabrication
+  verification), `night-shift` (the unattended-run posture — everything
+  external pauses in the approval queue, deviations pause too, runaway loops
+  block), `prod-infra-shield`, `data-protection`, `fleet-control`,
+  `support-agent`, `ci-release-bot`, `evidence-first`, `read-only-analyst`,
+  and `browser-operator-guard`. No pack claims a compliance framework.
+- **Pack-mode simulate.** `POST /api/policies/simulate` accepts
+  `{ pack, days? }`: every policy in the pack is dry-run against the same
+  historical window; the aggregate counts each action once at its most severe
+  outcome (block > require_approval > warn) and `per_policy` reports each
+  rule's own matches. Existing single-policy mode unchanged.
+- **Gallery metadata on the catalog.** `GET /api/policies/templates` now
+  carries per-pack `audience`, `strictness`, `stack_after`, an org-scoped
+  `installed` flag, and a per-policy decision `bucket`. Zero new API routes —
+  the gallery rides templates/simulate/import. Surface budget amended:
+  app pages 53 → 54 (`contracts/surface-budget.json`, THESIS amendment log).
+
+### Security
+
+- **Demo passthrough no longer forwards caller-supplied org identity.** The
+  demo-mode middleware passthrough forwarded inbound headers unchanged, so an
+  unauthenticated caller on a demo host could set `x-org-id` and probe an
+  arbitrary org's data on passthrough routes (e.g. which policy packs an org
+  has installed). The passthrough now strips `x-org-id` / `x-org-role` /
+  `x-user-id` and marks the request `x-dashclaw-demo: 1`; the templates route
+  skips its org-scoped read entirely on that marker.
+
 ### Fixed
 
+- **`summarizeRules` reads new-format packs.** Pack policies authored with the
+  `rules:` key (claude-code-starter and all gallery packs) summarized as
+  "custom" everywhere the catalog renders; the summary now derives from either
+  format and covers rate-limit, protected-path, evidence, green-contract, and
+  delegation fields.
 - **`@dashclaw/mcp-server` 3.1.2: Codex CLI v0.147+ startup no longer fails.**
   Codex probes `prompts/list` during its MCP handshake regardless of advertised
   capabilities and treats the SDK's default `-32601 Method not found` reply as

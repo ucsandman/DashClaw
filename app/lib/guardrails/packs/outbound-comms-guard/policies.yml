@@ -1,0 +1,95 @@
+version: 1
+project: outbound-comms-guard
+description: >
+  For agents that can reach real people. Every outbound send is held for human
+  approval, outbound content is verified against a source of truth before it
+  leaves (non-fabrication), and a send burst trips a rate warning. The rate
+  brake counts ALL of an agent's guard evaluations (per-agent engine limit).
+
+policies:
+  # Every externally visible send waits for a human. Matches both the effective
+  # and the declared action type, so declaring social_post while the classifier
+  # derives "other" cannot dodge the gate.
+  - id: hold_outbound_sends
+    description: "Outbound Comms Guard — Hold External Sends"
+    policy_type: require_approval
+    rules:
+      action_types:
+        - message
+        - email
+        - post
+        - publish
+        - outreach
+        - social_post
+        - sms
+    tests:
+      - name: holds_email_send
+        input:
+          action_type: email
+          declared_goal: "Email vendor@example.com about the invoice"
+        expect:
+          decision: require_approval
+
+      - name: holds_social_post
+        input:
+          action_type: social_post
+          declared_goal: "Post launch announcement to X"
+        expect:
+          decision: require_approval
+
+      - name: allows_internal_work
+        input:
+          action_type: apply
+          declared_goal: "Edit: draft.md"
+        expect:
+          decision: allow
+
+  # Outbound content must verify against an attached source of truth. Missing
+  # or malformed source-of-truth fails CLOSED (block) — an unverifiable claim
+  # never reaches a customer.
+  - id: no_fabricated_outbound
+    description: "Outbound Comms Guard — Verify Outbound Content"
+    policy_type: non_fabrication
+    rules:
+      action_types:
+        - message
+        - email
+        - post
+        - publish
+        - outreach
+        - social_post
+        - sms
+      on_violation: block
+    tests:
+      - name: blocks_content_without_source_of_truth
+        input:
+          action_type: email
+          declared_goal: "Email customer a status update"
+          content: "Your refund of $500 was processed yesterday."
+        expect:
+          decision: block
+
+      - name: ignores_actions_without_content
+        input:
+          action_type: email
+          declared_goal: "Email customer a status update"
+        expect:
+          decision: allow
+
+  # Bulk-send safety valve: a burst of governed actions warns before the
+  # approval queue floods.
+  - id: send_burst_brake
+    description: "Outbound Comms Guard — Rate-Warn Send Bursts"
+    policy_type: rate_limit
+    rules:
+      max_actions: 60
+      window_minutes: 10
+      action: warn
+    tests:
+      - name: warns_on_burst
+        input:
+          agent_id: mailer
+          action_count: 80
+          window_minutes: 10
+        expect:
+          decision: warn

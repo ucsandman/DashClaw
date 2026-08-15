@@ -1,0 +1,131 @@
+version: 1
+project: night-shift
+description: >
+  The unattended-run posture: while no human is watching, everything external
+  waits in the approval queue instead of executing. Approval (not block) is the
+  deliberate choice — overnight work pauses recoverably and resumes with one
+  click in the morning. Pairs with plan submission: a plan deviation escalates
+  to approval too.
+
+policies:
+  # Everything that leaves the machine — network, deploys, comms, spend — waits
+  # for a human. Internal work (edits, tests, commits) keeps flowing.
+  - id: hold_everything_external
+    description: "Night Shift — Hold Everything External"
+    policy_type: require_approval
+    rules:
+      action_types:
+        - api
+        - deploy
+        - message
+        - email
+        - post
+        - publish
+        - outreach
+        - social_post
+        - sms
+        - payment
+        - purchase
+        - spend
+        - prepay
+        - buy_credits
+        - top_up
+        - subscription_create
+        - subscription_change
+        - billing_change
+        - domain_purchase
+        - card_charge
+    tests:
+      - name: holds_network_call
+        input:
+          action_type: api
+          declared_goal: "Bash: curl https://api.example.com/deploy"
+        expect:
+          decision: require_approval
+
+      - name: holds_deploy
+        input:
+          action_type: deploy
+          declared_goal: "Deploy to production"
+        expect:
+          decision: require_approval
+
+      - name: allows_local_edit
+        input:
+          action_type: apply
+          declared_goal: "Edit: src/app.js"
+        expect:
+          decision: allow
+
+  # Anything the risk engine scores 70+ pauses for approval even when its
+  # action type is not in the external list above.
+  - id: overnight_risk_ceiling
+    description: "Night Shift — Pause High-Risk Actions"
+    policy_type: risk_threshold
+    rules:
+      threshold: 70
+      action: require_approval
+    tests:
+      - name: pauses_high_risk
+        input:
+          action_type: security
+          risk_score: 85
+          declared_goal: "Bash: chmod -R 777 /srv"
+        expect:
+          decision: require_approval
+
+      - name: allows_low_risk
+        input:
+          action_type: test
+          risk_score: 15
+          declared_goal: "Bash: npm test"
+        expect:
+          decision: allow
+
+  # A runaway loop at 3am gets stopped hard, not warned.
+  - id: overnight_runaway_brake
+    description: "Night Shift — Block Runaway Loops"
+    policy_type: rate_limit
+    rules:
+      max_actions: 50
+      window_minutes: 10
+      action: block
+    tests:
+      - name: blocks_runaway
+        input:
+          agent_id: night-agent
+          action_count: 75
+          window_minutes: 10
+        expect:
+          decision: block
+
+  # Off-plan behavior pauses for approval. Only meaningful when the agent
+  # submitted a plan; without a live plan this policy is a structural no-op.
+  - id: deviation_pause
+    description: "Night Shift — Pause on Plan Deviation"
+    policy_type: deviation_response
+    rules:
+      min_severity: medium
+      escalate_action: require_approval
+      on_kind:
+        unplanned_action: require_approval
+        goal_drift: require_approval
+        scope_escape: require_approval
+        budget_overrun: require_approval
+    tests:
+      - name: pauses_on_scope_escape
+        input:
+          action_type: apply
+          declared_goal: "Edit: outside/scope.js"
+          _plan_deviation_finding:
+            kind: scope_escape
+            severity: high
+        expect:
+          decision: require_approval
+
+      - name: ignores_on_plan_work
+        input:
+          action_type: apply
+          declared_goal: "Edit: src/app.js"
+        expect:
+          decision: allow

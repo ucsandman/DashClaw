@@ -75,6 +75,30 @@ describe('/api/policies/templates GET', () => {
     }
   });
 
+  it('each template carries gallery taxonomy fields', async () => {
+    const res = await GET(makeRequest('http://localhost/api/policies/templates'));
+    const data = await res.json();
+    for (const template of data.templates) {
+      expect(typeof template.audience).toBe('string');
+      expect(typeof template.audience_label).toBe('string');
+      expect(['permissive', 'balanced', 'strict']).toContain(template.strictness);
+      expect(typeof template.strictness_label).toBe('string');
+      expect(template).toHaveProperty('stack_after');
+      // No DB/org in this test — the installed check degrades to false, never throws.
+      expect(template.installed).toBe(false);
+    }
+  });
+
+  it('each policy carries a decision bucket', async () => {
+    const res = await GET(makeRequest('http://localhost/api/policies/templates'));
+    const data = await res.json();
+    for (const template of data.templates) {
+      for (const policy of template.policies) {
+        expect(['block', 'require_approval', 'warn', 'allow']).toContain(policy.bucket);
+      }
+    }
+  });
+
   it('each template has at least one policy', async () => {
     const res = await GET(makeRequest('http://localhost/api/policies/templates'));
     const data = await res.json();

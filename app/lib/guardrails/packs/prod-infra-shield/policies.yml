@@ -1,0 +1,123 @@
+version: 1
+project: prod-infra-shield
+description: >
+  For agents that can touch production: deploys, migrations, DNS, and infra
+  config wait for a human; production config paths are approval-gated; a deploy
+  without merge-ready verification evidence — or from a stale branch — is
+  blocked outright.
+
+policies:
+  - id: hold_infra_changes
+    description: "Prod Infra Shield — Hold Deploys, Migrations, DNS"
+    policy_type: require_approval
+    rules:
+      action_types:
+        - deploy
+        - migration
+        - infra
+        - dns
+        - config_change
+    tests:
+      - name: holds_deploy
+        input:
+          action_type: deploy
+          declared_goal: "Deploy release v2.1 to production"
+        expect:
+          decision: require_approval
+
+      - name: holds_migration
+        input:
+          action_type: migration
+          declared_goal: "Run drizzle migration 0051"
+        expect:
+          decision: require_approval
+
+      - name: allows_local_build
+        input:
+          action_type: build
+          declared_goal: "Bash: npm run build"
+        expect:
+          decision: allow
+
+  - id: protect_prod_config_paths
+    description: "Prod Infra Shield — Approval-Gate Production Config Paths"
+    policy_type: protected_path
+    rules:
+      action: require_approval
+      paths:
+        - "**/prod/**"
+        - "**/production/**"
+        - "**/*.tf"
+        - "**/helm/**"
+        - "**/k8s/**"
+        - "**/Dockerfile*"
+    tests:
+      - name: gates_terraform_write
+        input:
+          action_type: apply
+          declared_goal: "Edit: infra/main.tf"
+          target: "infra/main.tf"
+        expect:
+          decision: require_approval
+
+      - name: allows_app_code_write
+        input:
+          action_type: apply
+          declared_goal: "Edit: src/app.js"
+          target: "src/app.js"
+        expect:
+          decision: allow
+
+  # No verified merge-ready test status reported with the act -> the deploy is
+  # blocked. Requires the agent-intel hooks (green contract reporting).
+  - id: green_before_deploy
+    description: "Prod Infra Shield — Block Deploys Without Green Verification"
+    policy_type: green_contract
+    rules:
+      action_types:
+        - deploy
+      required_level: merge_ready
+      action: block
+    tests:
+      - name: blocks_deploy_without_test_status
+        input:
+          action_type: deploy
+          declared_goal: "Deploy to production"
+        expect:
+          decision: block
+
+      - name: ignores_non_deploy_actions
+        input:
+          action_type: apply
+          declared_goal: "Edit: src/app.js"
+        expect:
+          decision: allow
+
+  # A deploy from a branch that is stale or diverged from main is blocked.
+  # No-ops when the hooks report no branch info.
+  - id: fresh_branch_deploys
+    description: "Prod Infra Shield — Block Deploys From Stale Branches"
+    policy_type: branch_freshness
+    rules:
+      action_types:
+        - deploy
+      action: block
+    tests:
+      - name: blocks_stale_branch_deploy
+        input:
+          action_type: deploy
+          declared_goal: "Deploy feature branch"
+          intel:
+            branch:
+              name: feat/old
+              freshness: stale
+              commits_behind: 12
+        expect:
+          decision: block
+
+      - name: allows_when_no_branch_info
+        input:
+          action_type: deploy
+          declared_goal: "Deploy release"
+        expect:
+          decision: allow

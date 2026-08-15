@@ -192,6 +192,7 @@ dashclaw doctor`}</pre>
                 features: [
                   'Decision audit trail with full action traces',
                   'Behavior guard -- no-code policy decisions (mechanically enforced on hook and capability surfaces)',
+                  'Policy pack gallery on /policies/packs -- 18 curated packs (spend, outbound comms, unattended runs, infra, fleets, and more), each previewable against your own action history before a one-click install',
                   'Human-in-the-loop approval gates with expiry (a lapsed approval can never release work)',
                   'Preflight plan authorization -- an agent submits its plan, you review one card with per-step verdicts, approved steps become single-use act-bound grants',
                   'Plan deviation events -- every governed action is diffed against the live approved plan; departures (substituted payloads, scope escapes, off-plan actions) are always recorded, and consequence is your explicit per-kind policy choice',

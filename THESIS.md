@@ -263,7 +263,7 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 | Surface | Ceiling | Counted from |
 |---|---|---|
 | Active API routes | 133 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
-| App pages | 53 | `app/**/page.{js,jsx,ts,tsx}` |
+| App pages | 54 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 17 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
 | Node SDK methods | 39 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
@@ -271,7 +271,7 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 | CLI commands | 15 | `cli/bin/dashclaw.js` (`COMMAND_HANDLERS`) |
 | Guard policy types | 17 | `app/lib/guard/policy.ts` (`KNOWN_POLICY_TYPES`) |
 
-(This table mirrors `contracts/surface-budget.json` as of 2026-08-13; it had
+(This table mirrors `contracts/surface-budget.json` as of 2026-08-14; it had
 drifted from the JSON across several amendments — the JSON is the machine
 source of truth, the amendment log below is the history.)
 
@@ -280,6 +280,17 @@ Raising any ceiling requires amending this section **and**
 recorded, deliberate act that falsifier #3 (Regrowth) watches for.
 
 **Amendment log:**
+- **2026-08-14 — App pages 53 → 54 (`/policies/packs`).** The Pack Gallery
+  (RFC `docs/rfcs/2026-08-14-policy-pack-gallery.md`, approved by Wes). The
+  pack catalog has existed since v4.x but was buried inside the Import modal
+  on `/policies` — a capability with no browsable human surface. The gallery
+  is browse/compare across 18 packs with a per-pack "preview against my
+  history" dry run before install; that interaction cannot fold into the
+  ledger without overloading it (the same judgment that folded
+  `/policies/rules` IN applies here in reverse — the ledger is one rule set,
+  the gallery is a catalog of candidate rule sets). Zero new API routes:
+  the gallery rides the existing `/api/policies/templates`, `/simulate`
+  (extended to accept `{ pack }`), and `/import`.
 - **v5.0.0-rc final-fix — Active API routes 117 → 118.** Restored a slim,
   read-only, org-scoped `GET /api/agents`. The cull removed the full
   agent-roster route but three live UI callers (the shared agent-filter

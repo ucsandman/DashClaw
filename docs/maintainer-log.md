@@ -14,6 +14,48 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-14 (late night) — v5.25.0: the pack catalog gets a front door
+
+Wes looked at the Policies page and asked "what if DashClaw sold policy
+packs?" The honest answer from the code: the pack system already existed —
+seven YAML packs, an import API with a conflict-aware preview, a catalog
+endpoint — but every bit of it was buried inside the Import modal. A
+capability with no browsable human surface, the exact failure mode
+`HUMAN-EXPERIENCE.md` exists to kill. The session's conclusion, which Wes
+accepted: at this stage packs are worth more as distribution than revenue,
+so ship the free gallery first and leave paid packs as a separate, explicit
+money decision.
+
+What shipped: `/policies/packs`, a card grid of 18 packs filterable by
+audience and strictness, each opening a drawer with the pack's rules, a
+"preview against my history" dry run, and one-click install. The preview is
+the point — `POST /api/policies/simulate` learned `{ pack }`, dry-running
+every rule in the pack against the org's last 30 days and deduping each
+action to its most severe outcome, so the value of a pack is visible in the
+operator's own history before anything is written. Eleven new packs cover
+the audiences (spend, outbound comms, unattended overnight runs, prod infra,
+data, fleets, support, CI, read-only analysts, browser operators), all
+new-format with embedded test recipes that a new matrix test executes
+through the real evaluator — and the matrix was deliberately broken once to
+prove it fails (L1 discipline).
+
+Three things worth recording. First, the engine forced four honest
+deviations from the spec: `risk_threshold` has no per-action-type filter,
+`rate_limit` counts all of an agent's actions, `webhook_check` cannot ship
+in a pack (needs a customer URL, fails closed), and blanket `allow_grant`s
+are banned — the as-built section of the RFC records all four. Second, the
+surface-budget ratchet did its job: the new page failed CI at ceiling 53,
+and raising it to 54 required the written amendment in THESIS.md — sprawl
+as a deliberate recorded act, exactly as designed. Third, wiring the demo
+passthrough for the gallery exposed that the existing passthrough forwarded
+caller-supplied `x-org-id` headers to real routes — an unauthenticated
+demo caller could probe another org's state. Fixed by stripping identity
+headers and marking passthrough requests; the fix predates the feature that
+would have widened it.
+
+Platform-only ship: zero new API routes, neither SDK changed, no republish.
+Spec and as-built record: `docs/rfcs/2026-08-14-policy-pack-gallery.md`.
+
 ## 2026-08-14 (night) — v5.24.2: a launch preflight found the docs lying about env vars, so the docs stopped lying
 
 A full preflight pass ran over the repo before an announcement push: build

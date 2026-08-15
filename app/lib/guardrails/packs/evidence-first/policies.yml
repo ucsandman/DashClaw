@@ -1,0 +1,66 @@
+version: 1
+project: evidence-first
+description: >
+  For teams that need a defensible trail. Every action graded only from
+  self-declared intent (no attached act) is warned and recorded; the
+  high-stakes classes — deploys, migrations, exports, spend, outbound comms —
+  escalate to approval instead. A starting point for audit readiness, not a
+  certified control set.
+
+policies:
+  # The wide net: everything graded from self-declared intent gets a warning on
+  # the record. Deliberately warn-only — the strict list below interrupts.
+  - id: evidence_or_warn
+    description: "Evidence First — Warn on Self-Declared Intent"
+    policy_type: require_evidence
+    rules:
+      enforcement: warn
+    tests:
+      - name: warns_on_declared_intent
+        input:
+          action_type: apply
+          intent_source: declared
+          declared_goal: "Edit: src/app.js"
+        expect:
+          decision: warn
+
+      - name: allows_evidence_graded_action
+        input:
+          action_type: apply
+          intent_source: evidence
+          declared_goal: "Edit: src/app.js"
+        expect:
+          decision: allow
+
+  - id: high_stakes_need_evidence
+    description: "Evidence First — High-Stakes Actions Need an Attached Act"
+    policy_type: require_evidence
+    rules:
+      action_types:
+        - deploy
+        - migration
+        - export
+        - data_transfer
+        - payment
+        - purchase
+        - spend
+        - message
+        - email
+        - publish
+      enforcement: require_approval
+    tests:
+      - name: escalates_declared_intent_deploy
+        input:
+          action_type: deploy
+          intent_source: declared
+          declared_goal: "Deploy to production"
+        expect:
+          decision: require_approval
+
+      - name: allows_evidence_graded_deploy
+        input:
+          action_type: deploy
+          intent_source: evidence
+          declared_goal: "Deploy to production"
+        expect:
+          decision: allow

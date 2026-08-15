@@ -1005,7 +1005,10 @@ function isDemoSimulationRequest(pathname, method) {
 // probe useEffectiveRole fires on every page, and every sandbox page logs a
 // console error.
 const DEMO_PASSTHROUGH_PREFIXES = ['/api/auth', '/api/docs/raw', '/api/hosted'];
-const DEMO_PASSTHROUGH_EXACT = ['/api/prompts/server-setup/raw', '/api/prompts/agent-connect/raw', '/api/session/effective'];
+// /api/policies/templates serves the static pack catalog (YAML on disk); its
+// org-scoped `installed` check degrades to false without auth, so the real
+// route is demo-safe and the Pack Gallery shows real packs.
+const DEMO_PASSTHROUGH_EXACT = ['/api/prompts/server-setup/raw', '/api/prompts/agent-connect/raw', '/api/session/effective', '/api/policies/templates'];
 
 function isDemoPassthroughPath(pathname) {
   return DEMO_PASSTHROUGH_PREFIXES.some(prefix => pathname.startsWith(prefix)) ||
@@ -1432,13 +1435,21 @@ async function dispatchDemoApiRoute(ctx) {
 // Policy test/simulate runs are read-like (no mutation) — allow through demo
 // write-block. modes/import is mocked the same way: demo "applies" a profile
 // without mutating anything, so the /policies UI doesn't 403.
-function handleDemoPolicySimulations(request, pathname, method) {
+async function handleDemoPolicySimulations(request, pathname, method) {
   if (method !== 'POST') return null;
   if (pathname === '/api/policies/test') {
     return demoJson(request, demoPolicyTest(getDemoFixtures()));
   }
   if (pathname === '/api/policies/simulate') {
-    return demoJson(request, demoPolicySimulate(getDemoFixtures(), {}));
+    // Pack-mode simulate ({ pack }) returns the pack-shaped payload; the body
+    // read is safe here because this handler always responds directly.
+    const body = await request.json().catch(() => ({}));
+    return demoJson(request, demoPolicySimulate(getDemoFixtures(), body));
+  }
+  if (pathname === '/api/policies/import') {
+    return demoJson(request, {
+      imported: 3, skipped: 0, errors: [], policies: [], demo: true,
+    }, 201);
   }
   if (pathname === '/api/policies/review/verdict') {
     return demoJson(request, { ok: true, demo: true });
@@ -1472,10 +1483,20 @@ async function runDemoPreDispatch(request, pathname, method, isRead) {
   }
 
   if (isDemoPassthroughPath(pathname)) {
-    return forwardWithHeaders(request);
+    // Never forward caller-supplied org identity on a demo passthrough: the
+    // real routes trust x-org-id because this middleware normally sets it
+    // post-auth, so an unauthenticated demo caller could spoof it to probe
+    // another org's data (e.g. which policy packs an org has installed).
+    // Strip identity and mark the request so routes can skip org-scoped reads.
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.delete('x-org-id');
+    requestHeaders.delete('x-org-role');
+    requestHeaders.delete('x-user-id');
+    requestHeaders.set('x-dashclaw-demo', '1');
+    return forwardWithHeaders(request, requestHeaders);
   }
 
-  const policySimulation = handleDemoPolicySimulations(request, pathname, method);
+  const policySimulation = await handleDemoPolicySimulations(request, pathname, method);
   if (policySimulation) return policySimulation;
 
   if (!isRead && !isDemoSimulationRequest(pathname, method)) {

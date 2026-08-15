@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.24.2",
+    "current_version": "5.25.0",
     "next_bump": "none",
-    "reason": "5.24.2 is a docs-only ship from the launch preflight sweep: .env.example documents 11 previously code-only operational env names, and the platform guide's setup inventory drops the retired STRIPE_PRICE_PRO/BUSINESS names for STRIPE_PRICE_INDIE/TEAM. sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.24.2 tag fires release.yml, whose publish-npm job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.25.0 is a platform-only feature ship: the Policy Pack Gallery (/policies/packs) with 11 new policy packs and pack-mode simulate/templates API extensions. sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.25.0 tag fires release.yml, whose publish-npm job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.24.2",
+    "current_version": "5.25.0",
     "next_bump": "none",
-    "reason": "5.24.2 is a docs-only ship (env-name documentation + platform-guide Stripe env-name fix). sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.24.2 tag fires release.yml, whose publish-pypi job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.25.0 is a platform-only feature ship (Policy Pack Gallery). sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.25.0 tag fires release.yml, whose publish-pypi job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.24.2 is the launch-preflight docs-accuracy patch: .env.example gains 11 operational env names verified against their consumption sites (REALTIME_REDIS_URL alias, DASHCLAW_WITNESS_WINDOW_MINUTES, six STARTUP_SMOKE_* knobs, two LIVE_CANARY_* origins, HOSTED_ADMIN_API_KEY), and the platform guide + coverage provenance replace the retired STRIPE_PRICE_PRO/BUSINESS names with STRIPE_PRICE_INDIE/TEAM. Zero new routes/SDK methods/MCP tools/policy types. Neither SDK source changed.",
+  "reason": "5.25.0 ships the Policy Pack Gallery: a browsable catalog at /policies/packs (18 curated packs across audiences, filterable by audience and strictness, per-pack 'preview against my history' dry run, one-click install), 11 new packs (spend-lockdown, outbound-comms-guard, night-shift, prod-infra-shield, data-protection, fleet-control, support-agent, ci-release-bot, evidence-first, read-only-analyst, browser-operator-guard), pack-mode support on POST /api/policies/simulate, gallery metadata + installed flag on GET /api/policies/templates, and a demo-passthrough org-header spoof fix. Zero new API routes; +1 app page (surface budget amended 53->54). Neither SDK source changed.",
   "domains": [
     "platform"
   ]

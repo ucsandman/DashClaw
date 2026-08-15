@@ -45,8 +45,16 @@ DashClaw governs only the actions an agent **reports** through the SDK or hooks.
 
 Packs are plain YAML bundles of ordinary guard policies you import from `/policies` (or that are seeded for you). Unlike modes, a pack does not compile — its policies land as-is and you edit or delete them individually.
 
+Browse the full catalog at **`/policies/packs`** (the Pack Gallery): every pack with its audience, strictness, and rules, a **"preview against my history"** dry run (what the pack would have blocked / held / warned on over your last 30 days), and one-click install. Packs are additive and stackable — installing two packs imports both rule sets, same-name rules are skipped, and the guard resolves overlaps at evaluation time (most severe outcome wins).
+
+The two baselines:
+
 - **Catastrophe Only** — the **self-hosted default**, seeded automatically for every new org at its first migrate. Three catastrophe-only policies: **block** mass-destructive operations (`rm -rf`, `DROP TABLE`, force-push — server risk clamps to 100), **hold** secret-file writes (`.env`, `*.pem`, `*.key`, `secrets/**`) for one-click approval, and a **warn-only** rate limit (200 actions / 10 min) that nets runaways without interrupting. Everything else runs. It holds writes to secret files, not reads (the Read tool is not hooked today). Import it at `/policies` to retrofit an org that predates the seed.
 - **Claude Code Starter** — the opt-in broader baseline: everything the catastrophe pack does, plus approval gates on network calls and package installs. Stack `layered-intelligence` on top once the baseline is in place.
+
+The gallery adds audience-specific packs on top of these: **Spend Lockdown** (every real-money action held for approval of the exact amount), **Outbound Comms Guard** (external sends held + non-fabrication verification), **Night Shift** (the unattended-run posture — everything external pauses in the approval queue while you sleep), **Prod Infra Shield** (deploys/migrations/DNS held; no deploy without green verification or from a stale branch), **Data Protection** (secret paths blocked, exports held), **Fleet Control** (subagent authority depth-capped and attenuated), **Support Agent** (refunds/credits held, replies verified against the record), **CI Release Bot** (fast lane for build/test, hard gate at the release edge), **Evidence First** (self-declared intent warned, high-stakes classes escalate), **Read-Only Analyst** (a never-writes role you scope to research agents), and **Browser Operator Guard** (form submits, logins, and purchases held for browser-driving agents).
+
+Packs are starting points, not certified controls — every rule stays editable in the ledger after install, and no pack claims a compliance framework.
 
 ## Notes
 

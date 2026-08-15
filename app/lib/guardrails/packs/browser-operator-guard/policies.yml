@@ -1,0 +1,79 @@
+version: 1
+project: browser-operator-guard
+description: >
+  For agents driving real browsers (OpenClaw, computer use). Form submissions,
+  logins, downloads, and purchases wait for a human; anything the risk engine
+  scores 85+ pauses; a click loop trips a rate warning. Browsing and reading
+  stay ungoverned.
+
+policies:
+  - id: hold_browser_commits
+    description: "Browser Operator Guard — Hold Form Submits, Logins, Purchases"
+    policy_type: require_approval
+    rules:
+      action_types:
+        - form_submit
+        - auth
+        - purchase
+        - payment
+        - download
+    tests:
+      - name: holds_form_submit
+        input:
+          action_type: form_submit
+          declared_goal: "Submit checkout form on shop.example.com"
+        expect:
+          decision: require_approval
+
+      - name: holds_login
+        input:
+          action_type: auth
+          declared_goal: "Log in to vendor portal"
+        expect:
+          decision: require_approval
+
+      - name: allows_page_read
+        input:
+          action_type: review
+          declared_goal: "Read search results page"
+        expect:
+          decision: allow
+
+  - id: browser_risk_ceiling
+    description: "Browser Operator Guard — Pause High-Risk Browser Acts"
+    policy_type: risk_threshold
+    rules:
+      threshold: 85
+      action: require_approval
+    tests:
+      - name: pauses_high_risk_act
+        input:
+          action_type: api
+          risk_score: 90
+          declared_goal: "POST to unknown third-party endpoint"
+        expect:
+          decision: require_approval
+
+      - name: allows_low_risk_act
+        input:
+          action_type: review
+          risk_score: 10
+          declared_goal: "Read page text"
+        expect:
+          decision: allow
+
+  - id: click_loop_brake
+    description: "Browser Operator Guard — Rate-Warn Click Loops"
+    policy_type: rate_limit
+    rules:
+      max_actions: 150
+      window_minutes: 10
+      action: warn
+    tests:
+      - name: warns_on_click_loop
+        input:
+          agent_id: browser-op
+          action_count: 200
+          window_minutes: 10
+        expect:
+          decision: warn

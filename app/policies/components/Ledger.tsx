@@ -15,10 +15,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
+import Link from 'next/link';
 import {
   Table, AlignLeft, LayoutGrid, Search, Upload, Plus, Layers, Shield, Star,
   BrainCircuit, Play, Download, Check, Pencil, Trash2, X, FlaskConical, FileText,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Package,
 } from 'lucide-react';
 import styles from '../policies.module.css';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -1070,6 +1071,9 @@ export default function Ledger({
           />
           <kbd>/</kbd>
         </div>
+        <Link href="/policies/packs" className={`${styles.btn} ${styles.btnSm}`}>
+          <Package size={13} aria-hidden="true" />Browse packs
+        </Link>
         <button className={`${styles.btn} ${styles.btnSm}`} onClick={openImport}>
           <Upload size={13} aria-hidden="true" />Import
         </button>

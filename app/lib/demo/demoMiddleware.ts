@@ -774,6 +774,27 @@ export function demoReview() {
 }
 
 export function demoPolicySimulate(fixtures: DemoFixtures, body: AnyRecord) {
+  // Pack-mode dry run (Pack Gallery): mirror the pack-shaped payload of
+  // POST /api/policies/simulate { pack } so the gallery drawer renders fully.
+  if (typeof body.pack === 'string' && body.pack) {
+    return {
+      pack: body.pack,
+      summary: { total: 124, matches: 15, block: 2, warn: 5, require_approval: 8, allow: 109 },
+      per_policy: [
+        { name: 'Hold external actions', policy_type: 'require_approval', matches: 8, block: 0, warn: 0, require_approval: 8 },
+        { name: 'Block mass-destructive operations', policy_type: 'risk_threshold', matches: 2, block: 2, warn: 0, require_approval: 0 },
+        { name: 'Rate-warn runaway agents', policy_type: 'rate_limit', matches: 5, block: 0, warn: 5, require_approval: 0 },
+      ],
+      matches: [
+        { action_id: 'ar_demo_sim_1', goal: 'deploy production hotfix', agent_name: 'deploy-bot', timestamp: new Date().toISOString(), original_status: 'completed', simulated_action: 'require_approval', simulated_reason: 'Action type "deploy" requires approval', matched_policy: 'Hold external actions' },
+        { action_id: 'ar_demo_sim_2', goal: 'delete cloud formation stack', agent_name: 'infra-bot', timestamp: new Date().toISOString(), original_status: 'completed', simulated_action: 'block', simulated_reason: 'Risk score 100 >= threshold 100', matched_policy: 'Block mass-destructive operations' },
+        { action_id: 'ar_demo_sim_3', goal: 'email vendor about invoice', agent_name: 'ops-bot', timestamp: new Date().toISOString(), original_status: 'completed', simulated_action: 'require_approval', simulated_reason: 'Action type "email" requires approval', matched_policy: 'Hold external actions' },
+      ],
+      matches_truncated: false,
+      sample_size: 124,
+      window_days: typeof body.days === 'number' ? body.days : 30,
+    };
+  }
   return {
     summary: { total: 124, block: 2, warn: 5, require_approval: 8 },
     matches: [

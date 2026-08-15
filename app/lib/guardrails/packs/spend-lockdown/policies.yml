@@ -1,0 +1,106 @@
+version: 1
+project: spend-lockdown
+description: >
+  Real money is a named high-risk class. Every spend-class action is held for
+  human approval of the exact amount, spend claims must be graded from an
+  attached act (not self-declared intent), and a burst of governed actions
+  trips a rate warning before the approval queue floods. Note: the rate brake
+  counts ALL of an agent's guard evaluations, not only spend — the engine's
+  rate limiter is per-agent, not per-action-type.
+
+policies:
+  # The v5.24.1 real-money class: every spend-class action_type is held for a
+  # human. The approval binds to the exact declared_goal (amount + currency), so
+  # a different amount is a different action needing its own approval.
+  - id: hold_all_spend
+    description: "Spend Lockdown — Hold All Real-Money Actions"
+    policy_type: require_approval
+    rules:
+      action_types:
+        - payment
+        - purchase
+        - spend
+        - prepay
+        - buy_credits
+        - top_up
+        - subscription_create
+        - subscription_change
+        - billing_change
+        - domain_purchase
+        - card_charge
+    tests:
+      - name: holds_card_charge
+        input:
+          action_type: card_charge
+          declared_goal: "Charge card $49.00 USD for API credits"
+        expect:
+          decision: require_approval
+
+      - name: holds_subscription_create
+        input:
+          action_type: subscription_create
+          declared_goal: "Start $20.00 USD/mo plan"
+        expect:
+          decision: require_approval
+
+      - name: allows_non_spend_action
+        input:
+          action_type: apply
+          declared_goal: "Edit: README.md"
+        expect:
+          decision: allow
+
+  # Evidence-first spend: a spend graded only from self-declared intent (no act
+  # attached) escalates to approval even before the hold above — belt and
+  # suspenders against laundering a spend through a vague declaration.
+  - id: spend_needs_evidence
+    description: "Spend Lockdown — Spend Claims Need an Attached Act"
+    policy_type: require_evidence
+    rules:
+      action_types:
+        - payment
+        - purchase
+        - spend
+        - prepay
+        - buy_credits
+        - top_up
+        - subscription_create
+        - subscription_change
+        - billing_change
+        - domain_purchase
+        - card_charge
+      enforcement: require_approval
+    tests:
+      - name: escalates_declared_intent_spend
+        input:
+          action_type: payment
+          intent_source: declared
+          declared_goal: "Pay $10.00 USD invoice"
+        expect:
+          decision: require_approval
+
+      - name: allows_evidence_graded_spend
+        input:
+          action_type: payment
+          intent_source: evidence
+          declared_goal: "Pay $10.00 USD invoice"
+        expect:
+          decision: allow
+
+  # Safety valve for spend loops: warns well before the approval queue floods.
+  # Counts ALL guard evaluations by the agent (engine limitation, documented above).
+  - id: spend_runaway_brake
+    description: "Spend Lockdown — Rate-Warn Runaway Agents"
+    policy_type: rate_limit
+    rules:
+      max_actions: 30
+      window_minutes: 10
+      action: warn
+    tests:
+      - name: warns_on_action_burst
+        input:
+          agent_id: shopper
+          action_count: 45
+          window_minutes: 10
+        expect:
+          decision: warn

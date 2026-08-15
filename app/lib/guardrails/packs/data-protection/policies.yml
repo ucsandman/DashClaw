@@ -1,0 +1,92 @@
+version: 1
+project: data-protection
+description: >
+  Secrets and customer data get a hard perimeter: writes to secret/credential
+  paths are blocked, data exports and transfers wait for a human, and an export
+  graded only from self-declared intent (no attached act) escalates to approval.
+
+policies:
+  - id: protect_secret_paths
+    description: "Data Protection — Block Writes to Secret Paths"
+    policy_type: protected_path
+    rules:
+      action: block
+      paths:
+        - "**/.env*"
+        - "**/secrets/**"
+        - "**/credentials/**"
+        - "**/*.pem"
+        - "**/*.key"
+        - "**/id_rsa*"
+    tests:
+      - name: blocks_env_write
+        input:
+          action_type: apply
+          declared_goal: "Write: .env.production"
+          target: ".env.production"
+        expect:
+          decision: block
+
+      - name: blocks_private_key_write
+        input:
+          action_type: apply
+          declared_goal: "Write: certs/server.key"
+          target: "certs/server.key"
+        expect:
+          decision: block
+
+      - name: allows_normal_write
+        input:
+          action_type: apply
+          declared_goal: "Edit: src/app.js"
+          target: "src/app.js"
+        expect:
+          decision: allow
+
+  - id: hold_data_exports
+    description: "Data Protection — Hold Exports and Transfers"
+    policy_type: require_approval
+    rules:
+      action_types:
+        - export
+        - data_transfer
+        - data_delete
+    tests:
+      - name: holds_export
+        input:
+          action_type: export
+          declared_goal: "Export customers table to CSV"
+        expect:
+          decision: require_approval
+
+      - name: allows_read
+        input:
+          action_type: review
+          declared_goal: "Read: docs/schema.md"
+        expect:
+          decision: allow
+
+  - id: exports_need_evidence
+    description: "Data Protection — Exports Need an Attached Act"
+    policy_type: require_evidence
+    rules:
+      action_types:
+        - export
+        - data_transfer
+      enforcement: require_approval
+    tests:
+      - name: escalates_declared_intent_export
+        input:
+          action_type: export
+          intent_source: declared
+          declared_goal: "Export user emails"
+        expect:
+          decision: require_approval
+
+      - name: allows_evidence_graded_export
+        input:
+          action_type: export
+          intent_source: evidence
+          declared_goal: "Export user emails"
+        expect:
+          decision: allow

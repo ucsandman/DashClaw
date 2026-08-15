@@ -646,6 +646,25 @@ dashclaw doctor`}</CodeBlock>
               ))}
             </div>
           </section>
+
+          {/* Pick your rules — the Pack Gallery */}
+          <section className="mt-10 rounded-2xl border border-border bg-surface-secondary p-6 sm:p-8">
+            <Eyebrow>Pick your rules</Eyebrow>
+            <h2 className="text-2xl font-semibold tracking-tight text-text-primary">
+              Start from a policy pack, not a blank page
+            </h2>
+            <p className="mt-3 text-sm text-text-secondary max-w-2xl leading-relaxed">
+              Curated rule sets for coding agents, real-money spend, outbound comms, unattended
+              overnight runs, and more. Preview what a pack would have done against your own history,
+              then install it in one click.
+            </p>
+            <Link
+              href="/policies/packs"
+              className="mt-5 inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:border-border-hover hover:text-text-primary"
+            >
+              Browse policy packs <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          </section>
     </>
   );
 }
@@ -748,6 +767,27 @@ export default async function ConnectPage({ searchParams }: ConnectPageProps = {
                 className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-colors"
               >
                 Open Approvals <ArrowRight size={14} aria-hidden="true" />
+              </Link>
+            </div>
+
+            {/* Pick your rules — the Pack Gallery */}
+            <div className="mt-6 rounded-2xl border border-border bg-surface-secondary p-6 sm:p-8">
+              <div className="flex items-center gap-2 mb-2">
+                <Package size={20} className="text-text-tertiary" aria-hidden="true" />
+                <h2 className="text-xl font-semibold tracking-tight text-text-primary">
+                  Pick your rules
+                </h2>
+              </div>
+              <p className="text-sm text-text-secondary max-w-2xl leading-relaxed">
+                Don&apos;t write policies from scratch. Browse the pack gallery — curated rule sets for
+                coding agents, spend, outbound comms, unattended runs, and more — preview what a pack
+                would have done against your own history, and install it in one click.
+              </p>
+              <Link
+                href="/policies/packs"
+                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium text-text-secondary hover:text-text-primary hover:border-border-hover transition-colors"
+              >
+                Browse policy packs <ArrowRight size={14} aria-hidden="true" />
               </Link>
             </div>
 
