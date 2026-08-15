@@ -13,6 +13,29 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.24.1] — 2026-08-14
+
+Spend-governance follow-up to a live incident: on 2026-08-14 a governed agent,
+told to "fix the billing items," bought $25 of API prepay credits on a stored
+card — stating the amount but clicking before the human confirmed it. The
+governance skill's risk taxonomy never named spending money, so the agent had
+no instruction to route the spend through guard, and no policy class held it.
+
+### Added
+
+- **Governance skill: real-money spend is now a named High-risk class.** The
+  `dashclaw-governance` skill (download bundle + Claude Code/Codex/Hermes plugin
+  mirrors) adds a "Real-Money Spend" section: any action that moves real money
+  is High risk regardless of amount, must be declared with a spend-class
+  `action_type` (`purchase`, `payment`, `spend`, `prepay`, `buy_credits`,
+  `top_up`, `subscription_create`, `subscription_change`, `billing_change`,
+  `domain_purchase`, `card_charge`) rather than laundered through a generic
+  type, and the `declared_goal` must state the exact amount and currency — an
+  approval binds to that exact goal, so a different amount needs its own
+  approval. Standing instructions ("fix the billing") are never spend
+  authorization. Pair it with a `require_approval` policy listing those action
+  types to hold every spend for a human.
+
 ## [5.24.0] — 2026-08-14
 
 The first real external-verdict adapter build (Agent Memory/PAMA, #219) hit a

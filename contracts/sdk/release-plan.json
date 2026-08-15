@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.24.0",
+    "current_version": "5.24.1",
     "next_bump": "none",
-    "reason": "5.24.0 is a platform-only ship: the external-verdict provider applicability scope (EXTERNAL_VERDICT_ACTION_TYPES, #219 follow-up). sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.24.0 tag fires release.yml, whose publish-npm job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.24.1 is a platform-only ship: the dashclaw-governance skill names real-money spend as a High-risk class (spend action_type vocabulary + exact-amount declared_goal contract; RIFTLANE $25 incident follow-up). sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.24.1 tag fires release.yml, whose publish-npm job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.24.0",
+    "current_version": "5.24.1",
     "next_bump": "none",
-    "reason": "5.24.0 is a platform-only ship (external-verdict applicability scope). sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.24.0 tag fires release.yml, whose publish-pypi job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.24.1 is a platform-only ship (governance-skill real-money spend class). sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.24.1 tag fires release.yml, whose publish-pypi job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.24.0 adds a host-side applicability scope to the external decision provider (#219 follow-up, raised by the first real adapter build): EXTERNAL_VERDICT_ACTION_TYPES lists the exact action_types a domain-specific provider governs; out-of-scope acts skip the wire call, take no unavailability posture, and record status skipped / regime not_applicable honestly. The frozen v1 wire contract is unchanged - no abstain verdict was added. Zero new routes/SDK methods/MCP tools/policy types. Neither SDK source changed.",
+  "reason": "5.24.1 adds a host-side applicability scope to the external decision provider (#219 follow-up, raised by the first real adapter build): EXTERNAL_VERDICT_ACTION_TYPES lists the exact action_types a domain-specific provider governs; out-of-scope acts skip the wire call, take no unavailability posture, and record status skipped / regime not_applicable honestly. The frozen v1 wire contract is unchanged - no abstain verdict was added. Zero new routes/SDK methods/MCP tools/policy types. Neither SDK source changed.",
   "domains": [
     "platform"
   ]

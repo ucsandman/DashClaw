@@ -45,7 +45,24 @@ For every action you consider, assess risk and follow this protocol:
 |---|---|---|---|
 | Safe | 0-29 | Reading files, web search, analysis | Proceed. Record outcome after. |
 | Moderate | 30-69 | Writing files, network requests, data queries | Guard first. Proceed on allow/warn. |
-| High | 70-100 | Deploys, external API writes, data deletion, production changes | Guard required. Expect approval or block. |
+| High | 70-100 | Deploys, external API writes, data deletion, production changes, **any real-money spend** | Guard required. Expect approval or block. |
+
+### Real-Money Spend
+
+Any action that moves real money — a purchase, prepay/credit top-up, subscription
+create or change, domain registration, or any charge to a stored card — is High
+risk **regardless of the dollar amount**:
+
+- Declare it with a spend-class `action_type` (`purchase`, `payment`, `spend`,
+  `prepay`, `buy_credits`, `top_up`, `subscription_create`, `subscription_change`,
+  `billing_change`, `domain_purchase`, `card_charge`). Never launder a spend
+  through a generic type like `api_call` or `browser_click`.
+- The `declared_goal` MUST state the exact amount and currency (e.g.
+  "Buy $25.00 USD Gemini API prepay credits"). An approval binds to that exact
+  goal — a different amount is a different action and needs its own approval.
+- A standing instruction ("fix the billing", "get the API working") is never
+  spend authorization. Guard first, and on `require_approval`, wait for the
+  human even if the task feels pre-approved.
 
 ### Guard Decision Handling
 
