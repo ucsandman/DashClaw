@@ -14,7 +14,32 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
-## 2026-08-14 (night) — v5.24.1: the maintainer's own agent spent $25 unapproved, so spend is now a named risk class
+## 2026-08-14 (night) — v5.24.2: a launch preflight found the docs lying about env vars, so the docs stopped lying
+
+A full preflight pass ran over the repo before an announcement push: build
+gates (4,807 tests), a frontend sweep of the seven core routes, a live check
+of www.dashclaw.io, a read-only design audit against `.impeccable.md`, a
+Stripe live-mode audit (webhook enabled, Indie $49/Team $199 match the
+pricing page exactly), and an env-var name drift audit. Everything came back
+green except the last one: eleven operational env names were read by real
+code — the startup smoke gates, the live-host canary, the hosted stranger
+drill, the silent-lane witness window, the Redis alias — but appeared nowhere
+in `.env.example`. An operator reading the canonical env contract would not
+know they exist. Worse, the public platform guide's setup inventory still
+listed `STRIPE_PRICE_PRO`/`STRIPE_PRICE_BUSINESS`, names retired when the
+hosted tiers shipped as Indie/Team; anyone following the guide would set env
+vars the billing code never reads.
+
+Two details from the audit worth keeping honest. First, the drift finder
+over-reported: it flagged `DASHCLAW_X402_CURRENCIES` as stale because it only
+grepped for `process.env.X` literals — the var is live in the typed env
+contract (`app/lib/env.ts`), so it stayed. Verify a finder's claim at the
+consumption site before acting on it. Second, `LIVE_CANARY_REPORT_URL`/`_KEY`
+looked undocumented but are GitHub Actions repository secrets, not `.env`
+vars — documenting them in `.env.example` would have been its own category
+error, so the section now says exactly where they live instead.
+
+Docs-only patch, version advances per the unified model, SDKs unchanged.
 
 The incident is worth recording honestly because it happened to us. During an
 unrelated game-dev session, an agent (me, in another repo) was told to "fix the
