@@ -13,6 +13,27 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.24.2] — 2026-08-14
+
+Documentation-accuracy patch from the launch preflight sweep. No app code, no
+SDK source change.
+
+### Fixed
+
+- **`.env.example` documents 11 previously code-only operational env names**:
+  `REALTIME_REDIS_URL` (fallback alias for `REDIS_URL`),
+  `DASHCLAW_WITNESS_WINDOW_MINUTES` (silent-lane witness window), the six
+  `STARTUP_SMOKE_*` knobs for `npm run startup:smoke`, the two `LIVE_CANARY_*`
+  origin overrides for `scripts/live-canary.mjs`, and `HOSTED_ADMIN_API_KEY`
+  for the hosted stranger drill. The live-canary section also clarifies that
+  `LIVE_CANARY_REPORT_URL` / `LIVE_CANARY_REPORT_KEY` are GitHub Actions
+  repository secrets, not `.env` vars.
+- **Platform guide: retired Stripe env names corrected.** The setup inventory
+  in `public/guides/platform-guide-data.json` (and its provenance record
+  `docs/platform-guide-coverage.json`) still listed `STRIPE_PRICE_PRO` /
+  `STRIPE_PRICE_BUSINESS`; corrected to the shipped `STRIPE_PRICE_INDIE` /
+  `STRIPE_PRICE_TEAM`.
+
 ## [5.24.1] — 2026-08-14
 
 Spend-governance follow-up to a live incident: on 2026-08-14 a governed agent,

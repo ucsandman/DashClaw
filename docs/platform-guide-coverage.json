@@ -9778,7 +9778,7 @@
       "liveVerified": false
     },
     {
-      "item": "STRIPE_SECRET_KEY / NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY / STRIPE_WEBHOOK_SECRET / STRIPE_PRICE_PRO / STRIPE_PRICE_BUSINESS / NEXT_PUBLIC_APP_URL",
+      "item": "STRIPE_SECRET_KEY / NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY / STRIPE_WEBHOOK_SECRET / STRIPE_PRICE_INDIE / STRIPE_PRICE_TEAM / NEXT_PUBLIC_APP_URL",
       "kind": "setup",
       "status": "stable",
       "section": "Setup, Env Vars & Self-Hosting (#setup)",

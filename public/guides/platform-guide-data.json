@@ -7215,11 +7215,11 @@
           "required": false
         },
         {
-          "id": "setup-stripe-secret-key-next-public-stripe-publishable-key-stripe-webhook-secret-stripe-price-pro-stripe-price-business-next-public-app-url",
-          "name": "STRIPE_SECRET_KEY / NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY / STRIPE_WEBHOOK_SECRET / STRIPE_PRICE_PRO / STRIPE_PRICE_BUSINESS / NEXT_PUBLIC_APP_URL",
+          "id": "setup-stripe-secret-key-next-public-stripe-publishable-key-stripe-webhook-secret-stripe-price-indie-stripe-price-team-next-public-app-url",
+          "name": "STRIPE_SECRET_KEY / NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY / STRIPE_WEBHOOK_SECRET / STRIPE_PRICE_INDIE / STRIPE_PRICE_TEAM / NEXT_PUBLIC_APP_URL",
           "kind": "setup",
           "status": "stable",
-          "interface": "STRIPE_SECRET_KEY / NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY / STRIPE_WEBHOOK_SECRET / STRIPE_PRICE_PRO / STRIPE_PRICE_BUSINESS / NEXT_PUBLIC_APP_URL",
+          "interface": "STRIPE_SECRET_KEY / NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY / STRIPE_WEBHOOK_SECRET / STRIPE_PRICE_INDIE / STRIPE_PRICE_TEAM / NEXT_PUBLIC_APP_URL",
           "purpose": "Billing (Stripe checkout/portal); NEXT_PUBLIC_APP_URL defaults to localhost:3000.",
           "required": false
         },
