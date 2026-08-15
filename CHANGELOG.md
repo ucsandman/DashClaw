@@ -13,6 +13,15 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Fixed
+
+- **`@dashclaw/mcp-server` 3.1.2: Codex CLI v0.147+ startup no longer fails.**
+  Codex probes `prompts/list` during its MCP handshake regardless of advertised
+  capabilities and treats the SDK's default `-32601 Method not found` reply as
+  a fatal client startup failure ("MCP client for `dashclaw` failed to
+  start"). The server ships zero prompts; it now advertises the (empty)
+  prompts capability and answers the probe with an empty list.
+
 ## [5.24.2] — 2026-08-14
 
 Documentation-accuracy patch from the launch preflight sweep. No app code, no

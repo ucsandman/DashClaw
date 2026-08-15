@@ -6,7 +6,8 @@ import { freshStore } from "./helpers.js";
 
 /**
  * Records registration calls without a real McpServer — composeServer and
- * registerGovernance only ever call registerTool/registerResource.
+ * registerGovernance call registerTool/registerResource, plus the low-level
+ * `.server` capability/handler registration for the empty prompts set.
  */
 function recordingServer() {
   const tools: string[] = [];
@@ -17,6 +18,10 @@ function recordingServer() {
     },
     registerResource: (name: string) => {
       resources.push(name);
+    },
+    server: {
+      registerCapabilities: () => {},
+      setRequestHandler: () => {},
     },
   } as unknown as McpServer;
   return { server, tools, resources };

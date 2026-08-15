@@ -1,6 +1,6 @@
 {
   "name": "@dashclaw/mcp-server",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "mcpName": "io.github.ucsandman/dashclaw",
   "description": "MCP server for DashClaw governance — guard, record, invoke, discover capabilities, and read the decision ledger through the governance loop.",
   "type": "module",

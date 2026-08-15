@@ -24,11 +24,6 @@ export interface ServerConfig {
  * DashClawClient.
  */
 export declare function registerGovernance(server: McpServer, client: DashClawClient): void;
-/**
- * Create and configure an McpServer instance with all governance tools and
- * resources from TOOL_DEFINITIONS and RESOURCE_DEFINITIONS (v1-compatible
- * embedding API — registration is unconditional).
- */
 export declare function createServer(config?: ServerConfig): {
     server: McpServer;
     client: DashClawClient;

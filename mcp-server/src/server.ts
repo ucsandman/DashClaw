@@ -10,6 +10,7 @@
 
 import { createRequire } from "node:module";
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ListPromptsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { DashClawClient } from "./client.js";
 import { TOOL_DEFINITIONS, createToolHandlers, type ToolInputSchema, type ToolSchemaProperty } from "./tools.js";
@@ -164,6 +165,18 @@ export function registerGovernance(server: McpServer, client: DashClawClient): v
  * resources from TOOL_DEFINITIONS and RESOURCE_DEFINITIONS (v1-compatible
  * embedding API — registration is unconditional).
  */
+/**
+ * This server ships zero prompts, but some MCP clients (Codex CLI v0.147+)
+ * probe `prompts/list` during their startup handshake regardless of the
+ * advertised capabilities and treat the SDK's default -32601 Method-not-found
+ * reply as a fatal startup failure. Advertise the (empty) prompts capability
+ * and answer the probe honestly with an empty list.
+ */
+function registerEmptyPrompts(server: McpServer): void {
+  server.server.registerCapabilities({ prompts: {} });
+  server.server.setRequestHandler(ListPromptsRequestSchema, () => ({ prompts: [] }));
+}
+
 export function createServer(config: ServerConfig = {}): { server: McpServer; client: DashClawClient } {
   const client = new DashClawClient({
     url: config.url,
@@ -184,6 +197,7 @@ export function createServer(config: ServerConfig = {}): { server: McpServer; cl
     },
   );
 
+  registerEmptyPrompts(server);
   registerGovernance(server, client);
   return { server, client };
 }
@@ -205,6 +219,8 @@ export function composeServer(server: McpServer, store: Store): ComposeResult {
     apiKey: process.env.DASHCLAW_API_KEY,
     agentId: process.env.DASHCLAW_AGENT_ID,
   });
+
+  registerEmptyPrompts(server);
 
   const governance = governanceEnabled();
   if (governance) {
