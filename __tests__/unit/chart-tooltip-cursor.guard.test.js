@@ -5,9 +5,10 @@ import { readFileSync } from 'node:fs';
 // Guard: every recharts <Tooltip> in app/** must set an explicit `cursor` —
 // the library default is a near-white #ccc rect/line that reads as a glaring
 // block on the dark theme (the phase-8 "white hover" bug). And chart files
-// must not hardcode hex in color-bearing attributes; tokens resolve at
-// runtime via app/lib/useChartColors.ts (recharts SVG attrs don't honor
-// CSS var()).
+// must not hardcode hex in color-bearing attributes; tokens have to resolve
+// at runtime in JS (recharts SVG attrs don't honor CSS var()). The hook that
+// did that (app/lib/useChartColors.ts) went out with the last chart — bring
+// one back alongside the charts.
 
 function rechartsFiles() {
   let out = '';

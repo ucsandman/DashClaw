@@ -4,6 +4,12 @@ Newest first. Full entries for multi-attempt debugging or reusable lessons; one-
 
 ---
 
+- 2026-08-16 — Repo-wide dead-code audit: `repowise get_dead_code` is not ground truth here / root cause: it reports aliased imports as unreferenced (`app/lib/doctor/checks/*.mjs` `runChecks` is imported by `engine.mjs` as `import { runChecks as databaseChecks }` and was still listed "no importers", confidence 1.0), and its index lagged HEAD by 6 days so it named `app/api/_archive/**` and `app/lib/claude-code/**`, both already deleted / prevention: treat it as a candidate generator only — confirm every finding with a grep against the working tree before deleting anything.
+
+- 2026-08-16 — Removed 10 unused deps; lint, typecheck and the full vitest suite all passed, then `next build` failed on `Module not found: 'react-grid-layout/css/styles.css'` / root cause: the orphan scan resolved JS/TS import specifiers only, and `app/globals.css` pulled the package in through a CSS `@import` / prevention: when dropping a dependency, grep `*.css` for `@import` and bare package refs too. Only the build catches this class — no test imports globals.css.
+
+- 2026-08-16 — Break-on-purpose that did not break: after swapping Discord signature verification to `node:crypto` Ed25519, corrupting the SPKI header's last byte (`...032100` -> `...032101`) left all 11 tests green, which read as "verified" and proved nothing / root cause: that byte is the DER BIT STRING unused-bits count and OpenSSL tolerates it; the key material was unchanged / prevention: break the load-bearing input, not a tolerated framing byte — signing over `rawBody` instead of `timestamp + rawBody` turned 7 of 11 red, which is what actually confirmed the suite covers the accept path.
+
 - 2026-08-14 (amended) — CI-only failure in `policies-inert-banner-reveal.test.jsx`: first diagnosed as a one-shot-read race and "fixed" with `waitFor` — WRONG, it failed again in CI with the retry in place / status: not reproducible locally (0/15 isolated, 0/5 with 120ms-delayed mocks); text renders while the sentences tab reads unselected for >1s, which no single-tree state can produce / action: failure-time DOM diagnostics now ship in the test (tablist count, per-tab aria state, hidden ancestry, text presence) so the next CI failure names the mechanism / lesson: a "flake" fix that only adds retries is a hypothesis, not a fix — it was falsified by the very next run.
 
 ---
