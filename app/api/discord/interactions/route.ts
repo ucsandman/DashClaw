@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse, after } from 'next/server';
-import nacl from 'tweetnacl';
+import { createPublicKey, verify as verifyEd25519 } from 'node:crypto';
 import { getSql } from '../../../lib/db';
 import {
   getActionSummary,
@@ -23,6 +23,9 @@ const FETCH_TIMEOUT_MS = 1500;
 // so an attacker can't tamper with it without breaking the signature.
 // Mitigates T-02-02-02.
 const TIMESTAMP_SKEW_SECONDS = 5 * 60;
+
+// Fixed DER prefix that turns a raw 32-byte Ed25519 public key into SPKI.
+const ED25519_SPKI_HEADER = Buffer.from('302a300506032b6570032100', 'hex');
 
 // Discord interaction type / callback type constants.
 const PING = 1;
@@ -48,15 +51,18 @@ function verifyDiscordSignature(
   const ts = Number(timestampStr);
   if (!Number.isFinite(ts) || Math.abs(now - ts) > TIMESTAMP_SKEW_SECONDS) return false;
   try {
-    // tweetnacl's checkArrayTypes is `instanceof Uint8Array`. Node's Buffer
-    // satisfies that in prod, but under vitest+jsdom the cross-realm Buffer
-    // fails the check (silent catch would mask every request as 401). Force
-    // the current realm's Uint8Array via Uint8Array.from to stay correct in
-    // both environments.
-    return nacl.sign.detached.verify(
-      Uint8Array.from(Buffer.from(timestampStr + rawBody)),
-      Uint8Array.from(Buffer.from(signatureHex, 'hex')),
-      Uint8Array.from(Buffer.from(publicKeyHex, 'hex')),
+    // node:crypto wants an SPKI key; Discord publishes a raw 32-byte one, so
+    // prepend the fixed Ed25519 SPKI header.
+    const key = createPublicKey({
+      key: Buffer.concat([ED25519_SPKI_HEADER, Buffer.from(publicKeyHex, 'hex')]),
+      format: 'der',
+      type: 'spki',
+    });
+    return verifyEd25519(
+      null,
+      Buffer.from(timestampStr + rawBody),
+      key,
+      Buffer.from(signatureHex, 'hex'),
     );
   } catch {
     return false;
