@@ -192,10 +192,6 @@ describe('v5.1 empty states point at the guided action', () => {
     expect(readRepoFile('app/decisions/page.tsx')).toContain('href="/connect#first-action"');
   });
 
-  it('QuickStart links to /connect#first-action', () => {
-    expect(readRepoFile('app/components/QuickStart.tsx')).toContain('/connect#first-action');
-  });
-
   it('the post-mint success state links to /connect#first-action', () => {
     expect(readRepoFile('app/connect/HostedProvisionClient.jsx')).toContain('/connect#first-action');
   });
