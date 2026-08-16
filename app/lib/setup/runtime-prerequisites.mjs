@@ -12,7 +12,6 @@ export const SETUP_MIGRATION_SCRIPTS = [
   'scripts/migrate-cost-analytics.mjs',
   'scripts/migrate-identity-binding.mjs',
   'scripts/migrate-agent-pairings.mjs',
-  'scripts/migrate-capabilities.mjs',
   'scripts/migrate-hitl-metadata.mjs',
   'scripts/migrate-policy-agent-scope.mjs',
   'scripts/migrate-token-budgets.mjs',
@@ -21,7 +20,6 @@ export const SETUP_MIGRATION_SCRIPTS = [
   'scripts/migrate-scoring-profiles.mjs',
   'scripts/migrate-prompts.mjs',
   'scripts/migrate-feedback.mjs',
-  'scripts/migrate-drift.mjs',
   'scripts/migrate-agent-schedules.mjs',
   'scripts/migrate-message-attachments.mjs',
   'scripts/migrate-ideas-subscores.mjs',
@@ -32,7 +30,6 @@ export const SETUP_READINESS_MIGRATION_SCRIPTS = [
   'scripts/migrate-multi-tenant.mjs',
   'scripts/migrate-cost-analytics.mjs',
   'scripts/migrate-identity-binding.mjs',
-  'scripts/migrate-capabilities.mjs',
 ];
 
 export const CORE_SETUP_TABLES = [

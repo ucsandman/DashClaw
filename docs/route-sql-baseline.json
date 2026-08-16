@@ -10,12 +10,12 @@
       "label": "sql.query call"
     }
   ],
-  "files_scanned": 124,
-  "files_with_direct_sql": 10,
+  "files_scanned": 134,
+  "files_with_direct_sql": 9,
   "totals": {
-    "tagged_template": 21,
+    "tagged_template": 19,
     "query_call": 4,
-    "total": 25
+    "total": 23
   },
   "files": [
     {
@@ -31,16 +31,10 @@
       "total": 1
     },
     {
-      "file": "app/api/cron/memory-maintenance/route.ts",
+      "file": "app/api/cron/signals/route.ts",
       "tagged_template": 1,
       "query_call": 0,
       "total": 1
-    },
-    {
-      "file": "app/api/cron/signals/route.ts",
-      "tagged_template": 2,
-      "query_call": 0,
-      "total": 2
     },
     {
       "file": "app/api/keys/route.ts",

@@ -8,7 +8,6 @@
     "scripts/migrate-cost-analytics.mjs",
     "scripts/migrate-identity-binding.mjs",
     "scripts/migrate-agent-pairings.mjs",
-    "scripts/migrate-capabilities.mjs",
     "scripts/migrate-hitl-metadata.mjs",
     "scripts/migrate-policy-agent-scope.mjs",
     "scripts/migrate-token-budgets.mjs",
@@ -17,7 +16,6 @@
     "scripts/migrate-scoring-profiles.mjs",
     "scripts/migrate-prompts.mjs",
     "scripts/migrate-feedback.mjs",
-    "scripts/migrate-drift.mjs",
     "scripts/migrate-agent-schedules.mjs",
     "scripts/migrate-message-attachments.mjs",
     "scripts/migrate-ideas-subscores.mjs",
@@ -26,8 +24,7 @@
   "readiness_migration_scripts": [
     "scripts/migrate-multi-tenant.mjs",
     "scripts/migrate-cost-analytics.mjs",
-    "scripts/migrate-identity-binding.mjs",
-    "scripts/migrate-capabilities.mjs"
+    "scripts/migrate-identity-binding.mjs"
   ],
   "core_tables": [
     "action_records",

@@ -1,4 +1,3 @@
-@import 'react-grid-layout/css/styles.css';
 
 @tailwind base;
 @tailwind components;
@@ -148,18 +147,3 @@ select option {
   color: var(--color-text-primary);
 }
 
-/* react-grid-layout dark theme overrides */
-.react-grid-item > .react-resizable-handle::after {
-  border-right-color: rgba(255, 255, 255, 0.3);
-  border-bottom-color: rgba(255, 255, 255, 0.3);
-}
-.react-grid-item.react-grid-placeholder {
-  background: var(--color-brand);
-  opacity: 0.15;
-  border-radius: 12px;
-}
-.react-grid-item.react-draggable-dragging {
-  opacity: 0.9;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  border-radius: 12px;
-}

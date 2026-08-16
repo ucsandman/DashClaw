@@ -57,7 +57,6 @@ docker compose up -d db
 node scripts/_run-with-env.mjs scripts/migrate-multi-tenant.mjs
 node scripts/_run-with-env.mjs scripts/migrate-cost-analytics.mjs
 node scripts/_run-with-env.mjs scripts/migrate-identity-binding.mjs
-node scripts/_run-with-env.mjs scripts/migrate-capabilities.mjs
 ```
 
 ### Start
