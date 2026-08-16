@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import DashClawLogo from '../components/DashClawLogo';
 import PageLayout from '../components/PageLayout';
+import VerifyReceiptPanel from '../components/VerifyReceiptPanel';
 import { getViewerContextFromCookieHeader } from '../lib/sessionViewer.mjs';
 import { projectReadinessReport, getReadinessReport } from '../lib/readiness.mjs';
 import { runDoctor } from '../lib/doctor/engine.mjs';
@@ -971,6 +972,12 @@ export default async function SetupPage() {
               </div>
             </section>
           </div>
+        </section>
+
+        {/* Auditor surface for POST /api/integrity/verify: public + stateless,
+            so it sits on the instance-truth page rather than behind a record. */}
+        <section id="verify-receipt" className="mt-6">
+          <VerifyReceiptPanel />
         </section>
       </div>
   );
