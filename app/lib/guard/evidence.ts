@@ -194,8 +194,15 @@ const GIT_MESSAGE_VERB_RE = /^\s*git\s+(?:(?:-c\s+\S+|-C\s+\S+|--\S+(?:=\S+)?)\s
 // Prefixes that are transparent to the command word: env assignments, launcher
 // wrappers and their flags. `sudo -u root "rm" -rf /` puts the quoted command
 // word two tokens in, so "first token of the segment" is too narrow a test.
+// `rtk` is here because it is installed as a PreToolUse hook that rewrites EVERY
+// Bash command to `rtk <cmd>` — without it, `rtk "rm" -rf /` blanks the quoted
+// command word as data and hides it from this scanner on any machine running it.
+// ponytail: the `rtk proxy <cmd>` form still shadows a quoted command word here
+// (this regex tests one token at a time and cannot express "proxy only after
+// rtk"). The intent classifier in hooks/ unwraps `proxy` correctly, so that form
+// is still graded; only this secondary quoted-word scan misses it.
 const TRANSPARENT_PREFIX_RE =
-  /^(?:[a-z_]\w*=\S*|sudo|env|nohup|nice|ionice|time|timeout|command|builtin|-\S*|\d+(?:\.\d+)?[smhd]?)$/i;
+  /^(?:[a-z_]\w*=\S*|sudo|env|nohup|nice|ionice|time|timeout|command|builtin|rtk|-\S*|\d+(?:\.\d+)?[smhd]?)$/i;
 
 /**
  * True when the next token starts in COMMAND-WORD position for its segment —

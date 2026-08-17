@@ -811,5 +811,96 @@ class TestF2CoverageBacklog(unittest.TestCase):
             self.assertNotEqual(checks["destructive_command"]["result"], "block")
 
 
+# ---------------------------------------------------------------------------
+# Command wrappers must not shadow the wrapped command's intent
+# ---------------------------------------------------------------------------
+
+class TestWrapperTransparency(unittest.TestCase):
+    """`rtk` is a token-compression proxy installed as a Claude Code PreToolUse
+    hook that rewrites EVERY Bash command to `rtk <cmd>`. Before it was a known
+    wrapper it shadowed the base command, so every command on such a machine
+    classified `unknown` — which the hook floors at the Bash tool's blunt base
+    risk of 70. That is both a false negative (`rtk rm -rf /` graded 70 instead
+    of destructive 100) and the dominant interruption driver (a read-only
+    `git log` graded 70 and typed `other` instead of readonly / `review`).
+    """
+
+    def test_rtk_git_log_is_readonly(self):
+        r = classify_bash("rtk git log --oneline -10")
+        self.assertEqual(r["intent"], "readonly")
+
+    def test_rtk_git_log_with_date_format_is_readonly(self):
+        # The exact shape behind the live interruption flood.
+        r = classify_bash("rtk git log --date=format:%Y-%m-%d --pretty=format:%h")
+        self.assertEqual(r["intent"], "readonly")
+
+    def test_rtk_does_not_hide_destructive_rm(self):
+        r = classify_bash("rtk rm -rf /important")
+        self.assertEqual(r["intent"], "destructive")
+
+    def test_rtk_does_not_hide_force_push(self):
+        r = classify_bash("rtk git push --force")
+        self.assertEqual(r["intent"], "destructive")
+
+    def test_rtk_proxy_passthrough_is_transparent(self):
+        # `rtk proxy <cmd>` runs the command unfiltered — same intent.
+        r = classify_bash("rtk proxy rm -rf /important")
+        self.assertEqual(r["intent"], "destructive")
+
+    def test_rtk_own_flags_are_skipped(self):
+        r = classify_bash("rtk --quiet cat README.md")
+        self.assertEqual(r["intent"], "readonly")
+
+    def test_bare_rtk_meta_subcommand_stays_unknown(self):
+        # `rtk gain` has no wrapped command; nothing to unwrap to.
+        r = classify_bash("rtk gain")
+        self.assertEqual(r["intent"], "unknown")
+
+
+class TestGitGlobalFlagsBeforeSubcommand(unittest.TestCase):
+    """A git global flag before the subcommand used to blank `subcommand`, so
+    `_classify_git` fell through to its "unknown git subcommand -> write" safe
+    default. `git -C <path> log` is the exact shape of every command in the
+    2026-08-16 incident ledger: graded `write` (action_type apply, server base
+    60) instead of readonly (`review`, base 10), on a read-only log.
+    """
+
+    def test_dash_c_repo_path_before_log(self):
+        r = classify_bash('git -C "C:/Projects/audit" log --oneline')
+        self.assertEqual(r["intent"], "readonly")
+
+    def test_dash_c_config_override_before_log(self):
+        r = classify_bash("git -c user.name=x log")
+        self.assertEqual(r["intent"], "readonly")
+
+    def test_no_pager_before_log(self):
+        r = classify_bash("git --no-pager log --oneline")
+        self.assertEqual(r["intent"], "readonly")
+
+    def test_inline_value_global_flag_before_log(self):
+        r = classify_bash("git --git-dir=/srv/r.git log")
+        self.assertEqual(r["intent"], "readonly")
+
+    def test_global_flags_do_not_hide_a_write_subcommand(self):
+        # The skip must not swallow the verb — this still has to read as write.
+        r = classify_bash('git -C "C:/Projects/audit" push origin main')
+        self.assertEqual(r["intent"], "write")
+
+    def test_global_flags_do_not_hide_a_destructive_subcommand(self):
+        r = classify_bash('git -C "C:/Projects/audit" reset --hard HEAD~1')
+        self.assertEqual(r["intent"], "destructive")
+
+    def test_value_of_dash_c_is_never_read_as_the_subcommand(self):
+        # `-C` consumes its path; the path must not become the subcommand (which
+        # would land back in the unknown -> write default).
+        r = classify_bash('git -C "C:/Projects/audit" status')
+        self.assertEqual(r["intent"], "readonly")
+
+    def test_rtk_wrapped_git_dash_c_log_is_readonly(self):
+        # Both bugs at once — the live shape on a machine running the rtk hook.
+        r = classify_bash('rtk git -C "C:/Projects/audit" log --date=format:%H:%M')
+        self.assertEqual(r["intent"], "readonly")
+
+
 if __name__ == "__main__":
     unittest.main()

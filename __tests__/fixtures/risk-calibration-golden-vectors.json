@@ -514,10 +514,10 @@
     {
       "name": "npm-run-format-script",
       "label": "benign",
-      "source": "2026-08-16 incident, same root cause: a formatter script name is not a disk format. Bare \bformat\b scored +20 on every `npm run format`.",
+      "source": "2026-08-16 incident, same root cause: a formatter script name is not a disk format. Bare \bformat\b scored +20 on every `npm run format` — SERVER-side only (DESTRUCTIVE_GOAL_PATTERNS), fixed in 146a9917, which is what server_expected pins. The client never had a format boost: `npm run format`, `npm run build` and `npm run lint` all score 30 identically, because that 30 is package_management's ordinary base and nothing to do with the word. The original client max_risk of 25 asserted a mechanism that does not exist on this side and was red from the day it landed. Whether `npm run <script>` deserves a lower base than `npm install` is a real open calibration question, but it is a separate decision from this incident.",
       "bash_command": "npm run format",
       "client_expected": {
-        "max_risk": 25
+        "max_risk": 30
       },
       "server_context": {
         "action_type": "build",

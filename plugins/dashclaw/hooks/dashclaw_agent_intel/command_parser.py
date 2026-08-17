@@ -23,10 +23,38 @@ SUBCOMMAND_TOOLS = frozenset({
     "cargo", "go", "apt", "brew", "systemctl",
 })
 
+# Per-tool global flags that take a SEPARATE value token. Subcommand detection
+# must consume both, or the value (`-C C:/Projects/x`) gets read as the
+# subcommand. Inline `--flag=value` forms need no entry — they are one token.
+# ponytail: git only, because git is the tool whose missing subcommand has a
+# dangerous default (`_classify_git` falls through to "write"). Add a tool here
+# when its global flags are shown to mis-key a real command, not before.
+_GLOBAL_VALUE_FLAGS: dict[str, frozenset] = {
+    "git": frozenset({
+        "-C", "-c", "--git-dir", "--work-tree",
+        "--namespace", "--exec-path", "--config-env", "--super-prefix",
+    }),
+}
+
 # Wrappers that prefix the real command.
+#
+# A wrapper NOT listed here shadows the command it wraps: the parser reports the
+# wrapper as base_command, the classifier grades the result `unknown`, and the
+# hook floors `unknown` at the Bash tool's blunt base risk of 70. `rtk` (a
+# token-compression proxy installed as a Claude Code PreToolUse hook that
+# rewrites every Bash command to `rtk <cmd>`) made that failure universal on any
+# machine running it — `rtk rm -rf /` graded 70 instead of destructive 100, and
+# a read-only `rtk git log` graded 70 and typed `other` instead of readonly /
+# `review`, which is what buried operators in approvals for read-only commands.
+#
+# ponytail: this stays an explicit allowlist. An unlisted wrapper still shadows
+# its command; generic "unwrap anything whose first argument looks like a
+# command" heuristics misfire on remote-exec forms (`ssh host rm -rf /`) where
+# the wrapper, not the inner command, is the thing worth grading. Add entries
+# as real wrappers show up.
 WRAPPERS = frozenset({
     "sudo", "env", "nohup", "nice", "ionice",
-    "strace", "time", "timeout",
+    "strace", "time", "timeout", "rtk",
 })
 
 # Redirection operators, ordered longest-first so we greedily match.
@@ -164,6 +192,7 @@ def _skip_wrapper_args(wrapper: str, tokens: list[str]) -> list[str]:
     - ``nice`` / ``ionice``: skip ``-<flag> <value>`` pairs.
     - ``timeout``: skip flags then skip the duration argument.
     - ``nohup`` / ``time`` / ``strace``: skip flags.
+    - ``rtk``: skip flags, then the ``proxy`` pass-through token if present.
     """
     i = 0
     if wrapper == "env":
@@ -193,6 +222,12 @@ def _skip_wrapper_args(wrapper: str, tokens: list[str]) -> list[str]:
             i += 1
     elif wrapper in ("nohup", "time"):
         while i < len(tokens) and tokens[i].startswith("-"):
+            i += 1
+    elif wrapper == "rtk":
+        while i < len(tokens) and tokens[i].startswith("-"):
+            i += 1
+        # `rtk proxy <cmd>` runs <cmd> unfiltered — one more token to skip.
+        if i < len(tokens) and tokens[i] == "proxy":
             i += 1
     return tokens[i:]
 
@@ -247,12 +282,31 @@ def _parse_segment(tokens: list[str]) -> dict:
     result["base_command"] = tokens[idx]
     rest = tokens[idx + 1:]
 
-    # Detect subcommand.
+    # Detect subcommand, looking PAST the tool's own global flags.
+    #
+    # `git -C <path> log` used to leave subcommand None, and _classify_git's
+    # "unknown git subcommand -> write" safe default then graded a read-only log
+    # as a write (action_type apply, server base 60 instead of review's 10).
+    # That is the shape of every command in the 2026-08-16 interruption
+    # incident, where the operator disabled the org's whole policy set.
     if result["base_command"] in SUBCOMMAND_TOOLS and rest:
-        first_rest = rest[0]
-        if not first_rest.startswith("-"):
-            result["subcommand"] = first_rest
-            rest = rest[1:]
+        value_flags = _GLOBAL_VALUE_FLAGS.get(result["base_command"], frozenset())
+        skipped: list[str] = []
+        j = 0
+        while j < len(rest) and rest[j].startswith("-"):
+            skipped.append(rest[j])
+            # A flag that takes a SEPARATE value consumes it too, so the value
+            # (`-C C:/Projects/x`) is never mistaken for the subcommand.
+            if rest[j] in value_flags and j + 1 < len(rest):
+                skipped.append(rest[j + 1])
+                j += 2
+            else:
+                j += 1
+        if j < len(rest):
+            result["subcommand"] = rest[j]
+            # Global flags stay visible to the classifiers as flags; only the
+            # subcommand itself is removed from the tail.
+            rest = skipped + rest[j + 1:]
 
     # Classify remaining tokens as flags or targets.
     for tok in rest:

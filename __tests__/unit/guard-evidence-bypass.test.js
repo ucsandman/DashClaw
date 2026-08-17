@@ -69,6 +69,16 @@ describe('classifyAct — a quoted command word is still code', () => {
     expect(evidenceTotal(c)).toBe(100);
   });
 
+  // `rtk` is installed as a PreToolUse hook that rewrites EVERY Bash command to
+  // `rtk <cmd>`, so on such a machine this prefix is present on all traffic. It
+  // must be transparent to the command word or the quoted-command-word bypass
+  // reopens for every command that runs there.
+  it('keeps the destructive grade under an rtk launcher prefix', () => {
+    const c = shell(`rtk "rm" -rf /`);
+    expect(c.flags).toContain('destructive');
+    expect(evidenceTotal(c)).toBe(100);
+  });
+
   it('sees a quoted interpreter as an exec sink', () => {
     const c = shell(`"bash" -c "${RMRF_ROOT}"`);
     expect(c.flags).toContain('destructive');

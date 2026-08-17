@@ -4,6 +4,64 @@ Newest first. Full entries for multi-attempt debugging or reusable lessons; one-
 
 ---
 
+## 2026-08-16 (later) — the same incident had two MORE root causes, both in command parsing
+
+Follow-up to the entry below. That session fixed the server-side `format` regex and the
+engine ownership seam, then recorded a next-move: "fix the hook's action-type mapping so
+read-only `git log` classifies as `review` (base 10) rather than `apply` (base 60)". The
+mapping was already correct (`readonly -> review`). Two parsing bugs upstream of it were
+producing the wrong intent in the first place.
+
+**Root cause 3 — a git global flag before the subcommand blanks the subcommand.**
+`_parse_segment` read the subcommand as "the first token after the tool that does not
+start with `-`". `git -C "C:/Projects/x" log` therefore parsed with `subcommand=None`, and
+`_classify_git`'s last line is `return "write"` — the safe default for an *unknown*
+subcommand. So a read-only log graded `write` -> action_type `apply` -> **server base 60**.
+Every command in the incident ledger has that exact `git -C <path> log` shape. The
+"apply, base 60" in the previous session's notes was this, not the action-type map.
+**Lesson: a safe default is only safe where it fires on genuinely unknown input. Reached
+by a parse gap, "unknown -> treat as write" silently mislabels the most common command in
+the repo, and the miscalibration is invisible because the fallback looks conservative.**
+
+**Root cause 4 — an unlisted wrapper shadows everything it wraps.** `rtk` (a
+token-compression proxy installed as a PreToolUse hook that rewrites EVERY Bash command
+to `rtk <cmd>`) was not in `WRAPPERS`, so the parser reported `rtk` as the base command,
+the classifier graded `unknown`, and the hook floors `unknown` at the Bash tool's blunt
+base risk of **70**. On a machine running rtk that applied to all Bash traffic at once.
+Both directions were wrong: `rtk git log` graded 70 instead of 5, and `rtk rm -rf /`
+graded 70 instead of destructive 100 — a prefix that defeats the destructive classifier.
+`app/lib/policy-shapes.ts` already listed `rtk` as a wrapper word for shape keys, so half
+the runtime knew and the half that grades risk did not.
+**Lesson: when one layer learns a fact about the world (this token is a wrapper), grep for
+the other layers that encode the same fact. Here there were four independent wrapper lists
+— command_parser WRAPPERS, evidence.ts TRANSPARENT_PREFIX_RE, policy-shapes
+SHAPE_WRAPPER_WORDS, and the classifier's PowerShell verb map — and they disagreed.**
+
+**Root cause 5 (process) — a golden vector was committed RED and stayed red.**
+`git-log-date-format-flag` was added as part of the previous fix asserting
+`intent: readonly`; the classifier returned `write` from the moment it landed. A second
+vector, `npm-run-format-script`, asserted a client-side `max_risk` of 25 on the premise
+that the word `format` inflated the client score. It never did: `npm run format`,
+`npm run build` and `npm run lint` all score 30 identically, because 30 is
+package_management's ordinary base. That vector asserted a mechanism that does not exist
+on the side it was pinned to, and was also red from day one.
+**Lesson (L1, again): a check is not verified until it has been observed both passing AND
+failing. A vector added in the same commit as the fix it describes must be RUN before the
+commit — otherwise it documents an intention rather than testing a behaviour.**
+
+**Fixes.** Wrapper + subcommand parsing in `hooks/dashclaw_agent_intel/command_parser.py`
+(mirrored to `.claude/hooks/` and, via `bundles:refresh`, to `plugins/dashclaw/`); `rtk`
+added to `TRANSPARENT_PREFIX_RE` in `app/lib/guard/evidence.ts`, closing the same
+quoted-command-word bypass server-side; `npm-run-format-script`'s client expectation
+corrected to 30 with the evidence recorded in its `source`. `git -C <path> log` now grades
+readonly/5 -> `review`/10 end to end, down from 70.
+
+**Still open (not fixed here):** whether `npm run <script>` deserves a lower base than
+`npm install` — both are 30 today. That is a live calibration question, not part of this
+incident, and it moves risk for every npm command in every org, so it is Wes's call.
+
+---
+
 ## 2026-08-16 — 1,759 interruptions in 7 days; operator disabled every policy in the org
 
 The incident the whole interruption-budget change exists for. Spec:
