@@ -113,6 +113,38 @@ describe('evaluateGuard', () => {
     expect(result.decision).toBe('allow');
   });
 
+  // --- require_approval matches metadata.capability, not just the spelling ---
+  // Regression: a real Namecheap domain purchase executed unguarded because the
+  // offlocal MCP names it "provider_purchase" while the spend rule enumerated
+  // eleven other spellings. Only an unfunded account stopped the charge.
+  it('requires approval when metadata.capability matches even though action_type does not', async () => {
+    const sql = makeSql([makePolicy('require_approval', { action_types: ['purchase', 'domain_purchase'] })]);
+    const result = await evaluateGuard(
+      'org_1',
+      { action_type: 'provider_purchase', metadata: { capability: 'purchase', provider: 'namecheap' } },
+      sql,
+    );
+    expect(result.decision).toBe('require_approval');
+  });
+
+  it('leaves a non-matching capability alone (capability only ever adds a gate)', async () => {
+    const sql = makeSql([makePolicy('require_approval', { action_types: ['purchase'] })]);
+    const result = await evaluateGuard(
+      'org_1',
+      { action_type: 'provider_read', metadata: { capability: 'read', provider: 'namecheap' } },
+      sql,
+    );
+    expect(result.decision).toBe('allow');
+  });
+
+  it('survives metadata shapes that carry no usable capability', async () => {
+    for (const metadata of [null, {}, { capability: '' }, { capability: 42 }]) {
+      const sql = makeSql([makePolicy('require_approval', { action_types: ['purchase'] })]);
+      const result = await evaluateGuard('org_1', { action_type: 'provider_write', metadata }, sql);
+      expect(result.decision).toBe('allow');
+    }
+  });
+
   // --- require_approval vs the evidence mismatch swap ---
 
   it('still requires approval when act evidence swaps the declared type to a lower-information derived type', async () => {

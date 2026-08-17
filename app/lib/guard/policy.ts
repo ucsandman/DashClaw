@@ -67,6 +67,20 @@ function contextActionTypes(context: GuardEvalContext): string[] {
   if (typeof context.declared_action_type === 'string' && !types.includes(context.declared_action_type)) {
     types.push(context.declared_action_type);
   }
+  // Provider gateways (offlocal MCP) name the same real-world act differently
+  // per tool — a domain buy arrives as "provider_purchase", a Stripe charge as
+  // "stripe_live_write" — while carrying the coarse capability in metadata. A
+  // rule that enumerates action_type spellings is therefore a deny-list: it
+  // protects against the strings someone remembered and nothing else. Folding
+  // the capability in makes "purchase" match every purchase regardless of the
+  // tool's private vocabulary. Additive by construction, so a caller-supplied
+  // capability can only ever add a gate, never remove one.
+  const capability = typeof context.metadata === 'object' && context.metadata !== null
+    ? (context.metadata as Record<string, unknown>).capability
+    : undefined;
+  if (typeof capability === 'string' && capability && !types.includes(capability)) {
+    types.push(capability);
+  }
   return types;
 }
 

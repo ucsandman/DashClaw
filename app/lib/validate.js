@@ -346,6 +346,16 @@ const GUARD_INPUT_SCHEMA = {
   // 'allow_contained'). Generic array type check runs here; validateGuardInput
   // deep-validates the count/length caps below (validateClientCapabilities).
   client_capabilities: { type: 'array' },
+  // Provider-gateway envelope (offlocal MCP and friends): the coarse capability
+  // the caller is exercising ('purchase', 'delete', 'deploy', ...) alongside the
+  // provider/tool it maps to. Without this in the schema, validate() strips it
+  // and a capability-scoped policy silently no-ops — the same failure the
+  // intel/tool entries above were added to fix. Read by contextActionTypes
+  // (app/lib/guard/policy.ts), which folds metadata.capability into the
+  // action-type match set for RESTRICTIVE policies only, so a spoofed value can
+  // add a gate but never remove one. Free-form object — passed through, not
+  // deep-validated.
+  metadata:        { type: 'object' },
 };
 
 // Evidence-first `act` payload — deep validation (caps + per-kind family).

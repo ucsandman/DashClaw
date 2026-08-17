@@ -4,6 +4,50 @@ Newest first. Full entries for multi-attempt debugging or reusable lessons; one-
 
 ---
 
+## 2026-08-17 — a real domain purchase executed unguarded; four independent gates all missed
+
+A Namecheap `purchase_domain` through the offlocal MCP returned `decision: allow`,
+`executed: true`, and only failed on `INSUFFICIENTFUNDS`. A funded balance would have spent
+real money with no prompt. Four things had to fail together, and each alone was sufficient.
+
+**Root cause 1 — the rule was a deny-list of spellings.** The org's one active policy,
+"Real-money spend requires human approval of the exact amount", enumerated eleven
+`action_types` (`payment`, `purchase`, `domain_purchase`, …). offlocal names the act
+`provider_purchase` (`src/dashclaw/guard.ts`), which is not among them, so `matchActionType`
+returned null and `matched_policies` came back empty. An exact-string miss, not a threshold
+or scoping problem. **Lesson: enumerating action-type spellings protects against the strings
+someone remembered and nothing else. Match on the capability the caller declares.**
+
+**Root cause 2 — `metadata` was stripped before the engine ever saw it.** offlocal *does*
+send `metadata.capability: "purchase"`, but `metadata` was absent from `GUARD_INPUT_SCHEMA`
+(`app/lib/validate.js`), so `validate()` dropped it. This is the third time that schema has
+silently no-op'd a governance signal — the `intel`/`tool` entries carry a comment about the
+same failure. **Lesson: in this codebase, a field not in GUARD_INPUT_SCHEMA does not exist.
+Adding a policy that reads a new context field is a two-file change, always.**
+
+**Root cause 3 — the local backstop was structurally unreachable.** offlocal's own policy
+resolved to `approval_required` (`src/policy.ts` even clamps purchase: "can never resolve
+below approval_required"). It never gated. In `runGuarded`, `if (risky) { … }` returns on
+every path, and the local `block` / `approval_required` checks sat *below* it — with
+`isRiskyAction` being `live || capability !== "read"`, the local policy governed reads only.
+Its effect travelled to DashClaw as metadata, i.e. telemetry. **Lesson: an invariant asserted
+in one function and enforced in another is only as real as the control flow between them.
+The clamp was correct and unreachable, which reads exactly like working code.**
+
+**Root cause 4 — both risk-100 backstops were paused.** The action scored 100 and two
+`risk_threshold` policies sit at exactly 100 (`riskScore >= threshold`, so either would have
+fired). Both had `active: 0`. **Lesson: a paused backstop is not a backstop. The only thing
+between the agent and the charge was a toggle.**
+
+Fixes: `contextActionTypes` now folds `metadata.capability` into the match set for
+restrictive policies only (additive, so a spoofed capability can add a gate but never remove
+one); `metadata` added to `GUARD_INPUT_SCHEMA`; offlocal gives local policy a veto over a
+DashClaw `allow` for `purchase` specifically, matching the clamp already in `policy.ts` and
+adding no approval traffic to any other capability; both live policies re-armed. Verified by
+replaying the original payload against my-dashclaw: `require_approval`, both policies matched.
+
+---
+
 ## 2026-08-16 (later) — the same incident had two MORE root causes, both in command parsing
 
 Follow-up to the entry below. That session fixed the server-side `format` regex and the
