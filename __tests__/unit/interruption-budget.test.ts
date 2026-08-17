@@ -9,6 +9,7 @@ import {
   INTERRUPTION_BUDGET_DEFAULTS,
   budgetProposalId,
   deriveBudgetProposals,
+  deriveLooseningProposals,
   tuningCanMove,
   type InterruptVolumeRow,
   type LooseningPolicyRow,
@@ -160,5 +161,129 @@ describe('deriveBudgetProposals', () => {
     const justOver = INTERRUPTION_BUDGET_DEFAULTS.perWindow + 1;
     expect(deriveBudgetProposals([volume(justOver)], [policy()])).toHaveLength(1);
     expect(deriveBudgetProposals([volume(INTERRUPTION_BUDGET_DEFAULTS.perWindow)], [policy()])).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The invariant that should have failed BEFORE the incident, not after it.
+//
+// Every relief mechanism in this runtime except one requires a human to have
+// ADJUDICATED something first: allow_grant and precedent need prior approvals,
+// the approval pause needs a click, and deriveLooseningProposals needs
+// minResolved (5) resolved outcomes before any rate means anything. tuning's
+// raise_risk_threshold needs both evidence AND arithmetic headroom under
+// thresholdCap.
+//
+// An operator buried in interruptions has stopped clicking — that is what being
+// buried MEANS — so on 2026-08-16 all of those stayed silent simultaneously and
+// the only remaining move was to disable every policy in the org. The five-way
+// exclusion was discovered by reading the code after the user quit. It should
+// have been a red test.
+//
+// Invariant: for EVERY gating policy shape, at least one relief mechanism is
+// reachable with ZERO adjudication input. Only the interruption budget clears
+// that bar, so the budget must cover every shape — including the ones no
+// automatic demotion may touch, which it covers by proposing deactivation.
+// ---------------------------------------------------------------------------
+
+describe('relief reachability invariant — no shape is stranded by every mechanism', () => {
+  /** Policy shapes that can raise a require_approval interrupt. */
+  const SHAPES: Array<{ label: string; rules: Record<string, unknown>; policy_type: string }> = [
+    {
+      label: 'the incident policy: risk_threshold 100, ungrantable',
+      policy_type: 'risk_threshold',
+      rules: { threshold: 100, action: 'require_approval', ungrantable: true },
+    },
+    {
+      label: 'risk_threshold 100, grantable',
+      policy_type: 'risk_threshold',
+      rules: { threshold: 100, action: 'require_approval' },
+    },
+    {
+      label: 'risk_threshold AT the tuning cap (95)',
+      policy_type: 'risk_threshold',
+      rules: { threshold: 95, action: 'require_approval' },
+    },
+    {
+      label: 'risk_threshold below the cap (80) — tuning has a move',
+      policy_type: 'risk_threshold',
+      rules: { threshold: 80, action: 'require_approval' },
+    },
+    {
+      label: 'require_approval by action type, ungrantable',
+      policy_type: 'require_approval',
+      rules: { action_types: ['apply'], ungrantable: true },
+    },
+    {
+      label: 'require_approval by action type, grantable',
+      policy_type: 'require_approval',
+      rules: { action_types: ['apply'] },
+    },
+    {
+      label: 'warn_action_type escalated to approval',
+      policy_type: 'warn_action_type',
+      rules: { action_types: ['deploy'] },
+    },
+  ];
+
+  /** A drowning operator: high volume, and NOTHING resolved. */
+  const FIRED = 1759;
+  const row = (shape: (typeof SHAPES)[number]): LooseningPolicyRow => ({
+    id: 'gp_x',
+    name: 'Policy under test',
+    policy_type: shape.policy_type,
+    rules: JSON.stringify(shape.rules),
+  });
+
+  for (const shape of SHAPES) {
+    it(`${shape.label}: relief is reachable with zero adjudication`, () => {
+      const p = row(shape);
+
+      // The adjudication-dependent engine: every outcome pending, none resolved.
+      const loosening = deriveLooseningProposals(
+        [{ policy_id: 'gp_x', action_type: '', fired: FIRED, approved: 0, denied: 0, pending: FIRED }],
+        [p],
+        { windowDays: 7 },
+      );
+
+      // The volume-only engine.
+      const budget = deriveBudgetProposals([{ policy_id: 'gp_x', fired: FIRED, example_decision_ids: [] }], [p], {
+        budget: 50,
+      });
+
+      // THE INVARIANT. Not "some code path exists" — a path an operator who has
+      // stopped clicking can actually reach.
+      expect(loosening.length + budget.length).toBeGreaterThan(0);
+
+      // And the reachable path must name a concrete escape, not just report.
+      const escape = budget[0];
+      expect(escape).toBeDefined();
+      expect(escape!.patch).toEqual({ active: false });
+      // Grantable shapes get automatic relief; ungrantable ones must at least
+      // put a one-click deactivation in front of the human (F1).
+      expect(escape!.auto_demoted).toBe(shape.rules.ungrantable !== true);
+    });
+  }
+
+  it('the adjudication-dependent engine is silent for EVERY shape — why the budget had to exist', () => {
+    // The negative half. If this ever goes green, a second zero-adjudication
+    // path has appeared and the invariant above has more than one leg to stand
+    // on. That is good news, and this test should be updated deliberately.
+    for (const shape of SHAPES) {
+      const loosening = deriveLooseningProposals(
+        [{ policy_id: 'gp_x', action_type: '', fired: FIRED, approved: 0, denied: 0, pending: FIRED }],
+        [row(shape)],
+        { windowDays: 7 },
+      );
+      expect(loosening, `${shape.label} unexpectedly produced a proposal`).toHaveLength(0);
+    }
+  });
+
+  it('a policy whose volume is sustainable gets no relief from anything — silence is correct', () => {
+    const p = row(SHAPES[0]!);
+    const quiet = deriveBudgetProposals([{ policy_id: 'gp_x', fired: 3, example_decision_ids: [] }], [p], {
+      budget: 50,
+    });
+    expect(quiet).toHaveLength(0);
   });
 });
