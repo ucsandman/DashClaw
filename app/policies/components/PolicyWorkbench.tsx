@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Upload, Sparkles, CheckCheck, FileText, Plus } from 'lucide-react';
+import Link from 'next/link';
+import { Upload, Sparkles, CheckCheck, FileText, Plus, Package } from 'lucide-react';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { CollapsibleSection } from '../../components/ui/CollapsibleSection';
 import { fetchSummary, type PolicySummary } from '../lib/modesClient';
@@ -108,8 +109,12 @@ export default function PolicyWorkbench() {
 
   return (
     <div className={styles.shell}>
-      {/* Top action row — the four previously-buried authoring verbs + create. */}
+      {/* Top action row — pack gallery, the four previously-buried authoring
+          verbs, then create. */}
       <div className={styles.topActions}>
+        <Link href="/policies/packs" className={styles.btn}>
+          <Package size={15} />Browse packs
+        </Link>
         <button type="button" className={styles.btn} onClick={() => { setForceLedgerOpen(true); ledgerActions.current?.openImport(); }}>
           <Upload size={15} />Import pack / YAML
         </button>
