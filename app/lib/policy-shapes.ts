@@ -47,9 +47,28 @@ export function shapeKey(actionType: string, targetPrefix: string | null): strin
  * the verb at all — a button whose only outcome is a 400 is not a choice.
  * Whitespace counts as absent: `prefixMatches` fails closed on it, so a grant
  * scoped to " " would be a dead row that reads as a resolved one.
+ *
+ * "Non-empty" was too weak on its own. Target extraction is a heuristic over
+ * arbitrary command text, and on 2026-08-16 it had minted live grants scoped to
+ * `=` and to a backticked `Date.now()` — shell fragments, not targets. A grant
+ * is a standing authorization, so junk scope is worse than no scope: it reads
+ * as a resolved, deliberate decision in the ledger while matching nothing (or,
+ * with a short enough prefix, far too much). Extraction will always occasionally
+ * produce debris; this is the trust boundary that refuses to mint from it.
+ *
+ * Deliberately narrow — it rejects only what cannot be a target under any OS,
+ * never merely unusual paths. `C:\Program Files (x86)\app` keeps its parens.
  */
 export function shapeIsGrantable(targetPrefix: string | null | undefined): boolean {
-  return typeof targetPrefix === 'string' && targetPrefix.trim().length > 0;
+  if (typeof targetPrefix !== 'string') return false;
+  const trimmed = targetPrefix.trim();
+  if (trimmed.length === 0) return false;
+  // Pure punctuation (`=`, `--`, `|`) names nothing.
+  if (!/[a-z0-9]/i.test(trimmed)) return false;
+  // Command substitution is unambiguously a shell fragment: no filesystem path,
+  // host or URL contains a backtick or `$(`.
+  if (trimmed.includes('`') || trimmed.includes('$(')) return false;
+  return true;
 }
 
 // A hostname segment: labels joined by dots, no leading dot, no drive colon.

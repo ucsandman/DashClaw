@@ -13,6 +13,7 @@ import {
   NEVER_PRECEDENTED,
   grantMaxRisk,
   grantCoversRisk,
+  shapeIsGrantable,
   GRANT_DEFAULT_MAX_RISK,
 } from '@/lib/policy-shapes';
 import { RISK_HIGH_MIN } from '@/lib/riskThresholds';
@@ -370,5 +371,42 @@ describe('grant risk ceiling', () => {
 
   it('treats a missing risk score as 0', () => {
     expect(grantCoversRisk({}, null as unknown as number)).toBe(true);
+  });
+});
+
+// A grant is a standing authorization, so a junk scope is worse than no scope:
+// it reads as a resolved, deliberate decision while matching nothing. Wes's live
+// org held grants scoped to `=` and to a backticked `Date.now()` (2026-08-16).
+describe('shapeIsGrantable', () => {
+  it('accepts real targets', () => {
+    for (const t of [
+      'C:/Projects/DashClaw/',
+      'C:\\Program Files (x86)\\app\\',   // parens are legal in Windows paths
+      'github.com',
+      'https://api.stripe.com/v1/',
+      'src/index.ts',
+      'a',
+    ]) {
+      expect(shapeIsGrantable(t), t).toBe(true);
+    }
+  });
+
+  it('rejects absent or whitespace-only scope', () => {
+    expect(shapeIsGrantable(null)).toBe(false);
+    expect(shapeIsGrantable(undefined)).toBe(false);
+    expect(shapeIsGrantable('')).toBe(false);
+    expect(shapeIsGrantable('   ')).toBe(false);
+    expect(shapeIsGrantable(42 as unknown as string)).toBe(false);
+  });
+
+  it('rejects the malformed scopes that reached the live ledger', () => {
+    expect(shapeIsGrantable('=')).toBe(false);
+    expect(shapeIsGrantable('`Date.now()`')).toBe(false);
+  });
+
+  it('rejects pure punctuation and command substitution generally', () => {
+    for (const t of ['--', '|', '&&', '...', '$(whoami)', 'x$(id)', '`hostname`']) {
+      expect(shapeIsGrantable(t), t).toBe(false);
+    }
   });
 });
