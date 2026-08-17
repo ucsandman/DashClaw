@@ -1,5 +1,49 @@
 # Decision log
 
+## 2026-08-16 — At least one relief path must fire without the operator adjudicating anything
+
+**Decision.** An interruption budget. A policy exceeding `DASHCLAW_INTERRUPTION_BUDGET`
+interruptions per 24h (default 50) is reported on `/policies` as a defect and has its
+`require_approval` verdicts downgraded to `warn`; a single command shape exceeding 10 in
+24h stops interrupting while its policy keeps enforcing everything else. Both grains read
+interruption VOLUME only — no approvals, no denials, no override rate, no clicks. Neither
+ever reaches `allow`, touches `block`, or relaxes a rule marked `ungrantable`. Alongside
+it, `tuningCanMove()` so the loosening engine claims any `risk_threshold` policy stranded
+at or above tuning's `thresholdCap`.
+
+**Context.** Every relaxation mechanism DashClaw had — `allow_grant`, precedent, approval
+pause, `relax_policy_scope`, `deactivate_policy`, `raise_risk_threshold` — gates on
+adjudicated outcomes (`resolved >= 5` plus an override rate). On 2026-08-16 the owner's
+org took 1,759 `require_approval` decisions in seven days, resolved effectively none, and
+he disabled every policy in the org. Volume is precisely what stops a human working the
+queue, so the evidence channel and the pain channel were the same channel: the harder the
+system interrupted, the less evidence it earned to stop. Separately, his threshold-100
+rule was excluded from all five paths simultaneously (`ungrantable` blocked three of them;
+loosening deferred to tuning; tuning's `min(100+10, 95) > 100` is false), so no engine
+could have offered relief at any evidence level. This fired Falsifier 4 of the 2026-08-11
+calibration decision, which named "he disables any enforcement in that window" as the
+condition under which that document becomes evidence for a new recon rather than a
+foundation.
+
+**Alternatives rejected.**
+- *A fourth label fix alone.* 2026-07-01 fixed `--format=`, 2026-08-11 fixed
+  `node_modules/.cache`, each followed by a new firehose. The label fix ships here too
+  (`format` now requires a device object), but shipping only that loses the same game a
+  third time — the loop, not the regex, is why nothing self-corrected.
+- *Attendance signals.* Rejected on evidence: the owner reported the pain as mostly
+  UNATTENDED, which is also THESIS.md's stated subject.
+- *Auto-allow on repeat.* `warn` delivers the same relief while keeping every act in the
+  ledger; volume proves a rule is miscalibrated, never that an act is safe.
+- *Auto-demoting `ungrantable` rules too.* A rule an attacker can disarm by firing it is
+  not a rule. Those get a one-click card instead.
+- *Proposal-only, no enforcement.* That is the design that just failed — it still requires
+  the drowning operator to reach up.
+
+**Result.** Verified by revert-to-red on the regex, rendered on `/policies`, and proven at
+both grains through the live guard (policy grain demotes; a co-gating block stays `block`;
+`git log` demotes while `cowsay` stays governed under the same policy). Spec and
+falsifiers: `docs/superpowers/specs/2026-08-16-interruption-budget-design.md`.
+
 ## 2026-08-12 — A `runtime` label is only true if the probe reads that runtime's config
 
 **Decision.** The liveness probe resolves its config path FROM `--runtime`, parses

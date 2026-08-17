@@ -14,18 +14,26 @@ import {
   RELAX_RULE,
   DEACTIVATE_RULE,
   PRECEDENT_RULE,
+  BUDGET_RULE,
   deriveLooseningProposals,
   derivePrecedentProposals,
+  deriveBudgetProposals,
+  deriveOverBudgetShapes,
   looseningProposalId,
   precedentProposalId,
+  budgetProposalId,
   policyEnvelope,
   LOOSENING_DEFAULTS,
+  INTERRUPTION_BUDGET_DEFAULTS,
   type LooseningRule,
 } from '../../../lib/posture/loosening';
-import { normalizeFlags, precedentEligible, PRECEDENT_TTL_DAYS } from '../../../lib/policy-shapes';
+import { normalizeFlags, precedentEligible, PRECEDENT_TTL_DAYS, commandShapeKey } from '../../../lib/policy-shapes';
+import { getInterruptionBudget } from '../../../lib/guard/caches';
 import { getActivePolicies } from '../../../lib/repositories/guardrails.repository';
 import {
   getInterruptOutcomesByPolicyAction,
+  getInterruptVolumeByPolicy,
+  getRecentInterruptGoals,
   getPrecedentOutcomes,
   createPrecedentGrant,
   getLooseningDecisions,
@@ -92,9 +100,14 @@ export async function GET(request: Request) {
       );
     }
 
-    const [rows, precedentRows, policies, decisions] = await Promise.all([
+    const [rows, precedentRows, volumeRows, goalRows, budget, policies, decisions] = await Promise.all([
       getInterruptOutcomesByPolicyAction(sql, orgId, days, { includeSynthetic }),
       getPrecedentOutcomes(sql, orgId, days, { includeSynthetic }),
+      // Interruption budget rides its OWN fixed window, not ?days: it answers
+      // "is this rule unlivable right now", not "what did the last month show".
+      getInterruptVolumeByPolicy(sql, orgId, INTERRUPTION_BUDGET_DEFAULTS.windowHours, { includeSynthetic }),
+      getRecentInterruptGoals(sql, orgId, INTERRUPTION_BUDGET_DEFAULTS.windowHours, { includeSynthetic }),
+      getInterruptionBudget(sql, orgId),
       getActivePolicies(sql, orgId),
       getLooseningDecisions(sql, orgId),
     ]);
@@ -119,8 +132,21 @@ export async function GET(request: Request) {
         .filter((k): k is string => k !== null),
     );
 
+    // Budget proposals lead the list: an over-budget rule is a live defect
+    // report, and it is the only rule here that fires without the operator
+    // having adjudicated anything (see deriveBudgetProposals for why).
+    const budgetProposals = deriveBudgetProposals(volumeRows, policies, {
+      windowHours: INTERRUPTION_BUDGET_DEFAULTS.windowHours,
+      budget,
+    });
+    // A policy already reported over budget must not ALSO be queued for
+    // deactivation by the rate-based rule — same policy, same button, two cards.
+    const budgetPolicyIds = new Set(budgetProposals.map((p) => p.policy_id));
     const derived = [
-      ...deriveLooseningProposals(rows, policies, { windowDays: days, minFired, minResolved }),
+      ...budgetProposals,
+      ...deriveLooseningProposals(rows, policies, { windowDays: days, minFired, minResolved }).filter(
+        (p) => !budgetPolicyIds.has(p.policy_id),
+      ),
       ...derivePrecedentProposals(precedentRows, { windowDays: days }).filter(
         (p) => !grantedKeys.has(p.id),
       ),
@@ -145,7 +171,16 @@ export async function GET(request: Request) {
       min_fired: minFired,
       min_resolved: minResolved,
       synthetic_included: includeSynthetic,
-      inputs: { outcome_rows: rows.length },
+      interruption_budget: {
+        per_window: budget,
+        window_hours: INTERRUPTION_BUDGET_DEFAULTS.windowHours,
+        // Shape-grain relief is automatic and self-expiring — there is no
+        // ratify button, so it is reported rather than proposed. Reported with
+        // the SAME function the guard enforces with (deriveOverBudgetShapes).
+        shape_per_window: budget > 0 ? INTERRUPTION_BUDGET_DEFAULTS.shapePerWindow : 0,
+        shapes_over_budget: budget > 0 ? deriveOverBudgetShapes(goalRows, commandShapeKey) : [],
+      },
+      inputs: { outcome_rows: rows.length, volume_rows: volumeRows.length, goal_rows: goalRows.length },
       proposals: statusFilter ? proposals.filter((p) => p.status === statusFilter) : proposals,
       counts,
     });
@@ -189,8 +224,24 @@ function validateSnapshot(
     return { rule, policyId: '', actionType, flags };
   }
 
+  // Interruption budget: the only ratify action is deactivation, and its id is
+  // keyed on the policy alone. Ratifying is the operator agreeing the rule is
+  // not worth keeping — the guard's own demotion is temporary and needs no
+  // click, so this button exists for the permanent decision (and is the ONLY
+  // route out for an `ungrantable` rule, which the guard never auto-demotes).
+  if (rule === BUDGET_RULE) {
+    const policyId = p.policy_id;
+    if (typeof policyId !== 'string' || !policyId || policyId.length > MAX_POLICY_ID_LENGTH) {
+      return { error: `proposal.policy_id is required (1-${MAX_POLICY_ID_LENGTH} chars)` };
+    }
+    if (budgetProposalId(policyId) !== proposalId) {
+      return { error: 'proposal_id does not match the snapshot (policy_id)' };
+    }
+    return { rule, policyId, actionType: null };
+  }
+
   if (rule !== RELAX_RULE && rule !== DEACTIVATE_RULE) {
-    return { error: `proposal.rule must be ${RELAX_RULE}, ${DEACTIVATE_RULE} or ${PRECEDENT_RULE}` };
+    return { error: `proposal.rule must be ${RELAX_RULE}, ${DEACTIVATE_RULE}, ${PRECEDENT_RULE} or ${BUDGET_RULE}` };
   }
   const policyId = p.policy_id;
   if (typeof policyId !== 'string' || !policyId || policyId.length > MAX_POLICY_ID_LENGTH) {

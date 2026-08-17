@@ -22,10 +22,19 @@ const MODERATE_RISK_SYSTEMS = ['filesystem', 'shell'];
 // Word-bounded: the old unanchored substrings flipped scores on wording alone
 // ('monkey' matched /key/ +15, 'pushback' matched /push/ +10, 'formatting'
 // matched /format/ +20) — a top source of the "risk looks random" perception.
-// 'format' additionally rejects flag forms: punctuation satisfies \b, so
-// `--format=""` scored +20 on read-only commands (calibration vector
-// git-show-format-flag). Prose ("format the disk") still matches.
-const DESTRUCTIVE_GOAL_PATTERNS = /rm\s+-rf|drop\s+table|delete\s+from|\btruncate\b|(?<!-)\bformat\b|\bwipe\b/i;
+//
+// 'format' requires a DEVICE OBJECT rather than merely rejecting one flag
+// spelling. The 2026-07-01 fix was `(?<!-)\bformat\b`, which rejects
+// `--format=` but not `--date=format:` (the preceding char is `=`, not `-`)
+// and not `npm run format`. Every git-log command in the 2026-08-16 incident
+// carried `--date=format:`, so read-only `git log` scored the 100 clamp and
+// produced 1,759 require_approval decisions in seven days — the direct cause
+// of the operator disabling every policy in the org. Destructive `format` is
+// always a verb applied to a disk; a flag value and an npm script never are.
+// Prose ("format the disk", "format c:") still matches. Narrowing only ever
+// removes +20, so it cannot raise any existing score.
+const DESTRUCTIVE_GOAL_PATTERNS =
+  /rm\s+-rf|drop\s+table|delete\s+from|\btruncate\b|\bformat(?:s|ed|ting)?\s+(?:the\s+|my\s+|a\s+)?(?:[a-z]:(?:[\\/]|\s|$)|\/dev\/|disk|drive|partition|volume|file\s?system)|\bwipe\b/i;
 const DEPLOYMENT_GOAL_PATTERNS = /\bpush(?:es|ed|ing)?\b|\bdeploy|\brelease|\bship(?:s|ped|ping)?\b|\bmigrat/i;
 const SECRET_GOAL_PATTERNS = /\bsecrets?\b|\bcredentials?\b|\bpasswords?\b|\btokens?\b|\bkeys?\b|\.env\b/i;
 

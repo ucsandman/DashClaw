@@ -17,16 +17,21 @@ import {
   precedentEligible,
   PRECEDENT_TTL_DAYS,
 } from '../policy-shapes';
+import { TUNING_DEFAULTS } from '../policy-tuning/engine';
 
 export const RELAX_RULE = 'relax_policy_scope';
 export const DEACTIVATE_RULE = 'deactivate_policy';
+/** Interruption budget: a policy interrupting far past a sustainable rate is
+ *  reported as a defect on VOLUME ALONE. See INTERRUPTION_BUDGET_DEFAULTS. */
+export const BUDGET_RULE = 'over_interruption_budget';
 /** Precedent: a shape the operator has personally waved through, repeatedly,
  *  across days, becomes a narrow standing grant. See PRECEDENT_DEFAULTS. */
 export const PRECEDENT_RULE = 'precedent_grant';
 export type LooseningRule =
   | typeof RELAX_RULE
   | typeof DEACTIVATE_RULE
-  | typeof PRECEDENT_RULE;
+  | typeof PRECEDENT_RULE
+  | typeof BUDGET_RULE;
 
 export const LOOSENING_DEFAULTS = {
   /** Override rate at or above which relaxation is proposed. Stricter than
@@ -112,6 +117,29 @@ export interface DeriveLooseningOptions {
 // The one relaxation direction tuning already owns. Loosening never
 // double-queues a risk_threshold policy to the same human (v4.4 thesis).
 const TUNING_OWNED_POLICY_TYPES = new Set(['risk_threshold']);
+
+/**
+ * Does the tuning engine actually have a move available on this policy?
+ *
+ * "Tuning owns risk_threshold" was true as a division of labour and false as a
+ * guarantee of coverage. Tuning's only relaxation is raise_risk_threshold, and
+ * it computes `next = min(threshold + step, thresholdCap)` then requires
+ * `next > current` (policy-tuning/engine.ts). A policy at or above the cap
+ * therefore yields `next <= current` and is silently skipped — by tuning
+ * because the arithmetic gives it nothing to propose, and by loosening because
+ * it deferred to tuning. The org's threshold-100 rule fell in that seam and no
+ * engine on either side could ever offer relief for it.
+ *
+ * 2026-08-16 incident: that seam is where 1,759 interruptions in seven days
+ * went unanswered, and it is the direct reason the operator disabled the whole
+ * policy set. Loosening now claims any risk_threshold policy tuning cannot move.
+ */
+export function tuningCanMove(policyType: string, rules: Record<string, unknown>): boolean {
+  if (!TUNING_OWNED_POLICY_TYPES.has(policyType)) return false;
+  const current = Number(rules.threshold ?? 80);
+  if (!Number.isFinite(current)) return false;
+  return Math.min(current + TUNING_DEFAULTS.thresholdStep, TUNING_DEFAULTS.thresholdCap) > current;
+}
 
 function pct(rate: number): string {
   return `${Math.round(rate * 1000) / 10}%`;
@@ -208,12 +236,15 @@ export function deriveLooseningProposals(
     const policyId = typeof p.id === 'string' ? p.id : '';
     if (!policyId) continue;
     const policyType = typeof p.policy_type === 'string' ? p.policy_type : 'unknown';
-    if (TUNING_OWNED_POLICY_TYPES.has(policyType)) continue;
+    const rules = parseRules(p.rules);
+    // Defer to tuning only where tuning actually has a move. A risk_threshold
+    // policy at/above thresholdCap is unreachable by tuning's arithmetic, so
+    // skipping it here would leave it unreachable by BOTH engines.
+    if (tuningCanMove(policyType, rules)) continue;
     const grains = grainsByPolicy.get(policyId);
     if (!grains || grains.length === 0) continue;
 
     const policyName = typeof p.name === 'string' ? p.name : policyId;
-    const rules = parseRules(p.rules);
     const envelope = policyEnvelope(rules);
 
     const updatedMs = p.updated_at == null ? NaN : new Date(p.updated_at as string | number | Date).getTime();
@@ -444,4 +475,207 @@ export function derivePrecedentProposals(
   }
 
   return out.sort((a, b) => b.evidence.approved - a.evidence.approved || a.id.localeCompare(b.id));
+}
+
+// ── Interruption budget ─────────────────────────────────────────────────────
+// The other three rules all gate on ADJUDICATED outcomes: `resolved >= 5` plus
+// an override rate. That makes their evidence channel identical to the pain
+// channel, so it dries up exactly when relief is most needed — the operator
+// who is drowning is the one who stops clicking, and their silence reads as
+// "no evidence" rather than "maximum evidence". The 2026-08-16 incident is the
+// proof: 1,759 interruptions in seven days, ~zero resolutions, zero proposals
+// from any engine, and the operator disabled the entire policy set.
+//
+// This rule reads the one signal that survives an operator who has given up:
+// how often the policy fired. No join, no rate, no clicks.
+//
+// It is a DEFECT REPORT, not an authorization. Volume says a rule is
+// miscalibrated; it never says the underlying act is safe. So the enforcement
+// side (applyInterruptionBudget, guard/evaluate.ts) only ever demotes
+// require_approval to `warn` — the action still lands in the ledger, still
+// renders, and can still be reviewed after the fact. It never reaches `allow`,
+// never touches `block`, and never demotes a rule the operator marked
+// `ungrantable` (F1) — an attacker who can make a rule fire must not be able
+// to disarm it by firing it.
+
+export const INTERRUPTION_BUDGET_DEFAULTS = {
+  /** Interruptions per rolling window past which a policy is over budget.
+   *  ~2/hour sustained. Wes's org ran at 251/day against this. */
+  perWindow: 50,
+  /** Rolling evidence window. */
+  windowHours: 24,
+  /**
+   * Per-COMMAND-SHAPE budget, the surgical sibling of perWindow. Far lower,
+   * because it is far narrower: `git log` repeating 10× in a day is already
+   * plainly routine, while a whole policy needs more evidence before its rate
+   * is judged unlivable. Shape relief leaves the policy fully enforcing for
+   * every other command it covers — the rule keeps working, one noisy verb
+   * stops asking.
+   */
+  shapePerWindow: 10,
+  /** How long one auto-demotion lasts before the policy re-asserts itself and
+   *  has to earn the demotion again. Deliberately short: a demotion is a
+   *  symptom report, and the posture must restore itself without anyone
+   *  remembering (same self-healing contract as the approval pause). */
+  demoteHours: 24,
+} as const;
+
+/** Raw per-policy volume row from getInterruptVolumeByPolicy. */
+export interface InterruptVolumeRow {
+  policy_id: unknown;
+  fired: unknown;
+  first_fired_at?: unknown;
+  example_decision_ids?: unknown;
+}
+
+export interface BudgetProposal {
+  id: string;
+  rule: typeof BUDGET_RULE;
+  policy_id: string;
+  policy_name: string;
+  policy_type: string;
+  action_type: null;
+  /** True when the guard is ALREADY auto-demoting this policy to warn. False
+   *  when it is over budget but `ungrantable`, so nothing was demoted and the
+   *  operator's click is the only way out. */
+  auto_demoted: boolean;
+  ungrantable: boolean;
+  title: string;
+  summary: string;
+  evidence: {
+    window_hours: number;
+    budget: number;
+    fired: number;
+    /** fired / budget. 35.2 means it interrupted 35× its sustainable rate. */
+    over_by: number;
+    example_decision_ids: string[];
+  };
+  patch: { active: false };
+}
+
+export function budgetProposalId(policyId: string): string {
+  return (
+    'lp_' +
+    createHash('sha256').update(`${BUDGET_RULE}\n${policyId}`).digest('hex').slice(0, 16)
+  );
+}
+
+export interface DeriveBudgetOptions {
+  windowHours?: number;
+  budget?: number;
+}
+
+function plural(n: number, one: string, many: string): string {
+  return n === 1 ? one : many;
+}
+
+/**
+ * Pure: derive interruption-budget proposals from per-policy volume and the
+ * org's active policies.
+ *
+ * Rejection-only, like every other derive* here — it cannot widen anything, it
+ * can only decline to report. A budget of 0 disables the rule entirely.
+ */
+export function deriveBudgetProposals(
+  rows: InterruptVolumeRow[],
+  policies: LooseningPolicyRow[],
+  opts: DeriveBudgetOptions = {},
+): BudgetProposal[] {
+  const windowHours = Math.max(1, opts.windowHours ?? INTERRUPTION_BUDGET_DEFAULTS.windowHours);
+  const budget = opts.budget ?? INTERRUPTION_BUDGET_DEFAULTS.perWindow;
+  if (!Number.isFinite(budget) || budget <= 0) return [];
+
+  const volumeByPolicy = new Map<string, InterruptVolumeRow>();
+  for (const row of rows) {
+    if (typeof row.policy_id !== 'string' || !row.policy_id) continue;
+    volumeByPolicy.set(row.policy_id, row);
+  }
+
+  const out: BudgetProposal[] = [];
+
+  for (const p of policies) {
+    const policyId = typeof p.id === 'string' ? p.id : '';
+    if (!policyId) continue;
+    const row = volumeByPolicy.get(policyId);
+    if (!row) continue;
+    const fired = Number(row.fired) || 0;
+    if (fired <= budget) continue;
+
+    const rules = parseRules(p.rules);
+    const ungrantable = rules.ungrantable === true;
+    const policyName = typeof p.name === 'string' ? p.name : policyId;
+    const policyType = typeof p.policy_type === 'string' ? p.policy_type : 'unknown';
+    const exampleIds = Array.isArray(row.example_decision_ids)
+      ? row.example_decision_ids.map((v) => String(v ?? '')).filter(Boolean).slice(0, 5)
+      : [];
+    const overBy = Math.round((fired / budget) * 10) / 10;
+
+    out.push({
+      id: budgetProposalId(policyId),
+      rule: BUDGET_RULE,
+      policy_id: policyId,
+      policy_name: policyName,
+      policy_type: policyType,
+      action_type: null,
+      auto_demoted: !ungrantable,
+      ungrantable,
+      title: `"${policyName}" is interrupting ${overBy}× faster than you can answer`,
+      summary:
+        `${fired} ${plural(fired, 'interruption', 'interruptions')} in the last ${windowHours}h ` +
+        `against a budget of ${budget}. ` +
+        (ungrantable
+          ? 'This rule is marked ungrantable, so nothing was relaxed automatically — ' +
+            'a rule that can be disarmed by firing it is not a rule. Deactivate it here, ' +
+            'or fix what is scoring so high.'
+          : `New interruptions from this rule are being downgraded to a warning for ` +
+            `${INTERRUPTION_BUDGET_DEFAULTS.demoteHours}h so your agents keep moving. ` +
+            'Actions still record and still show in the ledger. Deactivate it for good, or fix the rule.'),
+      evidence: {
+        window_hours: windowHours,
+        budget,
+        fired,
+        over_by: overBy,
+        example_decision_ids: exampleIds,
+      },
+      patch: { active: false },
+    });
+  }
+
+  return out.sort((a, b) => b.evidence.fired - a.evidence.fired || a.id.localeCompare(b.id));
+}
+
+export interface OverBudgetShape {
+  /** commandShapeKey() output, e.g. "git log". */
+  key: string;
+  fired: number;
+}
+
+/**
+ * Pure: count interruptions per command shape and return the ones over budget.
+ *
+ * Shared by the guard (getOverBudgetShapeKeys, which enforces) and the
+ * /policies surface (which explains). Both MUST bucket identically — a UI that
+ * groups differently from the enforcement would describe relief the operator
+ * is not getting, which is worse than no UI at all.
+ *
+ * `shapeKeyOf` is injected rather than imported so this stays pure and the
+ * caller controls the normalizer version.
+ */
+export function deriveOverBudgetShapes(
+  goals: Array<{ declared_goal?: unknown }>,
+  shapeKeyOf: (goal: unknown) => string | null,
+  budget: number = INTERRUPTION_BUDGET_DEFAULTS.shapePerWindow,
+): OverBudgetShape[] {
+  if (!Number.isFinite(budget) || budget <= 0) return [];
+  const counts = new Map<string, number>();
+  for (const g of goals) {
+    const key = shapeKeyOf(g?.declared_goal);
+    if (!key) continue; // an unreadable goal is never budgeted
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const out: OverBudgetShape[] = [];
+  for (const [key, fired] of counts) {
+    if (fired > budget) out.push({ key, fired });
+  }
+  return out.sort((a, b) => b.fired - a.fired || a.key.localeCompare(b.key));
 }

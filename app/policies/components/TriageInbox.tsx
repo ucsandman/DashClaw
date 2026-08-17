@@ -50,6 +50,7 @@ import {
   dismissLooseningProposal,
   undoLooseningDecision,
   isPrecedent,
+  isBudget,
   type AnyLooseningProposal,
 } from '../lib/looseningClient';
 import {
@@ -192,6 +193,24 @@ function describe(item: InboxItem): Descriptor {
           ],
         };
       }
+      // An interruption-budget report has NO approval evidence by design — the
+      // whole point is that it fires when nobody resolved anything. Showing an
+      // override rate here would be showing a rate over zero samples.
+      if (isBudget(p)) {
+        return {
+          tagClass: styles.ktLoose,
+          Icon: ShieldMinus,
+          label: 'Loosen',
+          lead: p.title,
+          evidence: [
+            <><b>{p.evidence.fired}&times;</b> in {p.evidence.window_hours}h</>,
+            <>budget <b>{p.evidence.budget}</b></>,
+            p.auto_demoted
+              ? <>now <b>warning only</b></>
+              : <><b>still interrupting</b> (ungrantable)</>,
+          ],
+        };
+      }
       const { approvals, override_rate } = p.evidence;
       const resolved = approvals.approved + approvals.denied;
       return {
@@ -243,9 +262,15 @@ function armedConsequence(item: InboxItem): string {
     case 'loosen':
       // The effect line must state the SCOPE, not just the act. A precedent
       // creates standing authority, so say what it covers and for how long.
-      return isPrecedent(item.proposal)
-        ? `Creates a ${item.proposal.ttl_days}-day grant for this exact kind of action — nothing else`
-        : `Relaxes "${item.proposal.policy_name}" now`;
+      if (isPrecedent(item.proposal)) {
+        return `Creates a ${item.proposal.ttl_days}-day grant for this exact kind of action — nothing else`;
+      }
+      // Budget ratify is PERMANENT deactivation, not the guard's temporary
+      // downgrade. Saying "relaxes" here would understate it.
+      if (isBudget(item.proposal)) {
+        return `Turns "${item.proposal.policy_name}" off for good — the automatic downgrade is only temporary`;
+      }
+      return `Relaxes "${item.proposal.policy_name}" now`;
     case 'calibration':
       return 'Queues a golden vector for the maintainer to forge';
   }

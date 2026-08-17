@@ -308,6 +308,70 @@ function precedentGrantMatches(rawGrantFlags: unknown, context: GrantContext): b
   return grantFlags.every((f, i) => f === actFlags[i]);
 }
 
+// ── Command shape ───────────────────────────────────────────────────────────
+// A coarse identity for "the same KIND of command", used by the shape-level
+// interruption budget (2026-08-16 incident). extractDecisionShape below keys on
+// (action_type, target_prefix), which is right for file writes and useless for
+// shell commands — a hundred different `git log` invocations across ten repos
+// share no target prefix, so they never group. This keys on the command verb
+// instead, which is what actually repeats.
+//
+// Deliberately coarse: `git log` — not the flags, not the repo, not the range.
+// The operator's judgment "I do not need to approve git log" is about the verb,
+// and a key that changed with every `--since` value would never reach a budget.
+
+/** Command words that only ever wrap the real command. */
+const SHAPE_WRAPPER_WORDS = new Set([
+  'cd', 'sudo', 'env', 'time', 'nohup', 'exec', 'command',
+  'rtk', 'proxy', 'npx', 'pnpm', 'bunx', 'dotenv',
+  'bash', 'sh', 'zsh', 'powershell', 'pwsh', 'cmd',
+]);
+
+/** Prefixes the hooks put on declared_goal to name the tool that ran. */
+const SHAPE_TOOL_PREFIX = /^(bash|powershell|pwsh|shell|mcp|edit|write|read|task|webfetch|glob|grep)\s*:\s*/i;
+
+/**
+ * Coarse command identity for a declared_goal, or null when nothing usable
+ * can be read out of it (which means "never budget this" — fail toward
+ * governing).
+ *
+ * Non-shell tools keep their own identity: `MCP: foo__bar` → `mcp:foo__bar`,
+ * `Edit: C:\x\y.ts` → `edit`. Shell goals reduce to the first one or two bare
+ * command words with wrappers stripped, so `rtk proxy npx biome check .`
+ * and `biome check src/` share the key `biome check`.
+ */
+export function commandShapeKey(declaredGoal: unknown): string | null {
+  if (typeof declaredGoal !== 'string') return null;
+  const trimmed = declaredGoal.trim();
+  if (!trimmed) return null;
+
+  const prefixMatch = trimmed.match(SHAPE_TOOL_PREFIX);
+  const tool = prefixMatch?.[1] ? prefixMatch[1].toLowerCase() : null;
+  const body = prefixMatch ? trimmed.slice(prefixMatch[0].length).trim() : trimmed;
+
+  // A named tool invocation IS its own shape — there is no command line to parse.
+  if (tool === 'mcp') {
+    const name = body.split(/\s+/)[0];
+    return name ? `mcp:${name.toLowerCase()}` : null;
+  }
+  if (tool && tool !== 'bash' && tool !== 'powershell' && tool !== 'pwsh' && tool !== 'shell') {
+    return tool;
+  }
+
+  // Bare command words only: no flags (-x), no paths (/ \ :), no quotes, no
+  // substitutions. Those are the parts that vary run to run.
+  const words: string[] = [];
+  for (const raw of body.split(/[\s;|&()]+/)) {
+    if (!/^[a-z][a-z0-9_.-]*$/i.test(raw)) continue;
+    const w = raw.toLowerCase();
+    if (SHAPE_WRAPPER_WORDS.has(w)) continue;
+    words.push(w);
+    if (words.length === 2) break;
+  }
+  if (words.length === 0) return null;
+  return words.join(' ');
+}
+
 /** Shape of a stored guard_decisions row (action_type column + context JSON text). */
 export function extractDecisionShape(row: { action_type?: unknown; context?: unknown }): ActionShape {
   const actionType = typeof row.action_type === 'string' && row.action_type ? row.action_type : 'unknown';

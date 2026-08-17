@@ -10,11 +10,12 @@ import { EVENTS, publishOrgEvent } from '../events';
 import { getActBindingMode } from '../act-binding';
 import { computeActContentHash } from '../act-content-hash';
 import { getJtiReplayMode } from '../replay-protection';
-import { grantMatches, grantIsExpired, grantCoversRisk, grantMaxRisk } from '../policy-shapes';
+import { grantMatches, grantIsExpired, grantCoversRisk, grantMaxRisk, commandShapeKey } from '../policy-shapes';
+import { INTERRUPTION_BUDGET_DEFAULTS } from '../posture/loosening';
 import { DECISION_SEVERITY, sevOf } from './internal';
 import type { GuardSql, GuardEvalContext, PolicyRow, PolicyRules, PolicyResult, Preliminary, GuardDecisionInsert } from './types';
 import { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, isKnownPolicyType } from './policy';
-import { getOrgHaltState, getActiveApprovalPause, loadApplicablePolicies, getPredictiveSettings, getCalibrationRuntime, getHasLivePlan, getExternalVerdictConfig } from './caches';
+import { getOrgHaltState, getActiveApprovalPause, getOverBudgetPolicyIds, getOverBudgetShapeKeys, loadApplicablePolicies, getPredictiveSettings, getCalibrationRuntime, getHasLivePlan, getExternalVerdictConfig } from './caches';
 import type { ExternalVerdictConfig } from './caches';
 import type { ExternalVerdictEvidence } from './external-verdict';
 import { classifyDeviation, summarizeAct } from './deviation';
@@ -552,6 +553,104 @@ async function applyApprovalPause(deps: GuardPhaseDeps, acc: GuardAccumulator): 
   } catch (err) {
     // Fail closed: an unreadable pause leaves require_approval standing.
     console.warn('[Guard] approval-pause lookup failed:', (err as Error).message);
+  }
+}
+
+/**
+ * Interruption-budget post-pass: a policy interrupting far past the rate a
+ * human can answer is treated as a DEFECT, and its verdict is downgraded from
+ * require_approval to `warn` until it stops being one.
+ *
+ * Why this exists, and why it is not just another grant. Every other
+ * relaxation path in this engine — allow_grant, precedent, the approval pause,
+ * relax_policy_scope, deactivate_policy, raise_risk_threshold — needs a human
+ * to have ADJUDICATED something: clicked approve, clicked ratify, clicked
+ * pause. On 2026-08-16 this org took 1,759 require_approval decisions in seven
+ * days, resolved effectively none (the volume is precisely what stops anyone
+ * working the queue), and every one of those six mechanisms therefore stayed
+ * silent. The operator's only remaining move was to disable every policy in
+ * the org, which is what happened. A relief valve that requires the drowning
+ * person to reach up and open it is not a relief valve.
+ *
+ * The signal here is the one that survives an operator who has stopped
+ * clicking: how often the rule fired.
+ *
+ * What it deliberately does NOT do:
+ *  - It never reaches `allow`. `warn` still records, still renders in the
+ *    ledger, still shows on /decisions — the operator loses the interrupt, not
+ *    the evidence. This is the whole difference between "this rule is
+ *    miscalibrated" (what volume proves) and "this act is safe" (what it does
+ *    not).
+ *  - It never touches `block`. Blocks are absolute (MAINTAINER.md §1).
+ *  - It never demotes a rule marked `ungrantable` (F1). A rule an attacker can
+ *    disarm BY FIRING IT is not a rule; catastrophe and control-plane
+ *    interruptions keep reaching a human however noisy they get. Those surface
+ *    as a proposal on /policies instead, where one click deactivates them.
+ *  - It never demotes when ANY gating policy is under budget. One healthy rule
+ *    on the same action keeps the interrupt: relief is only ever as wide as
+ *    the defect.
+ *  - It never edits a policy row. The demotion expires on its own from the
+ *    rolling window, restoring the exact prior posture with nothing to
+ *    reconcile.
+ *
+ * Read-only, so it runs under `simulate` too, and it runs beside the approval
+ * pause — before the CONSUMING grant passes, so a demotion never burns an
+ * operator's single-use approval.
+ */
+async function applyInterruptionBudget(deps: GuardPhaseDeps, acc: GuardAccumulator): Promise<void> {
+  if (acc.highestDecision !== 'require_approval') return;
+  if (acc.gatingPolicies.length === 0) return;
+  // F1: an ungrantable rule is never auto-relaxed, however loud it gets. The
+  // warning keeps the over-budget condition visible in the decision record so
+  // the ledger explains why nothing was relaxed.
+  const ungrantable = acc.gatingPolicies.find((g) => g.ungrantable);
+  if (ungrantable) {
+    acc.warnings.push(
+      `${ungrantable.name}: marked ungrantable — the interruption budget cannot downgrade this verdict`
+    );
+    return;
+  }
+  const demote = (marker: string, why: string): void => {
+    acc.warnings.push(
+      `${why} — downgraded to a warning WITHOUT human review. No human approved this action. ` +
+      'Review it on /policies.'
+    );
+    acc.matchedPolicies.push(marker);
+    acc.highestDecision = 'warn';
+    // Same forensic move as the pause and grant passes: the gating reasons stop
+    // deciding but stay visible, so the row still says WHY it would have asked.
+    acc.warnings.push(...acc.reasons.map((r) => `over-budget past: ${r}`));
+    acc.reasons.length = 0;
+  };
+
+  try {
+    // Grain 1 — the whole policy is unlivable. EVERY gating policy must be over
+    // budget: a single well-calibrated rule raising the same verdict means the
+    // interrupt is earned, and relief is only ever as wide as the defect.
+    const over = await getOverBudgetPolicyIds(deps.sql, deps.orgId);
+    if (over.size > 0 && acc.gatingPolicies.every((g) => over.has(g.id))) {
+      const names = acc.gatingPolicies.map((g) => g.name).join(', ');
+      demote(
+        'builtin:interruption_budget',
+        `Interruption budget exceeded by ${names}, which is interrupting faster than anyone can answer`,
+      );
+      return;
+    }
+
+    // Grain 2 — the policy is fine, ONE command shape is spamming. Surgical:
+    // the rule keeps enforcing for everything else it covers.
+    const shapeKey = commandShapeKey(deps.context.declared_goal);
+    if (!shapeKey) return; // unreadable goal is never budgeted
+    const shapes = await getOverBudgetShapeKeys(deps.sql, deps.orgId);
+    if (!shapes.has(shapeKey)) return;
+    demote(
+      'builtin:shape_budget',
+      `"${shapeKey}" has asked for approval more than ${INTERRUPTION_BUDGET_DEFAULTS.shapePerWindow}× ` +
+      `in ${INTERRUPTION_BUDGET_DEFAULTS.windowHours}h`,
+    );
+  } catch (err) {
+    // Fail closed: an unreadable budget leaves require_approval standing.
+    console.warn('[Guard] interruption-budget lookup failed:', (err as Error).message);
   }
 }
 
@@ -1426,6 +1525,10 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     // Read-only, so it runs under simulate too — a preflight preview has to
     // show the posture the real call would meet.
     await timed('approval-pause', () => applyApprovalPause(deps, liveAcc));
+    // Interruption budget, beside the pause and for the same reason: it is a
+    // non-consuming downgrade, so it must land before the single-use grant
+    // passes below. Only acts if the pause did not already clear the verdict.
+    await timed('interruption-budget', () => applyInterruptionBudget(deps, liveAcc));
     if (!options.simulate) {
       // W2: an evaluation the deadline already abandoned has its result
       // discarded (the deadline branch below returns a degraded decision

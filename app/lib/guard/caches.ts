@@ -10,6 +10,9 @@ import { baseAgentId } from '../agent-identity-resolve';
 import type { GuardSql, PolicyRow } from './types';
 import type { CalibrationSettings, CalibrationState } from './calibration';
 import { parseCalibrationSettings } from './calibration';
+// Constants only; posture/loosening imports policy-shapes + policy-tuning/engine,
+// neither of which reaches back into guard/ (verified: no cycle).
+import { INTERRUPTION_BUDGET_DEFAULTS } from '../posture/loosening';
 
 // Hot-path caches (pattern: middleware apiKeyCache). Guard is invoked on every
 // governed tool call; policies and the predictive-risk settings change rarely.
@@ -72,6 +75,25 @@ export interface ApprovalPauseState {
   at?: string | null;
 }
 const approvalPauseCache = new Map<string, { pause: ApprovalPauseState | null; expires: number }>();
+
+/**
+ * Interruption budget (2026-08-16 incident): the set of policy ids currently
+ * interrupting past the org's sustainable rate. See applyInterruptionBudget in
+ * evaluate.ts for what it does with them, and deriveBudgetProposals in
+ * posture/loosening.ts for why volume alone is the right signal.
+ *
+ * Its own 60s TTL, longer than every other cache here. This is the one guard
+ * input that is a rolling AGGREGATE rather than a config row: the query scans a
+ * 24h slice of guard_decisions, so it must not run per governed call. 60s of
+ * staleness costs at most a minute of extra interruptions on a rule that has
+ * already fired 50+ times — nothing safety-relevant, because the budget can
+ * only ever DEMOTE require_approval to warn, never allow anything.
+ */
+export const INTERRUPTION_BUDGET_KEY = 'DASHCLAW_INTERRUPTION_BUDGET';
+const INTERRUPT_BUDGET_CACHE_TTL_MS = 60_000;
+const interruptBudgetCache = new Map<string, { ids: Set<string>; expires: number }>();
+/** Same contract, keyed on commandShapeKey() instead of policy id. */
+const shapeBudgetCache = new Map<string, { keys: Set<string>; expires: number }>();
 
 /**
  * External policy verdict provider config (RFC 2026-08-13-external-policy-
@@ -189,6 +211,8 @@ export function invalidateGuardSettingsCache(orgId?: string): void {
     calibrationSettingsCache.delete(orgId);
     calibrationStateCache.delete(orgId);
     externalVerdictCache.delete(orgId);
+    interruptBudgetCache.delete(orgId);
+    shapeBudgetCache.delete(orgId);
   } else {
     globalSettingsGeneration++;
     predictiveSettingsCache.clear();
@@ -197,6 +221,8 @@ export function invalidateGuardSettingsCache(orgId?: string): void {
     calibrationSettingsCache.clear();
     calibrationStateCache.clear();
     externalVerdictCache.clear();
+    interruptBudgetCache.clear();
+    shapeBudgetCache.clear();
   }
 }
 
@@ -298,6 +324,8 @@ export function __resetGuardCaches(): void {
   calibrationStateCache.clear();
   hasLivePlanCache.clear();
   externalVerdictCache.clear();
+  interruptBudgetCache.clear();
+  shapeBudgetCache.clear();
   settingsGeneration.clear();
   globalSettingsGeneration = 0;
 }
@@ -491,6 +519,7 @@ async function loadGeneralSettings(sql: GuardSql, orgId: string): Promise<{
   approvalPause: ApprovalPauseState | null;
   calibrationSettings: CalibrationSettings;
   externalVerdictConfig: ExternalVerdictConfig;
+  interruptionBudget: number;
 }> {
   const generationAtStart = currentSettingsGeneration(orgId);
   const { getSettings } = await import('../repositories/settings.repository');
@@ -508,6 +537,13 @@ async function loadGeneralSettings(sql: GuardSql, orgId: string): Promise<{
   );
   const calibrationSettings = parseCalibrationSettings(settingsList as Array<{ key?: unknown; value?: unknown }>);
   const externalVerdictConfig = await parseExternalVerdictConfig(settingsList, orgId);
+  // Interruption budget: unset falls back to the engine default (on by
+  // default — an operator who is already drowning will not go and enable the
+  // thing that stops the drowning). An explicit 0 disables it.
+  const budgetRaw = parseInt(String(settingsList.find((s) => s.key === INTERRUPTION_BUDGET_KEY)?.value ?? ''), 10);
+  const interruptionBudget = Number.isFinite(budgetRaw) && budgetRaw >= 0
+    ? budgetRaw
+    : INTERRUPTION_BUDGET_DEFAULTS.perWindow;
   if (currentSettingsGeneration(orgId) === generationAtStart) {
     predictiveSettingsCache.set(orgId, predictive);
     pruneCache(predictiveSettingsCache, now);
@@ -520,7 +556,93 @@ async function loadGeneralSettings(sql: GuardSql, orgId: string): Promise<{
     externalVerdictCache.set(orgId, { cfg: externalVerdictConfig, expires: now + GUARD_CACHE_TTL_MS });
     pruneCache(externalVerdictCache, now);
   }
-  return { enabled: predictive.enabled, threshold: predictive.threshold, halt, approvalPause, calibrationSettings, externalVerdictConfig };
+  return { enabled: predictive.enabled, threshold: predictive.threshold, halt, approvalPause, calibrationSettings, externalVerdictConfig, interruptionBudget };
+}
+
+/**
+ * The org's interruption budget, from the shared settings cache. Exported so
+ * the /policies proposal surface reports the SAME number the guard enforces —
+ * a card that says "budget 50" while the guard uses another value is a bug the
+ * operator can never diagnose.
+ */
+export async function getInterruptionBudget(sql: GuardSql, orgId: string): Promise<number> {
+  return (await loadGeneralSettings(sql, orgId)).interruptionBudget;
+}
+
+/**
+ * Policy ids currently over the org's interruption budget.
+ *
+ * Best-effort by construction: any failure returns an EMPTY set, which means
+ * "demote nothing" — the fail direction is more interruptions, never fewer.
+ * Callers must treat an empty set as "no relief", not as "no policies".
+ */
+export async function getOverBudgetPolicyIds(sql: GuardSql, orgId: string): Promise<Set<string>> {
+  const hit = interruptBudgetCache.get(orgId);
+  if (hit && hit.expires > Date.now()) return hit.ids;
+  let ids = new Set<string>();
+  try {
+    const budget = (await loadGeneralSettings(sql, orgId)).interruptionBudget;
+    if (budget > 0) {
+      const { getInterruptVolumeByPolicy } = await import('../repositories/loosening.repository');
+      const rows = await getInterruptVolumeByPolicy(
+        sql as never,
+        orgId,
+        INTERRUPTION_BUDGET_DEFAULTS.windowHours,
+      );
+      for (const r of rows) {
+        if (typeof r.policy_id === 'string' && (Number(r.fired) || 0) > budget) ids.add(r.policy_id);
+      }
+    }
+  } catch (err) {
+    // Fails toward MORE governance: an unreadable budget demotes nothing.
+    console.warn('[Guard] interruption-budget load failed (no demotion):', (err as Error).message);
+    ids = new Set<string>();
+  }
+  const now = Date.now();
+  interruptBudgetCache.set(orgId, { ids, expires: now + INTERRUPT_BUDGET_CACHE_TTL_MS });
+  pruneCache(interruptBudgetCache as never, now);
+  return ids;
+}
+
+/**
+ * Command shapes currently over the org's per-shape interruption budget — the
+ * surgical sibling of getOverBudgetPolicyIds. A policy stays fully enforcing;
+ * only the one repeating command verb stops asking.
+ *
+ * Grouped through commandShapeKey() so the guard buckets a live call EXACTLY
+ * the way this aggregation bucketed the history. Fails to an empty set (no
+ * relief), same direction as everything else on this path.
+ */
+export async function getOverBudgetShapeKeys(sql: GuardSql, orgId: string): Promise<Set<string>> {
+  const hit = shapeBudgetCache.get(orgId);
+  if (hit && hit.expires > Date.now()) return hit.keys;
+  let keys = new Set<string>();
+  try {
+    // A 0 budget disables BOTH grains — one switch turns the whole feature off.
+    const budget = (await loadGeneralSettings(sql, orgId)).interruptionBudget;
+    if (budget > 0) {
+      const [{ getRecentInterruptGoals }, { commandShapeKey }, { deriveOverBudgetShapes }] = await Promise.all([
+        import('../repositories/loosening.repository'),
+        import('../policy-shapes'),
+        import('../posture/loosening'),
+      ]);
+      const rows = await getRecentInterruptGoals(
+        sql as never,
+        orgId,
+        INTERRUPTION_BUDGET_DEFAULTS.windowHours,
+      );
+      // Same function the /policies surface uses, so enforcement and
+      // explanation can never bucket differently.
+      for (const s of deriveOverBudgetShapes(rows, commandShapeKey)) keys.add(s.key);
+    }
+  } catch (err) {
+    console.warn('[Guard] shape-budget load failed (no demotion):', (err as Error).message);
+    keys = new Set<string>();
+  }
+  const now = Date.now();
+  shapeBudgetCache.set(orgId, { keys, expires: now + INTERRUPT_BUDGET_CACHE_TTL_MS });
+  pruneCache(shapeBudgetCache as never, now);
+  return keys;
 }
 
 async function getCalibrationSettings(sql: GuardSql, orgId: string): Promise<CalibrationSettings> {

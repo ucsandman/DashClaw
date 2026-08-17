@@ -103,6 +103,12 @@ describe('ACI error control (empirical, golden-vector-seeded)', () => {
   it('holds the target under induced drift (agent behavior shifts mid-stream)', () => {
     const random = rng(7);
     const seeds = goldenSeeds();
+    // Seeds are drawn by INDEX from the golden corpus, so adding a vector
+    // reshuffles this whole stream. Note that `labeled` does NOT scale with
+    // stream length — θ converges upward as benign events are labeled, so a
+    // longer run yields FEWER labels (measured 2026-08-16: 6000 -> 122,
+    // 12000 -> 103). If corpus growth drops the count under the floor below,
+    // the fix is the score distribution of the new vectors, not the length.
     const stream: StreamEvent[] = Array.from({ length: 6000 }, (_, i) => {
       const s = seeds[Math.floor(random() * seeds.length)]!;
       // Drift: after the midpoint every score shifts +18 (benign work starts

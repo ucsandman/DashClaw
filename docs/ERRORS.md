@@ -4,6 +4,55 @@ Newest first. Full entries for multi-attempt debugging or reusable lessons; one-
 
 ---
 
+## 2026-08-16 — 1,759 interruptions in 7 days; operator disabled every policy in the org
+
+The incident the whole interruption-budget change exists for. Spec:
+`docs/superpowers/specs/2026-08-16-interruption-budget-design.md`.
+
+**Symptom.** Wes turned off every guard policy, saying routine actions demanded
+approval too often. Live ledger: **1,759 `require_approval` in 7 days** (~251/day),
+~zero resolved. All 30 sampled were read-only `git log` scored at the 100 clamp.
+
+**Root cause 1 — a narrow fix taken for a general one.** The 2026-07-01 session fixed
+"risk 100 on `git show --format=""`" with `(?<!-)\bformat\b`, which rejects `--format=`
+and nothing else. `--date=format:` has `=` before `format`, so the lookbehind passes and
++20 destructive still applied — to every git-log command Wes runs, and to `npm run format`.
+The 2026-07-01 memory records that case as *closed*. It was closed for one spelling.
+**Lesson: when a false positive comes from a token appearing in a flag, fix the CLASS
+(require the destructive object) — a lookbehind on one punctuation character is a patch
+for the sample you happened to have.**
+
+**Root cause 2 — an ownership seam between two engines.** `{threshold:100,
+action:require_approval, ungrantable:true}` was unreachable by all five relief paths at
+once: `ungrantable` blocked grants, precedent and the approval pause; loosening skipped
+all `risk_threshold` ("tuning owns it"); and tuning's only move computes
+`next = min(100+10, thresholdCap 95) = 95`, then requires `next > current`, so it never
+proposed. **Lesson: "engine B owns this type" is a division of labour, not a guarantee of
+coverage. Assert reachability, don't infer it — the table of five excluded mechanisms
+should have been a failing test, not a discovery made after the user quit.**
+
+**Root cause 3 — the feedback loop ran backwards.** Every relaxation rule gates on
+`resolved >= 5` plus an override rate, but volume is exactly what stops a human resolving
+anything. 1,759 interruptions produced ~zero resolutions, so every engine read "no
+evidence" when the truth was "maximum evidence". **Lesson: if a system's corrective signal
+is collected through the same channel as its pain, the correction dies precisely when it
+is needed. At least one relief path must key on something observable without the user
+doing anything.**
+
+**Fix.** Device-object `format` regex + 3 golden vectors (revert-to-red verified);
+`tuningCanMove()` so loosening claims what tuning cannot move; an interruption budget at
+policy and command-shape grain that fires on volume alone and downgrades to `warn` (never
+`allow`, never `block`, never an `ungrantable` rule).
+
+**Also caught in the same ledger, not fixed here:** two junk grants in the org
+(`[Grant] other → =`, `[Grant] other → Date.now()\``) minted from unparsed targets, and
+`[Grant] security → C:/Users/` — the exact over-broad prefix grant `policy-shapes.ts`
+already warns about in a comment.
+
+---
+
+- 2026-08-16 — Golden-vector additions silently broke `calibration-controller.test.ts` ("expected 122 to be greater than 200") / root cause: that test draws seeds by INDEX from the corpus, so any added vector reshuffles its whole stream, and my new benign-at-80 vector pushed θ up so fewer events got labeled. First fix attempt (doubling stream length) made it WORSE — 122 → 103 — because `labeled` does not scale with length; θ converges upward as benign events are labeled / prevention: the real fault was my vector modeling a read-only `git log` as `irreversible` on `shell` (80) instead of `review`/reversible/`execution` (10) like its sibling `git-show-format-flag`. An honest vector fixed the test as a side effect. When a corpus addition breaks a statistical test, suspect the vector's realism before the test's bounds.
+
 - 2026-08-16 — Repo-wide dead-code audit: `repowise get_dead_code` is not ground truth here / root cause: it reports aliased imports as unreferenced (`app/lib/doctor/checks/*.mjs` `runChecks` is imported by `engine.mjs` as `import { runChecks as databaseChecks }` and was still listed "no importers", confidence 1.0), and its index lagged HEAD by 6 days so it named `app/api/_archive/**` and `app/lib/claude-code/**`, both already deleted / prevention: treat it as a candidate generator only — confirm every finding with a grep against the working tree before deleting anything.
 
 - 2026-08-16 — Removed 10 unused deps; lint, typecheck and the full vitest suite all passed, then `next build` failed on `Module not found: 'react-grid-layout/css/styles.css'` / root cause: the orphan scan resolved JS/TS import specifiers only, and `app/globals.css` pulled the package in through a CSS `@import` / prevention: when dropping a dependency, grep `*.css` for `@import` and bare package refs too. Only the build catches this class — no test imports globals.css.

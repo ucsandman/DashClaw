@@ -14,6 +14,90 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-16 — The owner turned the whole product off, and the product had no way to notice
+
+Wes opened with: he had just disabled every policy in his org, out of
+annoyance at how often he had to click approve for routine things he wanted
+his agent to do unattended.
+
+Five days earlier I wrote a calibration decision that ended with four
+falsifiers. Number four read: *"...or he disables any enforcement in that
+window. Then the miscalibration was never the S1 label class, and this
+decision document is evidence for the next recon, not a foundation to
+extend."* So the first thing this session had to do was stop defending the
+last one.
+
+The numbers, once I actually looked at his live ledger instead of reasoning
+from the pack config: **1,759 approval interruptions in seven days**, about
+251 a day, against 2 blocks. Nearly all of them a read-only `git log`,
+scored 100 — the same number `rm -rf /` gets. I had measured his *local*
+database in August and written "his local DB has zero recorded approvals
+ever" as though that settled it. His hosted org was on fire the whole time.
+
+Three things were wrong, and only the first is the kind of bug I would
+normally call the bug.
+
+**The label.** On 2026-07-01 someone (me) fixed "risk 100 on a read-only git
+show" by changing `\bformat\b` to `(?<!-)\bformat\b` — reject the token when
+a hyphen precedes it, so `--format=` stops matching. It works. It also only
+ever covered that one spelling. `--date=format:` puts an `=` before
+`format`, the lookbehind passes, and +20 destructive lands on every git-log
+command Wes runs. `npm run format` too. The 2026-07-01 note records the case
+as closed. It was closed for the sample I had. The fix now requires `format`
+to take a device object — `format c:`, `format /dev/sda`, `format the disk` —
+which is what the word means when it is dangerous.
+
+**The seam.** His rule was `{threshold: 100, action: require_approval,
+ungrantable: true}`, and I found that *five* separate relief mechanisms were
+each structurally unable to touch it. `ungrantable` correctly blocks grants,
+precedents and the approval pause. The loosening engine skipped it because
+"tuning owns risk_threshold". And tuning's only relaxation computes
+`min(100 + 10, cap 95)` and then requires the result to exceed the current
+threshold — 95 > 100 is false, so it proposed nothing, forever, at any
+evidence level. Two engines, each believing the other had it. I only found
+this by writing the table out. That table should have been a failing test
+years before it was a discovery.
+
+**The loop, which is the real finding.** Every relaxation rule in the system
+gates on adjudicated outcomes — at least five resolved approvals, then an
+override rate. But the operator buried under 1,759 interruptions is exactly
+the operator who stops resolving them. His silence read as "no evidence"
+when it meant "maximum evidence". The harder DashClaw interrupted, the less
+evidence it earned to stop. A relief valve that requires the drowning person
+to reach up and open it is not a relief valve.
+
+So the change ships three things, kept separable because Wes explicitly
+wants to see which survive. The label fix. A `tuningCanMove()` handoff so
+loosening claims what tuning arithmetically cannot move. And an interruption
+budget that reads the one signal that survives an operator who has given up:
+how often a rule fired. Past 50 interruptions in 24h a policy is reported as
+a defect and downgraded to `warn`; past 10 for a single command shape, that
+shape stops interrupting while the policy keeps enforcing everything else.
+
+The boundaries are where the thinking went. It never reaches `allow` — `warn`
+still records and still renders, because volume proves a rule is
+miscalibrated, never that an act is safe. It never touches `block`. And it
+never auto-relaxes a rule marked `ungrantable`, because a rule an attacker
+can disarm *by firing it* is not a rule; those get a one-click card instead,
+which is also the only exit such a rule has ever had.
+
+Two things I got wrong along the way, both worth recording. My first golden
+vector modeled the git-log case as `irreversible` on `shell` to match the
+incident row, which scored it 80 — a benign-at-80 seed that quietly broke an
+unrelated calibration test by dragging θ upward. I "fixed" that by doubling
+the test's stream and made it worse (122 labeled → 103), because labeled
+count doesn't scale with length. The actual fault was my vector: a read-only
+`git log` is not irreversible, and modeling it honestly as `review` fixed the
+other test as a side effect. Second, my first pass at proving enforcement
+came back `block` and I nearly recorded that as a failure — it was the
+blocks-are-absolute rule working exactly as designed, on a case I had set up
+badly.
+
+Also spotted in his org and left alone as out of scope: two junk grants
+minted from unparsed targets (`[Grant] other → =`), and a
+`[Grant] security → C:/Users/` — the precise over-broad prefix grant that
+`policy-shapes.ts` already carries a comment warning about.
+
 ## 2026-08-14 (late night) — v5.25.0: the pack catalog gets a front door
 
 Wes looked at the Policies page and asked "what if DashClaw sold policy

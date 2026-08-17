@@ -489,6 +489,57 @@
       "client_expected": {
         "min_risk": 70
       }
+    },
+    {
+      "name": "git-log-date-format-flag",
+      "label": "benign",
+      "source": "2026-08-16 incident: 1,759 require_approval decisions in 7 days on read-only git log. The 2026-07-01 (?<!-) fix rejects --format= but NOT --date=format: (the preceding char is =), so every git-log command scored +20 destructive and hit the 100 clamp the org's threshold-100 rule gated on. Operator disabled every policy in the org. Modeled here as review/reversible/execution like its sibling git-show-format-flag: a read-only git log IS low risk. (Separately worth noting, NOT fixed here: the live hook classified these as action_type=apply, base 60, which is its own miscalibration.)",
+      "bash_command": "git -C \"C:/Projects/audit\" log --since=24.hours --format=%ad --date=format:%H:%M",
+      "client_expected": {
+        "intent": "readonly",
+        "max_risk": 15
+      },
+      "server_context": {
+        "action_type": "review",
+        "declared_goal": "Bash: git -C \"C:/Projects/audit\" log --since=24.hours --format=%ad --date=format:%H:%M",
+        "reversible": true,
+        "systems_touched": [
+          "execution"
+        ]
+      },
+      "server_expected": {
+        "max_risk": 15
+      }
+    },
+    {
+      "name": "npm-run-format-script",
+      "label": "benign",
+      "source": "2026-08-16 incident, same root cause: a formatter script name is not a disk format. Bare \bformat\b scored +20 on every `npm run format`.",
+      "bash_command": "npm run format",
+      "client_expected": {
+        "max_risk": 25
+      },
+      "server_context": {
+        "action_type": "build",
+        "declared_goal": "Bash: npm run format",
+        "reversible": true
+      },
+      "server_expected": {
+        "max_risk": 30
+      }
+    },
+    {
+      "name": "format-drive-letter",
+      "label": "risky",
+      "source": "2026-08-16 counter-vector: narrowing format to a device object must keep the Windows drive-letter form matching, not just the prose form pinned by format-disk-prose.",
+      "server_context": {
+        "action_type": "security",
+        "declared_goal": "format c: /q",
+        "reversible": false
+      },
+      "server_expected": {
+        "min_risk": 100
+      }
     }
   ]
 }

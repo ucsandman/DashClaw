@@ -105,6 +105,13 @@ export const VALID_SETTING_KEYS = [
   // admin-gated /api/approval-pause route; read on the guard hot path
   // (rides the same cached category-general settings read as the halt key).
   'DASHCLAW_APPROVAL_PAUSE',
+  // Interruption budget (2026-08-16 incident) — integer interruptions per
+  // policy per 24h past which the guard downgrades that policy's
+  // require_approval verdicts to `warn` and /policies reports it as a defect.
+  // Unset falls back to the shipped default (INTERRUPTION_BUDGET_DEFAULTS,
+  // posture/loosening.ts); an explicit '0' disables both the policy and the
+  // command-shape grain. Read on the guard hot path via its own 60s cache.
+  'DASHCLAW_INTERRUPTION_BUDGET',
   // Calibrated interruption controller (governance-core-theory §1). MODE is
   // 'off' (default) | 'shadow' | 'active'; TARGET_RATE is the operator-set
   // false-interruption bound α as a decimal string ('0.10'). Written by the

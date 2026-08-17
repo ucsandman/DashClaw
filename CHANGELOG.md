@@ -13,6 +13,41 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Fixed
+
+- **Read-only `git log` no longer scores as `rm -rf /`.** `DESTRUCTIVE_GOAL_PATTERNS`
+  now requires `format` to take a device object (`format c:`, `format /dev/sda`,
+  `format the disk`) instead of rejecting one flag spelling. The 2026-07-01
+  `(?<!-)\bformat\b` fix rejected `--format=` but not `--date=format:` (the preceding
+  character is `=`, not `-`), so every git-log command carrying `--date=format:` took
+  +20 destructive and hit the 100 clamp — 1,759 approval interruptions in seven days
+  in one org. `npm run format` was affected the same way. Pinned by three new golden
+  vectors; server-side only (the Python client classifier already graded `format` as a
+  readonly verb).
+- **A `risk_threshold` policy at or above tuning's cap is no longer unreachable by both
+  engines.** Loosening used to skip every `risk_threshold` policy on the grounds that
+  the tuning engine owned them, but tuning's only relaxation computes
+  `min(threshold + 10, 95)` and requires that to exceed the current threshold — so a
+  policy at 100 got nothing from either side. `tuningCanMove()` now decides the handoff.
+
+### Added
+
+- **Interruption budget** — the first relaxation path that fires without the operator
+  adjudicating anything. Every previous mechanism (`allow_grant`, precedent, approval
+  pause, scope relax, deactivate, threshold raise) gates on resolved approvals, but
+  interruption volume is exactly what stops a human resolving them. This one reads
+  volume only.
+  - *Policy grain*: past `DASHCLAW_INTERRUPTION_BUDGET` interruptions per 24h (default
+    50), a rule is reported on `/policies` as a defect and its `require_approval`
+    verdicts are downgraded to `warn`.
+  - *Command-shape grain*: past 10 interruptions per 24h for one command shape
+    (`git log`, `npm run`, `biome check` — normalized across wrappers, flags and paths),
+    that shape stops interrupting while its policy keeps enforcing everything else.
+  - Never reaches `allow`, never touches `block`, never relaxes a rule marked
+    `ungrantable` (those get a one-click deactivate card instead), and never demotes when
+    any co-gating rule is under budget. No migration, no new route, no new page.
+  - Set `DASHCLAW_INTERRUPTION_BUDGET` to `0` to disable both grains.
+
 ## [5.25.0] — 2026-08-14
 
 The Policy Pack Gallery. Platform-only ship — neither SDK's source changed, so

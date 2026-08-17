@@ -22,7 +22,7 @@ import {
   SYNTHETIC_PARAMS,
   syntheticExclusionSql,
 } from './policy-tuning.repository';
-import type { InterruptOutcomeRow, PrecedentOutcomeRow } from '../posture/loosening';
+import type { InterruptOutcomeRow, InterruptVolumeRow, PrecedentOutcomeRow } from '../posture/loosening';
 
 export interface LooseningDecisionRow {
   id: number;
@@ -101,6 +101,114 @@ export async function getInterruptOutcomesByPolicyAction(
     [orgId, days, opts.includeSynthetic === true, ...SYNTHETIC_PARAMS],
   );
   return rows as unknown as InterruptOutcomeRow[];
+}
+
+/**
+ * Interruption VOLUME per policy — the interruption-budget evidence.
+ *
+ * The critical difference from every other loosening query in this file: it
+ * does NOT join action_records, because it does not care whether a human ever
+ * resolved anything. That join is the defect this query exists to route around.
+ *
+ * 2026-08-16 incident: the org took 1,759 require_approval decisions in seven
+ * days and resolved effectively none of them, because the volume itself is
+ * what stops a human working the queue. Every existing rule gates on
+ * `resolved >= minResolved` and an override RATE, so the harder the system
+ * interrupts, the less evidence it earns to stop — the feedback loop runs
+ * backwards. `fired` is observable no matter what the human does, so a rule
+ * built on it alone still fires when the operator has given up entirely.
+ *
+ * Counts a decision when the policy interrupted OR when the budget already
+ * demoted it (the `builtin:interruption_budget` marker). Without that second
+ * term the signal self-erases: demoting drops the require_approval count,
+ * which restores the policy, which raises the count — an oscillator. Counting
+ * "times this policy WOULD have interrupted" is stable.
+ *
+ * Window clipped at guard_policies.updated_at like its siblings, so editing a
+ * policy (or ratifying relief for it) resets the evidence.
+ */
+export async function getInterruptVolumeByPolicy(
+  sql: SqlTag,
+  orgId: string,
+  hours: number,
+  opts: { includeSynthetic?: boolean } = {},
+): Promise<InterruptVolumeRow[]> {
+  const rows = await sql.query(
+    `SELECT sub.policy_id AS policy_id,
+            COUNT(*)::int AS fired,
+            MIN(sub.fired_at)::text AS first_fired_at,
+            (array_agg(sub.decision_id ORDER BY sub.fired_at DESC))[1:5] AS example_decision_ids
+     FROM (
+       SELECT gd.id AS decision_id,
+              jsonb_array_elements_text(gd.matched_policies::jsonb) AS policy_id,
+              gd.created_at::timestamptz AS fired_at
+       FROM guard_decisions gd
+       WHERE gd.org_id = $1
+         AND (
+           gd.decision = 'require_approval'
+           OR gd.matched_policies LIKE '%builtin:interruption_budget%'
+         )
+         -- ::timestamptz matters: created_at is TEXT on fresh drizzle schemas.
+         AND gd.created_at::timestamptz > NOW() - make_interval(hours => $2::int)
+         AND gd.matched_policies IS NOT NULL
+         AND gd.matched_policies LIKE '[%'
+         AND ${NOT_DEGRADED}
+         AND ${syntheticExclusionSql(3, 4, 5)}
+     ) sub
+     JOIN guard_policies gp ON gp.id = sub.policy_id AND gp.org_id = $1
+     WHERE sub.fired_at > GREATEST(
+       NOW() - make_interval(hours => $2::int),
+       COALESCE(gp.updated_at::timestamptz, '-infinity'::timestamptz)
+     )
+     GROUP BY sub.policy_id`,
+    [orgId, hours, opts.includeSynthetic === true, ...SYNTHETIC_PARAMS],
+  );
+  return rows as unknown as InterruptVolumeRow[];
+}
+
+/**
+ * Raw declared_goals of recent interruptions — the SHAPE-budget evidence.
+ *
+ * Returns rows rather than an aggregate on purpose: the grouping key is
+ * commandShapeKey() (policy-shapes.ts), a normalizer that strips wrappers,
+ * flags and paths. Reimplementing that in SQL would fork the definition, and
+ * the guard side must group EXACTLY the same way or the budget it enforces is
+ * not the budget it measured. Volume is small (this is a 24h slice of
+ * require_approval only, a few hundred rows at the incident's rate) and the
+ * caller caches for 60s, so the JS-side grouping costs nothing that matters.
+ *
+ * declared_goal lives inside the context JSON — guard_decisions has no such
+ * column. The `context LIKE '{%'` guard is load-bearing: ::jsonb throws on a
+ * row whose context is non-JSON, which would take out the whole page.
+ *
+ * Like getInterruptVolumeByPolicy, it counts already-demoted decisions too, so
+ * the signal does not erase itself once relief starts.
+ */
+export async function getRecentInterruptGoals(
+  sql: SqlTag,
+  orgId: string,
+  hours: number,
+  opts: { includeSynthetic?: boolean; limit?: number } = {},
+): Promise<Array<{ declared_goal: string | null }>> {
+  const limit = Math.min(Math.max(opts.limit ?? 5000, 1), 20000);
+  const rows = await sql.query(
+    `SELECT gd.context::jsonb->>'declared_goal' AS declared_goal
+     FROM guard_decisions gd
+     WHERE gd.org_id = $1
+       AND (
+         gd.decision = 'require_approval'
+         OR gd.matched_policies LIKE '%builtin:shape_budget%'
+       )
+       AND gd.created_at::timestamptz > NOW() - make_interval(hours => $2::int)
+       AND gd.context IS NOT NULL
+       AND gd.context LIKE '{%'
+       AND ${NOT_DEGRADED}
+       AND ${syntheticExclusionSql(3, 4, 5)}
+     ORDER BY gd.created_at DESC
+     LIMIT ${limit}`,
+    [orgId, hours, opts.includeSynthetic === true, ...SYNTHETIC_PARAMS],
+  );
+  return rows as unknown as Array<{ declared_goal: string | null }>;
 }
 
 /**

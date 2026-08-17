@@ -64,11 +64,57 @@ export interface PrecedentProposal {
   decision: LooseningDecisionSummary | null;
 }
 
-/** Either shape can appear in the loosen queue. Discriminate on `rule`. */
-export type AnyLooseningProposal = LooseningProposal | PrecedentProposal;
+/**
+ * An interruption-budget defect report: this policy is firing faster than any
+ * human can answer. Unlike every other rule in this queue it needs NO
+ * adjudication evidence — the operator drowning in interruptions is exactly
+ * the operator who stops resolving them, so the other rules go silent right
+ * when they are needed (2026-08-16 incident). Volume alone is the signal.
+ *
+ * The guard has usually already downgraded the rule to `warn` by the time this
+ * card appears (`auto_demoted`). That relief is temporary and self-expiring;
+ * ratifying is the operator's PERMANENT decision to deactivate the rule. For
+ * an `ungrantable` rule nothing was auto-demoted and this button is the only
+ * way out.
+ */
+export interface BudgetProposal {
+  id: string;
+  rule: 'over_interruption_budget';
+  policy_id: string;
+  policy_name: string;
+  policy_type: string;
+  action_type: null;
+  auto_demoted: boolean;
+  ungrantable: boolean;
+  title: string;
+  summary: string;
+  evidence: {
+    window_hours: number;
+    budget: number;
+    fired: number;
+    over_by: number;
+    example_decision_ids: string[];
+  };
+  patch: { active: false };
+  status: 'pending' | 'ratified' | 'dismissed';
+  decision: LooseningDecisionSummary | null;
+}
+
+/** Any shape can appear in the loosen queue. Discriminate on `rule`. */
+export type AnyLooseningProposal = LooseningProposal | PrecedentProposal | BudgetProposal;
 
 export function isPrecedent(p: AnyLooseningProposal): p is PrecedentProposal {
   return p.rule === 'precedent_grant';
+}
+
+export function isBudget(p: AnyLooseningProposal): p is BudgetProposal {
+  return p.rule === 'over_interruption_budget';
+}
+
+/** A command shape the guard stopped interrupting on automatically. */
+export interface OverBudgetShape {
+  key: string;
+  fired: number;
 }
 
 export interface LooseningProposalsPayload {
@@ -76,6 +122,12 @@ export interface LooseningProposalsPayload {
   min_fired: number;
   min_resolved: number;
   synthetic_included: boolean;
+  interruption_budget?: {
+    per_window: number;
+    window_hours: number;
+    shape_per_window: number;
+    shapes_over_budget: OverBudgetShape[];
+  };
   inputs: { outcome_rows: number };
   proposals: AnyLooseningProposal[];
   counts: { pending: number; ratified: number; dismissed: number };
