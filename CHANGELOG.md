@@ -13,6 +13,34 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Changed
+
+- **The calibration controller now loosens as well as tightens.** It had one arm:
+  above the calibrated threshold θ it could raise `allow`/`warn` to
+  `require_approval`, and below θ it could do nothing at all. That made the
+  controller's own target unreachable — θ rose on every approval, but the policy
+  interruptions underneath it stood regardless, so the engine could only ever add
+  interruptions to an operator's day and never remove one. The new demote arm
+  downgrades a policy's `require_approval` to `warn` below θ, which is what makes
+  the interruption set it controls actually `{score ≥ θ}`.
+
+  Bounded four ways, each closing a different way relief could be unearned: it
+  waits for 10 adjudications; it never reaches past `reliefCeiling` — the highest
+  risk score the operator personally approved and has not since denied at or above,
+  which starts at −1 so switching the mode on can never relieve a band nobody has
+  ruled on, and which one deny at score *s* retracts above *s* on the next call; it
+  never touches an `ungrantable` rule or an agent under a standing denial alarm;
+  and it demotes to `warn`, never `allow`, so the action stays on `/decisions` with
+  the gating reasons preserved. Blocks remain absolute, and no policy row is ever
+  edited — standing policy changes still route through the human-ratified `/policies`
+  rails.
+
+  New mode `relief` on `/calibration` runs the demote arm alone, for an operator who
+  wants interruptions removed without any added; `active` now runs both arms. Relief
+  is one click (it only reduces enforcement); `active` keeps its two-step confirm.
+  The loosening evidence queries count a relieved decision as an interruption that
+  still happened, so demoting cannot erase the signal that justified it.
+
 ### Fixed
 
 - **Read-only `git log` no longer scores as `rm -rf /`.** `DESTRUCTIVE_GOAL_PATTERNS`

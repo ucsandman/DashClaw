@@ -144,8 +144,12 @@ adversarial all-benign / all-dangerous streams.
   actually dangerous never enters the adjudication stream. No guarantee on the
   miss rate is *identifiable* from approve/deny feedback alone — any claim
   otherwise would be dishonest. What the design does instead: (i) the
-  automated direction is **tighten-only**, so acting on the feedback can only
-  reduce misses relative to the human-set baseline; (ii) the per-agent
+  automated loosening arm is bounded by adjudications that DID happen — it
+  never relieves past `reliefCeiling`, the highest score the operator
+  approved and has not since denied at or above, so it can only stop asking
+  about bands a human has personally ruled on, and it downgrades to `warn`
+  rather than `allow`, which keeps the miss observable in the ledger;
+  (ii) the per-agent
   e-process (§1.5) turns the dangerous labels we *do* see into escalation;
   (iii) the future label source for misses is the outcome axis
   (`outcome_status ∈ {failed, lost_confirmation}` on allowed actions,
@@ -216,12 +220,23 @@ resolution splits it along the charter's asymmetry:
   auditable would-have-done trail before anyone flips it on. Activation is an
   admin click on /calibration, audit-logged (`calibration.controller_updated`).
 
-Consequence for the guarantee, stated plainly: with tighten-only automation,
-the *upper* bound of Theorem 1 binds through the controller's own region, and
-convergence of the org's total false-interruption rate to α **is conditional
-on humans ratifying the loosening proposals** the controller surfaces. If the
-human ignores them, the org keeps its (over-tight) baseline and the observed
-rate sits above target — visibly, on the page. That is the correct shape for
+Consequence for the guarantee, stated plainly. Until 2026-08-17 the automation
+was tighten-only, and that made the theorem's fixed point unreachable from
+above: θ could rise all it liked, but every policy interruption BELOW θ stood
+regardless, so convergence of the org's total false-interruption rate to α was
+conditional on humans ratifying loosening proposals — and the 2026-08-16
+incident (1,759 interruptions in seven days, effectively none resolved, every
+policy then switched off) is what that condition costs when the human is
+exactly the resource the interruptions have exhausted.
+
+The demote arm closes the loop: below θ the controller downgrades a policy's
+`require_approval` to `warn`, so the interruption set it controls is genuinely
+`{score ≥ θ}` and ℓ is once again a function of θ in both directions. The
+loosening it can do on its own is bounded three ways — `reliefCeiling`
+(never past an approval the operator gave), `ungrantable` rules (never), and
+`warn` rather than `allow` (the evidence survives). Standing policy CHANGES
+remain human-ratified; what moved is the interruption, not the rule. That is
+the correct shape for
 a constitutional system: the math narrows the human decision; it does not
 absorb it.
 
@@ -653,7 +668,7 @@ what a sentence already says is decoration; per the mandate, it is left out.
 |---|---|
 | ACI recursion + deterministic average-loss bound (Thm 1) | **Established** (Gibbs–Candès 2021; conformal risk control, Angelopoulos et al. 2022–24) — proof re-derived here for the clamped, monotone-loss case |
 | Test supermartingale + Ville alarm (Thm 2) | **Established** (Ville 1939; Ramdas et al. game-theoretic statistics) |
-| HITL approve/deny as the conformal feedback stream; tighten-only ACI split along a constitutional constraint; sticky e-alarm as escalation primitive | **Novel application** (this ship) |
+| HITL approve/deny as the conformal feedback stream; two-armed ACI whose loosening arm is bounded by the operator's own adjudications (`reliefCeiling`) rather than by a constitutional carve-out; sticky e-alarm as escalation primitive | **Novel application** (this ship) |
 | Outcome-axis labels for the miss direction; e-BH across agents; mixture e-processes | **Speculative / roadmap** |
 | Sheaf reading of policy scopes | **Established math, does not pay here** — trigger documented (§2) |
 | Hash-chain + exported checkpoints over `guard_decisions` | **Established** (RFC 6962 family); design accepted, deferred (§3) |

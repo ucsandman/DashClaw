@@ -1801,7 +1801,7 @@
           "kind": "api",
           "status": "experimental",
           "interface": "POST /api/calibration/controller",
-          "purpose": "Admin-only controller controls: set mode ('off'|'shadow'|'active'), set the target false-interruption rate α, reset a single agent's e-process alarm, or reset the whole calibrated state. Activating the controller is a human policy decision made here by click (MAINTAINER.md §3); the controller itself only ever tightens.",
+          "purpose": "Admin-only controller controls: set mode ('off'|'shadow'|'relief'|'active'), set the target false-interruption rate α, reset a single agent's e-process alarm, or reset the whole calibrated state. Which arms run is a human decision made here by click (MAINTAINER.md §3): 'relief' only removes interruptions (require_approval below the calibrated threshold becomes a recorded warn, never past the riskiest action the operator approved), 'active' also adds them. Neither reaches allow, touches a block, or edits a policy row.",
           "auth": "x-api-key resolved to org via middleware; requires x-org-role === 'admin'",
           "inputs": {
             "body.mode": "'off'|'shadow'|'active', optional",

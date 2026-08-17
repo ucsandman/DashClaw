@@ -1458,6 +1458,18 @@ export function demoCalibrationController(fixtures: DemoFixtures) {
   const denied = events.filter((e) => e.label === 'denied').length;
   const lossSum = events.reduce((s, e) => s + e.loss, 0);
 
+  // Demote-arm bound, folded oldest → newest with applyAdjudication's exact
+  // rule: a benign verdict extends relief to that score, a denial pulls it
+  // below. Derived rather than hardcoded so the fixture cannot claim a bound
+  // its own adjudication history does not support.
+  let reliefCeiling = -1;
+  for (let i = events.length - 1; i >= 0; i--) {
+    const score = Number(events[i]!.risk_score);
+    reliefCeiling = events[i]!.label === 'benign'
+      ? Math.max(reliefCeiling, score)
+      : Math.min(reliefCeiling, score - 1);
+  }
+
   return {
     settings: { mode: 'shadow', target_rate: 0.1 },
     state: {
@@ -1469,8 +1481,10 @@ export function demoCalibrationController(fixtures: DemoFixtures) {
       observed_rate: lossSum / events.length,
       observed_window_rate: lossSum / events.length,
       observed_window: events.length,
+      relief_ceiling: reliefCeiling,
+      relief_ready: events.length >= 10 && reliefCeiling >= 0,
     },
-    defaults: { gamma: 2, alarm_at: 20, p0: 0.25, theta_floor: 20 },
+    defaults: { gamma: 2, alarm_at: 20, p0: 0.25, theta_floor: 20, relief_min_labels: 10 },
     alarms: [
       { agent_id: agentIds[0] ?? 'clawdbot', e: 24.6, n: 12, denied: 7, alarmed_at: iso(6) },
       { agent_id: agentIds[1 % agentIds.length] ?? 'deploy-runner', e: 3.4, n: 9, denied: 3, alarmed_at: null },

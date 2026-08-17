@@ -202,7 +202,7 @@ dashclaw doctor`}</pre>
                   'Approval flood guard with bulk resolution',
                   'Plain-English approvals -- every pending item leads with one sentence for what the command actually does, flags what cannot be undone, and shows the exact command underneath',
                   'One judgment queue on /policies -- tuning, tightening, loosening, and calibration proposals with ratify/dismiss/undo in one click',
-                  'Calibrated interruption controller on /calibration -- set a target false-interruption rate, hold it with a distribution-free bound (shadow first, tighten-only when active)',
+                  'Calibrated interruption controller on /calibration -- set a target false-interruption rate, hold it with a distribution-free bound; shadow first, then relief mode stops it asking about the things you keep approving (never past your own riskiest approval, and one deny takes the band back)',
                   'External decision provider -- plug one outside decision engine into the guard; its verdict joins stricter-wins (its deny is absolute, its allow never loosens), with an explicit fail-closed posture when it is unreachable and an optional action-type scope for domain-specific providers',
                   'Guard degradation observability (deadline fallbacks surfaced, never silent)',
                   'Prompt injection scanning',

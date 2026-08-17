@@ -118,11 +118,13 @@ export async function getInterruptOutcomesByPolicyAction(
  * backwards. `fired` is observable no matter what the human does, so a rule
  * built on it alone still fires when the operator has given up entirely.
  *
- * Counts a decision when the policy interrupted OR when the budget already
- * demoted it (the `builtin:interruption_budget` marker). Without that second
- * term the signal self-erases: demoting drops the require_approval count,
- * which restores the policy, which raises the count — an oscillator. Counting
- * "times this policy WOULD have interrupted" is stable.
+ * Counts a decision when the policy interrupted OR when relief already
+ * demoted it (`builtin:interruption_budget`, or `builtin:calibration_relief`
+ * from the controller's demote arm, which runs FIRST and short-circuits the
+ * budget phase entirely). Without those terms the signal self-erases:
+ * demoting drops the require_approval count, which restores the policy, which
+ * raises the count — an oscillator. Counting "times this policy WOULD have
+ * interrupted" is stable.
  *
  * Window clipped at guard_policies.updated_at like its siblings, so editing a
  * policy (or ratifying relief for it) resets the evidence.
@@ -147,6 +149,7 @@ export async function getInterruptVolumeByPolicy(
          AND (
            gd.decision = 'require_approval'
            OR gd.matched_policies LIKE '%builtin:interruption_budget%'
+           OR gd.matched_policies LIKE '%builtin:calibration_relief%'
          )
          -- ::timestamptz matters: created_at is TEXT on fresh drizzle schemas.
          AND gd.created_at::timestamptz > NOW() - make_interval(hours => $2::int)
@@ -198,6 +201,7 @@ export async function getRecentInterruptGoals(
        AND (
          gd.decision = 'require_approval'
          OR gd.matched_policies LIKE '%builtin:shape_budget%'
+         OR gd.matched_policies LIKE '%builtin:calibration_relief%'
        )
        AND gd.created_at::timestamptz > NOW() - make_interval(hours => $2::int)
        AND gd.context IS NOT NULL

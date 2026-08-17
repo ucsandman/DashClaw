@@ -113,7 +113,8 @@ export const VALID_SETTING_KEYS = [
   // command-shape grain. Read on the guard hot path via its own 60s cache.
   'DASHCLAW_INTERRUPTION_BUDGET',
   // Calibrated interruption controller (governance-core-theory §1). MODE is
-  // 'off' (default) | 'shadow' | 'active'; TARGET_RATE is the operator-set
+  // 'off' (default) | 'shadow' | 'relief' (demote arm only) | 'active' (both
+  // arms); TARGET_RATE is the operator-set
   // false-interruption bound α as a decimal string ('0.10'). Written by the
   // admin-gated /api/calibration/controller route; read on the guard hot
   // path (piggybacked on the same cached settings read as the halt flag).

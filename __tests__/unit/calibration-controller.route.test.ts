@@ -138,6 +138,16 @@ describe('POST /api/calibration/controller', () => {
     expect(bad3.status).toBe(400);
   });
 
+  it('accepts the relief mode the /calibration button posts', async () => {
+    // The page's Relief button is one click with no confirm step, so this
+    // route is the only thing between it and the guard's demote arm.
+    const res = await POST(makeRequest(URL_, { headers: adminHeaders, body: { mode: 'relief' } }));
+    expect(res.status).toBe(200);
+    expect(mockUpsertSetting).toHaveBeenCalledWith(mockSql, 'org_1', expect.objectContaining({
+      key: 'CALIBRATION_CONTROLLER_MODE', value: 'relief', category: 'general',
+    }));
+  });
+
   it('sets mode + target via the settings repository and audit-logs the change', async () => {
     const res = await POST(makeRequest(URL_, { headers: adminHeaders, body: { mode: 'active', target_rate: 0.08 } }));
     expect(res.status).toBe(200);

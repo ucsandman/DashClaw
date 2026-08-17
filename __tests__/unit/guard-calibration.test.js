@@ -182,3 +182,186 @@ describe('calibration controller — guard wiring', () => {
     expect(sql3.calls.filter((t) => t.includes('guard_calibration_state')).length).toBe(1);
   });
 });
+
+/**
+ * The demote arm (2026-08-17). Every test here is red without it: the
+ * controller used to be structurally incapable of removing an interruption,
+ * so `deploy` (score 75) under a require_approval policy stayed
+ * require_approval no matter what the operator's click history said.
+ *
+ * The reachability lesson from the 2026-08-16 incident applies directly — the
+ * previous five relief paths were all simultaneously excluded and nobody
+ * noticed because no test asserted that ANY of them could fire. The first
+ * test below is that assertion for this one.
+ */
+describe('calibration controller — demote arm', () => {
+  // Interrupts `deploy` (base score 75) at require_approval, so relief has
+  // something real to remove.
+  const askPolicy = (extra = {}) => [{
+    id: 'gp_ask', name: 'Ask above 70', policy_type: 'risk_threshold',
+    rules: JSON.stringify({ threshold: 70, action: 'require_approval', ...extra }),
+  }];
+
+  // θ above the action, ceiling above the action, 10 adjudications in: every
+  // gate open. Deliberately NOT the fresh-state shape — relief must be earned.
+  const relievableState = (over = {}) => [{
+    state: {
+      theta: 90, labeledTotal: 12, labeledBenign: 9, labeledDenied: 3,
+      lossSum: 2, reliefCeiling: 80, agents: {}, ...over,
+    },
+  }];
+
+  it('relief: demotes a policy interruption to warn below θ, and says so on the row', async () => {
+    const sql = makeSql({
+      'FROM settings': calibrationSettings('relief'),
+      'FROM guard_calibration_state': relievableState(),
+      'FROM guard_policies': askPolicy(),
+    });
+    const result = await evaluateGuard(freshOrg(), CTX(), sql);
+    expect(result.decision).toBe('warn');
+    expect(result.matched_policies).toContain('builtin:calibration_relief');
+    expect(result.calibration).toMatchObject({
+      mode: 'relief', would_relieve: true, relieved: true, applied: false, relief_ceiling: 80,
+    });
+    // Forensics: the policy's reason stops deciding but stays readable, and
+    // the row never claims a human signed off.
+    expect(result.warnings.join(' ')).toMatch(/WITHOUT human review/);
+    expect(result.warnings.join(' ')).toMatch(/uncalibrated past:/);
+  });
+
+  it('relief: still counts as an interruption for the loosening evidence (no self-erasing loop)', async () => {
+    const sql = makeSql({
+      'FROM settings': calibrationSettings('relief'),
+      'FROM guard_calibration_state': relievableState(),
+      'FROM guard_policies': askPolicy(),
+    });
+    const result = await evaluateGuard(freshOrg(), CTX(), sql);
+    // The gating policy id survives the demote beside the relief marker —
+    // that pairing is what getInterruptVolumeByPolicy counts once the
+    // decision is no longer 'require_approval'.
+    expect(result.matched_policies).toContain('gp_ask');
+    expect(result.matched_policies).toContain('builtin:calibration_relief');
+  });
+
+  it('relief: never reaches allow', async () => {
+    const sql = makeSql({
+      'FROM settings': calibrationSettings('relief'),
+      'FROM guard_calibration_state': relievableState({ theta: 100, reliefCeiling: 100 }),
+      'FROM guard_policies': askPolicy(),
+    });
+    const result = await evaluateGuard(freshOrg(), CTX(), sql);
+    expect(result.decision).toBe('warn');
+  });
+
+  it('relief: never touches a block', async () => {
+    const sql = makeSql({
+      'FROM settings': calibrationSettings('relief'),
+      'FROM guard_calibration_state': relievableState({ theta: 100, reliefCeiling: 100 }),
+      'FROM guard_policies': [{
+        id: 'gp_block', name: 'Block deploys', policy_type: 'block_action_type',
+        rules: JSON.stringify({ action_types: ['deploy'] }),
+      }],
+    });
+    const result = await evaluateGuard(freshOrg(), CTX(), sql);
+    expect(result.decision).toBe('block');
+    expect(result.matched_policies).not.toContain('builtin:calibration_relief');
+  });
+
+  it('relief: never touches an ungrantable rule, and says why on the row', async () => {
+    const sql = makeSql({
+      'FROM settings': calibrationSettings('relief'),
+      'FROM guard_calibration_state': relievableState(),
+      'FROM guard_policies': askPolicy({ ungrantable: true }),
+    });
+    const result = await evaluateGuard(freshOrg(), CTX(), sql);
+    expect(result.decision).toBe('require_approval');
+    expect(result.matched_policies).not.toContain('builtin:calibration_relief');
+    expect(result.warnings.join(' ')).toMatch(/ungrantable/i);
+  });
+
+  it('relief: a standing agent alarm outranks the operator click history', async () => {
+    const sql = makeSql({
+      'FROM settings': calibrationSettings('relief'),
+      'FROM guard_calibration_state': relievableState({
+        agents: { agent_1: { e: 25, n: 10, denied: 8, alarmed_at: '2026-08-17T00:00:00.000Z' } },
+      }),
+      'FROM guard_policies': askPolicy(),
+    });
+    const result = await evaluateGuard(freshOrg(), CTX(), sql);
+    expect(result.decision).toBe('require_approval');
+    expect(result.calibration).toMatchObject({ agent_alarmed: true, would_relieve: false, relieved: false });
+  });
+
+  it('relief: waits for the labels — too few adjudications, and no approval to bound it', async () => {
+    const thin = makeSql({
+      'FROM settings': calibrationSettings('relief'),
+      'FROM guard_calibration_state': relievableState({ labeledTotal: 9 }),
+      'FROM guard_policies': askPolicy(),
+    });
+    expect((await evaluateGuard(freshOrg(), CTX(), thin)).decision).toBe('require_approval');
+
+    // The bootstrap guard: a state that has never recorded an approval
+    // rehydrates to reliefCeiling -1, so flipping the mode on relieves nothing.
+    const unbounded = makeSql({
+      'FROM settings': calibrationSettings('relief'),
+      'FROM guard_calibration_state': [{
+        state: { theta: 90, labeledTotal: 12, labeledBenign: 9, labeledDenied: 3, lossSum: 2, agents: {} },
+      }],
+      'FROM guard_policies': askPolicy(),
+    });
+    const result = await evaluateGuard(freshOrg(), CTX(), unbounded);
+    expect(result.decision).toBe('require_approval');
+    expect(result.calibration).toMatchObject({ relief_ceiling: -1, would_relieve: false });
+  });
+
+  it('relief: never reaches past the riskiest action the operator approved', async () => {
+    // Score 75, ceiling 74 — one point short. θ is wide open at 90.
+    const sql = makeSql({
+      'FROM settings': calibrationSettings('relief'),
+      'FROM guard_calibration_state': relievableState({ reliefCeiling: 74 }),
+      'FROM guard_policies': askPolicy(),
+    });
+    const result = await evaluateGuard(freshOrg(), CTX(), sql);
+    expect(result.decision).toBe('require_approval');
+    expect(result.calibration).toMatchObject({ would_relieve: false });
+  });
+
+  it('relief mode never ADDS an interruption, even above θ', async () => {
+    const sql = makeSql({
+      'FROM settings': calibrationSettings('relief'),
+      'FROM guard_calibration_state': relievableState({ theta: 30 }),
+    });
+    const result = await evaluateGuard(freshOrg(), CTX(), sql);
+    expect(result.decision).toBe('allow');
+    expect(result.calibration).toMatchObject({ would_interrupt: true, applied: false, relieved: false });
+    expect(result.matched_policies).not.toContain('builtin:calibration_controller');
+  });
+
+  it('active runs both arms: raises above θ, relieves below it', async () => {
+    const above = makeSql({
+      'FROM settings': calibrationSettings('active'),
+      'FROM guard_calibration_state': relievableState({ theta: 30 }),
+    });
+    expect((await evaluateGuard(freshOrg(), CTX(), above)).decision).toBe('require_approval');
+
+    const below = makeSql({
+      'FROM settings': calibrationSettings('active'),
+      'FROM guard_calibration_state': relievableState(),
+      'FROM guard_policies': askPolicy(),
+    });
+    const relieved = await evaluateGuard(freshOrg(), CTX(), below);
+    expect(relieved.decision).toBe('warn');
+    expect(relieved.calibration).toMatchObject({ applied: false, relieved: true });
+  });
+
+  it('shadow: assesses relief without acting on it', async () => {
+    const sql = makeSql({
+      'FROM settings': calibrationSettings('shadow'),
+      'FROM guard_calibration_state': relievableState(),
+      'FROM guard_policies': askPolicy(),
+    });
+    const result = await evaluateGuard(freshOrg(), CTX(), sql);
+    expect(result.decision).toBe('require_approval');
+    expect(result.calibration).toMatchObject({ would_relieve: true, relieved: false });
+  });
+});

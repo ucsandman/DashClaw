@@ -18,18 +18,38 @@
  *     the alarm's false-positive probability is controlled at EVERY
  *     stopping time, however often the operator looks.
  *
- * Charter constraint (MAINTAINER.md §1/§3): this module only ever RAISES
- * decisions (tightening). It never loosens enforcement — when the calibrated
- * threshold says the org over-interrupts, that surfaces as evidence for the
- * existing human-ratified tuning/loosening proposal rails, never as an
- * automatic downgrade. Explicit `block` decisions are never touched.
+ * The controller moves the INTERRUPTION, never the policy. Above θ it raises
+ * `allow`/`warn` to require_approval; below θ it demotes a policy's
+ * require_approval to `warn`. It never reaches `allow`, never touches
+ * `block` (MAINTAINER.md §1), never touches a rule marked `ungrantable`, and
+ * never edits a policy row — every effect is recomputed from live state on
+ * the next evaluation, so the prior posture returns on its own with nothing
+ * to reconcile. Standing policy CHANGES still route to the human-ratified
+ * tuning/loosening rails on /policies (§3).
+ *
+ * Why both directions (2026-08-17, Wes: "I'm tired of hitting approve for
+ * basic shit"): a one-sided controller cannot reach its own target. θ
+ * converges so that a fraction α of the interruptions AT OR ABOVE it are
+ * false — but with only the raise arm enforced, every policy interruption
+ * BELOW θ stood no matter how consistently the operator waved it through.
+ * The controller could add interruptions and never remove one, so the
+ * operator's actual interruption load had no upper control at all. The
+ * demote arm closes that loop; its bounds are `reliefCeiling` below.
  *
  * This file is pure and synchronous (no I/O) — persistence lives in
  * app/lib/repositories/calibration-state.repository.ts, cache plumbing in
  * app/lib/guard/caches.ts, and the guard wiring in evaluate.ts.
  */
 
-export type CalibrationMode = 'off' | 'shadow' | 'active';
+/**
+ * off    — no assessment (zero added queries on the guard hot path).
+ * shadow — assess and record; change nothing.
+ * relief — demote arm only: stop asking below θ, never add an interruption.
+ *          The mode for an operator drowning in approvals; strictly reduces
+ *          enforcement, so it is the safe one to try first.
+ * active — both arms.
+ */
+export type CalibrationMode = 'off' | 'shadow' | 'relief' | 'active';
 
 export interface CalibrationSettings {
   mode: CalibrationMode;
@@ -59,6 +79,19 @@ export interface CalibrationState {
   labeledDenied: number;
   /** Σ ℓ_t — false interruptions at the then-current θ. */
   lossSum: number;
+  /**
+   * Demote-arm bound: the highest risk score the operator has personally
+   * approved and has not since objected to at or above. Relief never reaches
+   * past it.
+   *
+   * Starts at -1 (no adjudications, nothing relieved) so switching the
+   * controller on can never relieve a band no human has ever ruled on — the
+   * failure mode a bare `score < θ` test would have, since θ starts at 80.
+   * A benign verdict at score s raises it to s; a `dangerous` verdict at s
+   * pulls it back to s−1, retracting relief above s on the very next
+   * evaluation. One deny is enough to take a band back.
+   */
+  reliefCeiling: number;
   /** Per-agent e-process entries, capped at AGENT_MAP_CAP. */
   agents: Record<string, CalibrationAgentEntry>;
 }
@@ -86,6 +119,12 @@ export const CALIBRATION_DEFAULTS = {
   lambda: 2,
   /** Alarm level 1/δ — Ville: P(false alarm, ever) ≤ δ = 0.05. */
   alarmAt: 20,
+  /**
+   * Adjudications the demote arm needs before it acts at all. The raise arm
+   * has no such gate because adding an interruption is the safe error; the
+   * demote arm removes one, so it waits until the state means something.
+   */
+  reliefMinLabels: 10,
   /** Bounded per-org agent map (evict the lowest-e unalarmed entry). */
   agentMapCap: 200,
 } as const;
@@ -97,6 +136,15 @@ export const CALIBRATION_TARGET_KEY = 'CALIBRATION_TARGET_RATE';
 /** matched_policies marker for controller-raised decisions. */
 export const CALIBRATION_POLICY_ID = 'builtin:calibration_controller';
 
+/**
+ * matched_policies marker for controller-RELIEVED decisions. Distinct from
+ * the raise marker on purpose: the loosening evidence queries count a
+ * relieved decision as an interruption that still happened (see
+ * loosening.repository.ts) — without that, demoting drops the
+ * require_approval count, which restores the policy, which raises the count.
+ */
+export const CALIBRATION_RELIEF_POLICY_ID = 'builtin:calibration_relief';
+
 const clampTheta = (theta: number): number =>
   Math.max(CALIBRATION_DEFAULTS.thetaMin, Math.min(theta, CALIBRATION_DEFAULTS.thetaMax));
 
@@ -107,6 +155,7 @@ export function freshCalibrationState(): CalibrationState {
     labeledBenign: 0,
     labeledDenied: 0,
     lossSum: 0,
+    reliefCeiling: -1,
     agents: {},
   };
 }
@@ -117,7 +166,8 @@ export function parseCalibrationSettings(
 ): CalibrationSettings {
   const byKey = new Map(rows.map((r) => [String(r.key ?? ''), r.value]));
   const rawMode = String(byKey.get(CALIBRATION_MODE_KEY) ?? '');
-  const mode: CalibrationMode = rawMode === 'shadow' || rawMode === 'active' ? rawMode : 'off';
+  const mode: CalibrationMode =
+    rawMode === 'shadow' || rawMode === 'relief' || rawMode === 'active' ? rawMode : 'off';
   const rawRate = Number(byKey.get(CALIBRATION_TARGET_KEY));
   const targetRate = Number.isFinite(rawRate) && rawRate > 0 && rawRate <= 0.5
     ? rawRate
@@ -218,6 +268,14 @@ export function applyAdjudication(
     agents = evictIfNeeded({ ...agents, [agentId]: step.entry });
   }
 
+  // Demote-arm bound. A benign verdict extends relief up to the score the
+  // human just waved through; a dangerous one retracts it below the score
+  // they just objected to. Asymmetric on purpose — earning a band back takes
+  // one approval, losing it takes one denial.
+  const reliefCeiling = input.label === 'benign'
+    ? Math.max(state.reliefCeiling, score)
+    : Math.min(state.reliefCeiling, score - 1);
+
   return {
     state: {
       theta: thetaAfter,
@@ -225,6 +283,7 @@ export function applyAdjudication(
       labeledBenign: state.labeledBenign + (input.label === 'benign' ? 1 : 0),
       labeledDenied: state.labeledDenied + (input.label === 'dangerous' ? 1 : 0),
       lossSum: state.lossSum + loss,
+      reliefCeiling,
       agents,
     },
     loss,
@@ -241,30 +300,55 @@ export interface CalibrationAssessment {
   would_interrupt: boolean;
   /** The owning agent has a standing (unreset) e-process alarm. */
   agent_alarmed: boolean;
+  /** The demote arm's current bound (state.reliefCeiling), for the ledger. */
+  relief_ceiling: number;
+  /** Every demote-arm gate holds — this interruption is not earned. */
+  would_relieve: boolean;
   /** Active mode only: the controller actually raised this decision. */
   applied: boolean;
+  /** Relief/active mode: the controller actually demoted this decision. */
+  relieved: boolean;
 }
 
 /**
- * Hot-path assessment (pure, O(1)): what the calibrated threshold and the
- * agent's alarm state say about this action. The CALLER decides whether the
- * assessment is enforced (active mode raises to require_approval via
- * raiseDecision — tighten-only by construction) or recorded (shadow mode).
+ * Hot-path assessment (pure, O(1)): what the calibrated threshold, the demote
+ * bound and the agent's alarm state say about this action. The CALLER decides
+ * whether the assessment is enforced (active raises above θ and demotes below
+ * it; relief demotes only) or merely recorded (shadow).
+ *
+ * `would_interrupt` and `would_relieve` are disjoint by construction — the
+ * first needs score ≥ θ, the second score < θ — so a single evaluation can
+ * never both raise and demote.
  */
 export function assessCalibration(
   state: CalibrationState,
   settings: CalibrationSettings,
   riskScore: number,
   agentId: string | null,
-): Omit<CalibrationAssessment, 'applied'> {
+): Omit<CalibrationAssessment, 'applied' | 'relieved'> {
   const theta = clampTheta(state.theta);
   const score = Math.max(0, Math.min(Number(riskScore) || 0, 100));
   const entry = agentId ? state.agents[agentId] : undefined;
+  const agentAlarmed = entry?.alarmed_at != null;
   return {
     mode: settings.mode,
     theta,
     would_interrupt: score >= theta,
-    agent_alarmed: entry?.alarmed_at != null,
+    agent_alarmed: agentAlarmed,
+    relief_ceiling: state.reliefCeiling,
+    // Four gates, each closing a different way relief could be unearned:
+    //  - enough adjudications for the state to carry information at all;
+    //  - the calibrated threshold itself says this interruption is not earned;
+    //  - a human has waved through something at least this risky and has not
+    //    since denied at or above it (the bound that stops flipping the mode
+    //    on from relieving a band nobody has ever ruled on);
+    //  - the owning agent is not under a standing denial alarm, which is the
+    //    one signal that outranks the operator's own click history.
+    would_relieve:
+      state.labeledTotal >= CALIBRATION_DEFAULTS.reliefMinLabels &&
+      score < theta &&
+      score <= state.reliefCeiling &&
+      !agentAlarmed,
   };
 }
 
@@ -294,6 +378,11 @@ export function coerceCalibrationState(raw: unknown): CalibrationState {
     labeledBenign: Math.max(0, Math.round(num(r.labeledBenign, 0))),
     labeledDenied: Math.max(0, Math.round(num(r.labeledDenied, 0))),
     lossSum: Math.max(0, num(r.lossSum, 0)),
+    // Pre-relief rows have no reliefCeiling — they rehydrate to -1, so an
+    // instance that upgrades mid-stream relieves nothing until the operator
+    // adjudicates again. Bounded to [-1, 100]: the risk scale plus the
+    // "no evidence" sentinel.
+    reliefCeiling: Math.max(-1, Math.min(Math.round(num(r.reliefCeiling, -1)), 100)),
     agents,
   };
 }

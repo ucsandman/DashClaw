@@ -139,15 +139,17 @@ describe('ACI error control (empirical, golden-vector-seeded)', () => {
     expect(state.theta).toBeLessThan(CALIBRATION_DEFAULTS.theta0);
   });
 
-  it('loosens θ only in the estimate (benign-heavy stream) — enforcement loosening stays human', () => {
+  it('loosens (θ rises) on a benign-heavy stream, and the demote arm follows it', () => {
     let state = freshCalibrationState();
     for (let i = 0; i < 50; i++) {
       state = applyAdjudication(state, { riskScore: 85, label: 'benign' }, SETTINGS, NOW).state;
     }
-    // The ESTIMATE rises above the policy default: that is the loosening
-    // evidence surfaced for human ratification (tuning proposals), never an
-    // automatic enforcement change — assessCalibration still only informs.
     expect(state.theta).toBeGreaterThan(CALIBRATION_DEFAULTS.theta0);
+    // Reachability, not just estimation: an operator who waved through 50
+    // interruptions at 85 stops being asked at 85. This is the whole point of
+    // the demote arm — before it, θ moved and nothing followed.
+    expect(state.reliefCeiling).toBe(85);
+    expect(assessCalibration(state, SETTINGS, 85, null).would_relieve).toBe(true);
   });
 
   it('θ stays inside [floor, ceiling] under adversarial streams', () => {
@@ -268,7 +270,50 @@ describe('assessment + plumbing helpers', () => {
     expect(assessCalibration(state, SETTINGS, 30, 'a_other')).toMatchObject({ would_interrupt: false, agent_alarmed: false });
   });
 
+  it('the demote bound is earned by approvals and retracted by one denial', () => {
+    let state = freshCalibrationState();
+    // Nothing adjudicated: the bound refuses everything, so switching the
+    // controller on cannot relieve a band no human has ruled on.
+    expect(state.reliefCeiling).toBe(-1);
+    expect(assessCalibration(state, SETTINGS, 0, null).would_relieve).toBe(false);
+
+    for (let i = 0; i < 12; i++) {
+      state = applyAdjudication(state, { riskScore: 60, label: 'benign' }, SETTINGS, NOW).state;
+    }
+    expect(state.reliefCeiling).toBe(60);
+    expect(assessCalibration(state, SETTINGS, 60, null).would_relieve).toBe(true);
+    expect(assessCalibration(state, SETTINGS, 61, null).would_relieve).toBe(false);
+
+    // One deny at 55 takes back everything from 55 up, on the next call.
+    state = applyAdjudication(state, { riskScore: 55, label: 'dangerous' }, SETTINGS, NOW).state;
+    expect(state.reliefCeiling).toBe(54);
+    expect(assessCalibration(state, SETTINGS, 55, null).would_relieve).toBe(false);
+    expect(assessCalibration(state, SETTINGS, 54, null).would_relieve).toBe(true);
+  });
+
+  it('the demote arm waits for reliefMinLabels, and never overlaps the raise arm', () => {
+    let state = freshCalibrationState();
+    for (let i = 0; i < CALIBRATION_DEFAULTS.reliefMinLabels - 1; i++) {
+      state = applyAdjudication(state, { riskScore: 70, label: 'benign' }, SETTINGS, NOW).state;
+    }
+    expect(state.labeledTotal).toBe(CALIBRATION_DEFAULTS.reliefMinLabels - 1);
+    expect(assessCalibration(state, SETTINGS, 70, null).would_relieve).toBe(false);
+    state = applyAdjudication(state, { riskScore: 70, label: 'benign' }, SETTINGS, NOW).state;
+    expect(assessCalibration(state, SETTINGS, 70, null).would_relieve).toBe(true);
+
+    // Disjointness: no score can be both raised and relieved, at any θ.
+    state.reliefCeiling = 100;
+    for (const theta of [20, 55, 80, 102]) {
+      state.theta = theta;
+      for (const score of [0, 19, 20, 54, 55, 79, 80, 99, 100]) {
+        const a = assessCalibration(state, SETTINGS, score, null);
+        expect(a.would_interrupt && a.would_relieve).toBe(false);
+      }
+    }
+  });
+
   it('parseCalibrationSettings: defaults off, validates mode and rate', () => {
+    expect(parseCalibrationSettings([{ key: 'CALIBRATION_CONTROLLER_MODE', value: 'relief' }]).mode).toBe('relief');
     expect(parseCalibrationSettings([])).toEqual({ mode: 'off', targetRate: CALIBRATION_DEFAULTS.targetRate });
     expect(parseCalibrationSettings([
       { key: 'CALIBRATION_CONTROLLER_MODE', value: 'shadow' },

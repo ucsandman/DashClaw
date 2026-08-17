@@ -20,7 +20,7 @@ import type { ExternalVerdictConfig } from './caches';
 import type { ExternalVerdictEvidence } from './external-verdict';
 import { classifyDeviation, summarizeAct } from './deviation';
 import type { DeviationFinding, LivePlanStep } from './deviation';
-import { assessCalibration, CALIBRATION_POLICY_ID } from './calibration';
+import { assessCalibration, CALIBRATION_POLICY_ID, CALIBRATION_RELIEF_POLICY_ID } from './calibration';
 import type { CalibrationAssessment } from './calibration';
 import { serverRiskTerms, computeEffectiveRisk, computeRiskAssessment } from './risk';
 import type { RiskBreakdown, EvidenceDerivedBreakdown } from './risk';
@@ -597,6 +597,30 @@ async function applyApprovalPause(deps: GuardPhaseDeps, acc: GuardAccumulator): 
  * pause — before the CONSUMING grant passes, so a demotion never burns an
  * operator's single-use approval.
  */
+/**
+ * The one way an automated pass is allowed to remove an interruption:
+ * require_approval → `warn`, never to `allow`. Shared by the interruption
+ * budget and the calibration controller's demote arm so the two relief paths
+ * cannot drift into writing different forensic shapes for the same event.
+ *
+ * The gating reasons stop deciding but stay visible under `pastPrefix` — the
+ * same forensic move the pause and grant passes make — so the persisted row
+ * still says exactly WHY it would have asked and what overrode that.
+ */
+function demoteToWarn(
+  acc: GuardAccumulator,
+  opts: { marker: string; why: string; surface: string; pastPrefix: string },
+): void {
+  acc.warnings.push(
+    `${opts.why} — downgraded to a warning WITHOUT human review. No human approved this action. ` +
+    `Review it on ${opts.surface}.`
+  );
+  acc.matchedPolicies.push(opts.marker);
+  acc.highestDecision = 'warn';
+  acc.warnings.push(...acc.reasons.map((r) => `${opts.pastPrefix}: ${r}`));
+  acc.reasons.length = 0;
+}
+
 async function applyInterruptionBudget(deps: GuardPhaseDeps, acc: GuardAccumulator): Promise<void> {
   if (acc.highestDecision !== 'require_approval') return;
   if (acc.gatingPolicies.length === 0) return;
@@ -610,18 +634,8 @@ async function applyInterruptionBudget(deps: GuardPhaseDeps, acc: GuardAccumulat
     );
     return;
   }
-  const demote = (marker: string, why: string): void => {
-    acc.warnings.push(
-      `${why} — downgraded to a warning WITHOUT human review. No human approved this action. ` +
-      'Review it on /policies.'
-    );
-    acc.matchedPolicies.push(marker);
-    acc.highestDecision = 'warn';
-    // Same forensic move as the pause and grant passes: the gating reasons stop
-    // deciding but stay visible, so the row still says WHY it would have asked.
-    acc.warnings.push(...acc.reasons.map((r) => `over-budget past: ${r}`));
-    acc.reasons.length = 0;
-  };
+  const demote = (marker: string, why: string): void =>
+    demoteToWarn(acc, { marker, why, surface: '/policies', pastPrefix: 'over-budget past' });
 
   try {
     // Grain 1 — the whole policy is unlivable. EVERY gating policy must be over
@@ -948,9 +962,11 @@ async function runWebhookPolicies(
  * interruption (the approve-then-retry loop keeps working).
  *
  * Charter-compliant by construction: shadow mode only RECORDS what the
- * calibrated threshold would do; active mode only ever RAISES to
- * require_approval via raiseDecision (tighten-only — it can never downgrade
- * anything and never touches block). Best-effort: a failure here must never
+ * calibrated threshold would do. `active` raises allow/warn to
+ * require_approval above θ AND demotes a policy's require_approval to `warn`
+ * below it; `relief` runs the demote arm only, for an operator who wants the
+ * controller to remove interruptions without adding any. Neither arm ever
+ * reaches `allow` or touches `block`. Best-effort: a failure here must never
  * block guard.
  */
 async function runCalibrationController(
@@ -963,9 +979,10 @@ async function runCalibrationController(
     const runtime = await getCalibrationRuntime(sql, orgId);
     if (!runtime) return null;
     const assessment = assessCalibration(runtime.state, runtime.settings, adjustedRiskScore, context.agent_id || null);
+    const mode = runtime.settings.mode;
     let applied = false;
     if (
-      runtime.settings.mode === 'active' &&
+      mode === 'active' &&
       (assessment.would_interrupt || assessment.agent_alarmed) &&
       sevOf(acc.highestDecision) < DECISION_SEVERITY.require_approval
     ) {
@@ -977,7 +994,41 @@ async function runCalibrationController(
       acc.matchedPolicies.push(CALIBRATION_POLICY_ID);
       raiseDecision(acc, 'require_approval');
     }
-    return { ...assessment, applied };
+
+    // Demote arm. Only ever touches an interruption an org POLICY raised —
+    // an external provider's escalate and the later block-only phases are
+    // out of its reach, same boundary the interruption budget draws. `applied`
+    // can never be true here (the two arms are disjoint on score vs θ), but
+    // the guard is cheap and makes that impossible rather than merely untrue.
+    let relieved = false;
+    if (
+      !applied &&
+      (mode === 'active' || mode === 'relief') &&
+      assessment.would_relieve &&
+      acc.highestDecision === 'require_approval' &&
+      acc.gatingPolicies.length > 0
+    ) {
+      const ungrantable = acc.gatingPolicies.find((g) => g.ungrantable);
+      if (ungrantable) {
+        // Same F1 carve-out as the budget: a rule an attacker could disarm BY
+        // FIRING IT is not a rule. The warning keeps the condition on the row.
+        acc.warnings.push(
+          `${ungrantable.name}: marked ungrantable — the calibration controller cannot downgrade this verdict`
+        );
+      } else {
+        relieved = true;
+        demoteToWarn(acc, {
+          marker: CALIBRATION_RELIEF_POLICY_ID,
+          why:
+            `Calibration controller: risk ${adjustedRiskScore} is below the calibrated threshold ` +
+            `${Math.round(assessment.theta * 10) / 10} and at or under the riskiest action you have ` +
+            `approved (${assessment.relief_ceiling}), so this interruption is not earned`,
+          surface: '/calibration',
+          pastPrefix: 'uncalibrated past',
+        });
+      }
+    }
+    return { ...assessment, applied, relieved };
   } catch (err) {
     console.warn('[Guard] calibration controller failed (continuing without):', (err as Error).message);
     return null;

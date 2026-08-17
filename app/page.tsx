@@ -113,7 +113,7 @@ const SUPPORT_SURFACES = [
   {
     icon: Crosshair,
     title: 'Calibrated interruption',
-    desc: 'Set a target false-interruption rate; the controller holds it with a distribution-free bound, learned from your approve and deny verdicts. Shadow first, tighten-only when active.',
+    desc: 'Set a target false-interruption rate; the controller holds it with a distribution-free bound, learned from your approve and deny verdicts. Shadow first, then it loosens as well as tightens.',
     href: '/calibration',
   },
   {
@@ -423,10 +423,11 @@ export default function LandingPage() {
                 <p className="text-sm text-text-secondary leading-relaxed">
                   A distribution-free controller tunes the interruption
                   threshold from your approve and deny stream, with a proven
-                  false-block bound. It runs in shadow first, and when active it
-                  only ever tightens; loosening always routes through a proposal
-                  a human ratifies. Governance earns its interruptions instead of
-                  nagging you into turning it off.
+                  false-block bound. It runs in shadow first, then loosens as
+                  well as tightens: the things you keep approving stop asking,
+                  never further than the riskiest action you approved, and one
+                  deny takes the band straight back. Governance earns its
+                  interruptions instead of nagging you into turning it off.
                 </p>
               </div>
               <div className="p-6 rounded-xl border border-border bg-surface-secondary">

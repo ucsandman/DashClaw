@@ -5,11 +5,10 @@
  * Theory: docs/architecture/governance-core-theory.md §1.
  *
  * Every human step here is a click (HUMAN-EXPERIENCE.md): set the target
- * false-interruption rate, flip the mode (off → shadow → active, two-step
- * confirm on active), watch observed vs target, reset agent alarms. The
- * controller only ever tightens; when the calibrated threshold says the org
- * over-interrupts, this page points at the /policies proposal rails — the
- * human-ratified loosening path.
+ * false-interruption rate, flip the mode, watch observed vs target, reset
+ * agent alarms. Two arms, and the mode picker is ordered by how much
+ * enforcement each one adds: `relief` only ever REMOVES interruptions, so it
+ * is one click; `active` also adds them, so it keeps the two-step confirm.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -23,7 +22,8 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card';
 const MODES = [
   { id: 'off', label: 'Off', hint: 'No assessment. Feedback still accumulates from approvals.' },
   { id: 'shadow', label: 'Shadow', hint: 'Records what the calibrated threshold WOULD do on every decision. Changes nothing.' },
-  { id: 'active', label: 'Active', hint: 'Raises allow/warn to require_approval at the calibrated threshold. Tighten-only; blocks stay absolute.' },
+  { id: 'relief', label: 'Relief', hint: 'Stops asking below the calibrated threshold: require_approval becomes a warning, still recorded. Only ever removes interruptions — never adds one, never reaches allow, never touches a block.' },
+  { id: 'active', label: 'Active', hint: 'Both arms: raises allow/warn to require_approval above the calibrated threshold, and relieves below it. Blocks stay absolute.' },
 ];
 
 function fmtPct(v, digits = 1) {
@@ -160,6 +160,9 @@ export default function CalibrationPage() {
   const policies = data?.risk_threshold_policies ?? [];
   const lowestPolicy = policies.length > 0 ? policies[0] : null;
   const overInterrupting = lowestPolicy && state && state.theta > lowestPolicy.threshold;
+  const defaults = data?.defaults ?? {};
+  const reliefReady = state?.relief_ready === true;
+  const reliefLive = reliefReady && (settings?.mode === 'relief' || settings?.mode === 'active');
   const onTarget = state?.observed_window_rate == null || settings == null
     ? null
     : state.observed_window_rate <= settings.target_rate * 1.25;
@@ -167,7 +170,7 @@ export default function CalibrationPage() {
   return (
     <PageLayout
       title="Calibration"
-      subtitle="Distribution-free control of the interruption error rate: shadow first, tighten-only when active"
+      subtitle="Distribution-free control of the interruption error rate — it loosens as well as tightens, and never past a verdict you gave"
       agentFilter={false}
     >
       <div className="px-4 sm:px-6 py-5 space-y-4 max-w-6xl">
@@ -292,20 +295,43 @@ export default function CalibrationPage() {
               </Card>
             </div>
 
-            {/* Loosening evidence routes to the human rails */}
-            {overInterrupting && (
-              <div className="rounded-xl border border-border bg-surface-secondary px-4 py-3 flex items-start gap-3">
-                <ShieldQuestion size={16} className="mt-0.5 shrink-0 text-info" />
-                <div className="text-sm text-secondary">
-                  The calibrated threshold ({fmtTheta(state.theta)}) sits above your policy threshold ({lowestPolicy.threshold});
-                  your feedback says the current policy over-interrupts. Loosening enforcement is a human decision:
-                  review the tuning proposals on the policies page.
-                  <Link href="/policies" className="ml-2 inline-flex items-center gap-1 text-info hover:underline">
-                    Review proposals <ArrowUpRight size={13} />
-                  </Link>
-                </div>
+            {/* The demote arm: what it is doing, or what it is waiting for. */}
+            <div className="rounded-xl border border-border bg-surface-secondary px-4 py-3 flex items-start gap-3">
+              <ShieldQuestion size={16} className="mt-0.5 shrink-0 text-info" />
+              <div className="text-sm text-secondary">
+                {reliefLive ? (
+                  <>
+                    <span className="font-medium text-primary">Relief is on.</span>{' '}
+                    An action scoring under {fmtTheta(state.theta)} that you would otherwise be asked
+                    to approve becomes a warning instead — recorded on /decisions, never allowed
+                    silently. It never reaches past {state.relief_ceiling}, the riskiest action you
+                    have approved; deny anything at or above a score and relief above it retracts on
+                    the next call.
+                    <Link href="/decisions" className="ml-2 inline-flex items-center gap-1 text-info hover:underline">
+                      See what it relieved <ArrowUpRight size={13} />
+                    </Link>
+                  </>
+                ) : !reliefReady ? (
+                  <>
+                    Relief needs your verdicts before it can act: {state.labeled_total} of{' '}
+                    {defaults.relief_min_labels ?? 10} adjudications so far
+                    {state.relief_ceiling < 0 ? ', and no approval yet to bound it' : ''}. Approve and
+                    deny normally on the approvals queue and it arms itself.
+                    <Link href="/approvals" className="ml-2 inline-flex items-center gap-1 text-info hover:underline">
+                      Open approvals <ArrowUpRight size={13} />
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-medium text-primary">Relief is ready but not switched on.</span>{' '}
+                    Your verdicts already bound it: it would stop asking below {fmtTheta(state.theta)}
+                    {' '}and never past {state.relief_ceiling}
+                    {overInterrupting ? `, which is above your policy threshold of ${lowestPolicy.threshold}` : ''}.
+                    Set the mode to Relief to stop being asked about actions you keep approving.
+                  </>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Alarms */}
             <Card hover={false}>

@@ -9,15 +9,15 @@ export const revalidate = 0;
  *        (θ, labeled counts, long-run + windowed observed false-interruption
  *        rate), per-agent e-process alarms, recent adjudication events, and
  *        the org's active risk_threshold policies for θ-vs-policy context.
- * POST — admin-only controls: set mode ('off'|'shadow'|'active'), set the
- *        target rate α, reset an agent alarm, reset the calibrated state.
- *        Mode/target live in the settings table (guard hot path reads them
- *        via the cached settings read); every change is audit-logged.
+ * POST — admin-only controls: set mode ('off'|'shadow'|'relief'|'active'),
+ *        set the target rate α, reset an agent alarm, reset the calibrated
+ *        state. Mode/target live in the settings table (guard hot path reads
+ *        them via the cached settings read); every change is audit-logged.
  *
- * Charter note (MAINTAINER.md §3): activating the controller is a human
- * policy decision made HERE, by click. The controller itself only ever
- * tightens; loosening evidence routes to the existing tuning/loosening
- * proposal rails on /policies.
+ * Charter note (MAINTAINER.md §3): which arms of the controller run is a
+ * human decision made HERE, by click. The controller moves interruptions,
+ * never policy rows — standing policy changes still route to the tuning /
+ * loosening proposal rails on /policies.
  */
 
 import { NextResponse, after } from 'next/server';
@@ -98,12 +98,19 @@ export async function GET(request: Request) {
           : null,
         observed_window_rate: observedWindowRate,
         observed_window: recent.length,
+        relief_ceiling: effectiveState.reliefCeiling,
+        // The demote arm's own readiness, so the page can say whether relief
+        // is live or what it is still waiting for instead of showing a
+        // threshold that never fires.
+        relief_ready: effectiveState.labeledTotal >= CALIBRATION_DEFAULTS.reliefMinLabels
+          && effectiveState.reliefCeiling >= 0,
       },
       defaults: {
         gamma: CALIBRATION_DEFAULTS.gamma,
         alarm_at: CALIBRATION_DEFAULTS.alarmAt,
         p0: CALIBRATION_DEFAULTS.p0,
         theta_floor: CALIBRATION_DEFAULTS.thetaMin,
+        relief_min_labels: CALIBRATION_DEFAULTS.reliefMinLabels,
       },
       alarms,
       events,
@@ -114,7 +121,7 @@ export async function GET(request: Request) {
   }
 }
 
-const VALID_MODES = ['off', 'shadow', 'active'];
+const VALID_MODES = ['off', 'shadow', 'relief', 'active'];
 
 export async function POST(request: Request) {
   try {

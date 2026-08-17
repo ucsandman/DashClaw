@@ -1,5 +1,38 @@
 # Decision log
 
+## 2026-08-17 — The calibration controller enforces both directions, bounded by the operator's own verdicts
+
+**Decision.** The calibrated interruption controller gains a demote arm: below the
+calibrated threshold θ, a policy's `require_approval` is downgraded to `warn`. New mode
+`relief` runs that arm alone (one click, no confirm — it only reduces enforcement);
+`active` now runs both. The loosening is bounded by `reliefCeiling`, a new state field
+holding the highest risk score the operator personally approved and has not since denied
+at or above; it starts at −1, rises to each benign verdict's score, and one denial at
+score *s* retracts everything above *s* on the next evaluation. Three further gates: ≥10
+adjudications, `score < θ`, and no standing e-process alarm on the owning agent.
+
+**Why.** Tighten-only made the controller's own target unreachable. `ℓ_t` only counts
+interruptions at or above θ, so a policy interruption below θ stood no matter how
+consistently the operator waved it through — the engine could add interruptions forever
+and never remove one, and convergence to α was conditional on humans ratifying proposals
+they had already stopped reading. This is the counterpart to the 2026-08-16 interruption
+budget: that one fires on silence (drowning, nobody clicking), this one fires on clicks
+(the operator IS approving, repeatedly, the same low-risk work). Wes, 2026-08-17: "I'm
+tired of hitting approve for basic shit."
+
+**Alternatives rejected.** A fixed relief ceiling at the 70 risk band — it would have
+excluded the exact observed failure mode, where miscalibrated scoring puts routine work
+at 85–100. A bare `score < θ` test — θ starts at 80, so flipping the mode on would
+relieve every unadjudicated band under 80 at once. Per-command-shape relief state — the
+ACI guarantee is aggregate, and the shape grain already belongs to the interruption
+budget; forking it would have meant a second definition of the same thing.
+
+**Result.** Never reaches `allow`, never touches `block` or an `ungrantable` rule, never
+edits a policy row — so it is not a §3 policy change, and the prior posture returns on
+its own. `builtin:calibration_relief` counts in the loosening evidence queries so
+demoting cannot erase the signal that justified it. Spec:
+`docs/superpowers/specs/2026-08-17-calibration-demote-arm.md`.
+
 ## 2026-08-16 — At least one relief path must fire without the operator adjudicating anything
 
 **Decision.** An interruption budget. A policy exceeding `DASHCLAW_INTERRUPTION_BUDGET`
