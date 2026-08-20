@@ -679,3 +679,126 @@ export function deriveOverBudgetShapes(
   }
   return out.sort((a, b) => b.fired - a.fired || a.key.localeCompare(b.key));
 }
+
+// ── Misfires ────────────────────────────────────────────────────────────────
+// The shape budget's stricter sibling. The budget asks "is this rule unlivable
+// across everything it covers"; a misfire asks the narrower question the
+// operator actually feels: "this ONE line stopped me for this ONE command,
+// three times today". Three is deliberately low — a Short List line is one of
+// at most ten things allowed to interrupt at all, so it earns scrutiny long
+// before a shape crosses the 10/24h relief budget.
+//
+// It is a REPORT, never an action: nothing is demoted, nothing is relaxed. The
+// only exit is the operator clicking "stop asking about this shape", which
+// writes rules.shape_exceptions (A3) — and because it is a click, it works on
+// `ungrantable` lines that automatic relief must never touch.
+
+/** Holds of one shape, on one Short List line, inside 24h, before it is a defect. */
+export const MISFIRE_THRESHOLD = 3;
+
+/**
+ * One require_approval guard_decision. `matched_policies` is the raw
+ * guard_decisions column (a JSON array of policy ids); `policy_id` is accepted
+ * as the already-unnested alternative.
+ */
+export interface MisfireRow {
+  policy_id?: unknown;
+  matched_policies?: unknown;
+  declared_goal?: unknown;
+  created_at?: unknown;
+}
+
+export interface Misfire {
+  policy_id: string;
+  /** Filled by the caller, which is the layer that knows policy names. */
+  policy_name: string;
+  shape_key: string;
+  count: number;
+  window_hours: 24;
+  /** 0 unless the caller joined adjudication onto the rows — see deriveMisfires. */
+  approvals: number;
+  denials: number;
+  latest_at: string;
+  sample_goal: string | null;
+}
+
+const MISFIRE_WINDOW_HOURS = 24;
+
+function misfirePolicyIds(row: MisfireRow): string[] {
+  if (typeof row.policy_id === 'string' && row.policy_id) return [row.policy_id];
+  const raw = row.matched_policies;
+  const parsed = typeof raw === 'string' ? safeJsonArray(raw) : raw;
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter((v): v is string => typeof v === 'string' && v.length > 0);
+}
+
+function safeJsonArray(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Pure: group holds by (Short List policy, command shape) inside the 24h
+ * window and report the groups at or past MISFIRE_THRESHOLD.
+ *
+ * `shapeKeyOf` is injected for the same reason deriveOverBudgetShapes injects
+ * it — the caller owns the normalizer version, and the two must bucket alike.
+ *
+ * The rows carry no approval outcome (the shape-evidence query deliberately
+ * does not join action_records, because the operator who is drowning is the
+ * one who stops clicking). `approvals`/`denials` are therefore 0 and the
+ * evidence line is volume alone: "3 holds in 24h".
+ */
+export function deriveMisfires(
+  rows: MisfireRow[],
+  shapeKeyOf: (goal: unknown) => string | null,
+  shortListPolicyIds: Set<string>,
+  nowIso: string,
+  exceptionsByPolicy: Map<string, string[]> = new Map(),
+): Misfire[] {
+  const nowMs = Date.parse(nowIso);
+  const cutoffMs = Number.isFinite(nowMs) ? nowMs - MISFIRE_WINDOW_HOURS * 3_600_000 : -Infinity;
+
+  const groups = new Map<string, Misfire>();
+  for (const row of rows) {
+    const key = shapeKeyOf(row?.declared_goal);
+    if (!key) continue; // an unreadable goal is never a misfire
+    const at = typeof row.created_at === 'string' ? row.created_at : String(row.created_at ?? '');
+    const atMs = Date.parse(at);
+    if (!Number.isFinite(atMs) || atMs <= cutoffMs) continue;
+    const goal = typeof row.declared_goal === 'string' ? row.declared_goal : null;
+
+    for (const policyId of misfirePolicyIds(row)) {
+      if (!shortListPolicyIds.has(policyId)) continue;
+      if (exceptionsByPolicy.get(policyId)?.includes(key)) continue;
+      const gk = `${policyId}\n${key}`;
+      const g = groups.get(gk);
+      if (!g) {
+        groups.set(gk, {
+          policy_id: policyId,
+          policy_name: policyId,
+          shape_key: key,
+          count: 1,
+          window_hours: MISFIRE_WINDOW_HOURS,
+          approvals: 0,
+          denials: 0,
+          latest_at: at,
+          sample_goal: goal,
+        });
+        continue;
+      }
+      g.count += 1;
+      if (at > g.latest_at) {
+        g.latest_at = at;
+        g.sample_goal = goal ?? g.sample_goal;
+      }
+    }
+  }
+
+  return [...groups.values()]
+    .filter((m) => m.count >= MISFIRE_THRESHOLD)
+    .sort((a, b) => b.count - a.count || a.policy_id.localeCompare(b.policy_id) || a.shape_key.localeCompare(b.shape_key));
+}

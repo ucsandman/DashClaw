@@ -186,16 +186,24 @@ export async function getInterruptVolumeByPolicy(
  *
  * Like getInterruptVolumeByPolicy, it counts already-demoted decisions too, so
  * the signal does not erase itself once relief starts.
+ *
+ * Also carries `matched_policies` + `created_at` for deriveMisfires, which
+ * needs the SAME rows at (policy, shape) grain. Two extra columns on a query
+ * that already runs beats a second scan of the same 24h slice.
  */
 export async function getRecentInterruptGoals(
   sql: SqlTag,
   orgId: string,
   hours: number,
   opts: { includeSynthetic?: boolean; limit?: number } = {},
-): Promise<Array<{ declared_goal: string | null }>> {
+): Promise<Array<{ declared_goal: string | null; matched_policies: string | null; created_at: string | null }>> {
   const limit = Math.min(Math.max(opts.limit ?? 5000, 1), 20000);
   const rows = await sql.query(
-    `SELECT gd.context::jsonb->>'declared_goal' AS declared_goal
+    `SELECT gd.context::jsonb->>'declared_goal' AS declared_goal,
+            gd.matched_policies AS matched_policies,
+            -- ::text so the JS side gets a stable, sortable, parseable string
+            -- (the driver hands back a Date object otherwise).
+            (gd.created_at::timestamptz)::text AS created_at
      FROM guard_decisions gd
      WHERE gd.org_id = $1
        AND (
@@ -212,7 +220,11 @@ export async function getRecentInterruptGoals(
      LIMIT ${limit}`,
     [orgId, hours, opts.includeSynthetic === true, ...SYNTHETIC_PARAMS],
   );
-  return rows as unknown as Array<{ declared_goal: string | null }>;
+  return rows as unknown as Array<{
+    declared_goal: string | null;
+    matched_policies: string | null;
+    created_at: string | null;
+  }>;
 }
 
 /**

@@ -19,6 +19,8 @@ import {
   derivePrecedentProposals,
   deriveBudgetProposals,
   deriveOverBudgetShapes,
+  deriveMisfires,
+  MISFIRE_THRESHOLD,
   looseningProposalId,
   precedentProposalId,
   budgetProposalId,
@@ -30,6 +32,7 @@ import {
 import { normalizeFlags, precedentEligible, PRECEDENT_TTL_DAYS, commandShapeKey } from '../../../lib/policy-shapes';
 import { getInterruptionBudget } from '../../../lib/guard/caches';
 import { getActivePolicies } from '../../../lib/repositories/guardrails.repository';
+import { isShortListLine, parseRules as parseShortListRules } from '../../../lib/guardrails/short-list';
 import {
   getInterruptOutcomesByPolicyAction,
   getInterruptVolumeByPolicy,
@@ -151,6 +154,31 @@ export async function GET(request: Request) {
         (p) => !grantedKeys.has(p.id),
       ),
     ];
+    // Misfires: the same 24h slice the shape budget reads, at (Short List
+    // policy, shape) grain. Reported, never applied — the exit is the
+    // operator's "stop asking about this shape" click (rules.shape_exceptions).
+    const shortListPolicyIds = new Set<string>();
+    const exceptionsByPolicy = new Map<string, string[]>();
+    const policyNameById = new Map<string, string>();
+    for (const p of policies) {
+      const id = typeof p.id === 'string' ? p.id : '';
+      if (!id) continue;
+      policyNameById.set(id, typeof p.name === 'string' ? p.name : id);
+      const r = parseShortListRules(p.rules);
+      if (!isShortListLine(String(p.policy_type ?? ''), r)) continue;
+      shortListPolicyIds.add(id);
+      if (Array.isArray(r.shape_exceptions)) {
+        exceptionsByPolicy.set(id, r.shape_exceptions.filter((s): s is string => typeof s === 'string'));
+      }
+    }
+    const misfires = deriveMisfires(
+      goalRows,
+      commandShapeKey,
+      shortListPolicyIds,
+      new Date().toISOString(),
+      exceptionsByPolicy,
+    ).map((m) => ({ ...m, policy_name: policyNameById.get(m.policy_id) ?? m.policy_id }));
+
     const decisionById = new Map(decisions.map((d) => [d.proposal_id, d]));
 
     const proposals = derived.map((p) => {
@@ -180,6 +208,8 @@ export async function GET(request: Request) {
         shape_per_window: budget > 0 ? INTERRUPTION_BUDGET_DEFAULTS.shapePerWindow : 0,
         shapes_over_budget: budget > 0 ? deriveOverBudgetShapes(goalRows, commandShapeKey) : [],
       },
+      misfires,
+      misfire_threshold: MISFIRE_THRESHOLD,
       inputs: { outcome_rows: rows.length, volume_rows: volumeRows.length, goal_rows: goalRows.length },
       proposals: statusFilter ? proposals.filter((p) => p.status === statusFilter) : proposals,
       counts,
