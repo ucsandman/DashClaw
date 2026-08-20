@@ -31,6 +31,7 @@ import {
   listCalibrationEvents,
   resetAgentAlarm,
   resetCalibrationState,
+  type CalibrationEventRow,
 } from '../../../lib/repositories/calibration-state.repository';
 import { getActivePolicies } from '../../../lib/repositories/guardrails.repository';
 import {
@@ -60,6 +61,37 @@ function riskThresholdPolicies(policies: Array<Record<string, unknown>>): Array<
     });
   }
   return out.sort((a, b) => a.threshold - b.threshold);
+}
+
+/** Days the observed rate must hold under target before 'active' is offered. */
+const ACTIVE_ELIGIBLE_DAYS = 7;
+
+/**
+ * Is the two-armed mode ('active', UI label "Fewer and more") offerable?
+ *
+ * It is the only mode that can ADD an interruption, so it is offered only
+ * once the observed false-interruption rate has held under target for seven
+ * straight days: every UTC day in that window that saw at least one verdict
+ * must come in at or under the target rate. No verdicts in the window means
+ * no evidence, which means not eligible — never eligible by default.
+ */
+function isActiveEligible(events: CalibrationEventRow[], targetRate: number, now = Date.now()): boolean {
+  const cutoff = now - ACTIVE_ELIGIBLE_DAYS * 24 * 60 * 60 * 1000;
+  const byDay = new Map<string, { n: number; loss: number }>();
+  for (const e of events) {
+    const t = new Date(e.created_at).getTime();
+    if (!Number.isFinite(t) || t < cutoff || t > now) continue;
+    const day = new Date(t).toISOString().slice(0, 10);
+    const bucket = byDay.get(day) ?? { n: 0, loss: 0 };
+    bucket.n += 1;
+    bucket.loss += e.loss ? 1 : 0;
+    byDay.set(day, bucket);
+  }
+  if (byDay.size === 0) return false;
+  for (const bucket of byDay.values()) {
+    if (bucket.loss / bucket.n > targetRate) return false;
+  }
+  return true;
 }
 
 export async function GET(request: Request) {
@@ -108,6 +140,10 @@ export async function GET(request: Request) {
         // verdicts count toward the first only, so sweeping the review feed
         // can never on its own make the demote arm ready.
         relief_ready: reliefReady(effectiveState),
+        // The tighten arm's own gate: "Fewer and more" is the only mode that
+        // can ADD an interruption, so the UI keeps it disabled until the
+        // observed rate has held under target for seven straight days.
+        active_eligible: isActiveEligible(events, settings.targetRate),
       },
       defaults: {
         gamma: CALIBRATION_DEFAULTS.gamma,

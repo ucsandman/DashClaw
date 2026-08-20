@@ -115,6 +115,40 @@ describe('GET /api/calibration/controller', () => {
     expect(body.state.relief_ready).toBe(true);
   });
 
+  it('offers the tighten arm only after the rate holds under target for 7 straight days', async () => {
+    const day = (n: number, at = '12:00:00') => new Date(Date.now() - n * 86400000)
+      .toISOString().slice(0, 10) + `T${at}.000Z`;
+
+    // No verdicts in the window: no evidence, so never eligible by default.
+    let body = await (await GET(makeRequest(URL_, { headers: adminHeaders }))).json();
+    expect(body.state.active_eligible).toBe(false);
+
+    // Three days of verdicts, all at or under the 10% default target.
+    mockListCalibrationEvents.mockResolvedValue([
+      { action_id: 'e1', agent_id: null, risk_score: 40, theta_before: 80, theta_after: 80, label: 'benign', loss: 0, source: 'approval', created_at: day(1) },
+      { action_id: 'e2', agent_id: null, risk_score: 41, theta_before: 80, theta_after: 80, label: 'benign', loss: 0, source: 'approval', created_at: day(2) },
+      { action_id: 'e3', agent_id: null, risk_score: 42, theta_before: 80, theta_after: 80, label: 'dangerous', loss: 0, source: 'approval', created_at: day(3) },
+    ]);
+    body = await (await GET(makeRequest(URL_, { headers: adminHeaders }))).json();
+    expect(body.state.active_eligible).toBe(true);
+
+    // One day over target sinks it — the window must hold throughout.
+    mockListCalibrationEvents.mockResolvedValue([
+      { action_id: 'e1', agent_id: null, risk_score: 40, theta_before: 80, theta_after: 80, label: 'benign', loss: 0, source: 'approval', created_at: day(1) },
+      { action_id: 'e2', agent_id: null, risk_score: 41, theta_before: 80, theta_after: 80, label: 'benign', loss: 1, source: 'approval', created_at: day(2) },
+    ]);
+    body = await (await GET(makeRequest(URL_, { headers: adminHeaders }))).json();
+    expect(body.state.active_eligible).toBe(false);
+
+    // The same bad day, aged past the 7-day window, no longer counts — but
+    // with nothing left inside the window there is no evidence either.
+    mockListCalibrationEvents.mockResolvedValue([
+      { action_id: 'e2', agent_id: null, risk_score: 41, theta_before: 80, theta_after: 80, label: 'benign', loss: 1, source: 'approval', created_at: day(30) },
+    ]);
+    body = await (await GET(makeRequest(URL_, { headers: adminHeaders }))).json();
+    expect(body.state.active_eligible).toBe(false);
+  });
+
   it('carries the adjudication source through to the event list', async () => {
     mockListCalibrationEvents.mockResolvedValue([
       { action_id: 'gd_1', agent_id: null, risk_score: 46, theta_before: 80, theta_after: 80.9, label: 'benign', loss: 1, source: 'warn_review', created_at: '2026-08-19T00:00:00.000Z' },
