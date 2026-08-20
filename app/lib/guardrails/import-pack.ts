@@ -12,6 +12,7 @@ import { inferPolicyType } from '../policyPackPreviews';
 import {
   SHORT_LIST_CAP,
   countShortListLines,
+  hasWatchTier,
   isShortListLine,
   toWatchTier,
   watchPolicyType,
@@ -100,12 +101,17 @@ export async function importPolicies(
           continue;
         }
         claimed++;
-      } else {
-        effectiveRules = toWatchTier(parsedRules, policyType);
-        if (isShortListLine(policyType, parsedRules)) {
-          policyType = watchPolicyType(policyType);
-          watched++;
+      } else if (isShortListLine(policyType, parsedRules)) {
+        // A type with no warn tier can only interrupt. Installing it silently
+        // would either bury the operator or (worse) store an inert flag that
+        // hides it from the cap, so it is skipped and reported instead.
+        if (!hasWatchTier(policyType)) {
+          skipped.push(`${name} (no_watch_tier)`);
+          continue;
         }
+        effectiveRules = toWatchTier(parsedRules, policyType);
+        policyType = watchPolicyType(policyType);
+        watched++;
       }
 
       const id = `gp_${randomUUID().replace(/-/g, '').slice(0, 24)}`;

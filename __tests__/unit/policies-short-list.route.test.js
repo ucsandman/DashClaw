@@ -70,7 +70,7 @@ describe('POST /api/policies — Short List', () => {
     const values = insertedValues();
     // ...(id, org_id, name, policy_type, rules, ...) — positions 4 and 5.
     expect(values[4]).toBe('warn_action_type');
-    expect(JSON.parse(values[5])).toEqual({ action_types: ['api'], action: 'warn' });
+    expect(JSON.parse(values[5])).toEqual({ action_types: ['api'] });
   });
 
   it('leaves an already-watched rule untouched', async () => {
@@ -138,12 +138,12 @@ describe('POST /api/policies — Short List', () => {
 describe('PATCH /api/policies — Short List', () => {
   beforeEach(() => {
     mockSql.query.mockImplementation(async (q) => {
-      if (String(q).startsWith('SELECT policy_type')) return [{ policy_type: 'warn_action_type' }];
+      if (String(q).startsWith('SELECT policy_type')) return [{ policy_type: 'warn_action_type', rules: '{}' }];
       return [{ id: 'gp_target' }];
     });
   });
 
-  it('promoting a warn rule to Hold requires short_list and is admitted when a slot is free', async () => {
+  it('promoting a warn row to Hold actually writes policy_type = require_approval', async () => {
     const res = await PATCH(makeRequest('http://localhost/api/policies', {
       method: 'PATCH',
       headers: ADMIN,
@@ -154,9 +154,28 @@ describe('PATCH /api/policies — Short List', () => {
       },
     }));
     expect(res.status).toBe(200);
-    const [query, ...params] = mockSql.query.mock.calls.at(-1);
+    const [query, params] = mockSql.query.mock.calls.at(-1);
     expect(query).toContain('UPDATE guard_policies');
+    expect(query).toContain('policy_type =');
+    // Without this the row stays warn_action_type: require_approval's evaluator
+    // hardcodes its decision, so the promotion would burn a cap slot and never
+    // actually hold anything.
+    expect(params).toContain('require_approval');
     expect(JSON.stringify(params)).toContain('short_list');
+  });
+
+  it('a promote whose type already matches the row does not rewrite policy_type', async () => {
+    mockSql.query.mockImplementation(async (q) => {
+      if (String(q).startsWith('SELECT policy_type')) return [{ policy_type: 'require_approval', rules: '{}' }];
+      return [{ id: 'gp_target' }];
+    });
+    const res = await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH',
+      headers: ADMIN,
+      body: { id: 'gp_target', rules: { action_types: ['deploy'], short_list: true } },
+    }));
+    expect(res.status).toBe(200);
+    expect(mockSql.query.mock.calls.at(-1)[0]).not.toContain('policy_type =');
   });
 
   it('returns 409 SHORT_LIST_FULL when promoting past the cap', async () => {
@@ -204,5 +223,88 @@ describe('PATCH /api/policies — Short List', () => {
     const params = mockSql.query.mock.calls.at(-1)[1];
     expect(params.some((p) => typeof p === 'string' && p.includes('"action":"warn"'))).toBe(true);
     expect(params.some((p) => typeof p === 'string' && p.includes('"action":"block"'))).toBe(false);
+  });
+});
+
+describe('PATCH /api/policies — reactivation is capped', () => {
+  function dormantHold(rules = { action_types: ['deploy'] }) {
+    mockSql.query.mockImplementation(async (q) => {
+      if (String(q).startsWith('SELECT policy_type')) {
+        return [{ policy_type: 'require_approval', rules: JSON.stringify(rules) }];
+      }
+      return [{ id: 'gp_dormant' }];
+    });
+  }
+
+  it('returns 409 when switching a dormant Short List line back on with no free slot', async () => {
+    dormantHold();
+    mockGetActivePolicies.mockResolvedValue(fullList());
+    const res = await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH',
+      headers: ADMIN,
+      body: { id: 'gp_dormant', active: 1 },
+    }));
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe('SHORT_LIST_FULL');
+  });
+
+  it('allows the reactivation when a slot is free', async () => {
+    dormantHold();
+    mockGetActivePolicies.mockResolvedValue(fullList().slice(0, 9));
+    const res = await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH',
+      headers: ADMIN,
+      body: { id: 'gp_dormant', active: 1 },
+    }));
+    expect(res.status).toBe(200);
+  });
+
+  it('never caps a reactivation of a watched line, or a deactivation', async () => {
+    mockGetActivePolicies.mockResolvedValue(fullList());
+    mockSql.query.mockImplementation(async (q) => {
+      if (String(q).startsWith('SELECT policy_type')) {
+        return [{ policy_type: 'warn_action_type', rules: '{"action_types":["post"]}' }];
+      }
+      return [{ id: 'gp_watched' }];
+    });
+    expect((await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH', headers: ADMIN, body: { id: 'gp_watched', active: 1 },
+    }))).status).toBe(200);
+
+    dormantHold();
+    expect((await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH', headers: ADMIN, body: { id: 'gp_dormant', active: 0 },
+    }))).status).toBe(200);
+  });
+});
+
+describe('POST /api/policies — types with no Watch tier', () => {
+  it('returns 409 NO_WATCH_TIER instead of storing an inert demotion flag', async () => {
+    const res = await POST(makeRequest('http://localhost/api/policies', {
+      headers: ADMIN,
+      body: {
+        name: 'Role limits',
+        policy_type: 'role_constraint',
+        rules: JSON.stringify({ role: 'junior', blocked_action_types: ['deploy'] }),
+      },
+    }));
+    expect(res.status).toBe(409);
+    const data = await res.json();
+    expect(data.code).toBe('NO_WATCH_TIER');
+    expect(data.error).toContain('role_constraint');
+    expect(insertedValues()).toBeUndefined();
+  });
+
+  it('the same rule installs when the operator opts it onto the Short List', async () => {
+    const res = await POST(makeRequest('http://localhost/api/policies', {
+      headers: ADMIN,
+      body: {
+        name: 'Role limits',
+        policy_type: 'role_constraint',
+        rules: JSON.stringify({ role: 'junior', blocked_action_types: ['deploy'], short_list: true }),
+      },
+    }));
+    expect(res.status).toBe(201);
+    expect(insertedValues()[4]).toBe('role_constraint');
   });
 });

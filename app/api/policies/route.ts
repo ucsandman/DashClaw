@@ -13,25 +13,45 @@ import { GRANT_DEFAULT_TTL_DAYS } from '../../lib/policy-shapes';
 import { deletePoliciesByIds, getActivePolicies } from '../../lib/repositories/guardrails.repository';
 import {
   SHORT_LIST_CAP,
+  ShortListFullError,
   countShortListLines,
+  hasWatchTier,
   isShortListLine,
+  noWatchTierMessage,
   parseRules,
   toWatchTier,
   watchPolicyType,
 } from '../../lib/guardrails/short-list';
 
-const SHORT_LIST_FULL_BODY = {
-  error: `The Short List is full (${SHORT_LIST_CAP} of ${SHORT_LIST_CAP}). Remove a line to add this one.`,
-  code: 'SHORT_LIST_FULL',
-};
+/** 409 body for both write paths — one source for the message and the code. */
+function shortListFull() {
+  const err = new ShortListFullError();
+  return NextResponse.json({ error: err.message, code: err.code }, { status: 409 });
+}
+
+/** True when this org's Short List has no free slot (excluding `excludeId`). */
+async function shortListIsFull(
+  sql: ReturnType<typeof getSql>,
+  orgId: string,
+  excludeId?: string,
+): Promise<boolean> {
+  const active = await getActivePolicies(sql, orgId);
+  const rows = (active as Array<{ id?: string; policy_type: string; rules: unknown; active?: unknown }>)
+    .filter((r) => r.id !== excludeId);
+  return countShortListLines(rows) >= SHORT_LIST_CAP;
+}
+
+type Admission =
+  | { ok: true; rules: string; policyType: string }
+  | { ok: false; reason: 'full' | 'no_watch_tier'; policyType: string };
 
 /**
  * Short List admission (spec 2.3). A write only keeps its interrupting action
  * when it opts in with `rules.short_list: true` AND a slot is free; everything
  * else is stored in Watch, where it records without stopping the agent.
  *
- * Returns the rules/type to store, or `full: true` when the caller opted in and
- * the list is at SHORT_LIST_CAP.
+ * A type with no warn tier cannot be watched at all, so it is refused rather
+ * than stored with a demotion flag its evaluator would ignore.
  * @param excludeId the policy being updated, so a PATCH never counts itself.
  */
 async function admitToShortList(
@@ -40,23 +60,30 @@ async function admitToShortList(
   policyType: string,
   rulesText: string,
   excludeId?: string,
-): Promise<{ full: boolean; rules: string; policyType: string }> {
+): Promise<Admission> {
   const rules = parseRules(rulesText);
 
   if (rules.short_list !== true) {
-    if (!isShortListLine(policyType, rules)) return { full: false, rules: rulesText, policyType };
+    if (!isShortListLine(policyType, rules)) return { ok: true, rules: rulesText, policyType };
+    if (!hasWatchTier(policyType)) return { ok: false, reason: 'no_watch_tier', policyType };
     return {
-      full: false,
+      ok: true,
       rules: JSON.stringify(toWatchTier(rules, policyType)),
       policyType: watchPolicyType(policyType),
     };
   }
 
-  const active = await getActivePolicies(sql, orgId);
-  const rows = (active as Array<{ id?: string; policy_type: string; rules: unknown; active?: unknown }>)
-    .filter((r) => r.id !== excludeId);
-  if (countShortListLines(rows) >= SHORT_LIST_CAP) return { full: true, rules: rulesText, policyType };
-  return { full: false, rules: rulesText, policyType };
+  if (await shortListIsFull(sql, orgId, excludeId)) return { ok: false, reason: 'full', policyType };
+  return { ok: true, rules: rulesText, policyType };
+}
+
+/** Map a refused admission to its response. */
+function admissionError(admission: Extract<Admission, { ok: false }>) {
+  if (admission.reason === 'full') return shortListFull();
+  return NextResponse.json(
+    { error: noWatchTierMessage(admission.policyType), code: 'NO_WATCH_TIER' },
+    { status: 409 },
+  );
 }
 
 /**
@@ -139,8 +166,8 @@ export async function POST(request: Request) {
     }
 
     const admission = await admitToShortList(sql, orgId, data.policy_type, data.rules);
-    if (admission.full) {
-      return NextResponse.json(SHORT_LIST_FULL_BODY, { status: 409 });
+    if (!admission.ok) {
+      return admissionError(admission);
     }
 
     await sql`
@@ -192,35 +219,55 @@ export async function PATCH(request: Request) {
       sets.push(`name = $${idx++}`);
       params.push(body.name);
     }
-    if (body.rules != null) {
+    // The stored row is needed both to validate a rules change against the
+    // right type and to cap-check a reactivation, so read it once.
+    let existingRow: { policy_type?: string; rules?: unknown } | undefined;
+    if (body.rules != null || body.active != null) {
       // SECURITY: Validate rules through the same validation as POST. If the
       // policy does not exist in this org, return 404 *before* the UPDATE
       // so we never accept unvalidated rules into the SQL parameter array.
       const existing = await sql.query(
-        'SELECT policy_type FROM guard_policies WHERE id = $1 AND org_id = $2',
+        'SELECT policy_type, rules FROM guard_policies WHERE id = $1 AND org_id = $2',
         [body.id, orgId]
       );
       if (existing.length === 0) {
         return NextResponse.json({ error: 'Policy not found' }, { status: 404 });
       }
-      const policyType = body.policy_type || existing[0]?.policy_type;
+      existingRow = existing[0];
+    }
+
+    if (body.rules != null) {
+      const storedType = existingRow?.policy_type as string;
+      const policyType = body.policy_type || storedType;
       const rulesStr = typeof body.rules === 'string' ? body.rules : JSON.stringify(body.rules);
       const { valid, errors } = validatePolicy({ name: body.name || 'temp', policy_type: policyType, rules: rulesStr });
       if (!valid) {
         return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 });
       }
       const admission = await admitToShortList(sql, orgId, policyType, rulesStr, body.id);
-      if (admission.full) {
-        return NextResponse.json(SHORT_LIST_FULL_BODY, { status: 409 });
+      if (!admission.ok) {
+        return admissionError(admission);
       }
       sets.push(`rules = $${idx++}`);
       params.push(admission.rules);
-      if (admission.policyType !== policyType) {
+      // Write the type whenever admission lands somewhere other than the type
+      // already stored — this carries the PROMOTE direction too ("Hold instead"
+      // on a warn_action_type row must actually become require_approval).
+      if (admission.policyType !== storedType) {
         sets.push(`policy_type = $${idx++}`);
         params.push(admission.policyType);
       }
     }
     if (body.active != null) {
+      // Reactivating a dormant Short List line consumes a slot exactly like
+      // creating one, so it is capped the same way.
+      if (body.active && body.rules == null) {
+        const storedType = existingRow?.policy_type as string;
+        const storedRules = parseRules(existingRow?.rules);
+        if (isShortListLine(storedType, storedRules) && await shortListIsFull(sql, orgId, body.id)) {
+          return shortListFull();
+        }
+      }
       sets.push(`active = $${idx++}`);
       params.push(body.active ? 1 : 0);
     }

@@ -70,7 +70,7 @@ describe('import-pack — Short List admission', () => {
       { id: 'net', description: 'Net', policy_type: 'require_approval', rules: { action_types: ['api'] } },
     ]);
     expect(stored()).toEqual([
-      { name: 'Net', policy_type: 'warn_action_type', rules: { action_types: ['api'], action: 'warn' } },
+      { name: 'Net', policy_type: 'warn_action_type', rules: { action_types: ['api'] } },
     ]);
   });
 
@@ -135,6 +135,25 @@ describe('import-pack — Short List admission', () => {
     // The watched line still installs — the cap only gates interrupting lines.
     expect(result.imported).toHaveLength(1);
     expect(result.imported[0].name).toBe('Y');
+  });
+
+  it('skips a no-warn-tier line rather than storing an inert demotion flag', async () => {
+    const result = await importPolicies(vi.fn(), 'org_1', [
+      { id: 'role', description: 'Role', policy_type: 'role_constraint', rules: { role: 'junior', blocked_action_types: ['deploy'] } },
+      { id: 'nf', description: 'NF', policy_type: 'non_fabrication', rules: { on_violation: 'block' } },
+    ]);
+    expect(result.skipped).toEqual(['Role (no_watch_tier)', 'NF (no_watch_tier)']);
+    expect(result.watched).toBe(0);
+    expect(mockInsertPolicy).not.toHaveBeenCalled();
+  });
+
+  it('leaves a never-interrupting line byte-identical (its flags are not stripped)', async () => {
+    await importPolicies(vi.fn(), 'org_1', [
+      { id: 'w', description: 'W', policy_type: 'warn_action_type', rules: { action_types: ['post'], ungrantable: true } },
+    ]);
+    expect(stored()).toEqual([
+      { name: 'W', policy_type: 'warn_action_type', rules: { action_types: ['post'], ungrantable: true } },
+    ]);
   });
 
   it('a name conflict still skips before any Short List accounting', async () => {
