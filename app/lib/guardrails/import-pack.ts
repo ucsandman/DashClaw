@@ -33,6 +33,12 @@ export interface ImportPoliciesResult {
   errors: string[];
   /** How many imported rules were demoted to Watch (they record, they do not interrupt). */
   watched: number;
+  /**
+   * How many rules installed DORMANT (active = 0) because their type has no
+   * Watch tier. Not counted in `imported`: `imported + dormant` is the number
+   * of pack lines that reached the database.
+   */
+  dormant: number;
 }
 
 /** Load and parse a pack's policies.yml. Throws when the pack file is missing. */
@@ -64,6 +70,7 @@ export async function importPolicies(
   const skipped: string[] = [];
   const errors: string[] = [];
   let watched = 0;
+  let dormant = 0;
 
   // Slots already taken by this org's active interrupting rules. Read once:
   // the loop's own inserts are tracked in `claimed`.
@@ -95,6 +102,7 @@ export async function importPolicies(
       }
 
       let effectiveRules = parsedRules;
+      let activeFlag: 0 | 1 = 1;
       if (parsedRules.short_list === true) {
         if (used + claimed >= SHORT_LIST_CAP) {
           skipped.push(`${name} (short_list_full)`);
@@ -102,16 +110,19 @@ export async function importPolicies(
         }
         claimed++;
       } else if (isShortListLine(policyType, parsedRules)) {
-        // A type with no warn tier can only interrupt. Installing it silently
-        // would either bury the operator or (worse) store an inert flag that
-        // hides it from the cap, so it is skipped and reported instead.
-        if (!hasWatchTier(policyType)) {
-          skipped.push(`${name} (no_watch_tier)`);
-          continue;
+        if (hasWatchTier(policyType)) {
+          effectiveRules = toWatchTier(parsedRules, policyType);
+          policyType = watchPolicyType(policyType);
+          watched++;
+        } else {
+          // No warn tier exists for this type, so there is nothing we could
+          // write that would make it record-without-interrupting. Spec 2.3
+          // says a pack line may not interrupt until a human promotes it, so
+          // it lands DORMANT with its rules untouched — the pack stays
+          // complete and visible, and nothing fires until someone turns it on
+          // (which runs the PATCH cap check).
+          activeFlag = 0;
         }
-        effectiveRules = toWatchTier(parsedRules, policyType);
-        policyType = watchPolicyType(policyType);
-        watched++;
       }
 
       const id = `gp_${randomUUID().replace(/-/g, '').slice(0, 24)}`;
@@ -121,7 +132,13 @@ export async function importPolicies(
         name,
         policyType,
         rules: JSON.stringify(effectiveRules),
+        active: activeFlag,
       }) as Record<string, unknown>;
+
+      if (activeFlag === 0) {
+        dormant++;
+        continue;
+      }
 
       imported.push({
         id: result.id,
@@ -134,7 +151,7 @@ export async function importPolicies(
     }
   }
 
-  return { imported, skipped, errors, watched };
+  return { imported, skipped, errors, watched, dormant };
 }
 
 /** Load a named pack and import its policies for the org. */

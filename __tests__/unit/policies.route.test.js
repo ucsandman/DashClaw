@@ -8,7 +8,12 @@ const { mockSql, mockValidatePolicy, mockPublishOrgEvent } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
-vi.mock('@/lib/validate', () => ({ validatePolicy: mockValidatePolicy }));
+// short-list.ts (via the route) imports POLICY_TYPES from this module, so the
+// mock must keep the real exports and override only validatePolicy.
+vi.mock('@/lib/validate', async (importOriginal) => ({
+  ...(await importOriginal()),
+  validatePolicy: mockValidatePolicy,
+}));
 vi.mock('@/lib/events.js', () => ({
   EVENTS: { POLICY_UPDATED: 'policy.updated' },
   publishOrgEvent: mockPublishOrgEvent,

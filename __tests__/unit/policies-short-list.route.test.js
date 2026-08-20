@@ -12,7 +12,12 @@ const { mockSql, mockValidatePolicy, mockPublishOrgEvent, mockGetActivePolicies 
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
-vi.mock('@/lib/validate', () => ({ validatePolicy: mockValidatePolicy }));
+// short-list.ts (via the route) imports POLICY_TYPES from this module, so the
+// mock must keep the real exports and override only validatePolicy.
+vi.mock('@/lib/validate', async (importOriginal) => ({
+  ...(await importOriginal()),
+  validatePolicy: mockValidatePolicy,
+}));
 vi.mock('@/lib/events.js', () => ({
   EVENTS: { POLICY_UPDATED: 'policy.updated' },
   publishOrgEvent: mockPublishOrgEvent,
@@ -306,5 +311,104 @@ describe('POST /api/policies — types with no Watch tier', () => {
     }));
     expect(res.status).toBe(201);
     expect(insertedValues()[4]).toBe('role_constraint');
+  });
+});
+
+describe('PATCH /api/policies — editing an existing Short List line is not a re-admission', () => {
+  /** A stored, active, interrupting line WITHOUT rules.short_list (every seeded
+   *  catastrophe line and every legacy hold looks like this). */
+  function storedLine(policy_type, rules) {
+    mockSql.query.mockImplementation(async (q) => {
+      if (String(q).startsWith('SELECT policy_type')) {
+        return [{ policy_type, rules: JSON.stringify(rules) }];
+      }
+      return [{ id: 'gp_line' }];
+    });
+  }
+
+  /** The SET clause + params of the UPDATE the route emitted. */
+  function update() {
+    const [query, params] = mockSql.query.mock.calls.at(-1);
+    return { query, params, rules: JSON.parse(params.find((p) => typeof p === 'string' && p.startsWith('{'))) };
+  }
+
+  it('adding shape_exceptions to a stored BLOCK line leaves type, action and ungrantable intact', async () => {
+    storedLine('risk_threshold', { threshold: 100, action: 'block', ungrantable: true });
+    const res = await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH',
+      headers: ADMIN,
+      body: {
+        id: 'gp_line',
+        rules: { threshold: 100, action: 'block', ungrantable: true, shape_exceptions: ['git log'] },
+      },
+    }));
+    expect(res.status).toBe(200);
+    const { query, rules } = update();
+    // The misfire Undo must not quietly demote a BLOCK to a WATCH.
+    expect(rules.action).toBe('block');
+    expect(rules.ungrantable).toBe(true);
+    expect(rules.shape_exceptions).toEqual(['git log']);
+    expect(query).not.toContain('policy_type =');
+  });
+
+  it('editing a stored require_approval line does not swap its type to warn_action_type', async () => {
+    storedLine('require_approval', { action_types: ['deploy'], ungrantable: true });
+    const res = await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH',
+      headers: ADMIN,
+      body: { id: 'gp_line', rules: { action_types: ['deploy'], ungrantable: true, shape_exceptions: ['x'] } },
+    }));
+    expect(res.status).toBe(200);
+    const { query, rules } = update();
+    expect(query).not.toContain('policy_type =');
+    expect(rules.ungrantable).toBe(true);
+  });
+
+  it('an edit is never cap-checked — a full list does not block it', async () => {
+    storedLine('risk_threshold', { threshold: 100, action: 'block' });
+    mockGetActivePolicies.mockResolvedValue(fullList());
+    const res = await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH',
+      headers: ADMIN,
+      body: { id: 'gp_line', rules: { threshold: 100, action: 'block', shape_exceptions: ['y'] } },
+    }));
+    expect(res.status).toBe(200);
+    expect(mockGetActivePolicies).not.toHaveBeenCalled();
+  });
+
+  it('ESCALATING a stored warn row without short_list is still transformed', async () => {
+    storedLine('warn_action_type', { action_types: ['post'] });
+    const res = await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH',
+      headers: ADMIN,
+      body: { id: 'gp_line', policy_type: 'require_approval', rules: { action_types: ['post'] } },
+    }));
+    expect(res.status).toBe(200);
+    const { query, rules } = update();
+    // Not an edit of an existing line — this is a create-shaped escalation.
+    expect(rules.action_types).toEqual(['post']);
+    expect(query).not.toContain('policy_type =');
+  });
+
+  it('ESCALATING a stored warn row to a no-watch-tier type still 409s', async () => {
+    storedLine('warn_action_type', { action_types: ['post'] });
+    const res = await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH',
+      headers: ADMIN,
+      body: { id: 'gp_line', policy_type: 'role_constraint', rules: { role: 'junior', blocked_action_types: ['deploy'] } },
+    }));
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe('NO_WATCH_TIER');
+  });
+
+  it('deliberately DEMOTING a stored Short List line is allowed and not re-admitted', async () => {
+    storedLine('risk_threshold', { threshold: 100, action: 'block' });
+    const res = await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH',
+      headers: ADMIN,
+      body: { id: 'gp_line', rules: { threshold: 100, action: 'warn' } },
+    }));
+    expect(res.status).toBe(200);
+    expect(update().rules.action).toBe('warn');
   });
 });

@@ -35,7 +35,7 @@ beforeEach(() => {
 describe('import-pack', () => {
   it('empty policy list → zero imported/skipped/errors (provisioning-safe edge)', async () => {
     const result = await importPolicies(vi.fn(), 'org_edge', []);
-    expect(result).toEqual({ imported: [], skipped: [], errors: [], watched: 0 });
+    expect(result).toEqual({ imported: [], skipped: [], errors: [], watched: 0, dormant: 0 });
   });
 
   it('loadPackPolicies reads the real claude-code-starter pack (4 policies)', async () => {
@@ -137,14 +137,25 @@ describe('import-pack — Short List admission', () => {
     expect(result.imported[0].name).toBe('Y');
   });
 
-  it('skips a no-warn-tier line rather than storing an inert demotion flag', async () => {
+  it('installs a no-warn-tier line DORMANT rather than dropping it or faking a demotion', async () => {
     const result = await importPolicies(vi.fn(), 'org_1', [
       { id: 'role', description: 'Role', policy_type: 'role_constraint', rules: { role: 'junior', blocked_action_types: ['deploy'] } },
       { id: 'nf', description: 'NF', policy_type: 'non_fabrication', rules: { on_violation: 'block' } },
+      { id: 'wh', description: 'WH', policy_type: 'webhook_check', rules: { url: 'https://example.com/hook' } },
     ]);
-    expect(result.skipped).toEqual(['Role (no_watch_tier)', 'NF (no_watch_tier)']);
+    // Nothing is skipped and nothing is watched: all three reached the DB, off.
+    expect(result.skipped).toEqual([]);
     expect(result.watched).toBe(0);
-    expect(mockInsertPolicy).not.toHaveBeenCalled();
+    expect(result.dormant).toBe(3);
+    expect(result.imported).toEqual([]);
+    expect(mockInsertPolicy).toHaveBeenCalledTimes(3);
+    for (const [, , data] of mockInsertPolicy.mock.calls) {
+      expect(data.active).toBe(0);
+      expect(JSON.parse(data.rules).short_list).toBeUndefined();
+    }
+    // The stored type is preserved — no swap, no invented flag.
+    expect(mockInsertPolicy.mock.calls.map(([, , d]) => d.policyType))
+      .toEqual(['role_constraint', 'non_fabrication', 'webhook_check']);
   });
 
   it('leaves a never-interrupting line byte-identical (its flags are not stripped)', async () => {

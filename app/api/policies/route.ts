@@ -244,18 +244,38 @@ export async function PATCH(request: Request) {
       if (!valid) {
         return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 });
       }
-      const admission = await admitToShortList(sql, orgId, policyType, rulesStr, body.id);
-      if (!admission.ok) {
-        return admissionError(admission);
-      }
-      sets.push(`rules = $${idx++}`);
-      params.push(admission.rules);
-      // Write the type whenever admission lands somewhere other than the type
-      // already stored — this carries the PROMOTE direction too ("Hold instead"
-      // on a warn_action_type row must actually become require_approval).
-      if (admission.policyType !== storedType) {
-        sets.push(`policy_type = $${idx++}`);
-        params.push(admission.policyType);
+      // Admission governs CREATES and ESCALATIONS, never edits. A row that is
+      // already a Short List line and stays interrupting is being EDITED — most
+      // often by the misfire Undo / "Stop asking" writes, which only add
+      // rules.shape_exceptions. Re-admitting it would strip `ungrantable` and
+      // swap its type to warn_action_type, silently turning a BLOCK into a WATCH
+      // on a narrow human click. It already holds its slot, so it keeps it.
+      const storedRules = parseRules(existingRow?.rules);
+      const isEdit = isShortListLine(storedType, storedRules)
+        && isShortListLine(policyType, parseRules(rulesStr));
+
+      if (isEdit) {
+        sets.push(`rules = $${idx++}`);
+        params.push(rulesStr);
+        // Only an explicit body.policy_type may move an existing line's type.
+        if (body.policy_type && body.policy_type !== storedType) {
+          sets.push(`policy_type = $${idx++}`);
+          params.push(body.policy_type);
+        }
+      } else {
+        const admission = await admitToShortList(sql, orgId, policyType, rulesStr, body.id);
+        if (!admission.ok) {
+          return admissionError(admission);
+        }
+        sets.push(`rules = $${idx++}`);
+        params.push(admission.rules);
+        // Write the type whenever admission lands somewhere other than the type
+        // already stored — this carries the PROMOTE direction too ("Hold instead"
+        // on a warn_action_type row must actually become require_approval).
+        if (admission.policyType !== storedType) {
+          sets.push(`policy_type = $${idx++}`);
+          params.push(admission.policyType);
+        }
       }
     }
     if (body.active != null) {

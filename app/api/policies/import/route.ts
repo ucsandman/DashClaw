@@ -76,7 +76,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const { imported, skipped, errors, watched } = await importPolicies(
+    const { imported, skipped, errors, watched, dormant } = await importPolicies(
       sql, orgId, policies as Array<Record<string, unknown>>,
     );
 
@@ -87,6 +87,9 @@ export async function POST(request: Request) {
       // Rules demoted to Watch on install (Short List, spec 2.3) — they record
       // and do not interrupt. The install banner reports this.
       watched,
+      // Rules installed dormant (active = 0) because their type has no Watch
+      // tier; a human promotes them from /policies.
+      dormant,
       errors,
       policies: imported,
     }, { status: 201 });
