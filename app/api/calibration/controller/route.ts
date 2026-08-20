@@ -71,9 +71,16 @@ const ACTIVE_ELIGIBLE_DAYS = 7;
  *
  * It is the only mode that can ADD an interruption, so it is offered only
  * once the observed false-interruption rate has held under target for seven
- * straight days: every UTC day in that window that saw at least one verdict
- * must come in at or under the target rate. No verdicts in the window means
- * no evidence, which means not eligible — never eligible by default.
+ * STRAIGHT days, which the copy promises literally: the window must contain
+ * at least seven distinct UTC days that each saw a verdict, and every one of
+ * them must come in at or under the target rate. A quiet week, a single good
+ * day, or one day over target all mean not eligible — never eligible by
+ * default.
+ *
+ * Ceiling: the caller passes the most recent 200 events, so an org doing more
+ * than ~200 verdicts a week could have a bad day truncated out of this view
+ * and read as eligible. Widen the fetch (or aggregate day buckets in SQL) if
+ * that volume ever becomes real.
  */
 function isActiveEligible(events: CalibrationEventRow[], targetRate: number, now = Date.now()): boolean {
   const cutoff = now - ACTIVE_ELIGIBLE_DAYS * 24 * 60 * 60 * 1000;
@@ -87,7 +94,7 @@ function isActiveEligible(events: CalibrationEventRow[], targetRate: number, now
     bucket.loss += e.loss ? 1 : 0;
     byDay.set(day, bucket);
   }
-  if (byDay.size === 0) return false;
+  if (byDay.size < ACTIVE_ELIGIBLE_DAYS) return false;
   for (const bucket of byDay.values()) {
     if (bucket.loss / bucket.n > targetRate) return false;
   }

@@ -116,35 +116,42 @@ describe('GET /api/calibration/controller', () => {
   });
 
   it('offers the tighten arm only after the rate holds under target for 7 straight days', async () => {
-    const day = (n: number, at = '12:00:00') => new Date(Date.now() - n * 86400000)
-      .toISOString().slice(0, 10) + `T${at}.000Z`;
+    // n days ago plus a minute: always inside a 7-day window at n <= 7, and
+    // each offset lands on its own UTC day whatever time the suite runs.
+    const verdict = (n: number, loss: number) => ({
+      action_id: `e${n}`, agent_id: null, risk_score: 40, theta_before: 80, theta_after: 80,
+      label: loss ? 'benign' : 'dangerous', loss, source: 'approval',
+      created_at: new Date(Date.now() - n * 86400000 + 60000).toISOString(),
+    });
+    const days = (ns: number[], overTarget: number[] = []) => ns.map((n) => verdict(n, overTarget.includes(n) ? 1 : 0));
 
     // No verdicts in the window: no evidence, so never eligible by default.
     let body = await (await GET(makeRequest(URL_, { headers: adminHeaders }))).json();
     expect(body.state.active_eligible).toBe(false);
 
-    // Three days of verdicts, all at or under the 10% default target.
-    mockListCalibrationEvents.mockResolvedValue([
-      { action_id: 'e1', agent_id: null, risk_score: 40, theta_before: 80, theta_after: 80, label: 'benign', loss: 0, source: 'approval', created_at: day(1) },
-      { action_id: 'e2', agent_id: null, risk_score: 41, theta_before: 80, theta_after: 80, label: 'benign', loss: 0, source: 'approval', created_at: day(2) },
-      { action_id: 'e3', agent_id: null, risk_score: 42, theta_before: 80, theta_after: 80, label: 'dangerous', loss: 0, source: 'approval', created_at: day(3) },
-    ]);
-    body = await (await GET(makeRequest(URL_, { headers: adminHeaders }))).json();
-    expect(body.state.active_eligible).toBe(true);
-
-    // One day over target sinks it — the window must hold throughout.
-    mockListCalibrationEvents.mockResolvedValue([
-      { action_id: 'e1', agent_id: null, risk_score: 40, theta_before: 80, theta_after: 80, label: 'benign', loss: 0, source: 'approval', created_at: day(1) },
-      { action_id: 'e2', agent_id: null, risk_score: 41, theta_before: 80, theta_after: 80, label: 'benign', loss: 1, source: 'approval', created_at: day(2) },
-    ]);
+    // One clean day is not seven — the copy promises straight days, so a
+    // single benign verdict must not unlock the only mode that ADDS work.
+    mockListCalibrationEvents.mockResolvedValue(days([1]));
     body = await (await GET(makeRequest(URL_, { headers: adminHeaders }))).json();
     expect(body.state.active_eligible).toBe(false);
 
-    // The same bad day, aged past the 7-day window, no longer counts — but
-    // with nothing left inside the window there is no evidence either.
-    mockListCalibrationEvents.mockResolvedValue([
-      { action_id: 'e2', agent_id: null, risk_score: 41, theta_before: 80, theta_after: 80, label: 'benign', loss: 1, source: 'approval', created_at: day(30) },
-    ]);
+    // Three clean days is still not seven.
+    mockListCalibrationEvents.mockResolvedValue(days([1, 2, 3]));
+    body = await (await GET(makeRequest(URL_, { headers: adminHeaders }))).json();
+    expect(body.state.active_eligible).toBe(false);
+
+    // Seven straight days, every one at or under the 10% default target.
+    mockListCalibrationEvents.mockResolvedValue(days([1, 2, 3, 4, 5, 6, 7]));
+    body = await (await GET(makeRequest(URL_, { headers: adminHeaders }))).json();
+    expect(body.state.active_eligible).toBe(true);
+
+    // One day over target sinks the whole window.
+    mockListCalibrationEvents.mockResolvedValue(days([1, 2, 3, 4, 5, 6, 7], [4]));
+    body = await (await GET(makeRequest(URL_, { headers: adminHeaders }))).json();
+    expect(body.state.active_eligible).toBe(false);
+
+    // Seven clean days that all fell outside the window count for nothing.
+    mockListCalibrationEvents.mockResolvedValue(days([10, 11, 12, 13, 14, 15, 16]));
     body = await (await GET(makeRequest(URL_, { headers: adminHeaders }))).json();
     expect(body.state.active_eligible).toBe(false);
   });

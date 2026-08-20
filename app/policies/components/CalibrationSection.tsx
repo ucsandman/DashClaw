@@ -145,6 +145,7 @@ export default function CalibrationSection({ onChanged }: { onChanged?: () => vo
   const [notice, setNotice] = useState<{ msg: string; isError: boolean } | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const anchorRef = useRef<HTMLDivElement | null>(null);
+  const scrolled = useRef(false);
 
   const flash = useCallback((msg: string, isError = false) => {
     if (noticeTimer.current) clearTimeout(noticeTimer.current);
@@ -169,10 +170,13 @@ export default function CalibrationSection({ onChanged }: { onChanged?: () => vo
   useEffect(() => { load(); }, [load]);
 
   // /policies#calibration is the deep link the sidebar and the old
-  // /calibration route both land on — bring it into view ourselves, since the
-  // anchor renders after the fetch resolves.
+  // /calibration route both land on. The anchor only exists once the fetch
+  // resolves, so this waits for the first snapshot — then never again: a
+  // later refresh must not yank a reading human back up the page.
   useEffect(() => {
+    if (!data || scrolled.current) return;
     if (typeof window === 'undefined' || window.location.hash !== '#calibration') return;
+    scrolled.current = true;
     anchorRef.current?.scrollIntoView({ block: 'start' });
   }, [data]);
 
@@ -289,7 +293,7 @@ export default function CalibrationSection({ onChanged }: { onChanged?: () => vo
           {!reliefReady ? (
             <>
               <p>
-                {`Calibration learns from verdicts, not from traffic. You have given ${state.labeled_total} (${liveLabels} from real approvals, ${retroLabels} from the warn rows above). Automatic tuning needs ${minLabels} verdicts, ${minLive} of them real approve/deny calls, before it can act.`}
+                {`Calibration learns from verdicts, not from traffic. You have given ${state.labeled_total ?? 0} (${liveLabels} from real approvals, ${retroLabels} from the warn rows above). Automatic tuning needs ${minLabels} verdicts, ${minLive} of them real approve/deny calls, before it can act.`}
               </p>
               {settings.mode === 'shadow' && (
                 <p className="mt-1.5">
@@ -299,11 +303,12 @@ export default function CalibrationSection({ onChanged }: { onChanged?: () => vo
             </>
           ) : reliefLive ? (
             <p>
-              {`Calibration learns from verdicts, not from traffic. You have given ${state.labeled_total} verdicts: ${liveLabels} from real approvals, ${retroLabels} from the warn rows above. It stops asking below risk ${fmtRisk(state.theta)}, and it can never touch a Short List line, a block, or reach allow.`}
+              {`Calibration learns from verdicts, not from traffic. You have given ${state.labeled_total ?? 0} verdicts: ${liveLabels} from real approvals, ${retroLabels} from the warn rows above. Relief is on — it stops asking below risk ${fmtRisk(state.theta)}, and it can never touch a Short List line, a block, or reach allow.`}
+              {settings.mode === 'active' && ` It also asks above risk ${fmtRisk(state.theta)}.`}
             </p>
           ) : (
             <p>
-              {`Ready. It would stop asking below risk ${fmtRisk(state.theta)} and never go past ${Math.round(state.relief_ceiling)}, the riskiest action you approved.`}
+              {`Ready. It would stop asking below risk ${fmtRisk(state.theta)} and never go past ${Math.round(state.relief_ceiling ?? 0)}, the riskiest action you approved.`}
             </p>
           )}
         </div>
