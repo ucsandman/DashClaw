@@ -46,11 +46,19 @@ export interface VerdictResult {
 export async function postVerdict(
   verdict: ReviewVerdict,
   shape?: { action_type: string; target_prefix: string | null },
+  // "Promote to Hold" states the tier it means. A tighten already lands as a
+  // require_approval rule, which IS a Short List line, so the flag is the
+  // intent travelling with the request rather than a second code path.
+  opts?: { short_list?: boolean },
 ): Promise<VerdictResult> {
   const res = await fetch('/api/policies/review/verdict', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ verdict, ...(shape ? { shape } : {}) }),
+    body: JSON.stringify({
+      verdict,
+      ...(shape ? { shape } : {}),
+      ...(opts?.short_list ? { short_list: true } : {}),
+    }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

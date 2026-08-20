@@ -16,17 +16,16 @@ import {
 import {
   Check,
   RotateCcw,
-  Inbox,
   TriangleAlert,
   SlidersHorizontal,
   ShieldPlus,
   ShieldMinus,
   Gauge,
   ChevronDown,
+  BellOff,
 } from 'lucide-react';
 import styles from '../policies.module.css';
 import ApprovalFloodBanner from '../../components/ApprovalFloodBanner';
-import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { shapeIsGrantable } from '../../lib/policy-shapes';
 import { fetchReview, postVerdict, type WarnGroup } from '../lib/contractClient';
@@ -61,6 +60,14 @@ import {
   CALIBRATION_RULE_LABEL,
   type CalibrationProposal,
 } from '../lib/calibrationClient';
+import {
+  addShapeException,
+  removeShapeException,
+  muteMisfire,
+  unmuteMisfire,
+  isMisfireMuted,
+  type Misfire,
+} from '../lib/misfireClient';
 
 interface TriageInboxProps {
   /** Called after ANY action that alters policies/decisions so the parent
@@ -77,13 +84,18 @@ type InboxItem =
   | { kind: 'tuning'; key: string; proposal: TuningProposal }
   | { kind: 'tighten'; key: string; proposal: TighteningProposal }
   | { kind: 'loosen'; key: string; proposal: AnyLooseningProposal }
-  | { kind: 'calibration'; key: string; proposal: CalibrationProposal };
+  | { kind: 'calibration'; key: string; proposal: CalibrationProposal }
+  // Pinned first: one command shape held three times in 24h by ONE Short List
+  // line. A report, not a proposal — the exit is a shape-scoped exception.
+  | { kind: 'misfire'; key: string; misfire: Misfire };
 
 // Once a user acts, the resolution is the source of truth for that row — it
 // survives a background parent refetch (only our own load() resets it).
 type Resolution =
   | { type: 'gone' } // warn "fine": cleared review state, no rule, row removed
-  | { type: 'strip'; node: ReactNode; undo?: () => Promise<void> };
+  // `undoNote` says why the strip has no Undo — a resolved row that simply
+  // drops the verb reads as a bug; one that says "append-only" reads as law.
+  | { type: 'strip'; node: ReactNode; undo?: () => Promise<void>; undoNote?: string };
 
 function relativeTime(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -224,6 +236,25 @@ function describe(item: InboxItem): Descriptor {
         ],
       };
     }
+    case 'misfire': {
+      const m = item.misfire;
+      // The rows carry no adjudication outcome by design (the operator who is
+      // drowning is the one who stops clicking), so volume alone is the line.
+      const resolved = m.approvals + m.denials;
+      return {
+        tagClass: styles.ktLoose,
+        Icon: BellOff,
+        label: 'Misfire',
+        lead: (
+          <>
+            &ldquo;{m.shape_key}&rdquo; was held by {m.policy_name} {m.count} times in {m.window_hours}h.
+          </>
+        ),
+        evidence: resolved > 0
+          ? [<><b>{m.approvals}</b> approvals</>, <><b>{m.denials}</b> denials</>]
+          : [<><b>{m.count}</b> holds</>],
+      };
+    }
     case 'calibration': {
       const p = item.proposal;
       const evidence: ReactNode[] = [];
@@ -254,7 +285,9 @@ function describe(item: InboxItem): Descriptor {
 function armedConsequence(item: InboxItem): string {
   switch (item.kind) {
     case 'warn':
-      return `Creates a require-approval rule for ${item.group.shape.action_type}`;
+      return `Adds a Short List line that holds ${item.group.shape.action_type} for your approval`;
+    case 'misfire':
+      return `Stops this one shape on "${item.misfire.policy_name}" — the line keeps enforcing everything else`;
     case 'tuning':
       return `Applies now to "${item.proposal.policy_name}"`;
     case 'tighten':
@@ -278,7 +311,8 @@ function armedConsequence(item: InboxItem): string {
 
 // Primary verb (default) and its armed confirm label.
 const PRIMARY: Record<InboxItem['kind'], { verb: string; confirm: string }> = {
-  warn: { verb: 'Always allow', confirm: 'Create rule' }, // warn primary handled by split button
+  warn: { verb: 'Stop warning', confirm: 'Confirm: promote to Hold' }, // warn primary handled by split button
+  misfire: { verb: 'Stop asking', confirm: 'Confirm: stop asking' },
   tuning: { verb: 'Ratify', confirm: 'Confirm: apply' },
   tighten: { verb: 'Create rule', confirm: 'Confirm: create rule' },
   loosen: { verb: 'Relax', confirm: 'Confirm: relax' },
@@ -298,6 +332,7 @@ interface RowProps {
   error: string | null;
   onFine: (item: InboxItem) => void;
   onWarnPrimary: (item: InboxItem, verdict: 'always_allow' | 'tighten') => void;
+  onRetro: (item: InboxItem, verdict: 'retro_fine' | 'retro_stop') => void;
   onPrimary: (item: InboxItem) => void;
   onDismiss: (item: InboxItem, reason: string) => void;
   onUndo: (item: InboxItem, undo: () => Promise<void>) => void;
@@ -310,11 +345,13 @@ function InboxRow({
   error,
   onFine,
   onWarnPrimary,
+  onRetro,
   onPrimary,
   onDismiss,
   onUndo,
 }: RowProps) {
   const [armed, setArmed] = useState(false);
+  const [whyOpen, setWhyOpen] = useState(false);
   const [dismissing, setDismissing] = useState(false);
   const [reason, setReason] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -336,7 +373,7 @@ function InboxRow({
     acts = (
       <>
         <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>{resolution.node}</span>
-        {resolution.undo && (
+        {resolution.undo ? (
           <button
             type="button"
             disabled={busy}
@@ -347,7 +384,18 @@ function InboxRow({
             <RotateCcw size={13} aria-hidden="true" />
             Undo
           </button>
-        )}
+        ) : resolution.undoNote ? (
+          <button
+            type="button"
+            disabled
+            title={resolution.undoNote}
+            aria-label={`Undo unavailable for ${leadLabel} — ${resolution.undoNote}`}
+            className={`${styles.btn} ${styles.btnSm} ${styles.btnGhost}`}
+          >
+            <RotateCcw size={13} aria-hidden="true" />
+            Undo
+          </button>
+        ) : null}
       </>
     );
   } else if (armed) {
@@ -425,15 +473,70 @@ function InboxRow({
         </button>
       </>
     );
+  } else if (item.kind === 'misfire') {
+    // Report, not proposal: one consequential verb (two-click), one that costs
+    // nothing, and the blast radius on demand. No reason box — "keep asking"
+    // means the interruption was RIGHT, which needs no justification.
+    acts = (
+      <>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setArmed(true)}
+          className={`${styles.btn} ${styles.btnSm} ${styles.btnPrimary}`}
+        >
+          <BellOff size={13} aria-hidden="true" />
+          Stop asking about &quot;{item.misfire.shape_key}&quot;
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onDismiss(item, 'keep asking')}
+          className={`${styles.btn} ${styles.btnSm} ${styles.btnGhost}`}
+        >
+          Keep asking
+        </button>
+        <button
+          type="button"
+          onClick={() => setWhyOpen((v) => !v)}
+          aria-expanded={whyOpen}
+          className={`${styles.btn} ${styles.btnSm} ${styles.btnGhost}`}
+        >
+          Why?
+        </button>
+      </>
+    );
   } else if (item.kind === 'warn') {
     // Three verbs kept compact via a split button: the primary, with a caret
     // menu for the rest. WHICH verb leads depends on whether the shape can be
     // granted at all — an unscoped shape has no target to grant, and offering
     // "Always allow" on one is offering a guaranteed 400 (see grantable above).
     acts = (
-      <div
-        className={styles.splitBtn}
-        ref={splitRef}
+      <div className={styles.retroStack}>
+        {/* The retrospective pair leads: it is the only verdict that costs the
+            agent nothing, and the only one a quiet posture can ever earn. */}
+        <div className={styles.retroAsk}>
+          <span className={styles.retroQ}>Would you have wanted these stopped?</span>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onRetro(item, 'retro_stop')}
+            className={`${styles.btn} ${styles.btnSm}`}
+          >
+            Yes
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onRetro(item, 'retro_fine')}
+            className={`${styles.btn} ${styles.btnSm}`}
+          >
+            No
+          </button>
+        </div>
+        <div
+          className={styles.splitBtn}
+          ref={splitRef}
         onBlur={(e) => {
           if (!splitRef.current?.contains(e.relatedTarget as Node)) setMenuOpen(false);
         }}
@@ -445,11 +548,11 @@ function InboxRow({
           type="button"
           disabled={busy}
           onClick={() => (grantable ? onWarnPrimary(item, 'always_allow') : onFine(item))}
-          aria-label={`${grantable ? 'Always allow' : 'Mark fine'} ${leadLabel}`}
+          aria-label={`${grantable ? 'Stop warning' : 'Mark fine'} ${leadLabel}`}
           className={`${styles.btn} ${styles.btnSm} ${styles.btnSuccess}`}
         >
           <Check size={13} aria-hidden="true" />
-          {grantable ? 'Always allow' : 'Mark fine'}
+          {grantable ? 'Stop warning' : 'Mark fine'}
         </button>
         <button
           type="button"
@@ -486,10 +589,11 @@ function InboxRow({
               }}
             >
               <ShieldPlus size={13} aria-hidden="true" />
-              Tighten&hellip;
+              Promote to Hold&hellip;
             </button>
           </div>
         )}
+        </div>
       </div>
     );
   } else {
@@ -538,6 +642,12 @@ function InboxRow({
             ))}
           </div>
           {expansion}
+          {item.kind === 'misfire' && whyOpen && !resolution && (
+            <div className={styles.rowNote}>
+              A shape-scoped exception on this one line. The line keeps enforcing
+              everything else. Undo from the Short List &rarr; Details.
+            </div>
+          )}
           {item.kind === 'warn' && !grantable && !resolution && (
             <div className={styles.rowNote}>
               No target scope:{' '}
@@ -567,16 +677,20 @@ const SECTION_META: Array<{
   Icon: typeof TriangleAlert;
   tagClass: string | undefined;
 }> = [
+  // Friction-removing first, enforcement last. A page that opens with "here is
+  // more enforcement you could add" is a page people close. Misfires are pinned
+  // above everything: they are the interruptions happening right now.
+  { kind: 'misfire', label: 'Misfires', Icon: BellOff, tagClass: styles.ktLoose },
+  { kind: 'loosen', label: 'Loosen', Icon: ShieldMinus, tagClass: styles.ktLoose },
+  { kind: 'calibration', label: 'Calibration', Icon: Gauge, tagClass: styles.ktCal },
   { kind: 'warn', label: 'Warn groups', Icon: TriangleAlert, tagClass: styles.ktWarn },
   { kind: 'tuning', label: 'Tuning', Icon: SlidersHorizontal, tagClass: styles.ktTune },
   { kind: 'tighten', label: 'Tighten', Icon: ShieldPlus, tagClass: styles.ktTight },
-  { kind: 'loosen', label: 'Loosen', Icon: ShieldMinus, tagClass: styles.ktLoose },
-  { kind: 'calibration', label: 'Calibration', Icon: Gauge, tagClass: styles.ktCal },
 ];
 
 const SECTION_CAP = 4;
 
-type RowHandlers = Pick<RowProps, 'onFine' | 'onWarnPrimary' | 'onPrimary' | 'onDismiss' | 'onUndo'>;
+type RowHandlers = Pick<RowProps, 'onFine' | 'onWarnPrimary' | 'onRetro' | 'onPrimary' | 'onDismiss' | 'onUndo'>;
 
 interface SectionProps {
   meta: (typeof SECTION_META)[number];
@@ -608,6 +722,9 @@ function InboxSection({
 
   const { Icon, label, tagClass } = meta;
   const isWarn = meta.kind === 'warn';
+  // Muting is per-shape judgment; a "mute all" button is how a report queue
+  // becomes decorative.
+  const bulkable = meta.kind !== 'misfire';
   const unresolved = items.filter((i) => !resolutions[i.key]);
   const shown = showAll ? items : items.slice(0, SECTION_CAP);
   const hiddenCount = items.length - shown.length;
@@ -630,7 +747,7 @@ function InboxSection({
           <span className={styles.sCount}>{pendingCount}</span>
         </button>
 
-        {unresolved.length > 0 &&
+        {unresolved.length > 0 && bulkable &&
           (isWarn ? (
             confirmFine ? (
               <>
@@ -771,6 +888,11 @@ export default function TriageInbox({ onChanged, onCount }: TriageInboxProps) {
       for (const p of loo.value.proposals) {
         if (p.status === 'pending') next.push({ kind: 'loosen', key: `loose:${p.id}`, proposal: p });
       }
+      // Misfires ride the same payload — one report, one request.
+      for (const m of loo.value.misfires ?? []) {
+        if (isMisfireMuted(m.policy_id, m.shape_key)) continue;
+        next.push({ kind: 'misfire', key: `misfire:${m.policy_id}:${m.shape_key}`, misfire: m });
+      }
     } else failedQueues.push('loosening');
 
     if (cal.status === 'fulfilled') {
@@ -859,11 +981,37 @@ export default function TriageInbox({ onChanged, onCount }: TriageInboxProps) {
       const label = item.group.shape.label;
       clearErr(key);
       setBusyKey(key, true);
-      postVerdict(verdict, warnShape(item.group))
+      postVerdict(verdict, warnShape(item.group), verdict === 'tighten' ? { short_list: true } : undefined)
         .then((res) => {
           const pid = res.policy?.id ?? null;
-          const node = verdict === 'always_allow' ? `Allowed: ${label}` : `Approval rule created: ${label}`;
+          const node = verdict === 'always_allow' ? `Stopped warning: ${label}` : `Promoted to Hold: ${label}`;
           resolve(key, { type: 'strip', node, undo: pid ? () => deletePolicy(pid) : undefined });
+          onChanged();
+        })
+        .catch((e) => setErr(key, errMsg(e)))
+        .finally(() => setBusyKey(key, false));
+    },
+    [onChanged],
+  );
+
+  // Retrospective verdict: one click, no arm. It creates no rule and stops
+  // nothing — it labels a group the operator has already lived with, which is
+  // the only calibration feedstock a quiet posture can produce. Append-only by
+  // contract (spec §2.5), so the strip carries no Undo and says why.
+  const handleRetro = useCallback(
+    (item: InboxItem, verdict: 'retro_fine' | 'retro_stop') => {
+      if (item.kind !== 'warn') return;
+      const { key } = item;
+      clearErr(key);
+      setBusyKey(key, true);
+      postVerdict(verdict, warnShape(item.group))
+        .then((res) => {
+          const n = res.labeled_total;
+          resolve(key, {
+            type: 'strip',
+            node: n != null ? `Recorded — ${n} verdicts so far` : 'Recorded',
+            undoNote: 'Verdicts are append-only.',
+          });
           onChanged();
         })
         .catch((e) => setErr(key, errMsg(e)))
@@ -895,6 +1043,12 @@ export default function TriageInbox({ onChanged, onCount }: TriageInboxProps) {
           work = ratifyLooseningProposal(item.proposal).then(() => ({
             node: 'Relaxed',
             undo: () => undoLooseningDecision(item.proposal.id),
+          }));
+          break;
+        case 'misfire':
+          work = addShapeException(item.misfire.policy_id, item.misfire.shape_key).then(() => ({
+            node: `Stopped asking about "${item.misfire.shape_key}"`,
+            undo: () => removeShapeException(item.misfire.policy_id, item.misfire.shape_key),
           }));
           break;
         case 'calibration':
@@ -943,13 +1097,23 @@ export default function TriageInbox({ onChanged, onCount }: TriageInboxProps) {
           call = dismissCalibrationProposal(item.proposal, reason);
           undo = () => undoCalibrationDecision(item.proposal.candidate_id);
           break;
+        case 'misfire': {
+          // "Keep asking" changes nothing about the org: the operator said the
+          // interruption was right. It is a 24h mute in this browser so the
+          // same report can come back when it happens again.
+          const { policy_id, shape_key } = item.misfire;
+          muteMisfire(policy_id, shape_key);
+          call = Promise.resolve();
+          undo = async () => unmuteMisfire(policy_id, shape_key);
+          break;
+        }
         default:
           setBusyKey(key, false);
           return;
       }
       call
         .then(() => {
-          resolve(key, { type: 'strip', node: 'Dismissed', undo });
+          resolve(key, { type: 'strip', node: item.kind === 'misfire' ? 'Muted for 24h' : 'Dismissed', undo });
           onChanged();
         })
         .catch((e) => setErr(key, errMsg(e)))
@@ -998,15 +1162,32 @@ export default function TriageInbox({ onChanged, onCount }: TriageInboxProps) {
   const hasWarnGroups = items.some((it) => it.kind === 'warn');
   const visibleItems = items.filter((it) => resolutions[it.key]?.type !== 'gone');
 
+  // An empty queue renders nothing at all — no card, no "nothing waiting" box.
+  // An empty to-do list still reads as homework, and on day 0 this section is
+  // empty by design. The flood banner still gets its chance: a flood is a live
+  // condition, not a proposal, and it self-hides when there is none.
+  if (!loading && visibleItems.length === 0 && failed.length === 0) {
+    return (
+      <div id="needs-your-call">
+        <ApprovalFloodBanner
+          onResolved={() => {
+            load();
+            onChanged();
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
-    <section aria-labelledby="triage-heading">
+    <section id="needs-your-call" aria-labelledby="triage-heading">
       {/* Section header */}
       <div className={styles.secHead}>
         <div className={styles.lhs}>
           <h2 id="triage-heading">Needs your call</h2>
           <span className={`${styles.countPill}${pending > 0 ? ` ${styles.hot}` : ''}`}>{pending}</span>
           <span className={styles.secHelp}>
-            Observed patterns become one decision, one click. Review verdicts and tuning proposals, unified.
+            Observed patterns become one decision, one click. Verdicts here cost your agent nothing.
           </span>
         </div>
         <button
@@ -1040,12 +1221,6 @@ export default function TriageInbox({ onChanged, onCount }: TriageInboxProps) {
             </div>
           ))}
         </div>
-      ) : visibleItems.length === 0 ? (
-        <EmptyState
-          icon={Inbox}
-          title="Nothing waiting"
-          description="No pending verdicts or tuning proposals. Your agents are running inside policy."
-        />
       ) : (
         <>
           <div>
@@ -1065,6 +1240,7 @@ export default function TriageInbox({ onChanged, onCount }: TriageInboxProps) {
                   handlers={{
                     onFine: handleFine,
                     onWarnPrimary: handleWarnPrimary,
+                    onRetro: handleRetro,
                     onPrimary: handlePrimary,
                     onDismiss: handleDismiss,
                     onUndo: handleUndo,

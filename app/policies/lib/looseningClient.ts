@@ -5,6 +5,8 @@
 // applies the relaxation in the same request, dismiss records why. Undo
 // keeps a ratified relaxation (change_kept — the tightening precedent).
 
+import type { Misfire } from '../../lib/posture/loosening';
+
 export interface LooseningDecisionSummary {
   decision: 'ratified' | 'dismissed';
   reason: string | null;
@@ -111,6 +113,13 @@ export function isBudget(p: AnyLooseningProposal): p is BudgetProposal {
   return p.rule === 'over_interruption_budget';
 }
 
+/**
+ * A misfire: one command shape held three times in 24h by ONE Short List line.
+ * Reported, never applied — the only exit is the operator's click, which writes
+ * a shape-scoped exception on that line (see misfireClient).
+ */
+export type { Misfire };
+
 /** A command shape the guard stopped interrupting on automatically. */
 export interface OverBudgetShape {
   key: string;
@@ -128,6 +137,9 @@ export interface LooseningProposalsPayload {
     shape_per_window: number;
     shapes_over_budget: OverBudgetShape[];
   };
+  /** Present since the misfire report landed; older payloads omit it. */
+  misfires?: Misfire[];
+  misfire_threshold?: number;
   inputs: { outcome_rows: number };
   proposals: AnyLooseningProposal[];
   counts: { pending: number; ratified: number; dismissed: number };

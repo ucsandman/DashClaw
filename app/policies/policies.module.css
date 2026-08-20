@@ -255,6 +255,12 @@
 .inboxBody .evidence { color: var(--color-text-tertiary); font-size: 12px; margin-top: 5px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
 .inboxBody .evidence b { color: var(--color-text-secondary); font-weight: 500; }
 .inboxActs { display: flex; align-items: center; gap: 7px; flex: none; padding-top: 1px; flex-wrap: wrap; justify-content: flex-end; }
+/* A warn row carries two decisions at once: the retrospective verdict (free,
+   one click) and the enforcement verbs (consequential). Stacking them keeps the
+   free one on top without letting it look like the same act. */
+.retroStack { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
+.retroAsk { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+.retroQ { color: var(--color-text-secondary); font-size: 12px; }
 .inboxReason { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .inboxReason input {
   flex: 1;

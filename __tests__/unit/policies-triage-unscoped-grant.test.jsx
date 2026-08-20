@@ -20,6 +20,10 @@ import { render, screen } from '@testing-library/react';
  * once.
  *
  * The row must offer the verb that works and say why the other one is absent.
+ *
+ * v5.26 (short-list redesign, spec §4.4): the grant verb is worded "Stop
+ * warning" and tighten became "Promote to Hold". Same two verdicts, same
+ * predicate — only the words changed.
  */
 
 const fetchReview = vi.fn();
@@ -80,7 +84,7 @@ beforeEach(() => {
 });
 
 describe('TriageInbox — warn groups with no target scope', () => {
-  it('does NOT offer "Always allow" on a shape the server would reject', async () => {
+  it('does NOT offer the grant verb on a shape the server would reject', async () => {
     fetchReview.mockResolvedValue({
       groups: [warnGroup('api', null, 236)],
       interrupts: [],
@@ -90,7 +94,7 @@ describe('TriageInbox — warn groups with no target scope', () => {
     render(<TriageInbox onChanged={() => {}} />);
     await screen.findByText(/Agents keep tripping the warn on/);
 
-    expect(screen.queryByRole('button', { name: /^Always allow/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Stop warning/i })).toBeNull();
   });
 
   it('makes "Mark fine" the primary action on an unscoped shape', async () => {
@@ -120,7 +124,7 @@ describe('TriageInbox — warn groups with no target scope', () => {
     expect(screen.getByText(/no target scope/i)).toBeTruthy();
   });
 
-  it('still offers "Always allow" when the shape IS scoped', async () => {
+  it('still offers the grant verb when the shape IS scoped', async () => {
     fetchReview.mockResolvedValue({
       groups: [warnGroup('api', 'api.stripe.com', 12)],
       interrupts: [],
@@ -130,7 +134,7 @@ describe('TriageInbox — warn groups with no target scope', () => {
     render(<TriageInbox onChanged={() => {}} />);
     await screen.findByText(/Agents keep tripping the warn on/);
 
-    expect(screen.getByRole('button', { name: /^Always allow/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Stop warning/i })).toBeTruthy();
     expect(screen.queryByText(/no target scope/i)).toBeNull();
   });
 
@@ -144,8 +148,8 @@ describe('TriageInbox — warn groups with no target scope', () => {
     render(<TriageInbox onChanged={() => {}} />);
     await screen.findByText(/write_file/);
 
-    // Exactly one grantable row => exactly one "Always allow".
-    expect(screen.getAllByRole('button', { name: /^Always allow/i })).toHaveLength(1);
+    // Exactly one grantable row => exactly one grant verb.
+    expect(screen.getAllByRole('button', { name: /^Stop warning/i })).toHaveLength(1);
     expect(screen.getAllByRole('button', { name: /^Mark fine/i })).toHaveLength(1);
   });
 });
