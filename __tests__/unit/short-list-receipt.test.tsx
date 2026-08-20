@@ -130,6 +130,24 @@ describe('ShortListReceipt — the /connect receipt (B7)', () => {
     ).toBeTruthy();
   });
 
+  it('drops the block clause entirely when the only BLOCK line is switched off', async () => {
+    fetchSummary.mockResolvedValue(
+      summary([line({ id: 'gp_h', tier: 'HOLD', name: 'Secret-file writes' }), line({ id: 'gp_w', tier: 'WATCH', name: 'Runaway loop' })]),
+    );
+
+    render(<ShortListReceipt />);
+
+    expect(await screen.findByText('1 holds for your approval. Everything else runs and is recorded.')).toBeTruthy();
+  });
+
+  it('says nothing interrupts when every remaining line is WATCH', async () => {
+    fetchSummary.mockResolvedValue(summary([line({ id: 'gp_w', tier: 'WATCH', name: 'Runaway loop' })]));
+
+    render(<ShortListReceipt />);
+
+    expect(await screen.findByText('Everything here is watched and recorded; nothing interrupts.')).toBeTruthy();
+  });
+
   it('treats an all-inactive list as empty', async () => {
     fetchSummary.mockResolvedValue(summary([line({ active: false })]));
     render(<ShortListReceipt />);
@@ -147,5 +165,8 @@ describe('ShortListReceipt — the /connect receipt (B7)', () => {
     expect(screen.queryByText('Your Short List is live')).toBeNull();
     expect(screen.queryByText('Install the Short List')).toBeNull();
     expect(screen.getByRole('link', { name: /Browse policy packs/i }).getAttribute('href')).toBe('/policies/packs');
+    // A lone line, not an empty card with a rule through it.
+    const wrapper = screen.getByText(/Add a pack when you want more/).parentElement;
+    expect(wrapper?.className).not.toMatch(/border-t|pt-4/);
   });
 });

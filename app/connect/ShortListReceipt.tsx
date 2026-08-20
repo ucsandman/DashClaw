@@ -43,11 +43,13 @@ function tierSentence(lines: ShortListLine[]): string {
   const block = lines.filter((l) => l.tier === 'BLOCK').length;
   const hold = lines.filter((l) => l.tier === 'HOLD').length;
   if (block === 1 && hold === 2) return SEED_SENTENCE;
-  return (
-    `${block} ${block === 1 ? 'refuses' : 'refuse'} outright. ` +
-    `${hold} ${hold === 1 ? 'holds' : 'hold'} for your approval. ` +
-    'Everything else runs and is recorded.'
-  );
+  const clauses = [];
+  if (block) clauses.push(`${block} ${block === 1 ? 'refuses' : 'refuse'} outright.`);
+  if (hold) clauses.push(`${hold} ${hold === 1 ? 'holds' : 'hold'} for your approval.`);
+  // Both tiers can be switched off a line at a time, leaving only WATCH rules —
+  // a real state, and "0 refuse outright" is not how a human says it.
+  if (clauses.length === 0) return 'Everything here is watched and recorded; nothing interrupts.';
+  return `${clauses.join(' ')} Everything else runs and is recorded.`;
 }
 
 function PackLine({ wrapper = 'mt-6 border-t border-border pt-4' }: { wrapper?: string }) {
