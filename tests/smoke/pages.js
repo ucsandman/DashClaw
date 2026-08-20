@@ -55,7 +55,7 @@ export const GOVERN_PAGES = [
   { path: '/replay/ar_demo_deploy_block_001', label: 'Replay [demo action]' },
   { path: '/policies', label: 'Policy builder' },
   { path: '/policies/rules', label: 'Policy rules' },
-  { path: '/calibration', label: 'Calibration controller' },
+  { path: '/policies#calibration', label: 'Calibration (section)' },
   { path: '/assumptions', label: 'Assumptions' },
 ];
 

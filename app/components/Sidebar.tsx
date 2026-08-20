@@ -26,8 +26,9 @@ interface NavGroup {
 }
 
 // The enforcement loop's front door: intercept → decide → approve → prove.
-// Approvals is the hero; Decisions is the audit ledger; Policies + Calibration
-// are the safety switches; the Configure group is auth/setup/health support.
+// Approvals is the hero; Decisions is the audit ledger; Policies (with its
+// Tuning section) is the safety switch; the Configure group is
+// auth/setup/health support.
 const navGroups: NavGroup[] = [
   {
     label: 'Govern',
@@ -35,7 +36,7 @@ const navGroups: NavGroup[] = [
       { href: '/approvals', icon: Clock, label: 'Approvals' },
       { href: '/decisions', icon: Zap, label: 'Decisions' },
       { href: '/policies', icon: Shield, label: 'Policies' },
-      { href: '/calibration', icon: Crosshair, label: 'Calibration' },
+      { href: '/policies#calibration', icon: Crosshair, label: 'Tuning' },
       { href: '/team-tasks', icon: Users, label: 'Team Tasks' },
     ],
   },

@@ -114,7 +114,7 @@ const SUPPORT_SURFACES = [
     icon: Crosshair,
     title: 'Calibrated interruption',
     desc: 'Set a target false-interruption rate; the controller holds it with a distribution-free bound, learned from your approve and deny verdicts. Shadow first, then it loosens as well as tightens.',
-    href: '/calibration',
+    href: '/policies#calibration',
   },
   {
     icon: HeartPulse,

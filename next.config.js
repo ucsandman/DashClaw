@@ -78,6 +78,9 @@ const nextConfig = {
       // The retired /labs/branch-finish operator page now points at the
       // decisions ledger.
       { source: '/labs/branch-finish', destination: '/decisions', permanent: true },
+      // The standalone /calibration page was folded into /policies as the
+      // "Calibration" section (Short List B4/B6).
+      { source: '/calibration', destination: '/policies#calibration', permanent: true },
     ];
   },
   // Incremental TypeScript migration: resolve `.js` import specifiers to
