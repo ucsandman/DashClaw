@@ -293,7 +293,12 @@ describe('POST /api/policies/tightening', () => {
       policyType: 'require_approval',
       agentIds: null,
     });
-    expect(JSON.parse(policyInput.rules)).toEqual({ action_types: ['deploy'], _tightened: true });
+    // short_list is written explicitly: a ratified tightening IS one of the ten.
+    expect(JSON.parse(policyInput.rules)).toEqual({
+      action_types: ['deploy'],
+      short_list: true,
+      _tightened: true,
+    });
 
     expect(mockSetFindingState).toHaveBeenCalledTimes(1);
     const [, sfsOrg, findingKey, status, actor, note] = mockSetFindingState.mock.calls[0]!;
@@ -314,6 +319,83 @@ describe('POST /api/policies/tightening', () => {
 
     expect(mockLogActivity).toHaveBeenCalledTimes(1);
     expect(mockLogActivity.mock.calls[0]![0].action).toBe('tightening_proposal.ratified');
+  });
+
+  it('ratify at the Short List cap → 409 SHORT_LIST_FULL, nothing written', async () => {
+    mockGetActivePolicies.mockResolvedValue(
+      Array.from({ length: 10 }, (_, i) => ({
+        id: `gp_line_${i}`,
+        name: `[Tightened] other_${i}`,
+        policy_type: 'require_approval',
+        rules: { action_types: [`other_${i}`] },
+        active: 1,
+      })),
+    );
+    const res = await POST(
+      makeRequest('http://localhost/api/policies/tightening', {
+        headers: adminHeaders(),
+        body: {
+          action: 'ratify',
+          proposal_id: DEPLOY_HIGH_ID,
+          proposal: { rule: 'govern_ungoverned_allow', action_type: 'deploy', risk_level: 'high' },
+        },
+      }),
+    );
+    expect(res.status).toBe(409);
+    const data = await res.json();
+    expect(data.code).toBe('SHORT_LIST_FULL');
+    expect(data.error).toBe('The Short List is full (10 of 10). Remove one line to add this one.');
+    expect(mockInsertPolicy).not.toHaveBeenCalled();
+    expect(mockUpsertTighteningDecision).not.toHaveBeenCalled();
+    expect(mockSetFindingState).not.toHaveBeenCalled();
+  });
+
+  it('watch-tier rows do not consume Short List slots, so ratify still lands', async () => {
+    mockGetActivePolicies.mockResolvedValue(
+      Array.from({ length: 12 }, (_, i) => ({
+        id: `gp_warn_${i}`,
+        name: `[Watched] other_${i}`,
+        policy_type: 'warn_action_type',
+        rules: { action_types: [`other_${i}`] },
+        active: 1,
+      })),
+    );
+    const res = await POST(
+      makeRequest('http://localhost/api/policies/tightening', {
+        headers: adminHeaders(),
+        body: {
+          action: 'ratify',
+          proposal_id: DEPLOY_HIGH_ID,
+          proposal: { rule: 'govern_ungoverned_allow', action_type: 'deploy', risk_level: 'high' },
+        },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(mockInsertPolicy).toHaveBeenCalledTimes(1);
+  });
+
+  it('dismiss never runs the cap check', async () => {
+    mockGetActivePolicies.mockResolvedValue(
+      Array.from({ length: 10 }, (_, i) => ({
+        id: `gp_line_${i}`,
+        name: `[Tightened] other_${i}`,
+        policy_type: 'require_approval',
+        rules: { action_types: [`other_${i}`] },
+        active: 1,
+      })),
+    );
+    const res = await POST(
+      makeRequest('http://localhost/api/policies/tightening', {
+        headers: adminHeaders(),
+        body: {
+          action: 'dismiss',
+          proposal_id: DEPLOY_HIGH_ID,
+          proposal: { rule: 'govern_ungoverned_allow', action_type: 'deploy', risk_level: 'high' },
+          reason: 'known-safe automated pattern',
+        },
+      }),
+    );
+    expect(res.status).toBe(200);
   });
 
   it('ratify name-conflict (23505) → 409, no decision recorded', async () => {

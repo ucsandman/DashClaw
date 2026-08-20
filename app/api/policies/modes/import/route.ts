@@ -13,6 +13,7 @@ import {
   insertPolicy,
   reactivateModePolicy,
 } from '../../../../lib/repositories/guardrails.repository';
+import { toWatchTier, watchPolicyType } from '../../../../lib/guardrails/short-list';
 
 /**
  * POST /api/policies/modes/import — apply a mode by compiling it into ordinary
@@ -52,18 +53,22 @@ export async function POST(request: Request) {
 
     for (const p of policies) {
       try {
-        const rules = JSON.stringify(p.rules);
+        // Short List (spec 2.3): this back-compat route writes straight past
+        // the /api/policies admission gate, so it demotes here — a mode apply
+        // records, it does not mint an interrupting line.
+        const policyType = watchPolicyType(p.policy_type);
+        const rules = JSON.stringify(toWatchTier(p.rules, p.policy_type));
         const existing = await findPolicyByName(sql, orgId, p.name);
         if (existing.length > 0) {
           const existingId = String((existing[0] as { id?: string }).id ?? '');
           const result = (await reactivateModePolicy(sql, orgId, existingId, {
-            policyType: p.policy_type,
+            policyType,
             rules,
           })) as Record<string, unknown> | null;
           reactivated.push({
             id: result?.id ?? existingId,
             name: p.name,
-            policy_type: p.policy_type,
+            policy_type: policyType,
             active: 1,
           });
           continue;
@@ -72,14 +77,14 @@ export async function POST(request: Request) {
         const result = (await insertPolicy(sql, orgId, {
           id,
           name: p.name,
-          policyType: p.policy_type,
+          policyType,
           rules,
           active: p.active,
         })) as Record<string, unknown> | null;
         imported.push({
           id: result?.id ?? id,
           name: p.name,
-          policy_type: p.policy_type,
+          policy_type: policyType,
           active: result?.active ?? p.active,
         });
       } catch (err) {

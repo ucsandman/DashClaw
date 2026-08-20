@@ -89,11 +89,35 @@ describe('POST /api/policies/generate', () => {
     expect(data.count).toBe(1);
     expect(data.created_policies).toHaveLength(1);
     expect(mockInsertPolicy).toHaveBeenCalledTimes(1);
+    // Short List (spec 2.3): a generated draft is stored in Watch — this route
+    // writes past the /api/policies admission gate, so it demotes here.
     expect(mockInsertPolicy).toHaveBeenCalledWith('mock-sql', 'org_1', expect.objectContaining({
       name: 'Block deploys',
-      policyType: 'block_action_type',
+      policyType: 'warn_action_type',
       rules: JSON.stringify({ action_types: ['deploy'] }),
     }));
+  });
+
+  it('dry_run=false demotes an interrupting draft to its Watch tier', async () => {
+    mockGeneratePolicies.mockResolvedValue({
+      drafts: [
+        { name: 'Gate spend', policy_type: 'risk_threshold', rules: { threshold: 70, action: 'require_approval' }, confidence: 0.8 },
+      ],
+      assumptions: [],
+      clarifications: [],
+      warnings: [],
+      input_hash: 'h',
+    });
+
+    const req = makeRequest('http://localhost/api/policies/generate', {
+      body: { input_text: 'gate risky spend', dry_run: false },
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const [, , input] = mockInsertPolicy.mock.calls[0];
+    expect(input.policyType).toBe('risk_threshold');
+    expect(JSON.parse(input.rules).action).toBe('warn');
   });
 
   it('returns 403 for a non-admin on dry_run=false', async () => {

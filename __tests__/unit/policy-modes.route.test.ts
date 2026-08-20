@@ -194,6 +194,47 @@ describe('POST /api/policies/modes/import', () => {
     expect(mockReactivateModePolicy).toHaveBeenCalledTimes(9);
   });
 
+  // Short List (spec 2.3): this back-compat route writes straight past the
+  // /api/policies admission gate, so it must Watch-transform every compiled
+  // rule itself — a mode apply may not mint an interrupting line.
+  it('Watch-transforms compiled interrupting policies on insert', async () => {
+    await IMPORT(makeRequest('http://localhost/api/policies/modes/import', {
+      headers: adminHeaders,
+      body: { mode_id: 'claude-code' },
+    }));
+    const written = mockInsertPolicy.mock.calls.map(
+      (c) => c[2] as { name: string; policyType: string; rules: string },
+    );
+    const pause = written.find((p) => p.name.includes('Pause before deploy'))!;
+    expect(pause.policyType).toBe('warn_action_type');
+
+    const path = written.find((p) => p.name.includes('Protect governance'))!;
+    expect(path.policyType).toBe('protected_path');
+    expect(JSON.parse(path.rules).action).toBe('warn');
+
+    const extreme = written.find((p) => p.name.includes('Block extreme-risk'))!;
+    expect(JSON.parse(extreme.rules).action).toBe('warn');
+  });
+
+  it('Watch-transforms compiled interrupting policies on the reactivate path', async () => {
+    mockFindPolicyByName.mockImplementation(async (_sql: unknown, _org: unknown, name: string) =>
+      name.includes('Pause before deploy') ? [{ id: 'existing' }] : [],
+    );
+    await IMPORT(makeRequest('http://localhost/api/policies/modes/import', {
+      headers: adminHeaders,
+      body: { mode_id: 'claude-code' },
+    }));
+    expect(mockReactivateModePolicy).toHaveBeenCalledTimes(1);
+    const [, , , payload] = mockReactivateModePolicy.mock.calls[0] as [
+      unknown,
+      unknown,
+      string,
+      { policyType: string; rules: string },
+    ];
+    expect(payload.policyType).toBe('warn_action_type');
+    expect(JSON.parse(payload.rules)._mode).toBe('claude-code');
+  });
+
   it('rejects non-admin with 403', async () => {
     const res = await IMPORT(makeRequest('http://localhost/api/policies/modes/import', {
       headers: memberHeaders,

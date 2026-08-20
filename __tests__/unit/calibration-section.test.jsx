@@ -116,7 +116,7 @@ describe('CalibrationSection', () => {
     }));
     const sentence = await screen.findByTestId('calibration-state-sentence');
     expect(sentence.textContent).toContain('You have given 14 verdicts: 4 from real approvals, 10 from the warn rows above.');
-    expect(sentence.textContent).toContain('Relief is on — it stops asking below risk 78, and it can never touch a Short List line, a block, or reach allow.');
+    expect(sentence.textContent).toContain('Fewer interruptions is on — it stops asking below risk 78, and it can never touch a Short List line, a block, or reach allow.');
     expect(sentence.textContent).not.toContain('It also asks above risk');
     expect(screen.getByText(/See what it skipped/).getAttribute('href')).toBe('/decisions?decision=warn');
     expect(screen.getByText(/Fewer interruptions — 78/)).toBeTruthy();
@@ -128,7 +128,7 @@ describe('CalibrationSection', () => {
       state: { theta: 78, labeled_total: 14, labeled_live: 4, relief_ceiling: 82, relief_ready: true, active_eligible: true, observed_window_rate: 0.06, labeled_benign: 14, labeled_denied: 0, loss_sum: 1, observed_rate: 0.07, observed_window: 14 },
     }));
     const sentence = await screen.findByTestId('calibration-state-sentence');
-    expect(sentence.textContent).toContain('Relief is on — it stops asking below risk 78');
+    expect(sentence.textContent).toContain('Fewer interruptions is on — it stops asking below risk 78');
     expect(sentence.textContent).toContain('It also asks above risk 78.');
     expect(screen.getByText('Fewer and more')).toBeTruthy();
   });

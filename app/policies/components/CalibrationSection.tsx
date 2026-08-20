@@ -303,7 +303,7 @@ export default function CalibrationSection({ onChanged }: { onChanged?: () => vo
             </>
           ) : reliefLive ? (
             <p>
-              {`Calibration learns from verdicts, not from traffic. You have given ${state.labeled_total ?? 0} verdicts: ${liveLabels} from real approvals, ${retroLabels} from the warn rows above. Relief is on — it stops asking below risk ${fmtRisk(state.theta)}, and it can never touch a Short List line, a block, or reach allow.`}
+              {`Calibration learns from verdicts, not from traffic. You have given ${state.labeled_total ?? 0} verdicts: ${liveLabels} from real approvals, ${retroLabels} from the warn rows above. Fewer interruptions is on — it stops asking below risk ${fmtRisk(state.theta)}, and it can never touch a Short List line, a block, or reach allow.`}
               {settings.mode === 'active' && ` It also asks above risk ${fmtRisk(state.theta)}.`}
             </p>
           ) : (

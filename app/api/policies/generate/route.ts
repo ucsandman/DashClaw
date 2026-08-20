@@ -8,6 +8,7 @@ import { getSql } from '../../../lib/db';
 import { apiErrorResponse } from '../../../lib/apiErrors';
 import { generatePolicies } from '../../../lib/policy-generator';
 import { insertPolicy } from '../../../lib/repositories/guardrails.repository';
+import { parseRules, toWatchTier, watchPolicyType } from '../../../lib/guardrails/short-list';
 
 const MAX_INPUT_LENGTH = 5000;
 
@@ -68,11 +69,14 @@ export async function POST(request: Request) {
     const createdPolicies = [];
     for (const policy of result.drafts ?? []) {
       const policyId = `gp_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+      // Short List (spec 2.3): a generated draft is stored in Watch. This
+      // route writes past the /api/policies admission gate, so the demotion
+      // happens here or the generator mints interrupting rules unreviewed.
       await insertPolicy(sql, orgId, {
         id: policyId,
         name: policy.name,
-        policyType: policy.policy_type,
-        rules: JSON.stringify(policy.rules),
+        policyType: watchPolicyType(policy.policy_type),
+        rules: JSON.stringify(toWatchTier(parseRules(policy.rules), policy.policy_type)),
       });
       createdPolicies.push(policyId);
     }

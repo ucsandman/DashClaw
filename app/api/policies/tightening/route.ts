@@ -17,6 +17,7 @@ import {
   tighteningFindingKey,
 } from '../../../lib/posture/tightening';
 import { getActivePolicies, insertPolicy } from '../../../lib/repositories/guardrails.repository';
+import { SHORT_LIST_CAP, countShortListLines } from '../../../lib/guardrails/short-list';
 import { setFindingState } from '../../../lib/repositories/posture.repository';
 import {
   getUngovernedAllowDecisions,
@@ -222,14 +223,36 @@ export async function POST(request: Request) {
 
     let policy: Record<string, unknown> | null = null;
     if (action === 'ratify') {
+      const name = `[Tightened] ${actionType.slice(0, 200)}`;
+      // The ten-line cap is hard, and this route inserts directly: the
+      // /api/policies admission gate never sees this write, so the cap is
+      // enforced here or nowhere. A row this ratify already owns costs no
+      // slot, so it is excluded from the count.
+      const occupied = countShortListLines(
+        (await getActivePolicies(sql, orgId))
+          .filter((p) => p.name !== name)
+          .map((p) => ({ policy_type: String(p.policy_type ?? ''), rules: p.rules, active: p.active })),
+      );
+      if (occupied >= SHORT_LIST_CAP) {
+        return NextResponse.json(
+          {
+            error: `The Short List is full (${SHORT_LIST_CAP} of ${SHORT_LIST_CAP}). Remove one line to add this one.`,
+            code: 'SHORT_LIST_FULL',
+          },
+          { status: 409 },
+        );
+      }
       // The review-verdict "Tighten" shape — already validated/enforced/
-      // rendered everywhere guard policies live.
+      // rendered everywhere guard policies live. short_list is written
+      // explicitly: this line IS one of the ten, and a Short List line that
+      // only qualifies by inference is one a later rules edit can silently
+      // demote.
       try {
         policy = await insertPolicy(sql, orgId, {
           id: gpId(),
-          name: `[Tightened] ${actionType.slice(0, 200)}`,
+          name,
           policyType: 'require_approval',
-          rules: JSON.stringify({ action_types: [actionType], _tightened: true }),
+          rules: JSON.stringify({ action_types: [actionType], short_list: true, _tightened: true }),
           agentIds: null,
         });
       } catch (err) {
