@@ -1,8 +1,16 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as jsYaml from 'js-yaml';
-import { evaluatePolicy } from '@/lib/guard.js';
+import { createSqlMock } from '../helpers.js';
+
+// evaluateGuard (the whole-pack test at the bottom) reads settings and can
+// deliver webhooks; same mocks the characterization suite uses.
+vi.mock('@/lib/webhooks.js', () => ({ deliverGuardWebhook: vi.fn() }));
+vi.mock('@/lib/llm.js', () => ({ checkSemanticGuardrail: vi.fn() }));
+vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: vi.fn(async () => []) }));
+
+import { evaluatePolicy, evaluateGuard } from '@/lib/guard.js';
 import { inferPolicyType, PACK_PREVIEWS } from '@/lib/policyPackPreviews.js';
 
 describe('catastrophe-only pack', () => {
@@ -173,5 +181,44 @@ describe('catastrophe-only pack', () => {
     expect(policy.rules.max_actions).toBe(200);
     expect(policy.rules.window_minutes).toBe(10);
     expect(policy.rules.action).toBe('warn');
+  });
+
+  // All four lines at once through the REAL engine, so the severity merge
+  // (block beats require_approval) is exercised rather than assumed.
+  describe('all four lines seeded, through evaluateGuard', () => {
+    let orgCounter = 0;
+    const decide = (declaredGoal) => {
+      const rows = pack.policies.map((p, i) => ({
+        id: `gp_pack_${i}`,
+        name: p.description,
+        policy_type: p.policy_type,
+        rules: JSON.stringify(p.rules),
+      }));
+      return evaluateGuard(
+        `org_pack_${++orgCounter}`,
+        { action_type: 'security', agent_id: 'a1', risk_score: 100, declared_goal: declaredGoal },
+        createSqlMock({ taggedResponses: [rows] }),
+      );
+    };
+
+    it('a force-push over main HOLDS (the block line excluded it)', async () => {
+      const result = await decide('Bash: git push --force origin main');
+      expect(result.decision).toBe('require_approval');
+    });
+
+    it('a force-push over a feature branch is neither blocked nor held', async () => {
+      const result = await decide('Bash: git push --force origin feature/x');
+      expect(['block', 'require_approval']).not.toContain(result.decision);
+    });
+
+    it('rm -rf still BLOCKS', async () => {
+      const result = await decide('Bash: rm -rf /');
+      expect(result.decision).toBe('block');
+    });
+
+    it('a force-push smuggled into an rm chain still BLOCKS', async () => {
+      const result = await decide('Bash: rm -rf / && git push --force origin main');
+      expect(result.decision).toBe('block');
+    });
   });
 });

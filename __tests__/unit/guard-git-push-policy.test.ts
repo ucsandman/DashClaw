@@ -20,12 +20,17 @@ describe('require_approval with rules.git_push', () => {
 
   it('holds a force-push over main (no action_types needed)', async () => {
     const result = await run('require_approval', rules, { action_type: 'other', declared_goal: 'Bash: git push --force origin main' }, 100);
-    expect(result).toEqual({ action: 'require_approval', reason: 'Force-push over protected branch "main" requires approval' });
+    expect(result).toEqual({ action: 'require_approval', reason: 'Force-push over "main" requires approval' });
   });
 
   it('ignores a force-push over a feature branch', async () => {
     const result = await run('require_approval', rules, { action_type: 'other', declared_goal: 'Bash: git push --force origin feature/x' }, 100);
     expect(result).toBeNull();
+  });
+
+  it('names no branch when the push names none', async () => {
+    const result = await run('require_approval', { action: 'require_approval', git_push: { force: true } }, { action_type: 'other', declared_goal: 'Bash: git push --force' }, 100);
+    expect(result).toEqual({ action: 'require_approval', reason: 'Force-push requires approval' });
   });
 
   it('reads the command off act.command when the act is attached', async () => {
@@ -53,6 +58,21 @@ describe('risk_threshold with rules.except_git_push', () => {
     const result = await run('risk_threshold', rules, { action_type: 'security', declared_goal: 'Bash: rm -rf /' }, 100);
     expect(result).toEqual({ action: 'block', reason: expect.stringContaining('100 >= threshold 100') });
   });
+
+  // The exclusion is STRICT: a command that merely contains a force push keeps
+  // its block. Dropping a block is the dangerous direction.
+  it('does NOT excuse a destructive command that also pushes', async () => {
+    for (const goal of ['Bash: rm -rf / && git push --force origin main', 'Bash: rm -rf / # git push --force']) {
+      const result = await run('risk_threshold', rules, { action_type: 'security', declared_goal: goal }, 100);
+      expect(result).toMatchObject({ action: 'block' });
+    }
+  });
+
+  it('excuses a cd-then-push and an all-git chain', async () => {
+    for (const goal of ['cd repo && git push --force origin main', 'git add -A && git commit -m x && git push --force origin main']) {
+      expect(await run('risk_threshold', rules, { action_type: 'security', declared_goal: goal }, 100)).toBeNull();
+    }
+  });
 });
 
 describe('validatePolicy — git_push / except_git_push shapes', () => {
@@ -65,6 +85,12 @@ describe('validatePolicy — git_push / except_git_push shapes', () => {
 
   it('still requires action_types when git_push is absent', () => {
     expect(validatePolicy(base('require_approval', {})).valid).toBe(false);
+  });
+
+  it('rejects an empty predicate (it would match every push and waive action_types)', () => {
+    const r = validatePolicy(base('require_approval', { git_push: {} }));
+    expect(r.valid).toBe(false);
+    expect(r.errors.join(' ')).toContain('at least one of force or branches');
   });
 
   it('rejects a malformed git_push predicate', () => {

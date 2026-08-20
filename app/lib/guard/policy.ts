@@ -117,8 +117,9 @@ function matchActionType(
   if (matchedType !== undefined) return { action, reason: reason(matchedType) };
   const parsed = parseGitPush(commandTextOf(context));
   const verb = parsed?.force ? 'Force-push' : 'Push';
+  const over = parsed?.branch ? ` over "${parsed.branch}"` : '';
   const consequence = action === 'block' ? 'is blocked by policy' : action === 'warn' ? 'recorded for review' : 'requires approval';
-  return { action, reason: `${verb} over protected branch "${parsed?.branch ?? 'unknown'}" ${consequence}` };
+  return { action, reason: `${verb}${over} ${consequence}` };
 }
 
 // ── non_fabrication evaluation (decomposed) ──
@@ -294,8 +295,11 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
     // raiseDecision), so a HOLD line can never out-vote this one. Excluding a
     // class here is the only way another Short List line can own it — the
     // catastrophe-only pack excludes force-pushes so they hold instead of dying.
+    // STRICT on purpose: dropping a block is the dangerous direction, so the
+    // command must BE a push, not merely contain one
+    // (`rm -rf / && git push --force origin main` stays blocked).
     if (rules.except_git_push && typeof rules.except_git_push === 'object' &&
-        gitPushPredicateMatches(rules.except_git_push, commandTextOf(context))) {
+        gitPushPredicateMatches(rules.except_git_push, commandTextOf(context), { strict: true })) {
       return null;
     }
     if (riskScore >= threshold) {

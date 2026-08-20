@@ -528,6 +528,12 @@ function validateGitPushPredicate(rules, key, addError) {
       addError(`rules.${key}.branches must have at most 32 entries`);
     }
   }
+  // An empty predicate matches EVERY push — and on git_push it would also
+  // waive the action_types requirement, producing a rule that gates every
+  // push in the org by accident. Say what you mean.
+  if (pred.force === undefined && pred.branches === undefined) {
+    addError(`rules.${key} must set at least one of force or branches (an empty predicate matches every push)`);
+  }
 }
 
 // One validator per policy type — each pushes type-specific errors via addError.
