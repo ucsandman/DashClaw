@@ -4210,8 +4210,8 @@
           "inputs": {
             "body.id": "string, required — client-minted, format team-YYYYMMDD-HHMM-<slug>",
             "body.instruction": "string, required",
-            "body.origin": "string, required, one of TEAM_ORIGINS (telegram|claude-code)",
-            "body.lead_agent": "string, required, one of TEAM_AGENTS (claude|openclaw)",
+            "body.origin": "string, required, one of TEAM_ORIGINS (telegram|claude-code|company-loop)",
+            "body.lead_agent": "string, required, any lowercase agent-id slug matching TEAM_AGENT_ID_PATTERN (e.g. claude|openclaw|moltfire)",
             "body.status": "string, optional, one of TEAM_TASK_STATUSES, defaults to 'open'",
             "body.stop_condition": "string, optional",
             "body.max_exchanges": "number, optional, defaults to 10"
@@ -4284,8 +4284,8 @@
           "inputs": {
             "pathParams.taskId": "string, required",
             "body.ts": "ISO timestamp, optional, defaults to now()",
-            "body.from_agent": "string, required, one of TEAM_AGENTS (claude|openclaw)",
-            "body.to_agent": "string, required, one of TEAM_RECIPIENTS (claude|openclaw|wes)",
+            "body.from_agent": "string, required, any lowercase agent-id slug matching TEAM_AGENT_ID_PATTERN (e.g. claude|openclaw|moltfire|mission-control)",
+            "body.to_agent": "string, required, any lowercase agent-id slug matching TEAM_AGENT_ID_PATTERN (e.g. claude|openclaw|wes|forge)",
             "body.type": "string, required, one of TEAM_EVENT_TYPES (task_created|lead_assigned|delegation|reply|status|approval_needed|result|error|done)",
             "body.summary": "string, required",
             "body.body": "string, optional",

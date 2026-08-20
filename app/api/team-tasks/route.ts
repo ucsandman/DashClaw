@@ -7,7 +7,7 @@ import { getOrgId } from '../../lib/org';
 import { EVENTS, publishOrgEvent } from '../../lib/events';
 import {
   createTeamTask, listTeamTasks,
-  TEAM_TASK_STATUSES, TEAM_ORIGINS, TEAM_AGENTS,
+  TEAM_TASK_STATUSES, TEAM_ORIGINS, TEAM_AGENT_ID_PATTERN, isTeamAgentId,
 } from '../../lib/repositories/teamTasks.repository';
 
 export async function POST(request: Request) {
@@ -26,8 +26,8 @@ export async function POST(request: Request) {
     if (!TEAM_ORIGINS.includes(origin)) {
       return NextResponse.json({ error: `invalid origin (allowed: ${TEAM_ORIGINS.join(', ')})` }, { status: 400 });
     }
-    if (!TEAM_AGENTS.includes(lead_agent)) {
-      return NextResponse.json({ error: `invalid lead_agent (allowed: ${TEAM_AGENTS.join(', ')})` }, { status: 400 });
+    if (!isTeamAgentId(lead_agent)) {
+      return NextResponse.json({ error: `invalid lead_agent (expected an agent id matching ${TEAM_AGENT_ID_PATTERN})` }, { status: 400 });
     }
     if (status !== undefined && !TEAM_TASK_STATUSES.includes(status)) {
       return NextResponse.json({ error: `invalid status (allowed: ${TEAM_TASK_STATUSES.join(', ')})` }, { status: 400 });

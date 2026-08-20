@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createSqlMock } from '../helpers.js';
 import {
-  TEAM_TASK_STATUSES, TEAM_EVENT_TYPES,
+  TEAM_TASK_STATUSES, TEAM_EVENT_TYPES, TEAM_ORIGINS, isTeamAgentId,
   createTeamTask, listTeamTasks, getTeamTask, updateTeamTask,
   appendTeamTaskEvent, listTeamTaskEvents,
 } from '../../app/lib/repositories/teamTasks.repository.js';
@@ -75,5 +75,15 @@ describe('teamTasks repository', () => {
   it('exports the enums the routes validate against', () => {
     expect(TEAM_TASK_STATUSES).toEqual(['open', 'in_progress', 'awaiting_approval', 'done', 'failed', 'abandoned']);
     expect(TEAM_EVENT_TYPES).toEqual(['task_created', 'lead_assigned', 'delegation', 'reply', 'status', 'approval_needed', 'result', 'error', 'done']);
+    expect(TEAM_ORIGINS).toEqual(['telegram', 'claude-code', 'company-loop']);
+  });
+
+  it('isTeamAgentId accepts any lowercase slug (ledger ids AND the PS company roster)', () => {
+    for (const ok of ['claude', 'openclaw', 'wes', 'moltfire', 'forge', 'cinder', 'ps-researcher', 'mission-control', 'a', 'x'.repeat(40)]) {
+      expect(isTeamAgentId(ok), ok).toBe(true);
+    }
+    for (const bad of ['', 'Claude', 'mission control', '1agent', 'x'.repeat(41), undefined, null, 42, 'agent@host']) {
+      expect(isTeamAgentId(bad), String(bad)).toBe(false);
+    }
   });
 });

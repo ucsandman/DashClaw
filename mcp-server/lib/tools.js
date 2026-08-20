@@ -189,8 +189,8 @@ export const TOOL_DEFINITIONS = [
             properties: {
                 task_id: { type: 'string', description: 'Ledger task id, e.g. team-20260710-0912-slug (required)' },
                 instruction: { type: 'string', description: 'The full task instruction (required)' },
-                origin: { type: 'string', description: 'Origin surface: telegram | claude-code (required)' },
-                lead_agent: { type: 'string', description: 'Lead agent: claude | openclaw (required)' },
+                origin: { type: 'string', description: 'Origin surface: telegram | claude-code | company-loop (required)' },
+                lead_agent: { type: 'string', description: 'Lead agent id, e.g. claude | openclaw | moltfire (lowercase slug, required)' },
                 status: { type: 'string', description: 'Initial status (default open)' },
                 stop_condition: { type: 'string', description: 'When the task is considered complete' },
                 max_exchanges: { type: 'integer', description: 'Round-trip cap (default 10)' },
@@ -207,8 +207,8 @@ export const TOOL_DEFINITIONS = [
             type: 'object',
             properties: {
                 task_id: { type: 'string', description: 'Team task id (required)' },
-                from_agent: { type: 'string', description: 'claude | openclaw (required)' },
-                to_agent: { type: 'string', description: 'claude | openclaw | wes (required)' },
+                from_agent: { type: 'string', description: 'Sender agent id, e.g. claude | openclaw | moltfire (lowercase slug, required)' },
+                to_agent: { type: 'string', description: 'Recipient agent id, e.g. claude | openclaw | wes | forge (lowercase slug, required)' },
                 type: { type: 'string', description: 'Event type (required)' },
                 summary: { type: 'string', description: 'One-line summary (required)' },
                 ts: { type: 'string', description: 'ISO 8601 timestamp (defaults to server time)' },

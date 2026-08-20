@@ -7,7 +7,7 @@ import { getOrgId } from '../../../../lib/org';
 import { EVENTS, publishOrgEvent } from '../../../../lib/events';
 import {
   appendTeamTaskEvent, listTeamTaskEvents,
-  TEAM_EVENT_TYPES, TEAM_AGENTS, TEAM_RECIPIENTS,
+  TEAM_EVENT_TYPES, TEAM_AGENT_ID_PATTERN, isTeamAgentId,
 } from '../../../../lib/repositories/teamTasks.repository';
 
 export async function POST(request: Request, { params }: { params: Promise<{ taskId: string }> }) {
@@ -18,11 +18,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
     const body = await request.json();
     const { ts, from_agent, to_agent, type, summary, action_id } = body;
 
-    if (!TEAM_AGENTS.includes(from_agent)) {
-      return NextResponse.json({ error: `invalid from_agent (allowed: ${TEAM_AGENTS.join(', ')})` }, { status: 400 });
+    if (!isTeamAgentId(from_agent)) {
+      return NextResponse.json({ error: `invalid from_agent (expected an agent id matching ${TEAM_AGENT_ID_PATTERN})` }, { status: 400 });
     }
-    if (!TEAM_RECIPIENTS.includes(to_agent)) {
-      return NextResponse.json({ error: `invalid to_agent (allowed: ${TEAM_RECIPIENTS.join(', ')})` }, { status: 400 });
+    if (!isTeamAgentId(to_agent)) {
+      return NextResponse.json({ error: `invalid to_agent (expected an agent id matching ${TEAM_AGENT_ID_PATTERN})` }, { status: 400 });
     }
     if (!TEAM_EVENT_TYPES.includes(type)) {
       return NextResponse.json({ error: `invalid type (allowed: ${TEAM_EVENT_TYPES.join(', ')})` }, { status: 400 });

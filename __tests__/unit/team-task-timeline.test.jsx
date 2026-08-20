@@ -19,6 +19,18 @@ describe('TeamTaskTimeline', () => {
     expect(screen.getByText('every 2 hours')).toBeTruthy();
   });
 
+  it('renders a Practical Systems cycle exchange by agent name (mission-control -> forge -> reply)', () => {
+    render(<TeamTaskTimeline events={[
+      { id: 4, ts: '2026-08-20T10:00:00Z', from_agent: 'mission-control', to_agent: 'forge', type: 'delegation', summary: 'step_06_build_wait: directive to forge', body: 'Review this build.' },
+      { id: 5, ts: '2026-08-20T10:03:00Z', from_agent: 'forge', to_agent: 'mission-control', type: 'reply', summary: 'BLOCK: licence check is client-side only' },
+      { id: 6, ts: '2026-08-20T10:04:00Z', from_agent: 'ps-qa', to_agent: 'moltfire', type: 'status', summary: 'step 8 qa: pass' },
+    ]} />);
+    expect(screen.getByText('mission-control → forge')).toBeTruthy();
+    expect(screen.getByText('forge → mission-control')).toBeTruthy();
+    expect(screen.getByText('ps-qa → moltfire')).toBeTruthy();
+    expect(screen.getByText('BLOCK: licence check is client-side only')).toBeTruthy();
+  });
+
   it('marks approval_needed events with the warning treatment', () => {
     const { container } = render(<TeamTaskTimeline events={[
       { id: 3, ts: '2026-07-10T01:02:00Z', from_agent: 'openclaw', to_agent: 'wes', type: 'approval_needed', summary: 'post needs approval' },

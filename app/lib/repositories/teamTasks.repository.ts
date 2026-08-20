@@ -5,14 +5,23 @@ type SqlClient = {
 
 // Team Tasks (THESIS.md "Owner amendment — 2026-07-09: fleets and teams"):
 // the multi-agent /team task timeline. All SQL for the feature lives here —
-// routes must not embed SQL (route-sql:check). Enums mirror the clawd
-// team-ledger.mjs client exactly; a mismatch would strand ledger syncs.
+// routes must not embed SQL (route-sql:check). Status/type enums mirror the
+// clawd team-ledger.mjs client exactly; a mismatch would strand ledger syncs.
+//
+// Agent ids are NOT an enum. The /team ledger sends claude|openclaw|wes, and
+// the Practical Systems company loop mirrors its cycles here with its own
+// roster (moltfire, forge, cinder, ps-researcher, mission-control, ...). Any
+// lowercase slug is a valid participant; the shape check is the trust-boundary
+// validation, the closed list was not.
 
 export const TEAM_TASK_STATUSES = ['open', 'in_progress', 'awaiting_approval', 'done', 'failed', 'abandoned'];
 export const TEAM_EVENT_TYPES = ['task_created', 'lead_assigned', 'delegation', 'reply', 'status', 'approval_needed', 'result', 'error', 'done'];
-export const TEAM_ORIGINS = ['telegram', 'claude-code'];
-export const TEAM_AGENTS = ['claude', 'openclaw'];
-export const TEAM_RECIPIENTS = ['claude', 'openclaw', 'wes'];
+export const TEAM_ORIGINS = ['telegram', 'claude-code', 'company-loop'];
+export const TEAM_AGENT_ID_PATTERN = /^[a-z][a-z0-9_-]{0,39}$/;
+
+export function isTeamAgentId(value: unknown): value is string {
+  return typeof value === 'string' && TEAM_AGENT_ID_PATTERN.test(value);
+}
 
 interface CreateTeamTaskPayload {
   id: string;

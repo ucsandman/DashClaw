@@ -13,7 +13,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.26.0] — 2026-08-20
+
 ### Changed
+
+- **Team Tasks accept any agent id, not just `claude|openclaw|wes`.** The
+  `/api/team-tasks` routes validated `from_agent`, `to_agent` and `lead_agent`
+  against a two-name enum that mirrored the original `/team` ledger client, so a
+  second multi-agent system could not post to the same ledger: the Practical
+  Systems company loop - MoltFire (CEO), Forge (assurance), Cinder
+  (communications), the `ps-*` specialists and Mission Control itself - was
+  rejected with 400 on every event. Participants are now any lowercase slug
+  (`^[a-z][a-z0-9_-]{0,39}$`, `isTeamAgentId` in the repository); the closed list
+  was never the trust-boundary check, the shape is. `origin` gains
+  `company-loop`. Statuses and event types are unchanged, so the existing ledger
+  client syncs exactly as before. MCP tool descriptions and the platform guide
+  describe the id as a slug instead of an enum.
 
 - **The calibration controller now loosens as well as tightens.** It had one arm:
   above the calibrated threshold θ it could raise `allow`/`warn` to

@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.25.0",
+    "current_version": "5.26.0",
     "next_bump": "none",
-    "reason": "5.25.0 is a platform-only feature ship: the Policy Pack Gallery (/policies/packs) with 11 new policy packs and pack-mode simulate/templates API extensions. sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.25.0 tag fires release.yml, whose publish-npm job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.26.0 is a platform-only ship: Team Tasks accept any lowercase agent-id slug (the Practical Systems company loop now mirrors its cycles onto the ledger), plus the calibration demote arm, interruption budget and two guard fixes accumulated since 5.25.0. sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.26.0 tag fires release.yml, whose publish-npm job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.25.0",
+    "current_version": "5.26.0",
     "next_bump": "none",
-    "reason": "5.25.0 is a platform-only feature ship (Policy Pack Gallery). sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.25.0 tag fires release.yml, whose publish-pypi job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "5.26.0 is a platform-only ship (Team Tasks agent-id slugs, calibration demote arm, interruption budget, guard fixes). sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.26.0 tag fires release.yml, whose publish-pypi job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.25.0 ships the Policy Pack Gallery: a browsable catalog at /policies/packs (18 curated packs across audiences, filterable by audience and strictness, per-pack 'preview against my history' dry run, one-click install), 11 new packs (spend-lockdown, outbound-comms-guard, night-shift, prod-infra-shield, data-protection, fleet-control, support-agent, ci-release-bot, evidence-first, read-only-analyst, browser-operator-guard), pack-mode support on POST /api/policies/simulate, gallery metadata + installed flag on GET /api/policies/templates, and a demo-passthrough org-header spoof fix. Zero new API routes; +1 app page (surface budget amended 53->54). Neither SDK source changed.",
+  "reason": "5.26.0 opens the Team Tasks ledger to any lowercase agent-id slug (^[a-z][a-z0-9_-]{0,39}$) and adds origin company-loop, so a second multi-agent system - the Practical Systems company loop with moltfire/forge/cinder/ps-*/mission-control - can post to the same ledger the /team skill writes; statuses and event types are unchanged. It also releases the calibration controller's demote arm, the interruption budget, and the two guard fixes that landed on main after 5.25.0. Zero new API routes, zero new pages. Neither SDK source changed.",
   "domains": [
     "platform"
   ]
