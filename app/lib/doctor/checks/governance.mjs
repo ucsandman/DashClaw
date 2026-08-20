@@ -96,7 +96,7 @@ export async function runChecks({ env = process.env, orgId = null } = {}) {
           ? null
           : {
               type: 'auto',
-              description: 'Create a default log-all governance policy',
+              description: 'Seed the Short List (catastrophe-only pack)',
               action: 'create_default_policy',
             },
     });

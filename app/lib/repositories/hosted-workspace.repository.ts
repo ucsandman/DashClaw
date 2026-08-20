@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { importPolicyPack } from '../guardrails/import-pack';
+import { seedCatastrophePack } from '../setup/catastrophe-pack.mjs';
 import {
   SYNTHETIC_AGENT_LIKE_PATTERNS,
   SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS,
@@ -102,17 +102,14 @@ export async function provisionHostedWorkspace(
   try {
     const { apiKey, keyPrefix } = await mintOrgApiKey(sql, orgId, { label });
 
-    // Seed the day-one starter policies so the first governed session feels
-    // governed (a fresh org with zero policies allows everything). Failure
-    // logs loudly but never fails provisioning — a workspace without
-    // policies beats a 500.
+    // Seed the Short List (catastrophe-only pack) so the first governed
+    // session feels governed (a fresh org with zero policies allows
+    // everything). Failure logs loudly but never fails provisioning — a
+    // workspace without policies beats a 500.
     try {
-      const seeded = await importPolicyPack(sql, orgId, 'claude-code-starter');
-      if (seeded.errors.length > 0) {
-        console.error(`[HOSTED] starter-pack seeding for ${orgId} had errors:`, seeded.errors);
-      }
+      await seedCatastrophePack(sql, orgId);
     } catch (err) {
-      console.error(`[HOSTED] starter-pack seeding failed for ${orgId}:`, (err as Error).message);
+      console.error(`[HOSTED] short-list seeding failed for ${orgId}:`, (err as Error).message);
     }
 
     return { orgId, apiKey, keyPrefix, expiresAt };

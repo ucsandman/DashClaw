@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Starter-pack seeding runs inside provisionHostedWorkspace. Mock it with a
+// Short List seeding runs inside provisionHostedWorkspace. Mock it with a
 // benign default so the existing call-count invariants hold; individual tests
 // swap in the REAL implementation (captured below) or a failure.
-const { mockImportPolicyPack, importPackHolder } = vi.hoisted(() => ({
-  mockImportPolicyPack: vi.fn(),
-  importPackHolder: {},
+const { mockSeedCatastrophePack, catastrophePackHolder } = vi.hoisted(() => ({
+  mockSeedCatastrophePack: vi.fn(),
+  catastrophePackHolder: {},
 }));
-vi.mock('../../../app/lib/guardrails/import-pack.js', async (importOriginal) => {
+vi.mock('../../../app/lib/setup/catastrophe-pack.mjs', async (importOriginal) => {
   const actual = await importOriginal();
-  importPackHolder.actual = actual.importPolicyPack;
-  return { ...actual, importPolicyPack: (...a) => mockImportPolicyPack(...a) };
+  catastrophePackHolder.actual = actual.seedCatastrophePack;
+  return { ...actual, seedCatastrophePack: (...a) => mockSeedCatastrophePack(...a) };
 });
 import {
   provisionHostedWorkspace,
@@ -27,8 +27,8 @@ describe('hosted-workspace repository', () => {
   let sql;
   beforeEach(() => {
     sql = createSqlMock();
-    mockImportPolicyPack.mockReset();
-    mockImportPolicyPack.mockResolvedValue({ imported: [], skipped: [], errors: [] });
+    mockSeedCatastrophePack.mockReset();
+    mockSeedCatastrophePack.mockResolvedValue({ imported: 0, skipped: 0 });
   });
 
   it('provisionHostedWorkspace creates org + api_key and returns plaintext key once', async () => {
@@ -44,20 +44,21 @@ describe('hosted-workspace repository', () => {
     expect(res.keyPrefix).toMatch(/^oc_live_/);
     expect(res.expiresAt).toBeTypeOf('string');
     expect(sql.mock.calls.length).toBe(2);
-    // Starter policy pack seeded for the new workspace.
-    expect(mockImportPolicyPack).toHaveBeenCalledWith(sql, res.orgId, 'claude-code-starter');
+    // Short List (catastrophe-only pack) seeded once for the new workspace.
+    expect(mockSeedCatastrophePack).toHaveBeenCalledTimes(1);
+    expect(mockSeedCatastrophePack).toHaveBeenCalledWith(sql, res.orgId);
   });
 
-  it('provisioned trial workspace gets the claude-code-starter policies (count + names match the pack yml)', async () => {
-    // Run the REAL importer against an sql mock that answers the guard_policies
+  it('provisioned trial workspace gets the Short List policies (count + names match the pack yml)', async () => {
+    // Run the REAL seeder against an sql mock that answers the guard_policies
     // reads/inserts; everything else (org/key inserts) returns [].
-    mockImportPolicyPack.mockImplementation((...a) => importPackHolder.actual(...a));
+    mockSeedCatastrophePack.mockImplementation((...a) => catastrophePackHolder.actual(...a));
     const insertedPolicies = [];
     sql.mockImplementation(async (strings, ...values) => {
       const text = strings.join(' ');
       if (text.includes('SELECT id FROM guard_policies')) return []; // no name conflicts
       if (text.includes('INSERT INTO guard_policies')) {
-        // insertPolicy values order: id, orgId, name, policyType, rules, active, agentIds, ts, ts
+        // insertPolicy values order: id, orgId, name, policyType, rules, active, ts, ts
         insertedPolicies.push({ id: values[0], name: values[2], policy_type: values[3], active: 1 });
         return [insertedPolicies[insertedPolicies.length - 1]];
       }
@@ -67,17 +68,17 @@ describe('hosted-workspace repository', () => {
     const res = await provisionHostedWorkspace(sql, { trialDays: 30, trialActionCap: 10000 });
     expect(res.apiKey).toMatch(/^oc_live_/);
 
-    // The real pack yml defines exactly these four policies.
+    // The real pack yml defines exactly these four Short List policies.
     expect(insertedPolicies.map((p) => p.name)).toEqual([
-      'Claude Code Starter — Block Mass-Destructive Operations',
-      'Claude Code Starter — Require Approval for Network Calls',
-      'Claude Code Starter — Require Approval for Package Installs',
-      'Claude Code Starter — Rate-Limit Runaway Agents',
+      'Catastrophe Pack — Block Mass-Destructive Operations',
+      'Catastrophe Pack — Hold Secret-File Writes for Approval',
+      'Catastrophe Pack — Hold Force-Push Over Protected Branches',
+      'Catastrophe Pack — Rate-Limit Runaway Agents',
     ]);
   });
 
   it('seeding failure still returns a successful provision response and logs an error', async () => {
-    mockImportPolicyPack.mockRejectedValue(new Error('pack file unreadable'));
+    mockSeedCatastrophePack.mockRejectedValue(new Error('pack file unreadable'));
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       sql.mockResolvedValue([]);
@@ -85,7 +86,7 @@ describe('hosted-workspace repository', () => {
       expect(res.orgId).toMatch(/^org_/);
       expect(res.apiKey).toMatch(/^oc_live_/);
       expect(errSpy).toHaveBeenCalledWith(
-        expect.stringContaining(`starter-pack seeding failed for ${res.orgId}`),
+        expect.stringContaining(`short-list seeding failed for ${res.orgId}`),
         'pack file unreadable',
       );
     } finally {
@@ -244,8 +245,8 @@ describe('POST /api/hosted/workspaces', () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
     routeSqlMock.mockReset();
-    mockImportPolicyPack.mockReset();
-    mockImportPolicyPack.mockResolvedValue({ imported: [], skipped: [], errors: [] });
+    mockSeedCatastrophePack.mockReset();
+    mockSeedCatastrophePack.mockResolvedValue({ imported: 0, skipped: 0 });
     // Reset module-level rate-limiter singleton so prior tests' counters
     // and max-setting don't leak across cases.
     _resetLimiterForTests();

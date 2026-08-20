@@ -1,29 +1,20 @@
 // app/lib/doctor/fixes/create-default-policy.mjs
 import { getSql } from '../../db';
+import { seedCatastrophePack } from '../../setup/catastrophe-pack.mjs';
 
 export async function apply() {
   try {
     const sql = getSql();
-    const id = `pol_doctor_${Date.now()}`;
-    const now = new Date().toISOString();
-    const rules = JSON.stringify({ threshold: 100, action: 'warn' });
-    await sql`
-      INSERT INTO guard_policies (id, org_id, name, policy_type, rules, active, created_at, updated_at)
-      VALUES (
-        ${id},
-        'org_default',
-        'Doctor: Log All Actions',
-        'risk_threshold',
-        ${rules},
-        1,
-        ${now},
-        ${now}
-      )
-      ON CONFLICT (id) DO NOTHING
+    const existing = await sql`
+      SELECT id FROM guard_policies WHERE org_id = 'org_default' LIMIT 1
     `;
+    if (existing.length > 0) {
+      return { applied: false, description: 'org_default already has governance policies' };
+    }
+    const { imported } = await seedCatastrophePack(sql, 'org_default');
     return {
       applied: true,
-      description: 'Created default governance policy (warn at risk 100)',
+      description: `Seeded the Short List (${imported} catastrophe-only polic${imported === 1 ? 'y' : 'ies'})`,
     };
   } catch (err) {
     return { applied: false, description: `Failed to create policy: ${err.message}` };
