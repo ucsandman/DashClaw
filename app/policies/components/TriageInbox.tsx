@@ -269,7 +269,7 @@ function describe(item: InboxItem): Descriptor {
           <>risk <b>{p.risk_min === p.risk_max ? p.risk_min : `${p.risk_min}–${p.risk_max}`}</b></>,
         );
       }
-      evidence.push(<span className={styles.mono}>opens in /calibration</span>);
+      evidence.push(<span className={styles.mono}>opens in Tuning</span>);
       return {
         tagClass: styles.ktCal,
         Icon: Gauge,

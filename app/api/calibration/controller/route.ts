@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 /**
  * Calibrated interruption controller — operator surface API.
- * Theory: docs/architecture/governance-core-theory.md §1. UI: /calibration.
+ * Theory: docs/architecture/governance-core-theory.md §1. UI: /policies#calibration.
  *
  * GET  — controller snapshot: settings (mode, target rate), calibrated state
  *        (θ, labeled counts, long-run + windowed observed false-interruption

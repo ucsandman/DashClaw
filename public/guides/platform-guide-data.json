@@ -1787,7 +1787,7 @@
           "kind": "api",
           "status": "experimental",
           "interface": "GET /api/calibration/controller",
-          "purpose": "Snapshot of the calibrated interruption controller (theory: docs/architecture/governance-core-theory.md §1, UI: /calibration): settings (mode, target rate α), calibrated state (θ, labeled benign/denied counts, long-run + windowed observed false-interruption rate), top per-agent e-process alarms, recent adjudication events, and the org's active risk_threshold policies for θ-vs-policy context.",
+          "purpose": "Snapshot of the calibrated interruption controller (theory: docs/architecture/governance-core-theory.md §1, UI: /policies#calibration): settings (mode, target rate α), calibrated state (θ, labeled benign/denied counts split into live and retrospective warn_review labels, long-run + windowed observed false-interruption rate), top per-agent e-process alarms, recent adjudication events, and the org's active risk_threshold policies for θ-vs-policy context. Also reports labeled_live, relief_min_live_labels, and active_eligible (true only after 7 straight days within target).",
           "auth": "x-api-key resolved to org via middleware",
           "inputs": {},
           "response": "{ settings:{mode, target_rate}, state:{theta, labeled_total, labeled_benign, labeled_denied, loss_sum, observed_rate, observed_window_rate, observed_window}, defaults:{gamma, alarm_at, p0, theta_floor}, alarms:[{agent_id, e, n, denied, alarmed_at}] (top 25 by e), events (last 200), risk_threshold_policies:[{id, name, threshold, action}] sorted by threshold }",
@@ -3641,10 +3641,10 @@
           "kind": "api",
           "status": "stable",
           "interface": "POST /api/policies/review/verdict",
-          "purpose": "Act on a review-feed group with one of four verdicts: mark as fine (dismiss the shape), always-allow (create an allow_grant policy), tighten (create require_approval or protected_path policy), or mark the whole feed reviewed (advance the cursor).",
+          "purpose": "Act on a review-feed group with one of six verdicts: mark as fine (dismiss the shape), always-allow (create an allow_grant policy), tighten (create require_approval or protected_path policy), mark the whole feed reviewed (advance the cursor), or a retrospective Yes/No on the group (retro_fine / retro_stop) that feeds the calibration controller as a warn_review-sourced adjudication (weight 0.5, never moves θ in the tightening direction).",
           "auth": "x-api-key/session; requires admin role (403 otherwise).",
           "inputs": {
-            "body.verdict": "one of 'fine' | 'always_allow' | 'tighten' | 'mark_all_reviewed', required",
+            "body.verdict": "one of 'fine' | 'always_allow' | 'tighten' | 'mark_all_reviewed' | 'retro_fine' | 'retro_stop', required",
             "body.shape": "{ action_type: string (required for all verdicts except mark_all_reviewed, max 128 chars), target_prefix?: string|null (max 256 chars) }"
           },
           "response": "mark_all_reviewed: { ok: true, cursor }. fine: { ok: true, dismissed: key }. always_allow/tighten: 201 { ok: true, policy }.",

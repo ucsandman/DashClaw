@@ -263,7 +263,7 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 | Surface | Ceiling | Counted from |
 |---|---|---|
 | Active API routes | 133 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
-| App pages | 54 | `app/**/page.{js,jsx,ts,tsx}` |
+| App pages | 53 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 17 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
 | Node SDK methods | 39 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
@@ -271,7 +271,7 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 | CLI commands | 15 | `cli/bin/dashclaw.js` (`COMMAND_HANDLERS`) |
 | Guard policy types | 17 | `app/lib/guard/policy.ts` (`KNOWN_POLICY_TYPES`) |
 
-(This table mirrors `contracts/surface-budget.json` as of 2026-08-14; it had
+(This table mirrors `contracts/surface-budget.json` as of 2026-08-20; it had
 drifted from the JSON across several amendments — the JSON is the machine
 source of truth, the amendment log below is the history.)
 
@@ -280,6 +280,13 @@ Raising any ceiling requires amending this section **and**
 recorded, deliberate act that falsifier #3 (Regrowth) watches for.
 
 **Amendment log:**
+- **2026-08-20 — App pages 54 → 53 (`/calibration` folded into
+  `/policies#calibration`).** The Short List (`docs/superpowers/specs/2026-08-20-policies-calibration-onboarding-redesign.md`).
+  `app/calibration/page.jsx` is deleted; `next.config.js` gains a permanent
+  redirect from `/calibration` to `/policies#calibration`, per THESIS's own
+  scoping of that surface as safety switches plus calibration review. Zero
+  routes changed; the section runs on the same `/api/calibration/controller`
+  pair. First entry in this log that moves a ceiling down.
 - **2026-08-14 — App pages 53 → 54 (`/policies/packs`).** The Pack Gallery
   (RFC `docs/rfcs/2026-08-14-policy-pack-gallery.md`, approved by Wes). The
   pack catalog has existed since v4.x but was buried inside the Import modal

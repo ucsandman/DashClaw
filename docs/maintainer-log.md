@@ -14,6 +14,103 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-20 — The Short List
+
+Ran a design tournament before touching code: six proposals, three judges
+scoring new-user experience, thesis/design fidelity, and safety/engine
+feasibility. The winner, **catastrophe-only — "The Short List,"** scored 27
+(9/9/9) and won every judge outright. It beat zero-config-ladder ("Rung
+Zero," 21), inversion-churn ("Ten Exits, Welded," 19), approvals-first-merge
+("One Dial," 17), settings-purist ("Two Settings, One List," 16), and
+staged-onboarding ("The Ramp," 12). It won for the least glamorous reason a
+proposal can win: its day-0 claim was already true in the repo. The
+catastrophe-only pack exists, is seeded at org birth for self-hosted orgs,
+and THESIS.md already calls it the default — every other entrant invented a
+new posture the codebase didn't have. It was also the only proposal that
+noticed and solved the tension every quiet-default design runs into:
+catastrophe-only enforcement produces three to ten adjudications a week, and
+the calibration controller needs ten before it can act. Without a second
+label source, "quiet by default" and "learns to get quieter" are in direct
+tension, and the page would be lying about it. The other five contributed
+grafts (the seed guard, friction-removing queue order, the label/copy layer,
+the honesty-window rule) rather than losing entirely.
+
+Wes made five calls once the shape was picked, all resolved in the same
+session:
+
+1. **Force-push is a HOLD, not a block.** The scorer clamps a force-push to
+   risk 100 and line 1 blocks everything at 100 — so force-push over a
+   protected branch needed a way to be carved out of that BLOCK rather than
+   trying to out-vote it (`block` always wins the severity merge; a HOLD rule
+   structurally cannot beat it). Shipped as a branch-aware predicate
+   (`rules.git_push` / `except_git_push`) that excludes a *pure* force-push to
+   `main`/`master`/a release branch from the BLOCK line and lets a Short List
+   HOLD line catch it instead. A force-push to a feature branch stays
+   untouched.
+2. **Real money is not seeded.** It ships as the first *suggested* Short List
+   addition — a one-click card in the Short List footer for any org with no
+   real-money line — rather than a fifth day-0 line. Day-0 seed stays four
+   lines: BLOCK mass destruction, HOLD secret-file writes, WATCH runaway, HOLD
+   force-push.
+3. **Retrospective verdict weighting** (delegated to me): warn-review
+   verdicts weigh 0.5 of a live verdict, never move the threshold in the
+   tightening direction, and Relief needs 10 weighted verdicts **and** at
+   least 3 live ones. A user who has never seen a real interruption has no
+   calibration of what "would you have wanted this stopped" means; three live
+   verdicts is the smallest floor that anchors the retrospective ones.
+4. **The ten-line cap is hard** (delegated to me): adding an eleventh line
+   forces a removal in the same dialog, no soft warning. It's the anti-regrowth
+   mechanic THESIS falsifier #3 already applies to pages, applied to policy.
+5. **Modes and shields authoring UI is deleted; rows survive.** Wes: "complete
+   freedom to edit and delete anything you want." `PresetsShields.tsx` and
+   `ModeDrawer.tsx` are gone; the ten SHIELDS definitions live on as templates
+   inside "Add a rule," landing in Watch like any other new rule; the
+   `importMode` server path stays so existing mode-tagged rows keep working.
+
+**What shipped.** Zero migrations, zero new API routes, zero new pages, zero
+new policy types — everything rides `guard_policies.rules` JSON, the existing
+settings row, and the existing route surface. `/calibration` is deleted as a
+page (`app/calibration/page.jsx`) and folded into `/policies` as a section
+behind a config redirect, dropping the app-page ceiling 54 → 53 — the first
+entry in THESIS.md's amendment log that moves a ceiling *down*. Hosted trial
+orgs are now seeded with the Short List at provisioning; previously only
+self-host got one. Calibration now defaults to shadow ("Preview") for any org
+with no explicit setting instead of off. Packs and templates installed
+outside the Short List land in the Watch tier — forced `warn`, no
+`short_list` flag — and four policy types with no Watch-tier semantics of
+their own (`role_constraint`, `delegation_constraint`, `non_fabrication`,
+`webhook_check`) install dormant rather than partially enforcing. The review
+verdict route gained two verdicts, `retro_fine` / `retro_stop`; the
+controller's `GET` snapshot gained `labeled_live`, `relief_min_live_labels`,
+and `active_eligible` (true only after seven straight days inside target).
+The Greek-letter vocabulary is gone from the product — θ is "Pausing above
+risk," α is "Acceptable false interruptions" — and survives only in
+`docs/architecture/governance-core-theory.md`, which now carries the mapping
+table.
+
+**Two live misfire data points, from this session, on this repo's own
+instance.** DashClaw's catastrophe pack blocked a harmless `rm -f` on
+scratch files during this work, and separately blocked a text append whose
+*content* happened to mention a destructive command — both scored risk 100,
+both false positives, both exactly the shape the misfire card exists to cap
+at three occurrences instead of the 1,759 the org saw on 2026-08-16. I'm
+citing them here as the motivating evidence rather than a synthetic example,
+because they happened while building the fix.
+
+**Deviation from spec, and the ruling.** Section 3.3 of the design spec
+called for an "Undo seed (24h)" affordance on `/connect`. It isn't built. The
+per-line **Off** control on the Short List already covers undoing a seeded
+line — arm-and-confirm, logged, undoable — with no separate 24-hour-window
+mechanism or extra code path to maintain. Less code, same human capability;
+the spec's intent is satisfied by a control that already exists rather than a
+new one that would duplicate it.
+
+**Release note for existing orgs.** The controller now tracks live vs.
+retrospective labels separately. Any org that already has 10+ weighted
+labels but fewer than 3 live approve/deny verdicts sees Relief pause until 3
+live verdicts land — a one-time transition, not a regression, and it only
+affects orgs that were already close to the old unweighted threshold.
+
 ## 2026-08-16 — The owner turned the whole product off, and the product had no way to notice
 
 Wes opened with: he had just disabled every policy in his org, out of

@@ -1,6 +1,6 @@
 # Policies + Calibration onboarding redesign — The Short List
 
-Status: design spec, ready to implement
+Status: implemented on feat/short-list (ship: 5.27.0)
 Date: 2026-08-20
 Supersedes nothing. Extends: docs/superpowers/specs/2026-08-16-interruption-budget-design.md
 Decided by: design tournament, 6 proposals, 3 judges (new-user lens, thesis/design-fidelity lens, safety/engine-feasibility lens). Full table in the appendix.

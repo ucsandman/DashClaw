@@ -13,6 +13,88 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Added
+
+- **The Short List.** The catastrophe-only pack DashClaw already shipped and
+  already declared the default (THESIS.md) is now a named, human-visible
+  object on `/policies`: at most ten hard-capped lines, the only rules
+  permitted to interrupt an unattended run, each showing a BLOCK / HOLD /
+  WATCH chip (word, never colour alone), a 30-day hit count, and per-line
+  Details / Off controls. A brand-new self-hosted or hosted org is governed
+  with zero clicks; a Watch tier holds everything else at a forced `warn` so
+  it feeds calibration without ever interrupting.
+- **Force-push over a protected branch is a HOLD, not a dead-letter BLOCK.**
+  A branch-aware predicate (`rules.git_push` / `except_git_push`) excludes a
+  pure force-push to `main`/`master`/a release branch from the risk-100 BLOCK
+  line and routes it to an approval card instead; a force-push to a feature
+  branch is untouched. `block` still always wins the severity merge — the
+  exclusion is a predicate on the BLOCK rule's own match, never a HOLD
+  out-voting it.
+- **Retrospective warn-review verdicts.** Every warn-group row in "Needs your
+  call" gains a Yes/No pair ("Would you have wanted this stopped?"), writing
+  a `warn_review`-sourced adjudication through `POST /api/policies/review/verdict`
+  (`retro_fine` / `retro_stop`). This is the calibration controller's primary
+  feedstock under a catastrophe-only posture, where live approve/deny
+  verdicts alone would take weeks to accumulate. Weighted 0.5 of a live
+  verdict and structurally unable to move the threshold in the tightening
+  direction; Relief requires 10 weighted verdicts **and** at least 3 live
+  ones.
+- **Misfire card.** When one command shape is held three times in 24 hours by
+  a Short List line, a pinned MISFIRE row in "Needs your call" offers a
+  two-click, shape-scoped exception (`rules.shape_exceptions`) that keeps the
+  line enforcing everything else. Caps a scorer misclassification at three
+  interruptions instead of the 1,759 the org saw on 2026-08-16 — from a
+  read-only `git log` scoring 100 — and works even on ungrantable lines
+  because it is a human click, not an auto-demotion.
+- Watch-tier (non-Short-List) installs of `role_constraint`, `delegation_constraint`,
+  `non_fabrication`, and `webhook_check` — policy types with no Watch-tier
+  semantics of their own — land dormant rather than partially enforcing.
+
+### Changed
+
+- `/calibration` is deleted as a standalone page and folded into `/policies`
+  as a collapsible Calibration section (anchor `/policies#calibration`); the
+  sidebar entry is relabelled **Tuning**. `next.config.js` carries a
+  permanent redirect from the old URL. App page ceiling: 54 → 53 (see
+  `THESIS.md` amendment log and `contracts/surface-budget.json`). Zero routes
+  changed — the section runs on the same `/api/calibration/controller` pair.
+- Every rule created outside the Short List (pack install, template, AI
+  generator, manual create, shield template) is now forced into the Watch
+  tier — `action: warn`, no `short_list` flag — regardless of what it asked
+  for. Promotion to the Short List is a one-click, evidence-backed act in
+  "Needs your call," never automatic and never on install.
+- The calibration controller now defaults to **shadow ("Preview")** for any
+  org with no explicit setting, instead of off, so a fresh org starts
+  learning from its first decision. Existing orgs with an explicit `off`
+  setting are unaffected.
+- Hosted trial orgs are now seeded with the Short List pack at provisioning,
+  same as self-hosted orgs at birth; previously only self-host got a seed.
+- Calibration's Greek-letter and raw-field vocabulary (θ, α, "adjudications",
+  "Reset state", "Shadow / Relief / Active", …) is replaced everywhere in the
+  product by plain-English labels ("Pausing above risk," "Acceptable false
+  interruptions," "Verdict from you," "Preview / Fewer interruptions / Fewer
+  and more interruptions," …). The symbols survive only in
+  `docs/architecture/governance-core-theory.md`, which gains a UI label ↔
+  symbol table. Machine ids on `/api/calibration/controller` are unchanged —
+  this is a label layer, not a schema change.
+
+  **Release note:** the controller's `GET` snapshot now splits labeled
+  adjudications into live and retrospective counts and reports `labeled_live`.
+  An org that has already accumulated 10+ weighted labels but fewer than 3
+  live approve/deny verdicts will see Relief pause until 3 live verdicts
+  land — a one-time transition, not a regression.
+
+### Removed
+
+- The Policy Modes "Active mode" card and the ten-shield toggle grid
+  (`PresetsShields.tsx`). The ten SHIELDS definitions survive as templates
+  inside "Add a rule," where new rules from them land in the Watch tier like
+  any other non-Short-List rule.
+- The Modes drawer authoring UI (`ModeDrawer.tsx`) and the calibration
+  glossary strip (`GlossaryStrip.tsx`) — three terms now do the work six
+  used to. The `importMode` server path is unchanged, so mode-tagged rows in
+  existing orgs keep working and keep rendering in the ledger.
+
 ## [5.26.0] — 2026-08-20
 
 ### Changed

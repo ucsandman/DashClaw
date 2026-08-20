@@ -166,8 +166,8 @@ adversarial all-benign / all-dangerous streams.
   precisely the quantity that drives governance fatigue.
 - **Expiry is informative censoring.** Expired approvals (operator absent)
   yield no label; if expiry correlates with benignness the labeled rate is
-  biased. Mitigation is exposure, not math: the /calibration page shows labeled
-  counts, and the expiry rate is visible on /approvals.
+  biased. Mitigation is exposure, not math: the /policies#calibration section
+  shows labeled counts, and the expiry rate is visible on /approvals.
 
 ### 1.5 Theorem 2 (anytime-valid per-agent escalation)
 
@@ -218,7 +218,7 @@ resolution splits it along the charter's asymmetry:
   decision carries the assessment as a `_calibration` sibling in the persisted
   context (same pattern as `_risk_breakdown`) so shadow mode accumulates an
   auditable would-have-done trail before anyone flips it on. Activation is an
-  admin click on /calibration, audit-logged (`calibration.controller_updated`).
+  admin click on /policies#calibration, audit-logged (`calibration.controller_updated`).
 
 Consequence for the guarantee, stated plainly. Until 2026-08-17 the automation
 was tighten-only, and that made the theorem's fixed point unreachable from
@@ -248,11 +248,42 @@ Files (all shipped, default off):
 |---|---|
 | Pure math (update, e-process, assessment, coercion) | `app/lib/guard/calibration.ts` |
 | Durable state + event ledger | `app/lib/repositories/calibration-state.repository.ts`, `drizzle/0059_calibration_controller.sql`, `schema/schema.js` |
-| Label ingestion (single + batch) | `app/lib/guard/calibration-feedback.ts`, wired in `app/api/approvals/[actionId]/route.ts` and `app/api/approvals/bulk/route.ts` (via `after()`, best-effort by contract) |
+| Label ingestion (single + batch) | `app/lib/guard/calibration-feedback.ts`, wired in `app/api/approvals/[actionId]/route.ts` and `app/api/approvals/bulk/route.ts` (via `after()`, best-effort by contract), plus retrospective `warn_review` verdicts via `app/api/policies/review/verdict/route.ts` (`retro_fine` / `retro_stop`) |
 | Hot-path read | `getCalibrationRuntime` in `app/lib/guard/caches.ts` (settings ride the existing single settings query; θ-state has its own 30s cache, loaded only when mode ≠ off; covered by `__resetGuardCaches`) |
 | Guard wiring | `runCalibrationController` in `app/lib/guard/evaluate.ts` |
 | Operator API | `app/api/calibration/controller/route.ts` (GET snapshot; POST mode/target/resets, admin-gated, audit-logged) |
-| Operator page | `app/calibration/page.jsx` (nav: Govern → Calibration) |
+| Operator page | `app/policies/components/CalibrationSection.tsx`, rendered inline on `/policies#calibration` (nav: Govern → Tuning); `app/calibration/page.jsx` is deleted and `/calibration` 308-redirects to `/policies#calibration` (2026-08-20, The Short List) |
+
+**Retrospective verdicts (`warn_review`, 2026-08-20).** A verdict on a whole
+warn group, not a single live decision, weighs 0.5 of a live approve/deny
+verdict in the labeled count (`applyAdjudication`, `app/lib/guard/calibration.ts`)
+and can never move θ in the tightening direction — it may only ever help
+unlock the demote arm. Relief requires `labeledTotal ≥ 10` **and**
+`labeledLive ≥ 3`: a user who has never seen a real interruption has no
+calibration of what "would you have wanted this stopped" means, so a floor of
+three live verdicts anchors the retrospective ones. Legacy orgs recompute
+`labeledLive` from existing ledger rows lazily, so an org that already has 10+
+weighted labels but fewer than 3 live ones pauses at Relief until three live
+verdicts land — a one-time release-note-worthy pause, not a regression.
+
+### UI label ↔ symbol table
+
+The Short List redesign (`docs/superpowers/specs/2026-08-20-policies-calibration-onboarding-redesign.md`
+§5.4) removed the Greek letters and the raw field names from the product —
+they stay here, mapped to what the UI says instead:
+
+| Symbol / field | UI label |
+|---|---|
+| θ (calibrated threshold) | "Pausing above risk" |
+| α (target false-interruption rate) | "Acceptable false interruptions" |
+| adjudication | "Verdict from you" |
+| `relief` mode | "Fewer interruptions" |
+| `active` mode | "Fewer and more interruptions" |
+| `reliefCeiling` | "the riskiest action you approved" |
+| `shadow` mode | "Preview" |
+
+Machine ids on `/api/calibration/controller` are unchanged — this is a label
+layer over the response, not a schema change.
 
 Complexity: the update is O(1) per adjudication (plus O(agents) only at the
 bounded-map eviction edge, cap 200/org, alarmed entries never evicted). The
@@ -680,10 +711,13 @@ what a sentence already says is decoration; per the mandate, it is left out.
 
 ## 9. Migration path from heuristics to the rebuilt core
 
-1. **Now (this ship):** controller off by default. Operators turn on **shadow**
-   from /calibration; adjudications start calibrating θ; every decision carries
-   `_calibration`; nothing changes behavior. The observed-vs-target panel makes
-   the org's real false-interruption rate a number for the first time.
+1. **Now (this ship):** controller off by default; adjudications start
+   calibrating θ once **shadow** is on, whether an operator switches it on
+   from /policies#calibration or (2026-08-20, The Short List) a fresh org is
+   seeded with `settings.mode = shadow` from day 0. Every decision carries
+   `_calibration`; nothing changes behavior in shadow. The observed-vs-target
+   panel makes the org's real false-interruption rate a number for the first
+   time.
 2. **After a shadow soak** (enough labels that Theorem 1's 11/T term is small —
    ~100+ adjudications): operator sets α deliberately and activates. The
    controller tightens automatically; loosening evidence flows to the existing

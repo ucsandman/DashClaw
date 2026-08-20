@@ -107,13 +107,13 @@ const SUPPORT_SURFACES = [
   {
     icon: SlidersHorizontal,
     title: 'Policies',
-    desc: 'A small set of safety switches plus calibration review, including caps on what spawned subagents may do. The default pack is catastrophe-only; a gallery of curated packs covers spend, outbound comms, unattended overnight runs, and more, each previewable against your own history before a one-click install. Anything that loosens enforcement is a proposal you ratify with one click, and your own decision engine can plug in too: its verdict joins stricter-wins, and it can never loosen a local result.',
+    desc: 'A short list of things that stop your agent — at most ten lines — and everything else watched and measured. Catastrophe-only by default.',
     href: '/policies',
   },
   {
     icon: Crosshair,
-    title: 'Calibrated interruption',
-    desc: 'Set a target false-interruption rate; the controller holds it with a distribution-free bound, learned from your approve and deny verdicts. Shadow first, then it loosens as well as tightens.',
+    title: 'Fewer interruptions, earned',
+    desc: 'Starts in preview on day one. Learns from your verdicts — including one-click retrospective calls on things that never interrupted you — and only gets quieter until you say otherwise.',
     href: '/policies#calibration',
   },
   {
