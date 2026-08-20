@@ -35,8 +35,23 @@ export interface ApprovalAdjudication {
   /** The persisted action_records.risk_score of the interrupted action. */
   riskScore: number;
   approved: boolean;
-  source: 'approval' | 'bulk_approval' | 'seed';
+  /**
+   * 'warn_review' is a RETROSPECTIVE verdict on a whole warn group from the
+   * review feed: it folds at weight 0.5, owns no agent, and can only move θ
+   * in the loosening direction (spec §8 invariant 8). The ledger column is
+   * plain text, so no migration is involved in adding it.
+   */
+  source: 'approval' | 'bulk_approval' | 'seed' | 'warn_review';
 }
+
+/** Retrospective group verdicts count for half a live adjudication. */
+const WARN_REVIEW_WEIGHT = 0.5;
+
+/** The engine-facing evidence shape for one ingest input. */
+const adjudicationWeighting = (source: ApprovalAdjudication['source']) =>
+  source === 'warn_review'
+    ? { weight: WARN_REVIEW_WEIGHT, source: 'warn_review' as const }
+    : { weight: 1, source: 'live' as const };
 
 /**
  * Bound on the read-modify-write retry below. Two writers landing in the
@@ -79,6 +94,7 @@ export async function ingestApprovalAdjudication(
           riskScore: input.riskScore,
           label: input.approved ? 'benign' : 'dangerous',
           agentId: family,
+          ...adjudicationWeighting(input.source),
         },
         settings,
         new Date().toISOString(),
@@ -144,7 +160,12 @@ export async function ingestApprovalAdjudicationBatch(
         const family = input.agentId ? (baseAgentId(input.agentId) ?? input.agentId) : null;
         const outcome = applyAdjudication(
           state,
-          { riskScore: input.riskScore, label: input.approved ? 'benign' : 'dangerous', agentId: family },
+          {
+            riskScore: input.riskScore,
+            label: input.approved ? 'benign' : 'dangerous',
+            agentId: family,
+            ...adjudicationWeighting(input.source),
+          },
           settings,
           nowIso,
         );

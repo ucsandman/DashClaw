@@ -11,7 +11,15 @@ export interface ReviewPayload {
   cursor: string;
 }
 
-export type ReviewVerdict = 'fine' | 'always_allow' | 'tighten' | 'mark_all_reviewed';
+export type ReviewVerdict =
+  | 'fine'
+  | 'always_allow'
+  | 'tighten'
+  | 'mark_all_reviewed'
+  // Retrospective group verdicts: dismiss AND teach the calibration
+  // controller, at half the weight of a live approval (spec §2.5).
+  | 'retro_fine'
+  | 'retro_stop';
 
 export async function fetchContract(): Promise<ContractView> {
   const res = await fetch('/api/policies/contract');
@@ -29,6 +37,10 @@ export interface VerdictResult {
   ok?: boolean;
   /** Present for policy-creating verdicts (always_allow, tighten); enables undo. */
   policy?: { id?: string };
+  /** Retrospective verdicts: whether the calibration controller took the label. */
+  adjudicated?: boolean;
+  labeled_total?: number | null;
+  labeled_live?: number | null;
 }
 
 export async function postVerdict(

@@ -81,6 +81,29 @@ describe('ingestApprovalAdjudication', () => {
     expect(saved.agents['agent_x:researcher']).toBeUndefined();
   });
 
+  // Retrospective warn-group verdicts (spec §2.5): half weight, no owning
+  // agent, and the loosening direction only.
+  it('warn_review folds at weight 0.5, off the live counter, and never tightens', async () => {
+    const out = await ingestApprovalAdjudication(sql(), 'org_1', {
+      actionId: 'gd_1', agentId: null, riskScore: 30, approved: true, source: 'warn_review',
+    });
+    expect(out.thetaAfter).toBe(out.thetaBefore); // below θ: the tightening step is dropped
+    const saved = mockSaveState.mock.calls[0][2];
+    expect(saved.labeledTotal).toBe(0.5);
+    expect(saved.labeledLive).toBe(0);
+    expect(mockInsertEvent).toHaveBeenCalledWith(expect.anything(), 'org_1', expect.objectContaining({
+      actionId: 'gd_1', label: 'benign', source: 'warn_review',
+    }));
+  });
+
+  it('warn_review still loosens above θ', async () => {
+    const out = await ingestApprovalAdjudication(sql(), 'org_1', {
+      actionId: 'gd_2', agentId: null, riskScore: 95, approved: true, source: 'warn_review',
+    });
+    expect(out.loss).toBe(1);
+    expect(out.thetaAfter).toBeGreaterThan(out.thetaBefore);
+  });
+
   it('never throws — a dead repository yields null and a warning only', async () => {
     mockSaveState.mockRejectedValue(new Error('db down'));
     const out = await ingestApprovalAdjudication(sql(), 'org_1', {

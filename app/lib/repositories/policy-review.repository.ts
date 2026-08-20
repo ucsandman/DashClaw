@@ -13,6 +13,13 @@ export interface WarnGroup {
   latest_at: string;
   sample_id: string;
   sample_goal: string | null;
+  /**
+   * Highest risk score in the group (0 when the rows carry none). A verdict
+   * rendered on the whole group is adjudicated at its WORST member, so a
+   * retrospective "fine" never claims the operator waved through a band the
+   * group's riskiest row sits above.
+   */
+  max_risk: number;
 }
 
 export async function getWarnDecisionsSince(
@@ -21,7 +28,7 @@ export async function getWarnDecisionsSince(
   sinceIso: string,
 ): Promise<Record<string, unknown>[]> {
   return sql`
-    SELECT id, action_type, context, reason, created_at
+    SELECT id, action_type, context, reason, risk_score, created_at
     FROM guard_decisions
     WHERE org_id = ${orgId} AND decision = 'warn' AND created_at::timestamptz > ${sinceIso}
     ORDER BY created_at DESC
@@ -73,9 +80,11 @@ export function groupWarnDecisions(
   for (const row of rows) {
     const shape = extractDecisionShape(row);
     const createdAt = toIso(row.created_at);
+    const risk = Math.max(0, Number(row.risk_score) || 0);
     const existing = groups.get(shape.key);
     if (existing) {
       existing.count += 1;
+      if (risk > existing.max_risk) existing.max_risk = risk;
       if (createdAt > existing.latest_at) existing.latest_at = createdAt;
     } else {
       let goal: string | null = null;
@@ -91,6 +100,7 @@ export function groupWarnDecisions(
         latest_at: createdAt,
         sample_id: String(row.id ?? ''),
         sample_goal: goal,
+        max_risk: risk,
       });
     }
   }

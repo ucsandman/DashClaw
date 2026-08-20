@@ -90,6 +90,7 @@ export async function GET(request: Request) {
       state: {
         theta: effectiveState.theta,
         labeled_total: effectiveState.labeledTotal,
+        labeled_live: effectiveState.labeledLive,
         labeled_benign: effectiveState.labeledBenign,
         labeled_denied: effectiveState.labeledDenied,
         loss_sum: effectiveState.lossSum,
@@ -102,7 +103,11 @@ export async function GET(request: Request) {
         // The demote arm's own readiness, so the page can say whether relief
         // is live or what it is still waiting for instead of showing a
         // threshold that never fires.
+        // Both floors: total evidence AND live evidence. Retrospective group
+        // verdicts count toward the first only, so sweeping the review feed
+        // can never on its own make the demote arm ready.
         relief_ready: effectiveState.labeledTotal >= CALIBRATION_DEFAULTS.reliefMinLabels
+          && effectiveState.labeledLive >= CALIBRATION_DEFAULTS.reliefMinLiveLabels
           && effectiveState.reliefCeiling >= 0,
       },
       defaults: {
@@ -111,6 +116,7 @@ export async function GET(request: Request) {
         p0: CALIBRATION_DEFAULTS.p0,
         theta_floor: CALIBRATION_DEFAULTS.thetaMin,
         relief_min_labels: CALIBRATION_DEFAULTS.reliefMinLabels,
+        relief_min_live_labels: CALIBRATION_DEFAULTS.reliefMinLiveLabels,
       },
       alarms,
       events,

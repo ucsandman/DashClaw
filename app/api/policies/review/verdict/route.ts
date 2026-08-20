@@ -9,16 +9,52 @@ import { apiErrorResponse } from '../../../../lib/apiErrors';
 import { insertOrRevivePolicy } from '../../../../lib/repositories/guardrails.repository';
 import { getSettings, upsertSetting } from '../../../../lib/repositories/settings.repository';
 import { shapeKey, shapeIsGrantable, GRANT_DEFAULT_TTL_DAYS, GRANT_DEFAULT_MAX_RISK } from '../../../../lib/policy-shapes';
+import { getWarnDecisionsSince, groupWarnDecisions } from '../../../../lib/repositories/policy-review.repository';
+import { ingestApprovalAdjudication } from '../../../../lib/guard/calibration-feedback';
 
-const VERDICTS = ['fine', 'always_allow', 'tighten', 'mark_all_reviewed'] as const;
+const VERDICTS = ['fine', 'always_allow', 'tighten', 'mark_all_reviewed', 'retro_fine', 'retro_stop'] as const;
 type Verdict = (typeof VERDICTS)[number];
 
+/** Same default window the review feed itself uses when no cursor is set. */
+const DEFAULT_WINDOW_DAYS = 7;
+
 const gpId = () => `gp_${randomUUID().replace(/-/g, '').slice(0, 24)}`;
+
+type SqlTag = ReturnType<typeof getSql>;
+
+/** The org's review-dismissal map (best-effort: corrupt JSON starts fresh). */
+async function loadDismissed(sql: SqlTag, orgId: string): Promise<Record<string, string>> {
+  const rows = await getSettings(sql, orgId, { key: 'policy_review_dismissed' });
+  try {
+    return JSON.parse((rows[0]?.value as string | null | undefined) || '{}') as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+/** Dismiss one shape from the review feed — the shared half of every verdict. */
+async function dismissShape(
+  sql: SqlTag,
+  orgId: string,
+  dismissed: Record<string, string>,
+  key: string,
+  now: string,
+): Promise<void> {
+  dismissed[key] = now;
+  await upsertSetting(sql, orgId, {
+    key: 'policy_review_dismissed',
+    value: JSON.stringify(dismissed),
+  });
+}
 
 /**
  * POST /api/policies/review/verdict — act on a review-feed group (admin only).
  * Body: { verdict, shape?: { action_type, target_prefix? } }
  *  - fine:              dismiss the shape (review state only)
+ *  - retro_fine:        dismiss the shape AND feed the calibration controller
+ *                       one retrospective benign verdict for the group
+ *  - retro_stop:        same, labeled dangerous — pulls the relief ceiling
+ *                       back below the group's worst score
  *  - always_allow:      create an allow_grant for the shape
  *  - tighten:           create require_approval (host/type shapes) or protected_path (path shapes)
  *  - mark_all_reviewed: advance the org review cursor to now
@@ -72,19 +108,50 @@ export async function POST(request: Request) {
     const label = prefix ? `${shape.action_type} → ${prefix}` : shape.action_type;
 
     if (verdict === 'fine') {
-      // Fetch existing dismissed map, parse (reset on corrupt), set dismissed[key] = now
-      const dismissedRows = await getSettings(sql, orgId, { key: 'policy_review_dismissed' });
-      let dismissed: Record<string, string> = {};
-      try {
-        const raw = dismissedRows[0]?.value as string | null | undefined;
-        dismissed = JSON.parse(raw || '{}') as Record<string, string>;
-      } catch { /* best-effort: corrupt dismissed-state JSON — start fresh */ }
-      dismissed[key] = now;
-      await upsertSetting(sql, orgId, {
-        key: 'policy_review_dismissed',
-        value: JSON.stringify(dismissed),
-      });
+      await dismissShape(sql, orgId, await loadDismissed(sql, orgId), key, now);
       return NextResponse.json({ ok: true, dismissed: key });
+    }
+
+    // Retrospective verdicts (spec §2.5). The operator rules on a whole warn
+    // GROUP after the fact, so the group is re-derived server-side from the
+    // live feed rather than trusted from the client: the risk score the
+    // controller learns from must come from the decisions themselves.
+    if (verdict === 'retro_fine' || verdict === 'retro_stop') {
+      const [cursorRows, dismissed] = await Promise.all([
+        getSettings(sql, orgId, { key: 'policy_review_cursor' }),
+        loadDismissed(sql, orgId),
+      ]);
+      const cursor =
+        (cursorRows[0]?.value as string | null | undefined) ||
+        new Date(Date.now() - DEFAULT_WINDOW_DAYS * 86_400_000).toISOString();
+      const warnRows = await getWarnDecisionsSince(sql, orgId, cursor);
+      const group = groupWarnDecisions(warnRows, dismissed).find((g) => g.shape.key === key);
+      if (!group) {
+        return NextResponse.json({
+          error: `"${label}" is no longer in the review feed — nothing to rule on.`,
+          code: 'SHAPE_NOT_IN_FEED',
+        }, { status: 404 });
+      }
+
+      // One adjudication per group verdict, at the group's WORST score, with
+      // no owning agent — nobody was blocked on this, so no agent's e-process
+      // moves. Ingest is best-effort by contract; the dismissal stands either
+      // way so a controller outage cannot strand the item in the feed.
+      const outcome = await ingestApprovalAdjudication(sql, orgId, {
+        actionId: group.sample_id,
+        agentId: null,
+        riskScore: group.max_risk,
+        approved: verdict === 'retro_fine',
+        source: 'warn_review',
+      });
+      await dismissShape(sql, orgId, dismissed, key, now);
+      return NextResponse.json({
+        ok: true,
+        dismissed: key,
+        adjudicated: outcome != null,
+        labeled_total: outcome?.state.labeledTotal ?? null,
+        labeled_live: outcome?.state.labeledLive ?? null,
+      });
     }
 
     if (verdict === 'always_allow') {

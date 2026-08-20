@@ -1,16 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeRequest } from '../helpers.js';
 
-const { mockSql, mockFindPolicyByName, mockInsertPolicy } = vi.hoisted(() => ({
+const { mockSql, mockFindPolicyByName, mockInsertPolicy, mockGetActivePolicies } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockFindPolicyByName: vi.fn(),
   mockInsertPolicy: vi.fn(),
+  mockGetActivePolicies: vi.fn(async () => []),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
 vi.mock('@/lib/repositories/guardrails.repository.js', () => ({
   findPolicyByName: mockFindPolicyByName,
   insertPolicy: mockInsertPolicy,
+  getActivePolicies: mockGetActivePolicies,
 }));
 
 // Mock fs for pack loading
@@ -30,6 +32,7 @@ import { POST } from '@/api/policies/import/route.js';
 describe('/api/policies/import POST', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetActivePolicies.mockResolvedValue([]);
     process.env.DATABASE_URL = 'postgres://unit-test';
   });
 

@@ -10,7 +10,54 @@ import { apiErrorResponse } from '../../lib/apiErrors';
 import { EVENTS, publishOrgEvent } from '../../lib/events';
 import { invalidateGuardPolicyCache } from '../../lib/guard';
 import { GRANT_DEFAULT_TTL_DAYS } from '../../lib/policy-shapes';
-import { deletePoliciesByIds } from '../../lib/repositories/guardrails.repository';
+import { deletePoliciesByIds, getActivePolicies } from '../../lib/repositories/guardrails.repository';
+import {
+  SHORT_LIST_CAP,
+  countShortListLines,
+  isShortListLine,
+  parseRules,
+  toWatchTier,
+  watchPolicyType,
+} from '../../lib/guardrails/short-list';
+
+const SHORT_LIST_FULL_BODY = {
+  error: `The Short List is full (${SHORT_LIST_CAP} of ${SHORT_LIST_CAP}). Remove a line to add this one.`,
+  code: 'SHORT_LIST_FULL',
+};
+
+/**
+ * Short List admission (spec 2.3). A write only keeps its interrupting action
+ * when it opts in with `rules.short_list: true` AND a slot is free; everything
+ * else is stored in Watch, where it records without stopping the agent.
+ *
+ * Returns the rules/type to store, or `full: true` when the caller opted in and
+ * the list is at SHORT_LIST_CAP.
+ * @param excludeId the policy being updated, so a PATCH never counts itself.
+ */
+async function admitToShortList(
+  sql: ReturnType<typeof getSql>,
+  orgId: string,
+  policyType: string,
+  rulesText: string,
+  excludeId?: string,
+): Promise<{ full: boolean; rules: string; policyType: string }> {
+  const rules = parseRules(rulesText);
+
+  if (rules.short_list !== true) {
+    if (!isShortListLine(policyType, rules)) return { full: false, rules: rulesText, policyType };
+    return {
+      full: false,
+      rules: JSON.stringify(toWatchTier(rules, policyType)),
+      policyType: watchPolicyType(policyType),
+    };
+  }
+
+  const active = await getActivePolicies(sql, orgId);
+  const rows = (active as Array<{ id?: string; policy_type: string; rules: unknown; active?: unknown }>)
+    .filter((r) => r.id !== excludeId);
+  if (countShortListLines(rows) >= SHORT_LIST_CAP) return { full: true, rules: rulesText, policyType };
+  return { full: false, rules: rulesText, policyType };
+}
 
 /**
  * GET /api/policies — List guard policies for the org.
@@ -91,9 +138,14 @@ export async function POST(request: Request) {
       }
     }
 
+    const admission = await admitToShortList(sql, orgId, data.policy_type, data.rules);
+    if (admission.full) {
+      return NextResponse.json(SHORT_LIST_FULL_BODY, { status: 409 });
+    }
+
     await sql`
       INSERT INTO guard_policies (id, org_id, name, policy_type, rules, active, agent_ids, created_by, created_at, updated_at)
-      VALUES (${id}, ${orgId}, ${data.name}, ${data.policy_type}, ${data.rules}, ${active}, ${agentIds}, ${body.created_by || null}, ${now}, ${now})
+      VALUES (${id}, ${orgId}, ${data.name}, ${admission.policyType}, ${admission.rules}, ${active}, ${agentIds}, ${body.created_by || null}, ${now}, ${now})
     `;
 
     const rows = await sql`SELECT * FROM guard_policies WHERE id = ${id}`;
@@ -157,8 +209,16 @@ export async function PATCH(request: Request) {
       if (!valid) {
         return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 });
       }
+      const admission = await admitToShortList(sql, orgId, policyType, rulesStr, body.id);
+      if (admission.full) {
+        return NextResponse.json(SHORT_LIST_FULL_BODY, { status: 409 });
+      }
       sets.push(`rules = $${idx++}`);
-      params.push(rulesStr);
+      params.push(admission.rules);
+      if (admission.policyType !== policyType) {
+        sets.push(`policy_type = $${idx++}`);
+        params.push(admission.policyType);
+      }
     }
     if (body.active != null) {
       sets.push(`active = $${idx++}`);

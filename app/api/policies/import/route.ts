@@ -76,13 +76,17 @@ export async function POST(request: Request) {
       });
     }
 
-    const { imported, skipped, errors } = await importPolicies(
+    const { imported, skipped, errors, watched } = await importPolicies(
       sql, orgId, policies as Array<Record<string, unknown>>,
     );
 
     return NextResponse.json({
       imported: imported.length,
       skipped: skipped.length,
+      skipped_names: skipped,
+      // Rules demoted to Watch on install (Short List, spec 2.3) — they record
+      // and do not interrupt. The install banner reports this.
+      watched,
       errors,
       policies: imported,
     }, { status: 201 });

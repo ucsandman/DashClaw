@@ -11,6 +11,7 @@ function makeRequest(
 
 const {
   mockSql,
+  mockIngestApprovalAdjudication,
   mockGetWarnDecisionsSince,
   mockGetRecentInterrupts,
   mockGroupWarnDecisions,
@@ -29,6 +30,7 @@ const {
   mockInsertPolicy: vi.fn(),
   mockFindPolicyByName: vi.fn(),
   mockReactivateModePolicy: vi.fn(),
+  mockIngestApprovalAdjudication: vi.fn(),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
@@ -40,6 +42,9 @@ vi.mock('@/lib/repositories/policy-review.repository.js', () => ({
 vi.mock('@/lib/repositories/settings.repository.js', () => ({
   getSettings: mockGetSettings,
   upsertSetting: mockUpsertSetting,
+}));
+vi.mock('@/lib/guard/calibration-feedback', () => ({
+  ingestApprovalAdjudication: mockIngestApprovalAdjudication,
 }));
 // insertOrRevivePolicy lives in the repository (shared with the approval-card
 // grant route). The primitives stay individually mocked so every assertion in
@@ -499,5 +504,112 @@ describe('POST /api/policies/review/verdict', () => {
     );
     expect(res.status).toBe(409);
     expect(mockReactivateModePolicy).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // Retrospective group verdicts (spec §2.5) — a verdict on a whole warn
+  // group, folded into the calibration controller at half weight.
+  // -------------------------------------------------------------------------
+  describe('retrospective verdicts', () => {
+    const group = {
+      shape: { key: 'api_call::stripe.com', action_type: 'api_call', target_prefix: 'stripe.com' },
+      count: 9,
+      latest_at: '2026-08-19T00:00:00Z',
+      sample_id: 'gd_sample',
+      sample_goal: 'charge the card',
+      max_risk: 46,
+    };
+
+    beforeEach(() => {
+      mockGetSettings.mockImplementation(async (_sql: unknown, _org: string, opts: { key?: string }) =>
+        opts?.key === 'policy_review_cursor' ? [{ key: 'policy_review_cursor', value: '2026-08-01T00:00:00Z' }] : [],
+      );
+      mockGetWarnDecisionsSince.mockResolvedValue([{ id: 'gd_sample' }]);
+      mockGroupWarnDecisions.mockReturnValue([group]);
+      mockIngestApprovalAdjudication.mockResolvedValue({
+        state: { labeledTotal: 10.5, labeledLive: 4 },
+        loss: 1,
+        thetaBefore: 80,
+        thetaAfter: 80.9,
+        alarmFired: false,
+      });
+    });
+
+    it('retro_fine ingests one benign warn_review adjudication at the group max risk and dismisses the shape', async () => {
+      const res = await POST(
+        makeRequest('http://localhost/api/policies/review/verdict', {
+          headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+          body: { verdict: 'retro_fine', shape: { action_type: 'api_call', target_prefix: 'stripe.com' } },
+        }),
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data).toMatchObject({ ok: true, adjudicated: true, labeled_total: 10.5, labeled_live: 4 });
+
+      expect(mockIngestApprovalAdjudication).toHaveBeenCalledTimes(1);
+      expect(mockIngestApprovalAdjudication).toHaveBeenCalledWith(mockSql, 'org_1', {
+        actionId: 'gd_sample',
+        agentId: null,
+        riskScore: 46,
+        approved: true,
+        source: 'warn_review',
+      });
+
+      const upsert = mockUpsertSetting.mock.calls.find((c) => c[2].key === 'policy_review_dismissed')!;
+      expect(JSON.parse(upsert[2].value as string)['api_call::stripe.com']).toBeTruthy();
+    });
+
+    it('retro_stop ingests the same adjudication as dangerous', async () => {
+      const res = await POST(
+        makeRequest('http://localhost/api/policies/review/verdict', {
+          headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+          body: { verdict: 'retro_stop', shape: { action_type: 'api_call', target_prefix: 'stripe.com' } },
+        }),
+      );
+      expect(res.status).toBe(200);
+      expect(mockIngestApprovalAdjudication).toHaveBeenCalledWith(
+        mockSql,
+        'org_1',
+        expect.objectContaining({ approved: false, source: 'warn_review', riskScore: 46 }),
+      );
+    });
+
+    it('404s when the shape is no longer in the review feed', async () => {
+      mockGroupWarnDecisions.mockReturnValue([]);
+      const res = await POST(
+        makeRequest('http://localhost/api/policies/review/verdict', {
+          headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+          body: { verdict: 'retro_fine', shape: { action_type: 'api_call', target_prefix: 'stripe.com' } },
+        }),
+      );
+      expect(res.status).toBe(404);
+      expect(mockIngestApprovalAdjudication).not.toHaveBeenCalled();
+      expect(mockUpsertSetting).not.toHaveBeenCalled();
+    });
+
+    it('a failed ingest still dismisses the shape and reports adjudicated false', async () => {
+      mockIngestApprovalAdjudication.mockResolvedValue(null);
+      const res = await POST(
+        makeRequest('http://localhost/api/policies/review/verdict', {
+          headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+          body: { verdict: 'retro_fine', shape: { action_type: 'api_call', target_prefix: 'stripe.com' } },
+        }),
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data).toMatchObject({ ok: true, adjudicated: false });
+      expect(mockUpsertSetting).toHaveBeenCalled();
+    });
+
+    it('non-admins cannot render a retrospective verdict', async () => {
+      const res = await POST(
+        makeRequest('http://localhost/api/policies/review/verdict', {
+          headers: { 'x-org-id': 'org_1', 'x-org-role': 'member' },
+          body: { verdict: 'retro_fine', shape: { action_type: 'api_call', target_prefix: 'stripe.com' } },
+        }),
+      );
+      expect(res.status).toBe(403);
+      expect(mockIngestApprovalAdjudication).not.toHaveBeenCalled();
+    });
   });
 });

@@ -71,8 +71,15 @@ export interface CalibrationAgentEntry {
 export interface CalibrationState {
   /** Calibrated interruption threshold θ on the 0–100 risk scale. */
   theta: number;
-  /** Total adjudicated interruptions consumed. */
+  /** Total adjudicated interruptions consumed, WEIGHTED (retrospective = 0.5). */
   labeledTotal: number;
+  /**
+   * Adjudications from LIVE verdicts only — an approval the operator was
+   * actually blocked on, never a retrospective verdict on a past warn group.
+   * Relief gates on this separately from `labeledTotal` so an operator cannot
+   * clear the demote arm's evidence bar by sweeping the review feed.
+   */
+  labeledLive: number;
   /** Adjudications labeled benign (human approved). */
   labeledBenign: number;
   /** Adjudications labeled dangerous (human denied). */
@@ -125,6 +132,13 @@ export const CALIBRATION_DEFAULTS = {
    * demote arm removes one, so it waits until the state means something.
    */
   reliefMinLabels: 10,
+  /**
+   * LIVE adjudications the demote arm needs on top of reliefMinLabels.
+   * Retrospective group verdicts are cheap to produce in bulk; without this
+   * floor a single sweep of the review feed could unlock relief on evidence
+   * no one rendered under real pressure.
+   */
+  reliefMinLiveLabels: 3,
   /** Bounded per-org agent map (evict the lowest-e unalarmed entry). */
   agentMapCap: 200,
 } as const;
@@ -152,6 +166,7 @@ export function freshCalibrationState(): CalibrationState {
   return {
     theta: CALIBRATION_DEFAULTS.theta0,
     labeledTotal: 0,
+    labeledLive: 0,
     labeledBenign: 0,
     labeledDenied: 0,
     lossSum: 0,
@@ -166,8 +181,15 @@ export function parseCalibrationSettings(
 ): CalibrationSettings {
   const byKey = new Map(rows.map((r) => [String(r.key ?? ''), r.value]));
   const rawMode = String(byKey.get(CALIBRATION_MODE_KEY) ?? '');
+  // Unconfigured defaults to SHADOW, not off: an org that has never touched
+  // the controller should still be accumulating adjudications, so Relief has
+  // something to stand on the day the operator reaches for it. Recording
+  // changes no enforcement. 'off' stays selectable — an operator who turned
+  // it off means it, and only the ABSENCE of a setting defaults to shadow.
   const mode: CalibrationMode =
-    rawMode === 'shadow' || rawMode === 'relief' || rawMode === 'active' ? rawMode : 'off';
+    rawMode === 'shadow' || rawMode === 'relief' || rawMode === 'active' || rawMode === 'off'
+      ? rawMode
+      : 'shadow';
   const rawRate = Number(byKey.get(CALIBRATION_TARGET_KEY));
   const targetRate = Number.isFinite(rawRate) && rawRate > 0 && rawRate <= 0.5
     ? rawRate
@@ -184,6 +206,17 @@ export interface AdjudicationInput {
   label: CalibrationLabel;
   /** Owning agent (base or composed id); e-process key. Optional. */
   agentId?: string | null;
+  /**
+   * Evidence weight for this verdict. 1 = a live approval the operator was
+   * blocked on; 0.5 = a retrospective verdict on a past warn group.
+   */
+  weight?: number;
+  /**
+   * Where the verdict came from. `warn_review` marks a retrospective group
+   * verdict: it may only move θ in the LOOSENING direction, owns no agent,
+   * and does not count toward the live-label floor (spec §8 invariant 8).
+   */
+  source?: 'live' | 'warn_review';
 }
 
 export interface AdjudicationOutcome {
@@ -255,12 +288,21 @@ export function applyAdjudication(
 ): AdjudicationOutcome {
   const thetaBefore = clampTheta(state.theta);
   const score = Math.max(0, Math.min(Number(input.riskScore) || 0, 100));
+  const weight = Number.isFinite(Number(input.weight)) ? Number(input.weight) : 1;
+  const retro = input.source === 'warn_review';
   const loss: 0 | 1 = score >= thetaBefore && input.label === 'benign' ? 1 : 0;
-  const thetaAfter = clampTheta(thetaBefore + CALIBRATION_DEFAULTS.gamma * (loss - settings.targetRate));
+  const rawDelta = CALIBRATION_DEFAULTS.gamma * (loss - settings.targetRate) * weight;
+  // Retrospective verdicts may loosen (Δ>0) but never tighten (Δ<0): a
+  // verdict rendered at leisure on a batch of past warns is not evidence
+  // that the operator wants MORE interruptions (spec §8 invariant 8).
+  const delta = retro && rawDelta < 0 ? 0 : rawDelta;
+  const thetaAfter = clampTheta(thetaBefore + delta);
 
   let agents = state.agents;
   let alarmFired = false;
-  const agentId = typeof input.agentId === 'string' && input.agentId ? input.agentId : null;
+  // A group verdict owns no agent — nobody was on the hook for it, so it must
+  // not move any agent's e-process wealth.
+  const agentId = !retro && typeof input.agentId === 'string' && input.agentId ? input.agentId : null;
   if (agentId) {
     const prev = agents[agentId] ?? { e: 1, n: 0, denied: 0, alarmed_at: null };
     const step = eProcessStep(prev, input.label === 'dangerous', nowIso);
@@ -279,10 +321,11 @@ export function applyAdjudication(
   return {
     state: {
       theta: thetaAfter,
-      labeledTotal: state.labeledTotal + 1,
-      labeledBenign: state.labeledBenign + (input.label === 'benign' ? 1 : 0),
-      labeledDenied: state.labeledDenied + (input.label === 'dangerous' ? 1 : 0),
-      lossSum: state.lossSum + loss,
+      labeledTotal: state.labeledTotal + weight,
+      labeledLive: state.labeledLive + (retro ? 0 : 1),
+      labeledBenign: state.labeledBenign + (input.label === 'benign' ? weight : 0),
+      labeledDenied: state.labeledDenied + (input.label === 'dangerous' ? weight : 0),
+      lossSum: state.lossSum + loss * weight,
       reliefCeiling,
       agents,
     },
@@ -336,8 +379,10 @@ export function assessCalibration(
     would_interrupt: score >= theta,
     agent_alarmed: agentAlarmed,
     relief_ceiling: state.reliefCeiling,
-    // Four gates, each closing a different way relief could be unearned:
+    // Five gates, each closing a different way relief could be unearned:
     //  - enough adjudications for the state to carry information at all;
+    //  - enough of them rendered LIVE, so a bulk sweep of retrospective group
+    //    verdicts cannot buy the demote arm on its own;
     //  - the calibrated threshold itself says this interruption is not earned;
     //  - a human has waved through something at least this risky and has not
     //    since denied at or above it (the bound that stops flipping the mode
@@ -346,6 +391,7 @@ export function assessCalibration(
     //    one signal that outranks the operator's own click history.
     would_relieve:
       state.labeledTotal >= CALIBRATION_DEFAULTS.reliefMinLabels &&
+      state.labeledLive >= CALIBRATION_DEFAULTS.reliefMinLiveLabels &&
       score < theta &&
       score <= state.reliefCeiling &&
       !agentAlarmed,
@@ -374,9 +420,15 @@ export function coerceCalibrationState(raw: unknown): CalibrationState {
   agents = evictIfNeeded(agents);
   return {
     theta: clampTheta(num(r.theta, CALIBRATION_DEFAULTS.theta0)),
-    labeledTotal: Math.max(0, Math.round(num(r.labeledTotal, 0))),
-    labeledBenign: Math.max(0, Math.round(num(r.labeledBenign, 0))),
-    labeledDenied: Math.max(0, Math.round(num(r.labeledDenied, 0))),
+    // Weighted counters — NOT rounded: retrospective verdicts land on halves
+    // and rounding on every rehydrate would walk the totals off the ledger.
+    labeledTotal: Math.max(0, num(r.labeledTotal, 0)),
+    labeledBenign: Math.max(0, num(r.labeledBenign, 0)),
+    labeledDenied: Math.max(0, num(r.labeledDenied, 0)),
+    // Pre-live-floor rows have no labeledLive — they rehydrate to 0, so an
+    // instance that upgrades mid-stream re-earns the demote arm on live
+    // verdicts rather than inheriting a floor it never actually cleared.
+    labeledLive: Math.max(0, Math.round(num(r.labeledLive, 0))),
     lossSum: Math.max(0, num(r.lossSum, 0)),
     // Pre-relief rows have no reliefCeiling — they rehydrate to -1, so an
     // instance that upgrades mid-stream relieves nothing until the operator

@@ -49,7 +49,7 @@ const calibrationSettings = (mode, rate = '0.1') => [
 ];
 
 const stateRow = (theta, agents = {}) => [
-  { state: { theta, labeledTotal: 10, labeledBenign: 5, labeledDenied: 5, lossSum: 1, agents } },
+  { state: { theta, labeledTotal: 10, labeledLive: 10, labeledBenign: 5, labeledDenied: 5, lossSum: 1, agents } },
 ];
 
 // deploy base score 75 — above a calibrated θ of 30, below the policy default 80.
@@ -61,8 +61,16 @@ beforeEach(() => {
 });
 
 describe('calibration controller — guard wiring', () => {
-  it('default off: no state query, no calibration in result or context', async () => {
-    const sql = makeSql({});
+  it('unconfigured defaults to shadow: observes from day one, changes nothing', async () => {
+    const sql = makeSql({ 'FROM guard_calibration_state': stateRow(30) });
+    const result = await evaluateGuard(freshOrg(), CTX(), sql);
+    expect(result.decision).toBe('allow');
+    expect(result.calibration).toMatchObject({ mode: 'shadow', applied: false, relieved: false });
+    expect(sql.calls.some((t) => t.includes('guard_calibration_state'))).toBe(true);
+  });
+
+  it('explicit off: no state query, no calibration in result or context', async () => {
+    const sql = makeSql({ 'FROM settings': calibrationSettings('off') });
     const result = await evaluateGuard(freshOrg(), CTX(), sql);
     expect(result.decision).toBe('allow');
     expect(result.calibration).toBeUndefined();
@@ -206,7 +214,7 @@ describe('calibration controller — demote arm', () => {
   // gate open. Deliberately NOT the fresh-state shape — relief must be earned.
   const relievableState = (over = {}) => [{
     state: {
-      theta: 90, labeledTotal: 12, labeledBenign: 9, labeledDenied: 3,
+      theta: 90, labeledTotal: 12, labeledLive: 12, labeledBenign: 9, labeledDenied: 3,
       lossSum: 2, reliefCeiling: 80, agents: {}, ...over,
     },
   }];
@@ -305,13 +313,24 @@ describe('calibration controller — demote arm', () => {
     const unbounded = makeSql({
       'FROM settings': calibrationSettings('relief'),
       'FROM guard_calibration_state': [{
-        state: { theta: 90, labeledTotal: 12, labeledBenign: 9, labeledDenied: 3, lossSum: 2, agents: {} },
+        state: { theta: 90, labeledTotal: 12, labeledLive: 12, labeledBenign: 9, labeledDenied: 3, lossSum: 2, agents: {} },
       }],
       'FROM guard_policies': askPolicy(),
     });
     const result = await evaluateGuard(freshOrg(), CTX(), unbounded);
     expect(result.decision).toBe('require_approval');
     expect(result.calibration).toMatchObject({ relief_ceiling: -1, would_relieve: false });
+
+    // Volume alone is not enough: a state whose labels are mostly
+    // RETROSPECTIVE group verdicts still owes the live floor.
+    const retroHeavy = makeSql({
+      'FROM settings': calibrationSettings('relief'),
+      'FROM guard_calibration_state': relievableState({ labeledTotal: 12, labeledLive: 2 }),
+      'FROM guard_policies': askPolicy(),
+    });
+    const retroResult = await evaluateGuard(freshOrg(), CTX(), retroHeavy);
+    expect(retroResult.decision).toBe('require_approval');
+    expect(retroResult.calibration).toMatchObject({ would_relieve: false });
   });
 
   it('relief: never reaches past the riskiest action the operator approved', async () => {

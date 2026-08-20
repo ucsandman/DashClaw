@@ -312,9 +312,12 @@ describe('assessment + plumbing helpers', () => {
     }
   });
 
-  it('parseCalibrationSettings: defaults off, validates mode and rate', () => {
+  it('parseCalibrationSettings: defaults shadow, validates mode and rate', () => {
     expect(parseCalibrationSettings([{ key: 'CALIBRATION_CONTROLLER_MODE', value: 'relief' }]).mode).toBe('relief');
-    expect(parseCalibrationSettings([])).toEqual({ mode: 'off', targetRate: CALIBRATION_DEFAULTS.targetRate });
+    // Absence means 'never configured' — a new org observes from day one.
+    expect(parseCalibrationSettings([])).toEqual({ mode: 'shadow', targetRate: CALIBRATION_DEFAULTS.targetRate });
+    // ...but 'off' stays selectable: an operator who turned it off means it.
+    expect(parseCalibrationSettings([{ key: 'CALIBRATION_CONTROLLER_MODE', value: 'off' }]).mode).toBe('off');
     expect(parseCalibrationSettings([
       { key: 'CALIBRATION_CONTROLLER_MODE', value: 'shadow' },
       { key: 'CALIBRATION_TARGET_RATE', value: '0.05' },
@@ -322,7 +325,7 @@ describe('assessment + plumbing helpers', () => {
     expect(parseCalibrationSettings([
       { key: 'CALIBRATION_CONTROLLER_MODE', value: 'bogus' },
       { key: 'CALIBRATION_TARGET_RATE', value: '7' },
-    ])).toEqual({ mode: 'off', targetRate: CALIBRATION_DEFAULTS.targetRate });
+    ])).toEqual({ mode: 'shadow', targetRate: CALIBRATION_DEFAULTS.targetRate });
   });
 
   it('coerceCalibrationState survives garbage and clamps', () => {
@@ -333,5 +336,110 @@ describe('assessment + plumbing helpers', () => {
     expect(coerced.labeledTotal).toBe(0);
     expect(coerced.agents['a']).toEqual({ e: 1, n: 2, denied: 0, alarmed_at: null });
     expect(coerced.agents['b']).toBeUndefined();
+  });
+});
+
+/**
+ * Retrospective warn-group verdicts (spec §2.5 / §8 invariant 8). A verdict
+ * rendered on a GROUP of already-past warns is weaker evidence than a live
+ * approval the operator was actually blocked on: it carries weight 0.5, it
+ * counts toward `labeledTotal` but never toward `labeledLive`, and it may
+ * only move θ in the loosening direction — a retrospective "fine" must never
+ * be able to tighten the org's interruption threshold.
+ */
+describe('warn_review adjudications', () => {
+  it('weighs 0.5 into labeledTotal and nothing into labeledLive', () => {
+    let state = freshCalibrationState();
+    state = applyAdjudication(
+      state,
+      { riskScore: 90, label: 'benign', weight: 0.5, source: 'warn_review' },
+      SETTINGS,
+      NOW,
+    ).state;
+    expect(state.labeledTotal).toBe(0.5);
+    expect(state.labeledBenign).toBe(0.5);
+    expect(state.labeledLive).toBe(0);
+
+    state = applyAdjudication(state, { riskScore: 90, label: 'benign' }, SETTINGS, NOW).state;
+    expect(state.labeledTotal).toBe(1.5);
+    expect(state.labeledLive).toBe(1);
+  });
+
+  it('loosens like a live verdict (scaled by weight) but never tightens', () => {
+    const base = freshCalibrationState(); // θ = 80
+    const gamma = CALIBRATION_DEFAULTS.gamma;
+
+    // Above θ + benign ⇒ loss 1 ⇒ loosening. Same direction as live, scaled.
+    const retroUp = applyAdjudication(
+      base,
+      { riskScore: 90, label: 'benign', weight: 0.5, source: 'warn_review' },
+      SETTINGS,
+      NOW,
+    );
+    const liveUp = applyAdjudication(base, { riskScore: 90, label: 'benign' }, SETTINGS, NOW);
+    expect(retroUp.loss).toBe(1);
+    expect(retroUp.thetaAfter).toBeCloseTo(80 + gamma * (1 - SETTINGS.targetRate) * 0.5, 10);
+    expect(liveUp.thetaAfter).toBeCloseTo(80 + gamma * (1 - SETTINGS.targetRate), 10);
+    expect(retroUp.thetaAfter).toBeGreaterThan(80);
+
+    // Below θ ⇒ loss 0 ⇒ the raw step tightens. A live verdict takes it; a
+    // retrospective one is clamped to zero.
+    const retroDown = applyAdjudication(
+      base,
+      { riskScore: 30, label: 'benign', weight: 0.5, source: 'warn_review' },
+      SETTINGS,
+      NOW,
+    );
+    const liveDown = applyAdjudication(base, { riskScore: 30, label: 'benign' }, SETTINGS, NOW);
+    expect(retroDown.thetaAfter).toBe(80);
+    expect(liveDown.thetaAfter).toBeCloseTo(80 - gamma * SETTINGS.targetRate, 10);
+  });
+
+  it('a retrospective stop pulls the relief ceiling back and still never tightens θ', () => {
+    let state = freshCalibrationState();
+    state = applyAdjudication(state, { riskScore: 60, label: 'benign' }, SETTINGS, NOW).state;
+    expect(state.reliefCeiling).toBe(60);
+
+    const out = applyAdjudication(
+      state,
+      { riskScore: 40, label: 'dangerous', weight: 0.5, source: 'warn_review' },
+      SETTINGS,
+      NOW,
+    );
+    expect(out.state.reliefCeiling).toBe(39);
+    expect(out.thetaAfter).toBe(out.thetaBefore);
+    expect(out.state.labeledDenied).toBe(0.5);
+    expect(out.state.labeledLive).toBe(1); // the earlier live benign only
+  });
+
+  it('a group verdict owns no agent, so it never feeds an e-process', () => {
+    const out = applyAdjudication(
+      freshCalibrationState(),
+      { riskScore: 90, label: 'dangerous', weight: 0.5, source: 'warn_review', agentId: 'agent_x' },
+      SETTINGS,
+      NOW,
+    );
+    expect(out.state.agents).toEqual({});
+    expect(out.alarmFired).toBe(false);
+  });
+
+  it('relief needs live labels, not just retrospective volume', () => {
+    const state: CalibrationState = {
+      ...freshCalibrationState(),
+      theta: 80,
+      labeledTotal: 12,
+      labeledLive: 2,
+      reliefCeiling: 60,
+    };
+    expect(CALIBRATION_DEFAULTS.reliefMinLiveLabels).toBe(3);
+    expect(assessCalibration(state, SETTINGS, 55, null).would_relieve).toBe(false);
+    expect(assessCalibration({ ...state, labeledLive: 3 }, SETTINGS, 55, null).would_relieve).toBe(true);
+  });
+
+  it('coerceCalibrationState gives legacy rows labeledLive 0', () => {
+    expect(coerceCalibrationState({}).labeledLive).toBe(0);
+    expect(coerceCalibrationState({ labeledTotal: 40 }).labeledLive).toBe(0);
+    // Weighted counts survive rehydration un-rounded.
+    expect(coerceCalibrationState({ labeledTotal: 12.5, labeledLive: 3 }).labeledTotal).toBe(12.5);
   });
 });

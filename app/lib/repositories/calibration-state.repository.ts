@@ -167,6 +167,8 @@ export interface CalibrationEventRow {
   theta_after: number;
   label: string;
   loss: number;
+  /** 'approval' | 'bulk_approval' | 'seed' | 'warn_review' — provenance of the verdict. */
+  source: string;
   created_at: string;
 }
 
@@ -175,7 +177,7 @@ export async function listCalibrationEvents(sql: SqlTag, orgId: string, limit = 
   const capped = Math.max(1, Math.min(Math.round(limit) || 200, 1000));
   try {
     const rows = await sql`
-      SELECT action_id, agent_id, risk_score, theta_before, theta_after, label, loss, created_at
+      SELECT action_id, agent_id, risk_score, theta_before, theta_after, label, loss, source, created_at
       FROM guard_calibration_events
       WHERE org_id = ${orgId}
       ORDER BY created_at DESC, id DESC
@@ -189,6 +191,7 @@ export async function listCalibrationEvents(sql: SqlTag, orgId: string, limit = 
       theta_after: Number(r.theta_after) || 0,
       label: String(r.label ?? ''),
       loss: Number(r.loss) || 0,
+      source: String(r.source ?? ''),
       created_at: String(r.created_at ?? ''),
     }));
   } catch (err) {

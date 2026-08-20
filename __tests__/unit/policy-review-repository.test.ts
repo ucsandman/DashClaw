@@ -37,6 +37,18 @@ describe('groupWarnDecisions', () => {
     expect(groups).toHaveLength(1);
   });
 
+  it('tracks the group max risk score, treating a null score as 0', () => {
+    const rows = [
+      { ...warn('api', 'https://api.stripe.com/v1/a', '2026-06-10T01:00:00Z'), risk_score: 42 },
+      { ...warn('api', 'https://api.stripe.com/v1/b', '2026-06-10T02:00:00Z'), risk_score: 71 },
+      { ...warn('api', 'https://api.stripe.com/v1/c', '2026-06-10T03:00:00Z'), risk_score: null },
+      { ...warn('sync', 'https://hub.example.com/x', '2026-06-10T03:00:00Z') },
+    ];
+    const groups = groupWarnDecisions(rows, {});
+    expect(groups.find((g) => g.shape.key === 'api::api.stripe.com')!.max_risk).toBe(71);
+    expect(groups.find((g) => g.shape.action_type === 'sync')!.max_risk).toBe(0);
+  });
+
   it('sorts groups by count descending', () => {
     const rows = [
       warn('sync', 'https://a.example.com/x', '2026-06-10T01:00:00Z'),

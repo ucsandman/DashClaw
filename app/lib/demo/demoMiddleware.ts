@@ -753,6 +753,7 @@ export function demoReview() {
         latest_at: iso(3_600_000),
         sample_id: 'gd_demo_warn_1',
         sample_goal: 'Run unit test suite',
+        max_risk: 28,
       },
       {
         shape: { action_type: 'write_file', target_prefix: 'src/', key: 'write_file::src/', label: 'write_file → src/' },
@@ -760,6 +761,7 @@ export function demoReview() {
         latest_at: iso(7_200_000),
         sample_id: 'gd_demo_warn_2',
         sample_goal: 'Refactor authentication module',
+        max_risk: 44,
       },
     ],
     interrupts: [
@@ -1475,6 +1477,7 @@ export function demoCalibrationController(fixtures: DemoFixtures) {
     state: {
       theta,
       labeled_total: events.length,
+      labeled_live: events.length,
       labeled_benign: events.length - denied,
       labeled_denied: denied,
       loss_sum: lossSum,
@@ -1484,7 +1487,7 @@ export function demoCalibrationController(fixtures: DemoFixtures) {
       relief_ceiling: reliefCeiling,
       relief_ready: events.length >= 10 && reliefCeiling >= 0,
     },
-    defaults: { gamma: 2, alarm_at: 20, p0: 0.25, theta_floor: 20, relief_min_labels: 10 },
+    defaults: { gamma: 2, alarm_at: 20, p0: 0.25, theta_floor: 20, relief_min_labels: 10, relief_min_live_labels: 3 },
     alarms: [
       { agent_id: agentIds[0] ?? 'clawdbot', e: 24.6, n: 12, denied: 7, alarmed_at: iso(6) },
       { agent_id: agentIds[1 % agentIds.length] ?? 'deploy-runner', e: 3.4, n: 9, denied: 3, alarmed_at: null },

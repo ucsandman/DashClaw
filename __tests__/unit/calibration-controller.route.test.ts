@@ -81,15 +81,46 @@ beforeEach(() => {
 });
 
 describe('GET /api/calibration/controller', () => {
-  it('returns the default-off snapshot with fresh state', async () => {
+  it('returns the default-shadow snapshot with fresh state', async () => {
     const res = await GET(makeRequest(URL_, { headers: adminHeaders }));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.settings).toEqual({ mode: 'off', target_rate: 0.1 });
+    // Unconfigured means "observe", not "ignore" — the controller learns from
+    // day one so Relief has evidence when an operator reaches for it.
+    expect(body.settings).toEqual({ mode: 'shadow', target_rate: 0.1 });
     expect(body.state.theta).toBe(80);
     expect(body.state.labeled_total).toBe(0);
+    expect(body.state.labeled_live).toBe(0);
+    expect(body.state.relief_ready).toBe(false);
     expect(body.state.observed_rate).toBeNull();
+    expect(body.defaults.relief_min_labels).toBe(10);
+    expect(body.defaults.relief_min_live_labels).toBe(3);
     expect(body.alarms).toEqual([]);
+  });
+
+  it('relief readiness needs the live-label floor as well as the total', async () => {
+    mockGetCalibrationState.mockResolvedValue({
+      theta: 70, labeledTotal: 12, labeledLive: 2, labeledBenign: 12, labeledDenied: 0,
+      lossSum: 1, reliefCeiling: 55, agents: {},
+    });
+    let body = await (await GET(makeRequest(URL_, { headers: adminHeaders }))).json();
+    expect(body.state.labeled_live).toBe(2);
+    expect(body.state.relief_ready).toBe(false);
+
+    mockGetCalibrationState.mockResolvedValue({
+      theta: 70, labeledTotal: 12, labeledLive: 3, labeledBenign: 12, labeledDenied: 0,
+      lossSum: 1, reliefCeiling: 55, agents: {},
+    });
+    body = await (await GET(makeRequest(URL_, { headers: adminHeaders }))).json();
+    expect(body.state.relief_ready).toBe(true);
+  });
+
+  it('carries the adjudication source through to the event list', async () => {
+    mockListCalibrationEvents.mockResolvedValue([
+      { action_id: 'gd_1', agent_id: null, risk_score: 46, theta_before: 80, theta_after: 80.9, label: 'benign', loss: 1, source: 'warn_review', created_at: '2026-08-19T00:00:00.000Z' },
+    ]);
+    const body = await (await GET(makeRequest(URL_, { headers: adminHeaders }))).json();
+    expect(body.events[0].source).toBe('warn_review');
   });
 
   it('reports observed rates, alarms, and θ-vs-policy context', async () => {
