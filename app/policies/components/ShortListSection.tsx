@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import { ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronDown, ChevronRight, X } from 'lucide-react';
 import type { PolicySummary, ShortListLine, PolicySuggestion } from '../../lib/policy-modes/summary';
 import {
   patchPolicy,
@@ -47,6 +47,8 @@ const DORMANT_ON_INSTALL = new Set(['role_constraint', 'delegation_constraint', 
 
 const DORMANT_NOTE = 'Installed dormant — this rule can only interrupt. Turn it on to add it to the Short List.';
 
+const CAP_SENTENCE = 'The Short List is full (10 of 10). Remove one line to add this one.';
+
 /** The chip carries the WORD; colour is a second signal, never the only one. */
 const TIER_CHIP: Record<ShortListLine['tier'], string> = {
   BLOCK: 'bg-error-subtle text-error',
@@ -78,23 +80,36 @@ function writeDismissed(): void {
 function ShortListCapDialog({
   lines,
   busy,
+  error,
   onCancel,
   onRemoveAndAdd,
 }: {
   lines: ShortListLine[];
   busy: boolean;
+  error: string | null;
   onCancel: () => void;
   onRemoveAndAdd: (id: string) => void;
 }) {
   const [choice, setChoice] = useState(lines[0]?.id ?? '');
+  const panel = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    panel.current?.focus();
+  }, []);
+
   return (
     <div className={styles.modalBackdrop} onClick={onCancel}>
       <div
+        ref={panel}
+        tabIndex={-1}
         className={styles.modal}
         role="dialog"
         aria-modal="true"
         aria-label="The Short List is full"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onCancel();
+        }}
       >
         <div className={styles.modalHead}>
           <h3>The Short List is full</h3>
@@ -103,9 +118,12 @@ function ShortListCapDialog({
           </button>
         </div>
         <div className={styles.modalBody}>
-          <p className="mb-3 text-sm text-secondary">
-            The Short List is full (10 of 10). Remove one line to add this one.
-          </p>
+          <p className="mb-3 text-sm text-secondary">{CAP_SENTENCE}</p>
+          {error ? (
+            <p role="alert" className="mb-3 text-xs text-error">
+              {error}
+            </p>
+          ) : null}
           <ul className="m-0 list-none p-0">
             {lines.map((l) => (
               <li key={l.id} className="border-b border-border py-2 last:border-b-0">
@@ -152,13 +170,31 @@ export default function ShortListSection({ summary, onChanged, onPickFromDecisio
   const [error, setError] = useState<string | null>(null);
   /** The write the cap rejected, held for retry after a line is removed. */
   const [pending, setPending] = useState<(() => Promise<ClientResult>) | null>(null);
-  const [installDismissed, setInstallDismissed] = useState(readDismissed);
+  const [installDismissed, setInstallDismissed] = useState(false);
+
+  // localStorage is not available during SSR — reading it in the initial state
+  // would make the server and client renders disagree.
+  useEffect(() => {
+    if (readDismissed()) setInstallDismissed(true);
+  }, []);
 
   const cap = summary.shortListCap;
   const lines = [...(summary.shortList || [])].sort((a, b) => Number(b.active) - Number(a.active));
   // Only an ACTIVE line can interrupt, so only an active line spends a slot.
   const used = lines.filter((l) => l.active).length;
   const suggestion = (summary.suggestions || []).find((s) => s.id === 'real_money') as PolicySuggestion | undefined;
+
+  /**
+   * ALWAYS reads the row fresh. A PATCH replaces `rules` wholesale, so a write
+   * built on a remembered copy silently resurrects whatever the previous write
+   * removed (two Undos in a row would put the first exception back). The stored
+   * copy is for DISPLAY only and is never a source for a write.
+   */
+  const loadRules = useCallback(async (id: string): Promise<Record<string, unknown>> => {
+    const r = await fetchPolicyRules(id);
+    setRulesById((prev) => ({ ...prev, [id]: r }));
+    return r;
+  }, []);
 
   /** Every write funnels here so the 409 → remove-one path is never forgotten. */
   const run = useCallback(
@@ -176,6 +212,11 @@ export default function ShortListSection({ summary, onChanged, onPickFromDecisio
           setError(typeof res.json?.error === 'string' ? res.json.error : 'That change did not go through.');
           return;
         }
+        setRulesById({});
+        // The row just changed on the server; nothing remembered about it is
+        // true any more. Re-read the one still on screen so Details never
+        // displays a rule that no longer exists.
+        if (expanded) loadRules(expanded).catch(() => undefined);
         onChanged();
       } catch (e) {
         setError((e as Error).message);
@@ -183,17 +224,7 @@ export default function ShortListSection({ summary, onChanged, onPickFromDecisio
         setBusy(false);
       }
     },
-    [onChanged],
-  );
-
-  const loadRules = useCallback(
-    async (id: string): Promise<Record<string, unknown>> => {
-      if (rulesById[id]) return rulesById[id];
-      const r = await fetchPolicyRules(id);
-      setRulesById((prev) => ({ ...prev, [id]: r }));
-      return r;
-    },
-    [rulesById],
+    [onChanged, expanded, loadRules],
   );
 
   const toggleDetails = useCallback(
@@ -254,6 +285,14 @@ export default function ShortListSection({ summary, onChanged, onPickFromDecisio
           return;
         }
         const res = await retry();
+        if (isShortListFull(res)) {
+          // A line came off, and it is STILL full — another slot was taken in
+          // the meantime. Keep the dialog up with the mandated sentence, and
+          // refresh so its list shows the line that was just removed as gone.
+          setError(CAP_SENTENCE);
+          onChanged();
+          return;
+        }
         if (!res.ok) {
           setError(typeof res.json?.error === 'string' ? res.json.error : 'That change did not go through.');
           return;
@@ -325,10 +364,7 @@ export default function ShortListSection({ summary, onChanged, onPickFromDecisio
               return (
                 <div key={line.id} className={`${styles.card} p-4`}>
                   <div className="flex flex-wrap items-baseline gap-3">
-                    <span
-                      aria-label={`Tier: ${line.tier}`}
-                      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wider ${TIER_CHIP[line.tier]}`}
-                    >
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wider ${TIER_CHIP[line.tier]}`}>
                       {line.tier}
                     </span>
                     <span className={`text-sm font-medium ${line.active ? 'text-primary' : 'text-tertiary line-through'}`}>
@@ -355,6 +391,7 @@ export default function ShortListSection({ summary, onChanged, onPickFromDecisio
                       type="button"
                       className={`${styles.btn} ${styles.btnSm} ${styles.btnGhost}`}
                       aria-expanded={isOpen}
+                      aria-controls={`short-list-details-${line.id}`}
                       onClick={() => toggleDetails(line.id)}
                     >
                       {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
@@ -398,7 +435,7 @@ export default function ShortListSection({ summary, onChanged, onPickFromDecisio
                   </div>
 
                   {isOpen ? (
-                    <div className="mt-3 border-t border-border pt-3">
+                    <div id={`short-list-details-${line.id}`} className="mt-3 border-t border-border pt-3">
                       <div className={styles.metaLabel}>Type</div>
                       <p className={`${styles.mono} mt-1 mb-3 text-xs text-secondary`}>{line.policy_type}</p>
 
@@ -442,7 +479,6 @@ export default function ShortListSection({ summary, onChanged, onPickFromDecisio
         )}
 
         <div className="flex flex-wrap items-center gap-3 border-t border-border p-4">
-          <Plus size={14} className="text-tertiary" />
           <span className="text-[13px] text-secondary">
             {`+ Add a line from a decision you have seen. ${Math.max(0, cap - used)} slots left.`}
           </span>
@@ -471,6 +507,7 @@ export default function ShortListSection({ summary, onChanged, onPickFromDecisio
         <ShortListCapDialog
           lines={lines.filter((l) => l.active)}
           busy={busy}
+          error={error}
           onCancel={() => setPending(null)}
           onRemoveAndAdd={removeAndAdd}
         />

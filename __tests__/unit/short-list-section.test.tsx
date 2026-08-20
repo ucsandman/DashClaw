@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 const patchPolicy = vi.fn();
 const createPolicy = vi.fn();
@@ -213,19 +213,100 @@ describe('ShortListSection', () => {
     expect(screen.queryByText(/^Suggested/)).toBeNull();
   });
 
-  it('undoes a shape exception by PATCHing the rules without that key', async () => {
-    fetchPolicyRules.mockResolvedValue({ action: 'require_approval', shape_exceptions: ['git log', 'ls'] });
+  it('undoes a shape exception, carrying every other rule key through untouched', async () => {
+    // The route treats a rules PATCH on an existing Short List row as an EDIT,
+    // so the payload must be the row's CURRENT rules with one key changed —
+    // dropping ungrantable/threshold here would quietly demote the line.
+    fetchPolicyRules.mockResolvedValue({
+      action: 'require_approval',
+      action_types: ['file_write'],
+      ungrantable: true,
+      threshold: 100,
+      shape_exceptions: ['git log', 'ls'],
+    });
     patchPolicy.mockResolvedValue(OK);
     renderSection(summaryOf([line({ id: 'gp_9', tier: 'HOLD', shape_exceptions: ['git log', 'ls'] })]));
 
     fireEvent.click(screen.getByRole('button', { name: 'Details' }));
-    const undo = await screen.findByRole('button', { name: 'Undo exception for git log' });
-    fireEvent.click(undo);
+    fireEvent.click(await screen.findByRole('button', { name: 'Undo exception for git log' }));
 
     await waitFor(() =>
       expect(patchPolicy).toHaveBeenCalledWith('gp_9', {
-        rules: { action: 'require_approval', shape_exceptions: ['ls'] },
+        rules: {
+          action: 'require_approval',
+          action_types: ['file_write'],
+          ungrantable: true,
+          threshold: 100,
+          shape_exceptions: ['ls'],
+        },
       }),
     );
+    // No short_list flag is injected — this is an edit of a line already on the list.
+    expect(patchPolicy.mock.calls[0]![1].rules).not.toHaveProperty('short_list');
+  });
+
+  it('re-reads the rules between two Undos so the first exception stays gone', async () => {
+    fetchPolicyRules
+      .mockResolvedValueOnce({ action: 'require_approval', shape_exceptions: ['A', 'B', 'C'] })
+      .mockResolvedValueOnce({ action: 'require_approval', shape_exceptions: ['B', 'C'] })
+      .mockResolvedValue({ action: 'require_approval', shape_exceptions: ['B', 'C'] });
+    patchPolicy.mockResolvedValue(OK);
+    renderSection(summaryOf([line({ id: 'gp_9', tier: 'HOLD', shape_exceptions: ['A', 'B', 'C'] })]));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Undo exception for A' }));
+    await waitFor(() =>
+      expect(patchPolicy).toHaveBeenCalledWith('gp_9', { rules: { action: 'require_approval', shape_exceptions: ['B', 'C'] } }),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo exception for B' }));
+    await waitFor(() => expect(patchPolicy).toHaveBeenCalledTimes(2));
+    expect(patchPolicy.mock.calls[1]).toEqual([
+      'gp_9',
+      { rules: { action: 'require_approval', shape_exceptions: ['C'] } },
+    ]);
+  });
+
+  it('shows a failed Remove-and-add inside the dialog, and the cap sentence on a repeat 409', async () => {
+    fetchPolicyRules.mockResolvedValue({ action: 'warn', action_types: ['bash_command'] });
+    // The promote 409s and opens the dialog; then the removal itself fails.
+    patchPolicy.mockResolvedValueOnce(FULL).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: { error: 'Database unavailable' },
+    });
+    renderSection(summaryOf(LINES));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hold instead' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Make it a hold?' }));
+    const dialog = await screen.findByRole('dialog');
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Remove and add' }));
+    expect(await within(dialog).findByText('Database unavailable')).toBeTruthy();
+
+    // Removal succeeds but the retry 409s again: the mandated sentence, not a raw body.
+    patchPolicy.mockReset();
+    patchPolicy.mockResolvedValueOnce(OK).mockResolvedValueOnce(FULL);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Remove and add' }));
+    await waitFor(() =>
+      expect(
+        within(dialog).getAllByText('The Short List is full (10 of 10). Remove one line to add this one.').length,
+      ).toBe(2),
+    );
+    expect(within(dialog).queryByText('The Short List is full.')).toBeNull();
+  });
+
+  it('closes the cap dialog on Escape', async () => {
+    fetchPolicyRules.mockResolvedValue({ action: 'warn', action_types: ['bash_command'] });
+    patchPolicy.mockResolvedValue(FULL);
+    renderSection(summaryOf(LINES));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hold instead' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Make it a hold?' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(document.activeElement).toBe(dialog);
+
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 });
