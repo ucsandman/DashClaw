@@ -489,6 +489,22 @@ function validatePolicyTestRecipes(rules, addError) {
   }
 }
 
+// A3: the misfire escape hatch. rules.shape_exceptions is a list of
+// commandShapeKey() values (app/lib/policy-shapes.ts) this policy must never
+// fire on, accepted on ANY policy type — same "optional, universally valid"
+// treatment as rules.tests above. Absent = no check.
+function validateShapeExceptions(rules, addError) {
+  if (rules.shape_exceptions === undefined) return;
+  if (!Array.isArray(rules.shape_exceptions)
+    || !rules.shape_exceptions.every((s) => typeof s === 'string' && s.length > 0 && s.length <= 128)) {
+    addError('rules.shape_exceptions must be an array of non-empty shape keys (<=128 chars)');
+    return;
+  }
+  if (rules.shape_exceptions.length > 50) {
+    addError('rules.shape_exceptions must have at most 50 entries');
+  }
+}
+
 const GREEN_CONTRACT_LEVELS = ['targeted', 'package', 'workspace', 'merge_ready'];
 
 // Shape check for the branch-aware git-push predicate (app/lib/guard/git-push.ts),
@@ -816,6 +832,7 @@ export function validatePolicy(body) {
   }
 
   validatePolicyTestRecipes(rules, addError);
+  validateShapeExceptions(rules, addError);
 
   // CodeQL js/unvalidated-dynamic-method-call: membership guard (Map.has) plus a
   // typeof-function check before the dynamic invocation — the documented sanitizer.

@@ -100,6 +100,11 @@ export interface PolicyRules {
    *  risk_threshold rule so a lower-severity line can own it. */
   git_push?: GitPushPredicate;
   except_git_push?: GitPushPredicate;
+  /** A3: the misfire escape hatch. `commandShapeKey(declared_goal)` values
+   *  (app/lib/policy-shapes.ts) this policy must never fire on — a human
+   *  click, never auto-applied. Works on any policy type, including
+   *  ungrantable lines. */
+  shape_exceptions?: string[];
   /** F1: a gating rule marked ungrantable can never have its warn /
    *  require_approval verdict cleared by an allow_grant (control-plane and
    *  catastrophe rules). */

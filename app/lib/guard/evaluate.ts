@@ -413,6 +413,14 @@ async function runLocalPolicies(
       continue;
     }
 
+    if (Array.isArray(rules.shape_exceptions) && rules.shape_exceptions.length > 0) {
+      const shape = commandShapeKey(context.declared_goal);
+      if (shape && rules.shape_exceptions.includes(shape)) {
+        acc.warnings.push(`Policy "${policy.name}" skipped: shape "${shape}" is an exception you added`);
+        continue;
+      }
+    }
+
     const result = await evaluatePolicy(policy, rules, context, sql, orgId, adjustedRiskScore);
     if (!result) continue;
     applyResult(result, policy, acc);
@@ -1137,6 +1145,13 @@ async function runDeviationCheck(
           } catch {
             notePolicyUnenforceable(acc, policy, 'rules is not valid JSON');
             continue;
+          }
+          if (Array.isArray(rules.shape_exceptions) && rules.shape_exceptions.length > 0) {
+            const shape = commandShapeKey(context.declared_goal);
+            if (shape && rules.shape_exceptions.includes(shape)) {
+              acc.warnings.push(`Policy "${policy.name}" skipped: shape "${shape}" is an exception you added`);
+              continue;
+            }
           }
           const result = await evaluatePolicy(policy, rules, context, sql, orgId, adjustedRiskScore);
           if (!result) continue;
