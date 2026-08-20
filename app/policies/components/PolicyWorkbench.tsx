@@ -3,25 +3,26 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Upload, Sparkles, CheckCheck, FileText, Plus, Package } from 'lucide-react';
+import { Upload, ChevronDown, FileText, Plus, Package, FlaskConical } from 'lucide-react';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { CollapsibleSection } from '../../components/ui/CollapsibleSection';
 import { fetchSummary, type PolicySummary } from '../lib/modesClient';
 import { fetchContract, type ContractView } from '../lib/contractClient';
-import PostureHero from './PostureHero';
+import { PostureCards } from './PostureHero';
+import ShortListSection from './ShortListSection';
 import TriageInbox from './TriageInbox';
-import PresetsShields from './PresetsShields';
+import CalibrationSection from './CalibrationSection';
 import ExternalVerdictPanel from './ExternalVerdictPanel';
 import Ledger, { type LedgerActions } from './Ledger';
-import GlossaryStrip from './GlossaryStrip';
 import styles from '../policies.module.css';
 
 /**
- * The /policies workbench — "One Ledger, Many Lenses".
+ * The /policies workbench, rebuilt around the Short List (spec §4).
  *
- * One surface, one dataset (guard policies), read top-to-bottom:
- *   posture hero → unified "needs your call" inbox → presets & shields →
- *   the ledger (Table / Sentences / Groups lenses) → plain-language key.
+ * Read top-to-bottom: the alert row and two stat cards, the relief valve, THE
+ * SHORT LIST (the only rules allowed to interrupt), what needs a call, what
+ * calibration has learned — and only then, collapsed, everything the runtime
+ * merely watches.
  *
  * Summary + contract are fetched once here and shared down; a single
  * refresh() re-pulls everything after any mutation anywhere on the page.
@@ -30,8 +31,9 @@ export default function PolicyWorkbench() {
   const searchParams = useSearchParams();
   const highlightPolicy = searchParams.get('policy');
 
-  // ?prefill=<url-encoded JSON> opens the rule editor pre-populated (from an
-  // external deep-link, e.g. a compliance gap). Decode once.
+  // ?prefill=<url-encoded JSON> opens the rule editor pre-populated (from the
+  // decisions context menu, or a compliance gap). `rules.short_list` rides
+  // through untouched, so a deep link can pre-tick the Short List checkbox.
   const prefillRaw = searchParams.get('prefill');
   const prefill = (() => {
     if (!prefillRaw) return null;
@@ -47,7 +49,8 @@ export default function PolicyWorkbench() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refreshSignal, setRefreshSignal] = useState(0);
-  const [inboxCount, setInboxCount] = useState(0);
+  const [, setInboxCount] = useState(0);
+  const [packsOpen, setPacksOpen] = useState(false);
   // The top action row calls into Ledger's modals, which live inside the
   // collapsible ledger section. If that section is collapsed (persisted in
   // localStorage), the click would silently no-op behind a hidden div —
@@ -83,9 +86,7 @@ export default function PolicyWorkbench() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <Skeleton className="h-32 rounded-xl" />
-          <Skeleton className="h-32 rounded-xl" />
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Skeleton className="h-32 rounded-xl" />
           <Skeleton className="h-32 rounded-xl" />
         </div>
@@ -107,35 +108,67 @@ export default function PolicyWorkbench() {
     );
   }
 
+  // "Everything else" counts what is NOT on the Short List. Inactive Short List
+  // lines are not enforcing, so they are not subtracted.
+  const activeShortList = (summary.shortList ?? []).filter((line) => line.active).length;
+  const watchedCount = Math.max(0, summary.enforcement.total - activeShortList);
+
   return (
     <div className={styles.shell}>
-      {/* Top action row — pack gallery, the four previously-buried authoring
-          verbs, then create. */}
-      <div className={styles.topActions}>
-        <Link href="/policies/packs" className={styles.btn}>
-          <Package size={15} />Browse packs
-        </Link>
-        <button type="button" className={styles.btn} onClick={() => { setForceLedgerOpen(true); ledgerActions.current?.openImport(); }}>
-          <Upload size={15} />Import pack / YAML
+      {/* Top action row — three verbs (spec §4). Generate with AI lives inside
+          the rule editor; Import pack / YAML lives inside Packs; Test rules
+          moved to the Everything-else header, where it already operates. */}
+      <div className={styles.topActions} data-testid="policy-top-actions">
+        <button
+          type="button"
+          className={`${styles.btn} ${styles.btnPrimary}`}
+          onClick={() => { setForceLedgerOpen(true); ledgerActions.current?.openNewRule(); }}
+        >
+          <Plus size={15} />Add a rule
         </button>
-        <button type="button" className={styles.btn} onClick={() => { setForceLedgerOpen(true); ledgerActions.current?.openGenerate(); }}>
-          <Sparkles size={15} />Generate with AI
-        </button>
-        <button type="button" className={styles.btn} onClick={() => { setForceLedgerOpen(true); ledgerActions.current?.runTests(); }}>
-          <CheckCheck size={15} />Test guardrails
-        </button>
+
+        <span className={styles.splitBtn}>
+          <button
+            type="button"
+            className={styles.btn}
+            aria-haspopup="menu"
+            aria-expanded={packsOpen}
+            onClick={() => setPacksOpen((v) => !v)}
+          >
+            <Package size={15} />Packs<ChevronDown size={13} aria-hidden="true" />
+          </button>
+          {packsOpen && (
+            <div className={styles.splitBtnMenu} role="menu">
+              <Link href="/policies/packs" role="menuitem" onClick={() => setPacksOpen(false)}>
+                <Package size={13} aria-hidden="true" />
+                Browse packs
+              </Link>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setPacksOpen(false);
+                  setForceLedgerOpen(true);
+                  ledgerActions.current?.openImport();
+                }}
+              >
+                <Upload size={13} aria-hidden="true" />
+                Import pack / YAML
+              </button>
+            </div>
+          )}
+        </span>
+
         <button type="button" className={styles.btn} onClick={() => { setForceLedgerOpen(true); ledgerActions.current?.openProof(); }}>
           <FileText size={15} />Export proof
         </button>
-        <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => { setForceLedgerOpen(true); ledgerActions.current?.openNewRule(); }}>
-          <Plus size={15} />New rule
-        </button>
       </div>
 
-      <PostureHero
+      {/* Alert row + two stat cards + the approval-pause relief valve. */}
+      <PostureCards
         summary={summary}
         friction={contract?.friction ?? null}
-        inboxCount={inboxCount}
+        inboxCount={0}
         // Same shape as the top action row: force the (possibly collapsed)
         // ledger section open, then call into Ledger via its registered ref.
         onReviewSuppressed={(grantIds) => {
@@ -144,35 +177,42 @@ export default function PolicyWorkbench() {
         }}
       />
 
+      <div id="short-list">
+        <ShortListSection
+          summary={summary}
+          onChanged={refresh}
+          onPickFromDecisions={() => { setForceLedgerOpen(true); ledgerActions.current?.openNewRule({ shortList: true }); }}
+        />
+      </div>
+
       <TriageInbox onChanged={refresh} onCount={setInboxCount} />
 
-      <PresetsShields summary={summary} onChanged={refresh} />
-
-      <CollapsibleSection
-        id="policies.external"
-        title={
-          <>
-            External decision provider
-            <span className={styles.secHelp} style={{ marginLeft: 10, fontWeight: 400 }}>
-              An outside engine can tighten decisions here. It can never loosen them.
-            </span>
-          </>
-        }
-      >
-        <ExternalVerdictPanel />
-      </CollapsibleSection>
+      {/* Expanded, always mounted: it owns id="calibration" and scrolls itself
+          into view for /policies#calibration. A collapsible that unmounts it
+          would break that deep link. */}
+      <CalibrationSection onChanged={refresh} />
 
       <CollapsibleSection
         id="policies.ledger"
         title={
           <>
-            The ledger
+            Everything else — watched, recorded, not interrupting
             <span className={styles.secHelp} style={{ marginLeft: 10, fontWeight: 400 }}>
-              Every rule, whatever its source, in one place. Switch the lens to read it as a table, sentences, or grouped.
+              Every rule that records but never stops an unattended run.
             </span>
           </>
         }
-        count={summary.enforcement.total}
+        count={watchedCount}
+        actions={
+          <button
+            type="button"
+            className={`${styles.btn} ${styles.btnSm}`}
+            onClick={() => { setForceLedgerOpen(true); ledgerActions.current?.runTests(); }}
+          >
+            <FlaskConical size={13} aria-hidden="true" />Test rules against past actions
+          </button>
+        }
+        defaultOpen={false}
         // A `?policy=` deep link must always land on a visible row — never let
         // a persisted collapse hide the section the link is trying to reveal.
         forceOpen={Boolean(highlightPolicy) || forceLedgerOpen}
@@ -180,11 +220,10 @@ export default function PolicyWorkbench() {
         // section — otherwise forceOpen would win forever and the section
         // could never be collapsed again for the rest of the page session.
         onToggle={() => setForceLedgerOpen(false)}
-        // The top action row (Import/Generate/Test/New rule) calls into Ledger
-        // via a ref Ledger populates on mount. Unmounting Ledger on collapse
-        // would leave that ref stale — clicks would silently no-op instead of
-        // opening their modal. Keep it mounted (hidden, not removed) so those
-        // refs stay live no matter the section's open state.
+        // The top row and the Short List call into Ledger via a ref Ledger
+        // populates on mount. Unmounting Ledger on collapse would leave that
+        // ref stale — clicks would silently no-op instead of opening their
+        // modal. Keep it mounted (hidden, not removed).
         keepMounted
       >
         <Ledger
@@ -198,7 +237,20 @@ export default function PolicyWorkbench() {
         />
       </CollapsibleSection>
 
-      <GlossaryStrip />
+      <CollapsibleSection
+        id="policies.external"
+        title={
+          <>
+            Outside decision provider
+            <span className={styles.secHelp} style={{ marginLeft: 10, fontWeight: 400 }}>
+              An outside engine can tighten decisions here. It can never loosen them.
+            </span>
+          </>
+        }
+        defaultOpen={false}
+      >
+        <ExternalVerdictPanel />
+      </CollapsibleSection>
     </div>
   );
 }

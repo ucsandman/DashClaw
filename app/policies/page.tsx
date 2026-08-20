@@ -11,7 +11,7 @@ export default function PoliciesPage() {
   return (
     <PageLayout agentFilter={false}
       title="Policies"
-      subtitle="Every rule that governs your agents, in one place"
+      subtitle="A short list of things that stop your agent. Everything else is watched and measured."
       breadcrumbs={['Governance', 'Policies']}
       maturity="stable"
     >

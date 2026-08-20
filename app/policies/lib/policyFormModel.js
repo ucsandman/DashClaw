@@ -8,6 +8,11 @@ const DEFAULT_FORM_STATE = {
   // decompile the same way `tests` is, so an editor round-trip never silently
   // destroys it (IMPORTANT 4, final fix wave 2026-07-27).
   containAbove: '',
+  // Short List opt-in (spec §4.3). `shortList` compiles to rules.short_list,
+  // which the POST/PATCH route cap-checks; `ungrantable` is only meaningful
+  // alongside it, so it is dropped when the line is not on the list.
+  shortList: false,
+  ungrantable: false,
   actionTypes: [],
   maxActions: 50,
   windowMinutes: 60,
@@ -406,6 +411,11 @@ export function compilePolicyPayload(formState) {
     rules.tests = form.tests;
   }
 
+  if (form.shortList === true) {
+    rules.short_list = true;
+    if (form.ungrantable === true) rules.ungrantable = true;
+  }
+
   return {
     name: cleanString(form.name),
     policy_type: form.type,
@@ -469,6 +479,8 @@ export function decompilePolicyForm(policy) {
       ...(rules.on_kind && typeof rules.on_kind === 'object' ? rules.on_kind : {}),
     },
     deviationMinSeverity: orVal(rules.min_severity, DEFAULT_FORM_STATE.deviationMinSeverity),
+    shortList: rules.short_list === true,
+    ungrantable: rules.ungrantable === true,
     tests: arrOr(rules.tests, []),
     agentIds: parseAgentIds(policy),
   };

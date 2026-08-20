@@ -356,70 +356,6 @@
 }
 .bulkReason input:focus { border-color: var(--color-border-active); }
 
-/* ---------- presets & shields ---------- */
-.presets { display: grid; grid-template-columns: 300px 1fr; gap: 12px; margin-bottom: 14px; }
-.presetCard { padding: 14px 16px; }
-.presetCard .metaLabel { display: block; margin-bottom: 10px; }
-.modeSelect {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xs);
-  padding: 8px 11px;
-  color: var(--color-text-primary);
-  font-size: 14px;
-  font-weight: 500;
-  justify-content: space-between;
-  cursor: pointer;
-}
-.modeSelect:hover { border-color: var(--color-border-hover); }
-.modeSelect .lvl { display: flex; align-items: center; gap: 8px; }
-.lvlBadge { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 4px; }
-.lvlLow { color: var(--color-success); background: var(--color-success-subtle); }
-.lvlMed { color: var(--color-brand); background: var(--color-brand-subtle); }
-.lvlHigh { color: var(--color-error); background: var(--color-error-subtle); }
-.modeFoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 11px; }
-.modeFoot .sub { color: var(--color-text-tertiary); font-size: 12px; }
-
-.shieldsHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
-.shieldGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.shield {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 11px;
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  transition: border-color 0.12s;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-}
-.shield:hover { border-color: var(--color-border-hover); }
-.shield:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 1px; }
-.shield.on { border-color: color-mix(in srgb, var(--color-success) 28%, transparent); }
-.shieldIco { width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; flex: none; background: var(--color-bg-elevated); color: var(--color-text-tertiary); }
-.shield.on .shieldIco { color: var(--color-success); background: var(--color-success-subtle); }
-.shieldMeta { flex: 1; min-width: 0; }
-.shieldMeta .nm { font-size: 12.5px; font-weight: 500; color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-/* Meta text uses the tertiary tier, never the disabled tier. WCAG 1.4.3 exempts
-   genuinely disabled controls, and --color-text-disabled (#5c5c66) is scoped to
-   those; on live text it measured 2.47:1 on bg-tertiary and 2.71:1 on
-   bg-secondary against a 4.5:1 requirement. Tertiary (#9b9ba8) clears it on every
-   surface in the palette (5.17:1 worst case, on bg-elevated). */
-.shieldMeta .st { font-size: 10px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.07em; color: var(--color-text-tertiary); }
-.shield.on .shieldMeta .st { color: var(--color-success); }
-
-.toggle { width: 32px; height: 18px; border-radius: 20px; background: var(--color-bg-elevated); border: 1px solid var(--color-border); position: relative; flex: none; transition: background 0.14s, border-color 0.14s; }
-.toggle::after { content: ""; position: absolute; top: 1px; left: 1px; width: 14px; height: 14px; border-radius: 50%; background: var(--color-text-disabled); transition: transform 0.14s, background 0.14s; }
-.shield.on .toggle { background: var(--color-success-subtle); border-color: color-mix(in srgb, var(--color-success) 40%, transparent); }
-.shield.on .toggle::after { transform: translateX(14px); background: var(--color-success); }
-.shieldBusy { opacity: 0.55; pointer-events: none; }
-
 /* ---------- ledger ---------- */
 .ledgerWrap { border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; background: var(--color-bg-secondary); }
 .ledgerToolbar {
@@ -631,11 +567,6 @@
 .pager { display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; }
 .pagerLabel { font-family: var(--mono); font-size: 11px; color: var(--color-text-tertiary); white-space: nowrap; }
 
-/* glossary */
-.glossary { padding: 14px 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-.glossary .metaLabel { display: block; margin-bottom: 4px; }
-.glossary .gdef { color: var(--color-text-secondary); font-size: 12.5px; line-height: 1.5; }
-
 /* split-button verdict control (grafted from concept D) */
 .splitBtn { position: relative; display: inline-flex; }
 .splitBtnMenu {
@@ -653,7 +584,8 @@
   flex-direction: column;
   gap: 2px;
 }
-.splitBtnMenu button {
+.splitBtnMenu button,
+.splitBtnMenu a {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -667,7 +599,8 @@
   text-align: left;
   cursor: pointer;
 }
-.splitBtnMenu button:hover { background: var(--color-bg-tertiary); color: var(--color-text-primary); }
+.splitBtnMenu button:hover,
+.splitBtnMenu a:hover { background: var(--color-bg-tertiary); color: var(--color-text-primary); }
 .caretBtn { padding: 0 6px; }
 
 /* modal shell for authoring / import / generate / test */

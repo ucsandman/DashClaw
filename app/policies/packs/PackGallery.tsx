@@ -241,7 +241,9 @@ function PackDrawer({ pack, allPacks, onClose, onJump, onInstalled }: PackDrawer
   const [simulating, setSimulating] = useState(false);
   const [simulation, setSimulation] = useState<PackSimulation | null>(null);
   const [installing, setInstalling] = useState(false);
-  const [installResult, setInstallResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [installResult, setInstallResult] = useState<
+    { imported: number; skipped: number; watched: number; dormant: number } | null
+  >(null);
   const [installError, setInstallError] = useState<string | null>(null);
 
   // Reset per-pack state whenever the drawer switches packs.
@@ -311,7 +313,14 @@ function PackDrawer({ pack, allPacks, onClose, onJump, onInstalled }: PackDrawer
       if (!res.ok) {
         throw new Error(res.status === 403 ? 'Admin access required to install packs.' : data.error || 'Install failed');
       }
-      setInstallResult({ imported: data.imported ?? 0, skipped: data.skipped ?? 0 });
+      setInstallResult({
+        imported: data.imported ?? 0,
+        skipped: data.skipped ?? 0,
+        watched: data.watched ?? 0,
+        // Types with no Watch tier install dormant; `dormant` is newer than the
+        // rest of this payload, so read it as optional.
+        dormant: data.dormant ?? 0,
+      });
       onInstalled();
     } catch (e) {
       setInstallError((e as Error).message);
@@ -456,10 +465,18 @@ function PackDrawer({ pack, allPacks, onClose, onJump, onInstalled }: PackDrawer
         <div className="border-t border-border px-5 py-4">
           {installError && <p className="mb-2 text-xs text-error">{installError}</p>}
           {installResult && (
-            <p className="mb-2 text-xs text-success">
-              Imported {installResult.imported} {installResult.imported === 1 ? 'rule' : 'rules'}
-              {installResult.skipped > 0 && <span className="text-tertiary"> · {installResult.skipped} already present, skipped</span>}
-            </p>
+            <div className="mb-2 text-xs text-success">
+              <p>
+                Installed {installResult.imported} {installResult.imported === 1 ? 'rule' : 'rules'} in Watch.
+                They record and feed calibration; none of them can interrupt until you promote them.
+                {installResult.skipped > 0 && <span className="text-tertiary"> · {installResult.skipped} already present, skipped</span>}
+              </p>
+              {installResult.dormant > 0 && (
+                <p className="mt-1 text-tertiary">
+                  {installResult.dormant} installed dormant — they can only interrupt; turn them on from the Short List.
+                </p>
+              )}
+            </div>
           )}
           {pack.installed && !installResult ? (
             <div className="flex items-center justify-between gap-3">

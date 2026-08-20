@@ -19,7 +19,7 @@ import Link from 'next/link';
 import {
   Table, AlignLeft, LayoutGrid, Search, Upload, Plus, Layers, Shield, Star,
   BrainCircuit, Play, Download, Check, Pencil, Trash2, X, FlaskConical, FileText,
-  ChevronLeft, ChevronRight, Package,
+  ChevronLeft, ChevronRight, Package, Sparkles,
 } from 'lucide-react';
 import styles from '../policies.module.css';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -40,6 +40,7 @@ import {
   POLICY_TYPE_OPTIONS,
 } from '../lib/policyFormModel';
 import type { PolicySummary, RuleBucket } from '../lib/modesClient';
+import { isShortListLine } from '../../lib/guardrails/short-list';
 
 // ACTION_OPTIONS mirrors app/lib/guard action namespaces (copied from CustomTab).
 const ACTION_OPTIONS = [
@@ -56,9 +57,9 @@ type Lens = 'table' | 'sentences' | 'groups';
 type Source = 'mode' | 'shield' | 'custom' | 'learned';
 
 export interface LedgerActions {
-  openNewRule: () => void;
+  /** `{ shortList: true }` pre-ticks the Short List checkbox on a blank rule. */
+  openNewRule: (opts?: { shortList?: boolean }) => void;
   openImport: () => void;
-  openGenerate: () => void;
   runTests: () => void;
   openProof: () => void;
   /**
@@ -414,6 +415,10 @@ export default function Ledger({
   const [error, setError] = useState(false);
 
   const [lens, setLens] = useState<Lens>('table');
+  // Spec 4.6: a small rule set reads better as sentences than as a table, so
+  // the default lens follows the size — once. After the first load the human's
+  // own lens choice (and revealSuppressed) owns it.
+  const lensPicked = useRef(false);
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState<Set<Source>>(new Set());
   const [bucketFilter, setBucketFilter] = useState<Set<RuleBucket>>(new Set());
@@ -425,6 +430,9 @@ export default function Ledger({
   const [form, setForm] = useState<any>(createDefaultPolicyFormState());
   const [saving, setSaving] = useState(false);
   const [editorError, setEditorError] = useState<string | null>(null);
+  // A 409 SHORT_LIST_FULL is a UI state, not a failure: the message names the
+  // cap and points at the section where a line can be freed.
+  const [capFull, setCapFull] = useState(false);
 
   // Sibling panels
   const [showImport, setShowImport] = useState(false);
@@ -468,6 +476,21 @@ export default function Ledger({
 
   useEffect(() => { refetch(); }, [refetch, refreshSignal]);
 
+  // Pick the default lens once, from the size of the rule set (spec 4.6).
+  // Never default into a lens with nothing to render: Sentences is built from
+  // the contract, which a caller may not have passed.
+  useEffect(() => {
+    if (loading || lensPicked.current) return;
+    lensPicked.current = true;
+    if (policies.length < 10 && contract?.governed) setLens('sentences');
+  }, [loading, policies, contract]);
+
+  /** Any deliberate lens choice — human or reveal — retires the size default. */
+  const chooseLens = useCallback((next: Lens) => {
+    lensPicked.current = true;
+    setLens(next);
+  }, []);
+
   // After a local CRUD, refresh both the raw rows and the parent's summary/contract.
   const afterChange = useCallback(async () => {
     await refetch();
@@ -475,10 +498,11 @@ export default function Ledger({
   }, [refetch, onChanged]);
 
   // ---- openers (stable for registerActions) ----
-  const openNewRule = useCallback(() => {
+  const openNewRule = useCallback((opts?: { shortList?: boolean }) => {
     setEditingId(null);
-    setForm(createDefaultPolicyFormState());
+    setForm({ ...createDefaultPolicyFormState(), shortList: opts?.shortList === true });
     setEditorError(null);
+    setCapFull(false);
     setShowEditor(true);
   }, []);
   const openImport = useCallback(() => setShowImport(true), []);
@@ -486,13 +510,13 @@ export default function Ledger({
   const runTests = useCallback(() => setShowTests(true), []);
   const openProof = useCallback(() => setShowProof(true), []);
   const revealSuppressed = useCallback((grantIds: string[]) => {
-    setLens('sentences');
+    chooseLens('sentences');
     setFocusGrants(grantIds);
-  }, []);
+  }, [chooseLens]);
 
   useEffect(() => {
-    registerActions?.({ openNewRule, openImport, openGenerate, runTests, openProof, revealSuppressed });
-  }, [registerActions, openNewRule, openImport, openGenerate, runTests, openProof, revealSuppressed]);
+    registerActions?.({ openNewRule, openImport, runTests, openProof, revealSuppressed });
+  }, [registerActions, openNewRule, openImport, runTests, openProof, revealSuppressed]);
 
   // Scroll only once the lens switch has rendered the group. At click time it
   // doesn't exist yet, and the whole ledger section may still be collapsed —
@@ -555,6 +579,13 @@ export default function Ledger({
     [policies, summary],
   );
 
+  // Non-catastrophe inert rules render here, struck through, naming the grant
+  // that nullified them (the BLOCK / Short List ones are an alert above the
+  // fold instead — spec 4.1).
+  const inertById = useMemo(
+    () => new Map((summary?.inert ?? []).map((p) => [p.id, p])),
+    [summary],
+  );
   const counts = useMemo(() => {
     const src: Record<Source, number> = { mode: 0, shield: 0, custom: 0, learned: 0 };
     const bkt: Record<RuleBucket, number> = { warn: 0, allow_contained: 0, require_approval: 0, block: 0, allow: 0 };
@@ -672,6 +703,7 @@ export default function Ledger({
     }
     setSaving(true);
     setEditorError(null);
+    setCapFull(false);
     try {
       const payload = compilePolicyPayload(form);
       const isEdit = Boolean(editingId);
@@ -682,7 +714,11 @@ export default function Ledger({
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setEditorError(body.error || 'Failed to save rule');
+        const full = res.status === 409 && body.code === 'SHORT_LIST_FULL';
+        setCapFull(full);
+        setEditorError(full
+          ? 'The Short List is full (10 of 10). Remove one line to add this one.'
+          : (body.error || 'Failed to save rule'));
       } else {
         setShowEditor(false);
         await afterChange();
@@ -801,6 +837,7 @@ export default function Ledger({
           <tr>
             <th scope="col">Rule</th>
             <th scope="col">Source</th>
+            <th scope="col">Tier</th>
             <th scope="col">Bucket</th>
             <th scope="col">Threshold</th>
             <th scope="col" className="num">Fired &middot; 30d</th>
@@ -814,6 +851,8 @@ export default function Ledger({
             const hi = isHighlighted(row);
             const isLearned = c.source === 'learned';
             const isActive = row.active === 1;
+            const onShortList = isShortListLine(row.policy_type, c.rules);
+            const inert = onShortList ? undefined : inertById.get(row.id);
             return (
               <tr
                 key={row.id}
@@ -825,15 +864,32 @@ export default function Ledger({
               >
                 <td>
                   <div className={styles.ruleCell}>
-                    <span className={styles.ruleName}>
+                    <span
+                      className={styles.ruleName}
+                      style={inert ? { textDecoration: 'line-through' } : undefined}
+                    >
                       {row.name}
                       {hi && <span className={styles.deepTag}>?policy={row.id}</span>}
                       {c.retired && <span className={styles.retiredTag}>retired</span>}
                     </span>
                     <span className={styles.ruleEn}>{describeRule(row, c.rules)}</span>
+                    {inert && (
+                      <span className={styles.ruleEn}>
+                        Inert — downgraded to allow by{' '}
+                        {inert.suppressed_by.map((g, i) => (
+                          <span key={g.id}>{i > 0 && ', '}<b>{g.name}</b></span>
+                        ))}.
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td><SourceBadge source={c.source} /></td>
+                <td>
+                  <span className={`${styles.bucket} ${onShortList ? styles.bkAppr : styles.bkGrant}`}>
+                    <span className={styles.dot} style={{ background: 'currentColor' }} />
+                    {onShortList ? 'Short List' : 'Watch'}
+                  </span>
+                </td>
                 <td>
                   <Bucket bucket={c.bucket} />
                   {/* IMPORTANT 4 (final fix wave, 2026-07-27): a risk_threshold
@@ -1026,7 +1082,7 @@ export default function Ledger({
                   key={c.row.id}
                   type="button"
                   className={styles.grpRule}
-                  onClick={() => { setLens('table'); setSourceFilter(new Set([s])); }}
+                  onClick={() => { chooseLens('table'); setSourceFilter(new Set([s])); }}
                 >
                   <span className={`${styles.bucket} ${BUCKET_META[c.bucket]?.cls ?? ''}`}>
                     <span className={styles.dot} style={{ background: 'currentColor' }} />
@@ -1048,13 +1104,13 @@ export default function Ledger({
       {/* Toolbar */}
       <div className={styles.ledgerToolbar}>
         <div className={styles.lensSwitch} role="tablist" aria-label="Ledger lens">
-          <button role="tab" aria-selected={lens === 'table'} className={lens === 'table' ? styles.active : ''} onClick={() => setLens('table')}>
+          <button role="tab" aria-selected={lens === 'table'} className={lens === 'table' ? styles.active : ''} onClick={() => chooseLens('table')}>
             <Table size={13} aria-hidden="true" />Table
           </button>
-          <button role="tab" aria-selected={lens === 'sentences'} className={lens === 'sentences' ? styles.active : ''} onClick={() => setLens('sentences')}>
+          <button role="tab" aria-selected={lens === 'sentences'} className={lens === 'sentences' ? styles.active : ''} onClick={() => chooseLens('sentences')}>
             <AlignLeft size={13} aria-hidden="true" />Sentences
           </button>
-          <button role="tab" aria-selected={lens === 'groups'} className={lens === 'groups' ? styles.active : ''} onClick={() => setLens('groups')}>
+          <button role="tab" aria-selected={lens === 'groups'} className={lens === 'groups' ? styles.active : ''} onClick={() => chooseLens('groups')}>
             <LayoutGrid size={13} aria-hidden="true" />Groups
           </button>
         </div>
@@ -1077,12 +1133,21 @@ export default function Ledger({
         <button className={`${styles.btn} ${styles.btnSm}`} onClick={openImport}>
           <Upload size={13} aria-hidden="true" />Import
         </button>
-        <button className={`${styles.btn} ${styles.btnSm} ${styles.btnPrimary}`} onClick={openNewRule}>
+        <button className={`${styles.btn} ${styles.btnSm} ${styles.btnPrimary}`} onClick={() => openNewRule()}>
           <Plus size={13} aria-hidden="true" />New rule
         </button>
       </div>
 
       {Facets}
+
+      {/* Three rules or fewer is not a policy set — the packs are a faster
+          start than a blank form (spec 4.6). */}
+      {!loading && !error && policies.length > 0 && policies.length <= 3 && (
+        <div className={styles.emptyNote} style={{ padding: '10px 14px' }}>
+          Start from a pack instead of a blank rule.{' '}
+          <Link href="/policies/packs">Browse packs</Link>
+        </div>
+      )}
 
       {/* Lens views */}
       {loading ? (
@@ -1099,8 +1164,8 @@ export default function Ledger({
           <EmptyState
             icon={FileText}
             title="No rules yet"
-            description="Apply a mode or create your first rule to start governing."
-            action={<button className={`${styles.btn} ${styles.btnPrimary}`} onClick={openNewRule}><Plus size={13} aria-hidden="true" />New rule</button>}
+            description="Start from a pack instead of a blank rule."
+            action={<Link href="/policies/packs" className={`${styles.btn} ${styles.btnPrimary}`}><Package size={13} aria-hidden="true" />Browse packs</Link>}
           />
         </div>
       ) : lens === 'table' ? (
@@ -1165,7 +1230,14 @@ export default function Ledger({
           <div className={`${styles.modal} ${styles.modalWide}`} role="dialog" aria-modal="true" aria-label={editingId ? 'Edit rule' : 'New rule'} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHead}>
               <h3>{editingId ? 'Edit rule' : 'New rule'}</h3>
-              <button className={`${styles.btn} ${styles.btnIcon} ${styles.btnGhost}`} aria-label="Close" onClick={() => setShowEditor(false)}><X size={16} aria-hidden="true" /></button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {!editingId && (
+                  <button className={`${styles.btn} ${styles.btnSm}`} onClick={openGenerate}>
+                    <Sparkles size={13} aria-hidden="true" />Generate with AI
+                  </button>
+                )}
+                <button className={`${styles.btn} ${styles.btnIcon} ${styles.btnGhost}`} aria-label="Close" onClick={() => setShowEditor(false)}><X size={16} aria-hidden="true" /></button>
+              </div>
             </div>
             <div className={styles.modalBody}>
               <PolicyAuthoringPanel
@@ -1177,7 +1249,17 @@ export default function Ledger({
                 onChange={setForm}
                 typeLocked={Boolean(editingId)}
               />
-              {editorError && <div style={{ color: 'var(--color-error)', fontSize: 12, marginTop: 10 }}>{editorError}</div>}
+              {editorError && (
+                <div role="alert" style={{ color: 'var(--color-error)', fontSize: 12, marginTop: 10 }}>
+                  {editorError}
+                  {capFull && (
+                    <>
+                      {' '}
+                      <a href="#short-list" onClick={() => setShowEditor(false)}>Open the Short List</a>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             <div className={styles.modalFoot}>
               <button className={styles.btn} onClick={() => setShowEditor(false)}>Cancel</button>

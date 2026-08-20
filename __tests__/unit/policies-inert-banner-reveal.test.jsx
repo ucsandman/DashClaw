@@ -74,7 +74,10 @@ const CONTRACT = {
 };
 
 // The ledger short-circuits to "No rules yet" when the raw rule list is empty,
-// whatever the lens — so the grant has to exist as a policy row too.
+// whatever the lens — so the grant has to exist as a policy row too. The nine
+// filler rows keep the count at ten, where the ledger's default lens is Table
+// (under ten it opens on Sentences) — this test is about the Table default not
+// showing grants until the banner drives the ledger there.
 const POLICY_ROWS = [
   {
     id: GRANT_ID,
@@ -84,6 +87,14 @@ const POLICY_ROWS = [
     active: 1,
     created_at: null,
   },
+  ...Array.from({ length: 9 }, (_, i) => ({
+    id: `gp_filler_${i}`,
+    name: `Filler ${i}`,
+    policy_type: 'warn_action_type',
+    rules: JSON.stringify({ action_types: ['build'] }),
+    active: 1,
+    created_at: null,
+  })),
 ];
 
 function mockFetch() {

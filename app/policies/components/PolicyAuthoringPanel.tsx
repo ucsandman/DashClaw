@@ -62,6 +62,54 @@ function PolicyAgentScope({ agentIds, setAgentIds, agents }: PolicyAgentScopePro
   );
 }
 
+/**
+ * The Short List opt-in (spec §4.3). Ticking it is what makes a rule allowed
+ * to interrupt an unattended run; everything else is written to Watch. The
+ * ten-line cap is enforced server-side, so saving an eleventh line comes back
+ * 409 and the editor says so.
+ */
+function PolicyShortListSection({
+  form,
+  onChange,
+}: {
+  form: any;
+  onChange: (field: string, value: any) => void;
+}) {
+  const onShortList = form.shortList === true;
+
+  return (
+    <div className="rounded-lg border border-border bg-surface-tertiary p-3">
+      <label className="flex items-start gap-2 text-xs text-secondary">
+        <input
+          type="checkbox"
+          checked={onShortList}
+          onChange={(event) => onChange('shortList', event.target.checked)}
+          className="mt-0.5"
+        />
+        <span>
+          <span className="block text-primary">Interrupts unattended runs (Short List)</span>
+          Leave this off and the rule still fires and is still recorded — it just never stops the agent.
+        </span>
+      </label>
+
+      {onShortList && (
+        <label className="mt-3 flex items-start gap-2 border-t border-border pt-3 text-xs text-secondary">
+          <input
+            type="checkbox"
+            checked={form.ungrantable === true}
+            onChange={(event) => onChange('ungrantable', event.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="block text-primary">Ungrantable</span>
+            No grant, approval pause, interruption budget, or automatic tuning can lift this. Reserve it for rare classes.
+          </span>
+        </label>
+      )}
+    </div>
+  );
+}
+
 interface PolicyTypeOption {
   value: string;
   label: string;
@@ -103,6 +151,8 @@ export default function PolicyAuthoringPanel({
         actionOptions={actionOptions}
         onChange={setField}
       />
+
+      <PolicyShortListSection form={form} onChange={setField} />
 
       <PolicyAgentScope
         agentIds={form.agentIds || []}
