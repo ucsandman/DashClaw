@@ -149,7 +149,7 @@ export default function ContainmentCard({
   const refMismatch = Boolean(evidenceKnown && hasEvidence && action.containment_ref && evidenceRef !== action.containment_ref);
 
   return (
-    <Card data-entity-type="decision" data-entity-id={action.action_id} data-entity-status="awaiting_promotion" hover={false}>
+    <Card data-entity-type="decision" data-entity-id={action.action_id} data-entity-status="awaiting_promotion" data-entity-action-type={action.action_type} hover={false}>
       <CardContent className="pt-5">
         <div className="mb-1 flex flex-wrap items-center gap-2">
           <GitMerge size={16} className="text-brand" />

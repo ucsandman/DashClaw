@@ -105,6 +105,31 @@ describe('ShortListReceipt — the /connect receipt (B7)', () => {
     await waitFor(() => expect(fetchSummary).toHaveBeenCalledTimes(2));
   });
 
+  it('says so out loud when the install fails', async () => {
+    fetchSummary.mockResolvedValue(summary([]));
+    installPack.mockResolvedValue({ ok: false, status: 403, json: { error: 'Read-only demo instance.' } });
+
+    render(<ShortListReceipt />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Install' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('Could not install — Read-only demo instance.');
+    // Still the install card: nothing was installed, so nothing may claim to be live.
+    expect(screen.queryByText('Your Short List is live')).toBeNull();
+  });
+
+  it('reports the real tier counts once the list drifts off the seeded shape', async () => {
+    fetchSummary.mockResolvedValue(
+      summary([line({}), line({ id: 'gp_b', tier: 'BLOCK', name: 'Second block' }), line({ id: 'gp_h', tier: 'HOLD', name: 'One hold' })]),
+    );
+
+    render(<ShortListReceipt />);
+
+    expect(
+      await screen.findByText('2 refuse outright. 1 holds for your approval. Everything else runs and is recorded.'),
+    ).toBeTruthy();
+  });
+
   it('treats an all-inactive list as empty', async () => {
     fetchSummary.mockResolvedValue(summary([line({ active: false })]));
     render(<ShortListReceipt />);

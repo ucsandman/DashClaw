@@ -138,7 +138,11 @@ describe('context-menu — never let this happen unattended (B7)', () => {
     expect(draft.name).toBe('Hold file_write on .env');
   });
 
-  it('/decisions tags its rows with the action type the rule is derived from', () => {
-    expect(src('app/decisions/page.tsx')).toMatch(/data-entity-action-type/);
+  it.each([
+    ['decisions ledger', 'app/decisions/page.tsx'],
+    ['approvals inbox + expired list', 'app/approvals/page.tsx'],
+    ['containment card', 'app/approvals/_components/ContainmentCard.tsx'],
+  ])('%s tags its decision rows with the action type the rule is derived from', (_label, rel) => {
+    expect(src(rel)).toMatch(/data-entity-action-type/);
   });
 });

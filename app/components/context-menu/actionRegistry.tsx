@@ -164,6 +164,9 @@ function decisionActions(entity: EntityTarget): MenuItem[] {
   // nothing is written from a context menu (MAINTAINER.md §3).
   const actionType = entity.data.entityActionType;
   if (actionType) {
+    // No /decisions row supplies a target today, and the require_approval
+    // compile drops target_prefix anyway — this scopes the URL only, for the
+    // surfaces (approvals shape extraction) that can supply one later.
     const target = entity.data.entityTarget;
     items.push({
       id: 'never-unattended',

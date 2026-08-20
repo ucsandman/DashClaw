@@ -543,7 +543,7 @@ export default function ApprovalsPage() {
               const isProcessing = processingId === action.action_id;
               const riskColor = action.risk_score >= 70 ? 'text-error' : 'text-warning';
               return (
-                <Card key={action.action_id} data-entity-type="decision" data-entity-id={action.action_id} data-entity-status={action.status} hover={false}>
+                <Card key={action.action_id} data-entity-type="decision" data-entity-id={action.action_id} data-entity-status={action.status} data-entity-action-type={action.action_type} hover={false}>
                   <CardContent className="pt-5">
                     {isAdmin && (
                       <div className="mb-3">
@@ -819,6 +819,7 @@ export default function ApprovalsPage() {
                   data-entity-type="decision"
                   data-entity-id={action.action_id}
                   data-entity-status="expired"
+                  data-entity-action-type={action.action_type}
                   className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border bg-surface-secondary px-4 py-2.5 opacity-70"
                 >
                   <Badge variant="default" size="xs">Expired</Badge>

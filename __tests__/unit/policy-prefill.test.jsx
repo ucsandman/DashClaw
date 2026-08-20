@@ -53,3 +53,93 @@ describe('Ledger — prefill from deep-link (A6)', () => {
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// B7: the "Never let this happen unattended" context-menu action deep-links to
+// /policies?prefill=. The editor Ledger opens lives inside the collapsible
+// "Everything else" section, which is kept MOUNTED but `hidden` when collapsed
+// — so opening it is not enough; the section has to be forced open too, or the
+// one-click path lands on an invisible form.
+// ---------------------------------------------------------------------------
+let searchParams = '';
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(searchParams),
+}));
+
+const WORKBENCH_SUMMARY = {
+  governed: true,
+  modes: [],
+  primaryMode: null,
+  enforcement: { total: 0, warn: 0, require_approval: 0, block: 0 },
+  rules: [],
+  shields: [],
+  decisions30d: { total: 0, allow: 0, warn: 0, require_approval: 0, block: 0 },
+  scope: { allAgents: true },
+  agents: { total: 1 },
+  pendingApprovals: 0,
+  budgetReport: { policiesOverBudget: 0, shapesOverBudget: 0, window_hours: 24, budget: 50, shape_budget: 50 },
+  shortList: [],
+  shortListCap: 10,
+  suggestions: [],
+  inert: [],
+};
+
+const WORKBENCH_CONTRACT = {
+  governed: true,
+  mode_id: null,
+  interrupts: [],
+  silent: [],
+  blocks: [],
+  grants: [],
+  custom: [],
+  friction: { interrupts_7d: 0, est_seconds: 0 },
+};
+
+function mockWorkbenchFetch() {
+  const routes = {
+    '/api/policies/summary': () => WORKBENCH_SUMMARY,
+    '/api/policies/contract': () => WORKBENCH_CONTRACT,
+    '/api/policies': () => ({ policies: [] }),
+    '/api/agents': () => ({ agents: [] }),
+  };
+  return vi.fn(async (url, options = {}) => {
+    const path = String(url).split('?')[0] ?? '';
+    if ((options.method || 'GET') !== 'GET') return { ok: true, status: 200, json: async () => ({ success: true }) };
+    const handler = routes[path];
+    const fallback = { groups: [], interrupts: [], proposals: [], policies: [], cursor: '', events: [], alarms: [] };
+    return { ok: true, status: 200, json: async () => (handler ? handler() : fallback) };
+  });
+}
+
+describe('PolicyWorkbench — a prefill deep-link lands on a VISIBLE editor (B7)', () => {
+  it('opens the rule editor outside any hidden container', async () => {
+    const { default: PolicyWorkbench } = await import('@/policies/components/PolicyWorkbench');
+    const draft = {
+      name: 'Hold file_write',
+      policy_type: 'require_approval',
+      rules: { action: 'require_approval', action_types: ['file_write'], short_list: true },
+    };
+    searchParams = `prefill=${encodeURIComponent(JSON.stringify(draft))}`;
+    vi.stubGlobal('fetch', mockWorkbenchFetch());
+
+    render(<PolicyWorkbench />);
+
+    const cancel = await screen.findByRole('button', { name: 'Cancel' });
+    expect(cancel.closest('[hidden]')).toBeNull();
+    expect(screen.getByDisplayValue('Hold file_write')).toBeTruthy();
+    searchParams = '';
+  });
+
+  // Guards the assertion above: without the deep-link the same section really
+  // is collapsed and hidden, so `forceOpen` is what makes the editor visible.
+  it('leaves that section hidden when there is no deep-link', async () => {
+    const { default: PolicyWorkbench } = await import('@/policies/components/PolicyWorkbench');
+    searchParams = '';
+    vi.stubGlobal('fetch', mockWorkbenchFetch());
+
+    render(<PolicyWorkbench />);
+
+    const ledgerContent = await screen.findByText(/no rules yet/i);
+    expect(ledgerContent.closest('[hidden]')).not.toBeNull();
+  });
+});

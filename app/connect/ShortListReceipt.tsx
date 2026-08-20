@@ -19,10 +19,13 @@ import type { ShortListLine } from '../lib/policy-modes/summary';
  * Three states: the receipt (something is live), the Install card (nothing is,
  * e.g. an org with history that the seed guard refused to write to), and — for
  * a signed-out visitor reading /connect as a public page, whose
- * /api/policies/summary read 401s — just the pack line.
+ * /api/policies/summary read 401s — just the pack line, bare.
  */
 
 const PACK_LINE = 'Add a pack when you want more than catastrophe coverage. Pack rules start in Watch.';
+
+const SEED_SENTENCE =
+  'One of these refuses outright. Two hold for your approval. Everything else runs and is recorded.';
 
 /** The chip carries the WORD; colour is a second signal, never the only one. */
 const TIER_CHIP: Record<ShortListLine['tier'], string> = {
@@ -31,10 +34,26 @@ const TIER_CHIP: Record<ShortListLine['tier'], string> = {
   WATCH: 'bg-surface-tertiary text-text-secondary',
 };
 
-function PackLine() {
+/**
+ * The seeded list is 1 BLOCK + 2 HOLD, and reads best in words. Any other
+ * shape — a line switched off, a fifth line added from a decision — has to
+ * report itself honestly rather than keep claiming "one" and "two".
+ */
+function tierSentence(lines: ShortListLine[]): string {
+  const block = lines.filter((l) => l.tier === 'BLOCK').length;
+  const hold = lines.filter((l) => l.tier === 'HOLD').length;
+  if (block === 1 && hold === 2) return SEED_SENTENCE;
   return (
-    <div className="mt-6 border-t border-border pt-4">
-      <p className="text-sm text-text-tertiary leading-relaxed">{PACK_LINE}</p>
+    `${block} ${block === 1 ? 'refuses' : 'refuse'} outright. ` +
+    `${hold} ${hold === 1 ? 'holds' : 'hold'} for your approval. ` +
+    'Everything else runs and is recorded.'
+  );
+}
+
+function PackLine({ wrapper = 'mt-6 border-t border-border pt-4' }: { wrapper?: string }) {
+  return (
+    <div className={wrapper}>
+      <p className="text-sm leading-relaxed text-text-tertiary">{PACK_LINE}</p>
       <Link
         href="/policies/packs"
         className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary transition-colors hover:text-text-primary"
@@ -49,6 +68,7 @@ export default function ShortListReceipt({ className = '' }: { className?: strin
   const [lines, setLines] = useState<ShortListLine[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [installError, setInstallError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -67,9 +87,18 @@ export default function ShortListReceipt({ className = '' }: { className?: strin
 
   const install = useCallback(async () => {
     setBusy(true);
+    setInstallError(null);
     try {
       const res = await installPack('catastrophe-only');
+      // A failed install that leaves the card looking unchanged is the exact
+      // false confidence this product exists to prevent — say so out loud.
       if (res.ok) await load();
+      else {
+        const detail = typeof res.json?.error === 'string' ? res.json.error : `HTTP ${res.status}`;
+        setInstallError(`Could not install — ${detail}`);
+      }
+    } catch (e) {
+      setInstallError(`Could not install — ${(e as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -77,11 +106,13 @@ export default function ShortListReceipt({ className = '' }: { className?: strin
 
   const shell = `rounded-2xl border border-border bg-surface-secondary p-6 sm:p-8 ${className}`;
 
+  // Nothing to receipt for an anonymous reader — the pack link stands alone,
+  // as a line rather than an empty card with a rule through it.
   if (failed) {
     return (
-      <section className={shell}>
-        <PackLine />
-      </section>
+      <div className={className}>
+        <PackLine wrapper="" />
+      </div>
     );
   }
 
@@ -106,6 +137,11 @@ export default function ShortListReceipt({ className = '' }: { className?: strin
         >
           Install
         </button>
+        {installError ? (
+          <p role="alert" className="mt-2 text-xs text-error">
+            {installError}
+          </p>
+        ) : null}
         <PackLine />
       </section>
     );
@@ -117,9 +153,7 @@ export default function ShortListReceipt({ className = '' }: { className?: strin
         <ShieldCheck size={20} className="text-text-tertiary" aria-hidden="true" />
         <h2 className="text-xl font-semibold tracking-tight text-text-primary">Your Short List is live</h2>
       </div>
-      <p className="max-w-2xl text-sm leading-relaxed text-text-secondary">
-        One of these refuses outright. Two hold for your approval. Everything else runs and is recorded.
-      </p>
+      <p className="max-w-2xl text-sm leading-relaxed text-text-secondary">{tierSentence(lines)}</p>
 
       <ul className="mt-5 list-none space-y-3 p-0">
         {lines.map((l) => (
