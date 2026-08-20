@@ -21,6 +21,7 @@ import {
   coerceCalibrationState,
   freshCalibrationState,
   parseCalibrationSettings,
+  reliefReady,
   CALIBRATION_DEFAULTS,
 } from '@/lib/guard/calibration';
 import type { CalibrationState, CalibrationSettings, CalibrationLabel } from '@/lib/guard/calibration';
@@ -434,6 +435,46 @@ describe('warn_review adjudications', () => {
     expect(CALIBRATION_DEFAULTS.reliefMinLiveLabels).toBe(3);
     expect(assessCalibration(state, SETTINGS, 55, null).would_relieve).toBe(false);
     expect(assessCalibration({ ...state, labeledLive: 3 }, SETTINGS, 55, null).would_relieve).toBe(true);
+  });
+
+  it('a bad weight falls back to 1 — no phantom labels, no backwards θ step', () => {
+    const base = freshCalibrationState(); // θ = 80
+    const forward = applyAdjudication(base, { riskScore: 90, label: 'benign' }, SETTINGS, NOW);
+
+    // Zero, negative, >1 and non-finite are all evidence-weight nonsense: each
+    // folds as one ordinary live verdict rather than banking nothing (weight 0),
+    // running the ACI step backwards (weight < 0), or outweighing a real
+    // approval (weight > 1).
+    for (const weight of [0, -1, -0.5, 2, 50, NaN, Infinity]) {
+      const out = applyAdjudication(base, { riskScore: 90, label: 'benign', weight }, SETTINGS, NOW);
+      expect(out.state.labeledTotal).toBe(1);
+      expect(out.state.labeledLive).toBe(1);
+      expect(out.state.lossSum).toBe(1);
+      expect(out.thetaAfter).toBe(forward.thetaAfter);
+      expect(out.thetaAfter).toBeGreaterThan(out.thetaBefore);
+    }
+
+    // A negative weight must never be able to turn a loosening step into a
+    // tightening one, even on the retrospective path where Δ<0 is clamped.
+    const retroNeg = applyAdjudication(
+      base,
+      { riskScore: 90, label: 'benign', weight: -1, source: 'warn_review' },
+      SETTINGS,
+      NOW,
+    );
+    expect(retroNeg.thetaAfter).toBeGreaterThan(retroNeg.thetaBefore);
+  });
+
+  it('reliefReady is the one predicate the engine and the surfaces share', () => {
+    const ready = { labeledTotal: 10, labeledLive: 3, reliefCeiling: 0 };
+    expect(reliefReady(ready)).toBe(true);
+    expect(reliefReady({ ...ready, labeledTotal: 9.5 })).toBe(false);
+    expect(reliefReady({ ...ready, labeledLive: 2 })).toBe(false);
+    expect(reliefReady({ ...ready, reliefCeiling: -1 })).toBe(false);
+    // assessCalibration must not answer differently from the shared gate.
+    const state: CalibrationState = { ...freshCalibrationState(), theta: 80, ...ready, reliefCeiling: 60 };
+    expect(assessCalibration(state, SETTINGS, 55, null).would_relieve).toBe(true);
+    expect(assessCalibration({ ...state, labeledLive: 2 }, SETTINGS, 55, null).would_relieve).toBe(false);
   });
 
   it('coerceCalibrationState gives legacy rows labeledLive 0', () => {

@@ -2199,7 +2199,7 @@ export const guardCalibrationEvents = pgTable('guard_calibration_events', {
   thetaAfter: real('theta_after'),
   label: text('label').notNull(), // 'benign' | 'dangerous'
   loss: integer('loss').notNull(), // ℓ_t: 1 = false interruption at θ_t
-  source: text('source').notNull(), // 'approval' | 'bulk_approval' | 'seed'
+  source: text('source').notNull(), // 'approval' | 'bulk_approval' | 'seed' | 'warn_review'
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   orgCreatedIdx: index('idx_gcal_events_org_created').on(t.orgId, t.createdAt),

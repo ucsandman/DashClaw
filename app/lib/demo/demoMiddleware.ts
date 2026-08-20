@@ -1,5 +1,6 @@
 import { getHomepageDemoActions } from '../homepageDemoActions';
 import { describeAction } from '../plain-language';
+import { reliefReady } from '../guard/calibration';
 
 // Demo fixtures are dynamically-shaped demo data assembled fresh per request.
 // They are an external boundary to this module, so collections are typed loosely.
@@ -1485,7 +1486,13 @@ export function demoCalibrationController(fixtures: DemoFixtures) {
       observed_window_rate: lossSum / events.length,
       observed_window: events.length,
       relief_ceiling: reliefCeiling,
-      relief_ready: events.length >= 10 && reliefCeiling >= 0,
+      // Same predicate the real route answers with — a fixture that promised
+      // relief the engine would refuse is exactly the demo gap this guards.
+      relief_ready: reliefReady({
+        labeledTotal: events.length,
+        labeledLive: events.length,
+        reliefCeiling,
+      }),
     },
     defaults: { gamma: 2, alarm_at: 20, p0: 0.25, theta_floor: 20, relief_min_labels: 10, relief_min_live_labels: 3 },
     alarms: [

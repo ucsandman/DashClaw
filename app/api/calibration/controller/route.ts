@@ -36,6 +36,7 @@ import { getActivePolicies } from '../../../lib/repositories/guardrails.reposito
 import {
   parseCalibrationSettings,
   freshCalibrationState,
+  reliefReady,
   CALIBRATION_DEFAULTS,
   CALIBRATION_MODE_KEY,
   CALIBRATION_TARGET_KEY,
@@ -106,9 +107,7 @@ export async function GET(request: Request) {
         // Both floors: total evidence AND live evidence. Retrospective group
         // verdicts count toward the first only, so sweeping the review feed
         // can never on its own make the demote arm ready.
-        relief_ready: effectiveState.labeledTotal >= CALIBRATION_DEFAULTS.reliefMinLabels
-          && effectiveState.labeledLive >= CALIBRATION_DEFAULTS.reliefMinLiveLabels
-          && effectiveState.reliefCeiling >= 0,
+        relief_ready: reliefReady(effectiveState),
       },
       defaults: {
         gamma: CALIBRATION_DEFAULTS.gamma,

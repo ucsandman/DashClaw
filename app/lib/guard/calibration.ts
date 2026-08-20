@@ -288,7 +288,12 @@ export function applyAdjudication(
 ): AdjudicationOutcome {
   const thetaBefore = clampTheta(state.theta);
   const score = Math.max(0, Math.min(Number(input.riskScore) || 0, 100));
-  const weight = Number.isFinite(Number(input.weight)) ? Number(input.weight) : 1;
+  // Clamp to (0, 1]: a weight is evidence STRENGTH relative to one live
+  // verdict. Zero or negative would let a caller either bank a phantom label
+  // or run the ACI step backwards, and >1 would let a retrospective verdict
+  // outweigh the approval someone was actually blocked on.
+  const rawWeight = Number(input.weight);
+  const weight = Number.isFinite(rawWeight) && rawWeight > 0 && rawWeight <= 1 ? rawWeight : 1;
   const retro = input.source === 'warn_review';
   const loss: 0 | 1 = score >= thetaBefore && input.label === 'benign' ? 1 : 0;
   const rawDelta = CALIBRATION_DEFAULTS.gamma * (loss - settings.targetRate) * weight;
@@ -390,12 +395,29 @@ export function assessCalibration(
     //  - the owning agent is not under a standing denial alarm, which is the
     //    one signal that outranks the operator's own click history.
     would_relieve:
-      state.labeledTotal >= CALIBRATION_DEFAULTS.reliefMinLabels &&
-      state.labeledLive >= CALIBRATION_DEFAULTS.reliefMinLiveLabels &&
+      reliefReady(state) &&
       score < theta &&
       score <= state.reliefCeiling &&
       !agentAlarmed,
   };
+}
+
+/**
+ * Demote-arm readiness: has the org accumulated enough adjudications — and
+ * enough LIVE ones — for relief to mean anything? The operator surface and
+ * the demo fixture both answer this question, so they both ask it here
+ * rather than re-spelling the three gates (a drifted copy once let a surface
+ * promise relief the engine would not grant).
+ *
+ * Note this is the STATE-level gate only; `assessCalibration` adds the
+ * per-action gates (score below θ, inside the ceiling, agent not alarmed).
+ */
+export function reliefReady(
+  state: Pick<CalibrationState, 'labeledTotal' | 'labeledLive' | 'reliefCeiling'>,
+): boolean {
+  return state.labeledTotal >= CALIBRATION_DEFAULTS.reliefMinLabels
+    && state.labeledLive >= CALIBRATION_DEFAULTS.reliefMinLiveLabels
+    && state.reliefCeiling >= 0;
 }
 
 /** Rehydrate persisted state (jsonb/text row) into a well-formed CalibrationState. */

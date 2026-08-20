@@ -6,6 +6,7 @@ import {
   demoTuningProposals, demoTighteningProposals, demoLooseningProposals, demoCalibrationProposals,
 } from '@/lib/demo/demoMiddleware';
 import { getDemoFixtures } from '@/lib/demo/demoFixtures';
+import { reliefReady, CALIBRATION_DEFAULTS } from '@/lib/guard/calibration';
 import { actions as personaActions } from '@/lib/demo/fixtures/persona-agents';
 
 // Minimal fixtures stub — the gap handlers derive agent ids from fixtures.actions
@@ -158,6 +159,16 @@ describe('demo workbench fixtures — /policies, /calibration, /doctor', () => {
     expect(c.state.loss_sum).toBe(c.events.filter((e) => e.loss).length);
     expect(c.state.theta).toBe(c.events[0]!.theta_after);
     expect(c.events[0]).toMatchObject({ agent_id: expect.any(String), risk_score: expect.any(Number), label: expect.any(String), created_at: expect.any(String) });
+    // relief_ready is a three-gate answer in the real route (total labels,
+    // LIVE labels, ceiling). A fixture that computes its own version drifts
+    // and promises relief the engine would refuse.
+    expect(c.state.labeled_live).toBe(c.events.length);
+    expect(c.state.relief_ready).toBe(reliefReady({
+      labeledTotal: c.state.labeled_total,
+      labeledLive: c.state.labeled_live,
+      reliefCeiling: c.state.relief_ceiling,
+    }));
+    expect(c.defaults.relief_min_live_labels).toBe(CALIBRATION_DEFAULTS.reliefMinLiveLabels);
     expect(c.alarms.some((a) => a.alarmed_at)).toBe(true);
     expect(c.risk_threshold_policies.length).toBeGreaterThan(0);
     expect(c.risk_threshold_policies[0]).toMatchObject({ threshold: expect.any(Number), action: expect.any(String) });
