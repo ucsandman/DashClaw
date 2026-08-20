@@ -360,6 +360,15 @@ function InboxRow({
   const d = describe(item);
   const primary = PRIMARY[item.kind];
   const leadLabel = typeof d.lead === 'string' ? d.lead : d.label;
+  // The new verbs repeat once per row, so their labels have to name the row:
+  // "Yes" five times over is five identical buttons to a screen reader.
+  const rowName =
+    item.kind === 'warn'
+      ? item.group.shape.label
+      : item.kind === 'misfire'
+        ? `"${item.misfire.shape_key}" on ${item.misfire.policy_name}`
+        : leadLabel;
+  const whyId = `triage-why-${item.key}`;
   // A warn group is grantable only when its shape carries a target. Most Bash
   // groups don't: the hook forwards `target` only for a shell redirection or a
   // script-then-execute hit, so the common case reaches this row unscoped.
@@ -483,6 +492,7 @@ function InboxRow({
           type="button"
           disabled={busy}
           onClick={() => setArmed(true)}
+          aria-label={`Stop asking about ${rowName}`}
           className={`${styles.btn} ${styles.btnSm} ${styles.btnPrimary}`}
         >
           <BellOff size={13} aria-hidden="true" />
@@ -492,6 +502,7 @@ function InboxRow({
           type="button"
           disabled={busy}
           onClick={() => onDismiss(item, 'keep asking')}
+          aria-label={`Keep asking about ${rowName}`}
           className={`${styles.btn} ${styles.btnSm} ${styles.btnGhost}`}
         >
           Keep asking
@@ -500,6 +511,8 @@ function InboxRow({
           type="button"
           onClick={() => setWhyOpen((v) => !v)}
           aria-expanded={whyOpen}
+          aria-controls={whyId}
+          aria-label={`Why? Effect of stopping ${rowName}`}
           className={`${styles.btn} ${styles.btnSm} ${styles.btnGhost}`}
         >
           Why?
@@ -521,6 +534,7 @@ function InboxRow({
             type="button"
             disabled={busy}
             onClick={() => onRetro(item, 'retro_stop')}
+            aria-label={`Yes — ${rowName} should have been stopped`}
             className={`${styles.btn} ${styles.btnSm}`}
           >
             Yes
@@ -529,6 +543,7 @@ function InboxRow({
             type="button"
             disabled={busy}
             onClick={() => onRetro(item, 'retro_fine')}
+            aria-label={`No — ${rowName} was fine`}
             className={`${styles.btn} ${styles.btnSm}`}
           >
             No
@@ -643,7 +658,7 @@ function InboxRow({
           </div>
           {expansion}
           {item.kind === 'misfire' && whyOpen && !resolution && (
-            <div className={styles.rowNote}>
+            <div id={whyId} className={styles.rowNote}>
               A shape-scoped exception on this one line. The line keeps enforcing
               everything else. Undo from the Short List &rarr; Details.
             </div>
@@ -652,9 +667,9 @@ function InboxRow({
             <div className={styles.rowNote}>
               No target scope:{' '}
               {code(item.group.shape.action_type)}{' '}
-              actions here name no file or host. An &ldquo;always allow&rdquo; would cover every{' '}
+              actions here name no file or host. A &ldquo;stop warning&rdquo; would cover every{' '}
               {item.group.shape.action_type} action and switch off any approval rule for it.{' '}
-              <b>Mark fine</b> hides this until it happens again; <b>Tighten</b> makes it ask first.
+              <b>Mark fine</b> hides this until it happens again; <b>Promote to Hold</b> makes it ask first.
             </div>
           )}
           {error && <div className={styles.rowError}>{error}</div>}

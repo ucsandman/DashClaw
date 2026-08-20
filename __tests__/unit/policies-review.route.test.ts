@@ -20,6 +20,7 @@ const {
   mockInsertPolicy,
   mockFindPolicyByName,
   mockReactivateModePolicy,
+  mockGetActivePolicies,
 } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockGetWarnDecisionsSince: vi.fn(),
@@ -30,6 +31,7 @@ const {
   mockInsertPolicy: vi.fn(),
   mockFindPolicyByName: vi.fn(),
   mockReactivateModePolicy: vi.fn(),
+  mockGetActivePolicies: vi.fn(),
   mockIngestApprovalAdjudication: vi.fn(),
 }));
 
@@ -55,6 +57,7 @@ vi.mock('@/lib/repositories/guardrails.repository.js', () => ({
   insertPolicy: mockInsertPolicy,
   findPolicyByName: mockFindPolicyByName,
   reactivateModePolicy: mockReactivateModePolicy,
+  getActivePolicies: mockGetActivePolicies,
   insertOrRevivePolicy: async (
     sql: unknown,
     orgId: string,
@@ -200,6 +203,7 @@ describe('POST /api/policies/review/verdict', () => {
     mockGetSettings.mockResolvedValue([]);
     mockUpsertSetting.mockResolvedValue(undefined);
     mockInsertPolicy.mockResolvedValue({ id: 'gp_new' });
+    mockGetActivePolicies.mockResolvedValue([]);
   });
 
   it('returns 403 for non-admin', async () => {
@@ -350,6 +354,99 @@ describe('POST /api/policies/review/verdict', () => {
     const rules = JSON.parse(call.rules as string);
     expect(rules.paths).toContain('app/secrets/**');
     expect(rules._tightened).toBe(true);
+  });
+
+  // "Promote to Hold" mints one of the ten lines allowed to interrupt at all.
+  // This route inserts directly, so the cap it would otherwise dodge lives here.
+  const hold = (id: string) => ({
+    id,
+    name: `line ${id}`,
+    policy_type: 'require_approval',
+    rules: JSON.stringify({ action_types: ['deploy'] }),
+    active: 1,
+  });
+
+  it('tighten stamps short_list on the rule it creates', async () => {
+    mockInsertPolicy.mockResolvedValue({ id: 'gp_tighten_flag' });
+
+    await POST(
+      makeRequest('http://localhost/api/policies/review/verdict', {
+        headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+        body: { verdict: 'tighten', shape: { action_type: 'bash', target_prefix: 'stripe.com' } },
+      }),
+    );
+
+    const rules = JSON.parse(mockInsertPolicy.mock.calls[0]![2].rules as string);
+    expect(rules.short_list).toBe(true);
+  });
+
+  it('tighten is allowed while the Short List has a slot free', async () => {
+    mockGetActivePolicies.mockResolvedValue(
+      Array.from({ length: 9 }, (_, i) => hold(`gp_${i}`)),
+    );
+    mockInsertPolicy.mockResolvedValue({ id: 'gp_tenth' });
+
+    const res = await POST(
+      makeRequest('http://localhost/api/policies/review/verdict', {
+        headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+        body: { verdict: 'tighten', shape: { action_type: 'bash', target_prefix: 'stripe.com' } },
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockInsertPolicy).toHaveBeenCalled();
+  });
+
+  it('tighten returns 409 SHORT_LIST_FULL at the cap and writes nothing', async () => {
+    mockGetActivePolicies.mockResolvedValue(
+      Array.from({ length: 10 }, (_, i) => hold(`gp_${i}`)),
+    );
+
+    const res = await POST(
+      makeRequest('http://localhost/api/policies/review/verdict', {
+        headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+        body: { verdict: 'tighten', shape: { action_type: 'bash', target_prefix: 'stripe.com' } },
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    const data = await res.json();
+    expect(data.code).toBe('SHORT_LIST_FULL');
+    expect(data.error).toBe('The Short List is full (10 of 10). Remove one line to add this one.');
+    expect(mockInsertPolicy).not.toHaveBeenCalled();
+  });
+
+  it('a full Short List does not block a REVIVE of the row this verdict owns', async () => {
+    mockGetActivePolicies.mockResolvedValue([
+      ...Array.from({ length: 9 }, (_, i) => hold(`gp_${i}`)),
+      { ...hold('gp_own'), name: '[Tightened] bash → stripe.com' },
+    ]);
+    mockInsertPolicy.mockResolvedValue({ id: 'gp_own' });
+
+    const res = await POST(
+      makeRequest('http://localhost/api/policies/review/verdict', {
+        headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+        body: { verdict: 'tighten', shape: { action_type: 'bash', target_prefix: 'stripe.com' } },
+      }),
+    );
+
+    expect(res.status).toBe(201);
+  });
+
+  it('always_allow never consults the cap — a grant is not a Short List line', async () => {
+    mockGetActivePolicies.mockResolvedValue(
+      Array.from({ length: 10 }, (_, i) => hold(`gp_${i}`)),
+    );
+    mockInsertPolicy.mockResolvedValue({ id: 'gp_grant' });
+
+    const res = await POST(
+      makeRequest('http://localhost/api/policies/review/verdict', {
+        headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+        body: { verdict: 'always_allow', shape: { action_type: 'bash', target_prefix: 'scripts/' } },
+      }),
+    );
+
+    expect(res.status).toBe(201);
   });
 
   it('fine upserts dismissed map with the shape key', async () => {

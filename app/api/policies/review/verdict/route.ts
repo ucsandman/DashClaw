@@ -6,7 +6,8 @@ import { randomUUID } from 'node:crypto';
 import { getOrgId, getOrgRole } from '../../../../lib/org';
 import { getSql } from '../../../../lib/db';
 import { apiErrorResponse } from '../../../../lib/apiErrors';
-import { insertOrRevivePolicy } from '../../../../lib/repositories/guardrails.repository';
+import { insertOrRevivePolicy, getActivePolicies } from '../../../../lib/repositories/guardrails.repository';
+import { countShortListLines, SHORT_LIST_CAP } from '../../../../lib/guardrails/short-list';
 import { getSettings, upsertSetting } from '../../../../lib/repositories/settings.repository';
 import { shapeKey, shapeIsGrantable, GRANT_DEFAULT_TTL_DAYS, GRANT_DEFAULT_MAX_RISK } from '../../../../lib/policy-shapes';
 import { getWarnDecisionsSince, groupWarnDecisions } from '../../../../lib/repositories/policy-review.repository';
@@ -193,15 +194,38 @@ export async function POST(request: Request) {
     // action_type org-wide — that mistake once routed every routine swarm
     // action into approval).
     const isPath = !!prefix && prefix.includes('/');
+    const name = `[Tightened] ${label}`;
+    // The ten-line cap is hard, and this route inserts directly: the
+    // /api/policies admission gate never sees this write, so the cap is
+    // enforced here or nowhere. Reviving the row this verdict already owns
+    // costs no slot, so it is excluded from the count.
+    const occupied = countShortListLines(
+      (await getActivePolicies(sql, orgId))
+        .filter((p) => p.name !== name)
+        .map((p) => ({ policy_type: String(p.policy_type ?? ''), rules: p.rules, active: p.active })),
+    );
+    if (occupied >= SHORT_LIST_CAP) {
+      return NextResponse.json(
+        {
+          error: `The Short List is full (${SHORT_LIST_CAP} of ${SHORT_LIST_CAP}). Remove one line to add this one.`,
+          code: 'SHORT_LIST_FULL',
+        },
+        { status: 409 },
+      );
+    }
     const policy = await insertOrRevivePolicy(sql, orgId, {
       id: gpId(),
-      name: `[Tightened] ${label}`,
+      name,
       policyType: isPath ? 'protected_path' : 'require_approval',
+      // short_list is written explicitly: this line IS one of the ten, and a
+      // Short List line that only qualifies by inference is one a later rules
+      // edit can silently demote.
       rules: isPath
-        ? JSON.stringify({ paths: [`${prefix}**`], action: 'require_approval', _tightened: true })
+        ? JSON.stringify({ paths: [`${prefix}**`], action: 'require_approval', short_list: true, _tightened: true })
         : JSON.stringify({
             action_types: [shape.action_type],
             ...(prefix ? { target_prefix: prefix } : {}),
+            short_list: true,
             _tightened: true,
           }),
     });

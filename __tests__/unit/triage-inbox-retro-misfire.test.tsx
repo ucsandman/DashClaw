@@ -254,6 +254,22 @@ describe('TriageInbox — retrospective warn verdicts', () => {
     expect(undo.disabled).toBe(true);
   });
 
+  it('surfaces a full Short List as the row error instead of a silent no-op', async () => {
+    postVerdict.mockRejectedValue(
+      new Error('The Short List is full (10 of 10). Remove one line to add this one.'),
+    );
+
+    render(<TriageInbox onChanged={() => {}} />);
+    await screen.findByText(/Would you have wanted these stopped\?/);
+    fireEvent.click(screen.getByRole('button', { name: /More verdicts/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Promote to Hold/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Confirm: promote to Hold/ }));
+
+    expect(
+      await screen.findByText('The Short List is full (10 of 10). Remove one line to add this one.'),
+    ).toBeTruthy();
+  });
+
   it('keeps the enforcement verbs as secondary actions with their new names', async () => {
     render(<TriageInbox onChanged={() => {}} />);
     await screen.findByText(/Would you have wanted these stopped\?/);
@@ -293,7 +309,10 @@ describe('TriageInbox — misfire queue', () => {
             {
               id: 'gp_secret',
               name: 'Secret-file writes',
-              rules: JSON.stringify({ paths: ['.env**'], short_list: true }),
+              // A seeded catastrophe line: it qualifies for the Short List by
+              // its effective action, with no short_list flag of its own. The
+              // exception write must not change what this line IS.
+              rules: JSON.stringify({ threshold: 90, action: 'block', ungrantable: true }),
             },
           ],
         }),
@@ -311,8 +330,15 @@ describe('TriageInbox — misfire queue', () => {
       const body = JSON.parse(String((patch![1] as RequestInit).body));
       expect(body.id).toBe('gp_secret');
       expect(body.rules.shape_exceptions).toContain('git log');
-      // The line keeps enforcing everything else.
-      expect(body.rules.paths).toEqual(['.env**']);
+      // The line keeps enforcing everything else — every stored key travels
+      // back untouched, and nothing is invented (no short_list bolted on to
+      // survive the route's admission check).
+      expect(body.rules).toEqual({
+        threshold: 90,
+        action: 'block',
+        ungrantable: true,
+        shape_exceptions: ['git log'],
+      });
     });
   });
 
