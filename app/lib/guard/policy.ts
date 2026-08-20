@@ -8,6 +8,7 @@ import { deliverGuardWebhook } from '../webhooks';
 import { matchesProtectedPath } from './protected-path';
 import { targetPrefixMatches } from '../policy-shapes';
 import { isContainableAct } from './containment';
+import { gitPushPredicateMatches, parseGitPush, commandTextOf } from './git-push';
 import { verify } from '../integrity/verify';
 import type { SourceOfTruth } from '../integrity/verify';
 import { issueReceipt } from '../integrity/receipt';
@@ -93,9 +94,18 @@ function matchActionType(
   reason: (type: string) => string,
 ): PolicyResult | null {
   const actionTypes = rules.action_types || [];
-  const matchedType = contextActionTypes(context).find((t) => actionTypes.includes(t));
-  if (matchedType === undefined) {
-    return null;
+  // Optional narrowing on the actual command text: `rules.git_push` gates the
+  // rule on a branch-aware git-push predicate. A rule carrying git_push and no
+  // action_types matches on the command ALONE — action_type spellings are a
+  // deny-list of remembered strings, and a force-push arrives under several.
+  const gitPred = rules.git_push && typeof rules.git_push === 'object' ? rules.git_push : null;
+  if (gitPred && !gitPushPredicateMatches(gitPred, commandTextOf(context))) return null;
+  let matchedType: string | undefined;
+  if (actionTypes.length > 0 || !gitPred) {
+    matchedType = contextActionTypes(context).find((t) => actionTypes.includes(t));
+    if (matchedType === undefined) {
+      return null;
+    }
   }
   // Optional narrowing: a rule born from a targeted shape (review-feed
   // "tighten") only fires when the action's target matches the prefix —
@@ -104,7 +114,11 @@ function matchActionType(
       !targetPrefixMatches(rules.target_prefix, context)) {
     return null;
   }
-  return { action, reason: reason(matchedType) };
+  if (matchedType !== undefined) return { action, reason: reason(matchedType) };
+  const parsed = parseGitPush(commandTextOf(context));
+  const verb = parsed?.force ? 'Force-push' : 'Push';
+  const consequence = action === 'block' ? 'is blocked by policy' : action === 'warn' ? 'recorded for review' : 'requires approval';
+  return { action, reason: `${verb} over protected branch "${parsed?.branch ?? 'unknown'}" ${consequence}` };
 }
 
 // ── non_fabrication evaluation (decomposed) ──
@@ -276,6 +290,14 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
     const riskScore = effectiveRiskScore != null
       ? effectiveRiskScore
       : Math.max(0, Math.min(Number(context.risk_score) || 0, 100));
+    // Carve-out: `block` always wins the severity merge (evaluate.ts
+    // raiseDecision), so a HOLD line can never out-vote this one. Excluding a
+    // class here is the only way another Short List line can own it — the
+    // catastrophe-only pack excludes force-pushes so they hold instead of dying.
+    if (rules.except_git_push && typeof rules.except_git_push === 'object' &&
+        gitPushPredicateMatches(rules.except_git_push, commandTextOf(context))) {
+      return null;
+    }
     if (riskScore >= threshold) {
       return { action: rules.action || 'block', reason: `Risk score ${riskScore} >= threshold ${threshold}` };
     }

@@ -10,7 +10,9 @@ export const DEFAULT_PROTECTED_BRANCHES = ['main', 'master', 'trunk', 'productio
 
 const FORCE_FLAGS = new Set(['--force', '-f', '--delete', '-d']);
 
-export function commandTextOf(context: { declared_goal?: unknown; act?: { command?: unknown } | null }): string {
+// `act` is `unknown` on GuardEvalContext (the caller-attached evidence act), so
+// the parameter takes it unknown and narrows here.
+export function commandTextOf(context: { declared_goal?: unknown; act?: unknown }): string {
   const act = context?.act && typeof context.act === 'object' ? (context.act as { command?: unknown }).command : undefined;
   if (typeof act === 'string' && act.trim()) return act;
   return typeof context?.declared_goal === 'string' ? context.declared_goal : '';

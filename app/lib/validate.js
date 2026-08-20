@@ -491,6 +491,29 @@ function validatePolicyTestRecipes(rules, addError) {
 
 const GREEN_CONTRACT_LEVELS = ['targeted', 'package', 'workspace', 'merge_ready'];
 
+// Shape check for the branch-aware git-push predicate (app/lib/guard/git-push.ts),
+// carried as rules.git_push (require_approval / block_action_type) or
+// rules.except_git_push (risk_threshold). Absent = no check.
+function validateGitPushPredicate(rules, key, addError) {
+  const pred = rules[key];
+  if (pred === undefined) return;
+  if (!isPlainObject(pred)) {
+    addError(`rules.${key} must be an object { force?: boolean, branches?: string[] }`);
+    return;
+  }
+  if (pred.force !== undefined && typeof pred.force !== 'boolean') {
+    addError(`rules.${key}.force must be a boolean`);
+  }
+  if (pred.branches !== undefined) {
+    if (!Array.isArray(pred.branches)
+      || !pred.branches.every((b) => typeof b === 'string' && b.length > 0 && b.length <= 128)) {
+      addError(`rules.${key}.branches must be an array of non-empty branch patterns (<=128 chars)`);
+    } else if (pred.branches.length > 32) {
+      addError(`rules.${key}.branches must have at most 32 entries`);
+    }
+  }
+}
+
 // One validator per policy type — each pushes type-specific errors via addError.
 // Mirrors the original per-type switch exactly (check order + messages preserved).
 const POLICY_TYPE_VALIDATORS = {
@@ -508,6 +531,7 @@ const POLICY_TYPE_VALIDATORS = {
         addError("risk_threshold rules.contain_above requires rules.action 'require_approval' (containment sits below the interrupt rail)");
       }
     }
+    validateGitPushPredicate(rules, 'except_git_push', addError);
   },
   require_approval: (rules, addError, policyType) => validateActionTypesRequired(rules, addError, policyType),
   block_action_type: (rules, addError, policyType) => validateActionTypesRequired(rules, addError, policyType),
@@ -746,7 +770,13 @@ const POLICY_TYPE_VALIDATOR_MAP = new Map(Object.entries(POLICY_TYPE_VALIDATORS)
 
 // require_approval and block_action_type share the same action_types check; the
 // error message names the actual policy type.
+// A rule carrying a git_push predicate scopes itself on the command text, so
+// action_types is optional there (and must stay optional: a force-push arrives
+// under several action_type spellings).
 function validateActionTypesRequired(rules, addError, policyType) {
+  const gitScoped = policyType !== 'warn_action_type' && rules.git_push !== undefined;
+  if (gitScoped) validateGitPushPredicate(rules, 'git_push', addError);
+  if (gitScoped && isPlainObject(rules.git_push)) return;
   if (!Array.isArray(rules.action_types) || rules.action_types.length === 0) {
     addError(`${policyType} policy requires rules.action_types array`);
   }

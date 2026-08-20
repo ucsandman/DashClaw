@@ -1,7 +1,10 @@
 /**
- * Shared guard types. No runtime code and no sibling imports — the leaf of the
- * guard module graph so every other guard/* module can depend on it freely.
+ * Shared guard types. No runtime code and no sibling imports beyond type-only
+ * ones from leaf modules — still the leaf of the guard module graph at runtime,
+ * so every other guard/* module can depend on it freely.
  */
+
+import type { GitPushPredicate } from './git-push';
 
 /** SQL client usable as a tagged template AND via `.query()` (Neon/postgres shape). */
 export type GuardSql = {
@@ -91,6 +94,12 @@ export interface PolicyRules {
   action_types?: string[];
   allowed_action_types?: string[];
   target_prefix?: string;
+  /** Branch-aware git-push narrowing (app/lib/guard/git-push.ts).
+   *  `git_push` gates a require_approval / block_action_type rule on the
+   *  command text; `except_git_push` carves the same class OUT of a
+   *  risk_threshold rule so a lower-severity line can own it. */
+  git_push?: GitPushPredicate;
+  except_git_push?: GitPushPredicate;
   /** F1: a gating rule marked ungrantable can never have its warn /
    *  require_approval verdict cleared by an allow_grant (control-plane and
    *  catastrophe rules). */
