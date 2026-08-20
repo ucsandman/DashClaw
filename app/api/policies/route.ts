@@ -221,13 +221,13 @@ export async function PATCH(request: Request) {
     }
     // The stored row is needed both to validate a rules change against the
     // right type and to cap-check a reactivation, so read it once.
-    let existingRow: { policy_type?: string; rules?: unknown } | undefined;
+    let existingRow: { policy_type?: string; rules?: unknown; active?: unknown } | undefined;
     if (body.rules != null || body.active != null) {
       // SECURITY: Validate rules through the same validation as POST. If the
       // policy does not exist in this org, return 404 *before* the UPDATE
       // so we never accept unvalidated rules into the SQL parameter array.
       const existing = await sql.query(
-        'SELECT policy_type, rules FROM guard_policies WHERE id = $1 AND org_id = $2',
+        'SELECT policy_type, rules, active FROM guard_policies WHERE id = $1 AND org_id = $2',
         [body.id, orgId]
       );
       if (existing.length === 0) {
@@ -235,6 +235,12 @@ export async function PATCH(request: Request) {
       }
       existingRow = existing[0];
     }
+
+    // What this PATCH will LEAVE in the row. The reactivation cap check below
+    // must judge the resulting line, not the request body: an escalation that
+    // admission demoted to Watch does not consume a slot.
+    let resultingType = existingRow?.policy_type as string;
+    let resultingRules: Record<string, unknown> | undefined;
 
     if (body.rules != null) {
       const storedType = existingRow?.policy_type as string;
@@ -257,10 +263,12 @@ export async function PATCH(request: Request) {
       if (isEdit) {
         sets.push(`rules = $${idx++}`);
         params.push(rulesStr);
+        resultingRules = parseRules(rulesStr);
         // Only an explicit body.policy_type may move an existing line's type.
         if (body.policy_type && body.policy_type !== storedType) {
           sets.push(`policy_type = $${idx++}`);
           params.push(body.policy_type);
+          resultingType = body.policy_type;
         }
       } else {
         const admission = await admitToShortList(sql, orgId, policyType, rulesStr, body.id);
@@ -269,6 +277,8 @@ export async function PATCH(request: Request) {
         }
         sets.push(`rules = $${idx++}`);
         params.push(admission.rules);
+        resultingRules = parseRules(admission.rules);
+        resultingType = admission.policyType;
         // Write the type whenever admission lands somewhere other than the type
         // already stored — this carries the PROMOTE direction too ("Hold instead"
         // on a warn_action_type row must actually become require_approval).
@@ -279,12 +289,15 @@ export async function PATCH(request: Request) {
       }
     }
     if (body.active != null) {
-      // Reactivating a dormant Short List line consumes a slot exactly like
-      // creating one, so it is capped the same way.
-      if (body.active && body.rules == null) {
-        const storedType = existingRow?.policy_type as string;
-        const storedRules = parseRules(existingRow?.rules);
-        if (isShortListLine(storedType, storedRules) && await shortListIsFull(sql, orgId, body.id)) {
+      // Switching a dormant Short List line ON consumes a slot exactly like
+      // creating one, so it is capped the same way — whether or not a rules
+      // change rides along in the same request. Gating this on `body.rules ==
+      // null` let `PATCH {rules, active: 1}` mint an 11th live line, because
+      // the edit path deliberately skips admission.
+      const wasActive = existingRow?.active === 1 || existingRow?.active === true;
+      if (body.active && !wasActive) {
+        const rules = resultingRules ?? parseRules(existingRow?.rules);
+        if (isShortListLine(resultingType, rules) && await shortListIsFull(sql, orgId, body.id)) {
           return shortListFull();
         }
       }

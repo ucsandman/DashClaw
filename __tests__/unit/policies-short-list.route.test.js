@@ -412,3 +412,73 @@ describe('PATCH /api/policies — editing an existing Short List line is not a r
     expect(update().rules.action).toBe('warn');
   });
 });
+
+describe('PATCH /api/policies — reactivation cap survives a combined rules+active request', () => {
+  /** A stored row with an explicit active flag. */
+  function storedRow(policy_type, rules, active) {
+    mockSql.query.mockImplementation(async (q) => {
+      if (String(q).startsWith('SELECT policy_type')) {
+        return [{ policy_type, rules: JSON.stringify(rules), active }];
+      }
+      return [{ id: 'gp_line' }];
+    });
+  }
+
+  it('409s when a DORMANT hold is switched on in the same request that writes rules', async () => {
+    storedRow('require_approval', { action_types: ['deploy'] }, 0);
+    mockGetActivePolicies.mockResolvedValue(fullList());
+    const res = await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH',
+      headers: ADMIN,
+      body: {
+        id: 'gp_line',
+        rules: { action_types: ['deploy'] },
+        active: 1,
+      },
+    }));
+    // The edit path skips admission by design, so without the fix this minted
+    // an 11th LIVE interrupting line.
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe('SHORT_LIST_FULL');
+  });
+
+  it('lets the same combined request through when a slot is free', async () => {
+    storedRow('require_approval', { action_types: ['deploy'] }, 0);
+    mockGetActivePolicies.mockResolvedValue(fullList().slice(0, 9));
+    const res = await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH',
+      headers: ADMIN,
+      body: { id: 'gp_line', rules: { action_types: ['deploy'] }, active: 1 },
+    }));
+    expect(res.status).toBe(200);
+  });
+
+  it('a plain edit on an ALREADY-ACTIVE row with active:1 is not cap-checked at all', async () => {
+    storedRow('risk_threshold', { threshold: 100, action: 'block' }, 1);
+    mockGetActivePolicies.mockResolvedValue(fullList());
+    const res = await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH',
+      headers: ADMIN,
+      body: {
+        id: 'gp_line',
+        rules: { threshold: 100, action: 'block', shape_exceptions: ['git log'] },
+        active: 1,
+      },
+    }));
+    expect(res.status).toBe(200);
+    // The row already holds its slot — re-counting it would be a false 409.
+    expect(mockGetActivePolicies).not.toHaveBeenCalled();
+  });
+
+  it('a dormant line that the same request DEMOTES to warn is not cap-checked', async () => {
+    storedRow('risk_threshold', { threshold: 100, action: 'block' }, 0);
+    mockGetActivePolicies.mockResolvedValue(fullList());
+    const res = await PATCH(makeRequest('http://localhost/api/policies', {
+      method: 'PATCH',
+      headers: ADMIN,
+      body: { id: 'gp_line', rules: { threshold: 100, action: 'warn' }, active: 1 },
+    }));
+    // Turning on a line that will store as WATCH consumes no slot.
+    expect(res.status).toBe(200);
+  });
+});
