@@ -32,6 +32,25 @@ const SUMMARY = {
   scope: { allAgents: true },
   agents: { total: 1 },
   pendingApprovals: 0,
+  budgetReport: { policiesOverBudget: 0, shapesOverBudget: 0, window_hours: 24, budget: 50, shape_budget: 50 },
+  // Spec 4.1: only an inert BLOCK or Short List line is raised above the fold,
+  // so the suppressed gate has to be on the list for the alert to exist.
+  shortList: [
+    {
+      id: 'gp_gate',
+      name: '[Claude Code Mode] Record external comms',
+      tier: 'HOLD',
+      policy_type: 'require_approval',
+      scope: 'external comms',
+      fired30d: 0,
+      ungrantable: false,
+      shape_exceptions: [],
+      active: true,
+      seeded: false,
+    },
+  ],
+  shortListCap: 10,
+  suggestions: [],
   inert: [
     {
       id: 'gp_gate',

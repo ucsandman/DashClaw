@@ -1,19 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { Clock, ArrowRight, ShieldOff } from 'lucide-react';
+import { ArrowRight, ShieldOff } from 'lucide-react';
 import type { PolicySummary } from '../lib/modesClient';
 import ApprovalPausePanel from './ApprovalPausePanel';
 import styles from '../policies.module.css';
 
 /**
- * Section 1+2 of the workbench: the at-a-glance posture row (four stat cards)
- * plus the weekly-friction sentence. Every number is real — nothing is
- * fabricated. The enforcement split bar and the decisions mini-bars are scaled
- * from the actual counts; there is no invented per-day history.
+ * The /policies fold (spec 4.1-4.2): a conditional alert row, then two stat
+ * cards — the interruption count that made the maintainer disable every policy
+ * in June 2026, and the pending-approval count. Every number is real.
+ *
+ * Cut deliberately: "Enforcement · active rules" (the Short List counter says
+ * it now), "Decisions · last 30d" and "Governed agents" (both belong on
+ * /decisions), and the friction prose (the card is the sentence).
  */
 
-interface PostureHeroProps {
+interface PostureCardsProps {
   summary: PolicySummary;
   friction: { interrupts_7d: number; est_seconds: number } | null;
   inboxCount: number;
@@ -21,40 +24,44 @@ interface PostureHeroProps {
   onReviewSuppressed: (grantIds: string[]) => void;
 }
 
-function pct(n: number, total: number): string {
-  if (!total) return '0%';
-  return `${Math.max(0, (n / total) * 100)}%`;
+/** Attention spent, in the coarsest unit that still reads honestly. */
+function estAttention(seconds: number): string {
+  if (seconds < 60) return `${seconds} sec`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest > 0 ? `${hours} hr ${rest} min` : `${hours} hr`;
 }
 
-function barHeight(n: number, max: number): string {
-  if (!max) return '3px';
-  return `${Math.max(6, Math.round((n / max) * 100))}%`;
-}
+export function PostureCards({ summary, friction, onReviewSuppressed }: PostureCardsProps) {
+  const interrupts = friction?.interrupts_7d ?? 0;
+  const seconds = friction?.est_seconds ?? 0;
 
-export default function PostureHero({ summary, friction, inboxCount, onReviewSuppressed }: PostureHeroProps) {
-  const enf = summary.enforcement;
-  const d = summary.decisions30d;
-  const maxOutcome = Math.max(d.allow, d.warn, d.require_approval, d.block, 1);
-  const mins = friction ? Math.max(0, Math.round(friction.est_seconds / 60)) : 0;
+  const budget = summary.budgetReport;
+  const overBudget = (budget?.policiesOverBudget ?? 0) + (budget?.shapesOverBudget ?? 0);
 
-  const inert = summary.inert ?? [];
+  // Spec 4.1: an inert rule that is a BLOCK or a Short List line is an alert
+  // above the fold and never behind a disclosure — a silently neutered
+  // catastrophe rule is the false confidence this product exists to prevent.
+  // Every interrupting rule is on the Short List by derivation, so membership
+  // is the whole test; the rest (warn-class) render struck through in the
+  // ledger instead.
+  const shortListIds = new Set((summary.shortList ?? []).map((line) => line.id));
+  const alerting = (summary.inert ?? []).filter((p) => shortListIds.has(p.id));
 
   return (
     <>
-      {/* F1 (governance gap audit 2026-08-05): a rule an active grant nullifies
-          still reads as active everywhere else — that false confidence is the
-          exact failure DashClaw exists to prevent, so it gets said out loud,
-          above the posture cards, with the suppressing grant named. */}
-      {inert.length > 0 && (
+      {alerting.length > 0 && (
         <div role="alert" className={`${styles.card} ${styles.inertBanner}`}>
           <div className={styles.inertHead}>
             <ShieldOff size={16} aria-hidden="true" />
             <span>
-              {inert.length} {inert.length === 1 ? 'rule is' : 'rules are'} currently inert — suppressed by an allow grant
+              {alerting.length} Short List {alerting.length === 1 ? 'rule is' : 'rules are'} currently inert — suppressed by an allow grant
             </span>
           </div>
           <ul className={styles.inertList}>
-            {inert.map((p) => (
+            {alerting.map((p) => (
               <li key={p.id}>
                 <b>{p.name}</b>{' '}
                 <span className={styles.inertTypes}>({p.action_types.join(', ')})</span>{' '}
@@ -77,7 +84,7 @@ export default function PostureHero({ summary, friction, inboxCount, onReviewSup
           <button
             type="button"
             className={styles.inertLink}
-            onClick={() => onReviewSuppressed([...new Set(inert.flatMap((p) => p.suppressed_by.map((g) => g.id)))])}
+            onClick={() => onReviewSuppressed([...new Set(alerting.flatMap((p) => p.suppressed_by.map((g) => g.id)))])}
           >
             Review suppressed patterns <ArrowRight size={12} aria-hidden="true" />
           </button>
@@ -85,53 +92,25 @@ export default function PostureHero({ summary, friction, inboxCount, onReviewSup
       )}
 
       <div className={styles.posture}>
-        {/* Enforcement — active rules */}
-        <div className={`${styles.card} ${styles.cardHover} ${styles.stat}`}>
-          <span className={styles.metaLabel}>Enforcement &middot; active rules</span>
-          <div className={styles.enfRow}>
-            <span className={`${styles.enfTotal} ${styles.tnum}`}>{enf.total.toLocaleString()}</span>
-            <span className={styles.statSub} style={{ margin: 0 }}>
-              across warn, approve &amp; block &middot; {summary.agents.total} agent{summary.agents.total === 1 ? '' : 's'}
-            </span>
-          </div>
-          <div className={styles.splitBar} aria-hidden="true">
-            <span className={styles.segWarn} style={{ width: pct(enf.warn, enf.total) }} />
-            <span className={styles.segAppr} style={{ width: pct(enf.require_approval, enf.total) }} />
-            <span className={styles.segBlock} style={{ width: pct(enf.block, enf.total) }} />
-          </div>
-          <div className={styles.splitLegend}>
-            <span className={styles.lg}><span className={`${styles.dot} ${styles.segWarn}`} />Warn <b className={`${styles.tnum} ${styles.lgNum}`}>{enf.warn}</b></span>
-            <span className={styles.lg}><span className={`${styles.dot} ${styles.segAppr}`} />Approve <b className={`${styles.tnum} ${styles.lgNum}`}>{enf.require_approval}</b></span>
-            <span className={styles.lg}><span className={`${styles.dot} ${styles.segBlock}`} />Block <b className={`${styles.tnum} ${styles.lgNum}`}>{enf.block}</b></span>
-          </div>
-        </div>
-
-        {/* Decisions · last 30d */}
-        <div className={`${styles.card} ${styles.cardHover} ${styles.stat}`}>
-          <span className={styles.metaLabel}>Decisions &middot; last 30d</span>
-          <div className={`${styles.statBig} ${styles.tnum}`}>{d.total.toLocaleString()}</div>
-          <div className={styles.miniOutcomes} aria-hidden="true">
-            <div className="b" style={{ height: barHeight(d.allow, maxOutcome), background: 'var(--color-success)' }} title="allowed" />
-            <div className="b" style={{ height: barHeight(d.warn, maxOutcome), background: 'var(--color-warning)' }} title="warned" />
-            <div className="b" style={{ height: barHeight(d.require_approval, maxOutcome), background: 'var(--color-brand)' }} title="approval required" />
-            <div className="b" style={{ height: barHeight(d.block, maxOutcome), background: 'var(--color-error)' }} title="blocked" />
-          </div>
+        {/* Interruptions — the number the whole redesign is about. */}
+        <div data-testid="stat-card" className={`${styles.card} ${styles.cardHover} ${styles.stat}`}>
+          <span className={styles.metaLabel}>Interruptions, last 7 days</span>
+          <div className={`${styles.statBig} ${styles.tnum}`}>{interrupts.toLocaleString()}</div>
           <div className={styles.statSub}>
-            {d.allow.toLocaleString()} allowed &middot; {d.warn.toLocaleString()} warned &middot; {d.require_approval.toLocaleString()} approved &middot; {d.block.toLocaleString()} blocked
+            {interrupts > 0 && seconds > 0
+              ? `about ${estAttention(seconds)} of your time`
+              : 'nothing has interrupted your agents'}
           </div>
-        </div>
-
-        {/* Governed agents */}
-        <div className={`${styles.card} ${styles.cardHover} ${styles.stat}`}>
-          <span className={styles.metaLabel}>Governed agents</span>
-          <div className={`${styles.statBig} ${styles.tnum}`}>{summary.agents.total.toLocaleString()}</div>
-          <div className={styles.statSub}>
-            {summary.scope.allAgents ? 'this policy set applies to all agents' : 'some rules are scoped to specific agents'}
-          </div>
+          {overBudget > 0 && (
+            <div className={styles.statSub}>
+              {overBudget} {overBudget === 1 ? 'rule' : 'rules'} crossed {budget.budget} interruptions in{' '}
+              {budget.window_hours} hours and are warning instead of asking. They are in the list below.
+            </div>
+          )}
         </div>
 
         {/* Pending approvals — the one attention card */}
-        <div className={`${styles.card} ${styles.stat} ${styles.statAttn}`}>
+        <div data-testid="stat-card" className={`${styles.card} ${styles.stat} ${styles.statAttn}`}>
           <span className={styles.metaLabel}>Pending approvals</span>
           <div className={`${styles.statBig} ${styles.tnum}`}>{summary.pendingApprovals.toLocaleString()}</div>
           <div className={styles.statSub}>
@@ -144,24 +123,14 @@ export default function PostureHero({ summary, friction, inboxCount, onReviewSup
         </div>
       </div>
 
-      {/* Friction line */}
-      <div className={styles.friction}>
-        <Clock size={15} className={styles.fico} aria-hidden="true" />
-        {friction && friction.interrupts_7d > 0 ? (
-          <span>
-            This policy set interrupted your agents <b>{friction.interrupts_7d}</b> time{friction.interrupts_7d === 1 ? '' : 's'} in the last 7 days
-            {mins > 0 ? <>, roughly <b>{mins} min</b> of human attention</> : null}.
-            {inboxCount > 0 ? <> The inbox below has <b>{inboxCount}</b> suggestion{inboxCount === 1 ? '' : 's'} that would cut that.</> : null}
-          </span>
-        ) : (
-          <span>No interruptions in the last 7 days. Your policy set is governing quietly.</span>
-        )}
-      </div>
-
-      {/* Directly under the friction sentence: that sentence is where the
-          operator reads what this policy set has cost them in attention, so the
-          relief valve belongs against it rather than buried in settings. */}
+      {/* Directly under the cards: the interruption count is where the operator
+          reads what this policy set has cost them in attention, so the relief
+          valve belongs against it rather than buried in settings. */}
       <ApprovalPausePanel />
     </>
   );
 }
+
+// Task B5 re-wires PolicyWorkbench to the named export; until then the old
+// default import keeps compiling.
+export default PostureCards;

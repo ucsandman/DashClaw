@@ -140,6 +140,10 @@ export default function ApprovalPausePanel() {
           Blocks keep blocking. Your rules are not changed, so the pause just wears off.
         </span>
       </div>
+      {/* Spec 4.2: the pause is the relief valve for approval friction, so this
+          is where the operator has to learn its ceiling — the Short List is not
+          in scope for it. */}
+      <p className={styles.pauseHint}>A pause cannot lift a Short List hold.</p>
       {error && <p className={styles.pauseError}>{error}</p>}
     </div>
   );

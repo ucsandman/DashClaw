@@ -91,7 +91,7 @@
 /* ---------- posture hero ---------- */
 .posture {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-bottom: 14px;
 }
@@ -710,7 +710,6 @@
 .emptyState { padding: 26px; text-align: center; }
 
 @media (max-width: 1080px) {
-  .posture { grid-template-columns: 1fr 1fr; }
   .presets { grid-template-columns: 1fr; }
   .shieldGrid { grid-template-columns: repeat(2, 1fr); }
   .grpRows { grid-template-columns: 1fr; }
@@ -752,6 +751,7 @@
   gap: 8px;
 }
 .pauseHint {
+  margin: 0;
   color: var(--color-text-tertiary);
   font-size: 12px;
 }
