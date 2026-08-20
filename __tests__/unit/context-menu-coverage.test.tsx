@@ -91,3 +91,54 @@ describe('context-menu coverage — resolver', () => {
     expect(isEditableTarget(div)).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// B7: "Never let this happen unattended" — one click from any decision row to a
+// prefilled Short List rule on /policies.
+// ---------------------------------------------------------------------------
+describe('context-menu — never let this happen unattended (B7)', () => {
+  function pushFor(entity: EntityTarget): string {
+    let href = '';
+    const item = getActionsFor(entity).find((i) => i.id === 'never-unattended');
+    if (!item) throw new Error('never-unattended action missing');
+    item.run({ entity, push: (h: string) => { href = h; }, refresh: vi.fn(), close: () => {} });
+    return href;
+  }
+
+  function draftFrom(href: string) {
+    const raw = new URL(href, 'http://localhost').searchParams.get('prefill');
+    return JSON.parse(raw ?? '{}');
+  }
+
+  it('is offered on a decision row that carries its action type', () => {
+    const ids = getActionsFor(ent('decision', 'ar_1', { entityActionType: 'file_write' })).map((i) => i.id);
+    expect(ids).toContain('never-unattended');
+  });
+
+  it('is withheld when the row does not say what kind of action it was', () => {
+    const ids = getActionsFor(ent('decision', 'ar_1')).map((i) => i.id);
+    expect(ids).not.toContain('never-unattended');
+  });
+
+  it('deep-links to /policies with a Short List hold prefilled for that action type', () => {
+    const draft = draftFrom(pushFor(ent('decision', 'ar_1', { entityActionType: 'file_write' })));
+    expect(draft.policy_type).toBe('require_approval');
+    expect(draft.rules.action).toBe('require_approval');
+    expect(draft.rules.action_types).toEqual(['file_write']);
+    expect(draft.rules.short_list).toBe(true);
+    expect(draft.rules.target_prefix).toBeUndefined();
+    expect(draft.name).toBe('Hold file_write');
+  });
+
+  it('scopes the rule to the target when the row carries one', () => {
+    const draft = draftFrom(
+      pushFor(ent('decision', 'ar_2', { entityActionType: 'file_write', entityTarget: '.env' })),
+    );
+    expect(draft.rules.target_prefix).toBe('.env');
+    expect(draft.name).toBe('Hold file_write on .env');
+  });
+
+  it('/decisions tags its rows with the action type the rule is derived from', () => {
+    expect(src('app/decisions/page.tsx')).toMatch(/data-entity-action-type/);
+  });
+});

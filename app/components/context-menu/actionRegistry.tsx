@@ -3,6 +3,7 @@ import {
   Check,
   Ban,
   Shield,
+  ShieldAlert,
   Trash2,
   Copy,
   Link as LinkIcon,
@@ -158,6 +159,31 @@ function decisionActions(entity: EntityTarget): MenuItem[] {
   }
   items.push({ id: 'view', label: 'View decision', icon: Eye, run: (ctx) => ctx.push(`/decisions/${entity.id}`) });
   items.push({ id: 'guard', label: 'Open replay', icon: Shield, run: (ctx) => ctx.push(`/replay/${entity.id}`) });
+  // B7: one click from a decision to the rule that would have held it. The
+  // draft lands on /policies via ?prefill=; the human still confirms it there —
+  // nothing is written from a context menu (MAINTAINER.md §3).
+  const actionType = entity.data.entityActionType;
+  if (actionType) {
+    const target = entity.data.entityTarget;
+    items.push({
+      id: 'never-unattended',
+      label: 'Never let this happen unattended',
+      icon: ShieldAlert,
+      run: (ctx) => {
+        const draft = {
+          name: `Hold ${actionType}${target ? ` on ${target}` : ''}`,
+          policy_type: 'require_approval',
+          rules: {
+            action: 'require_approval',
+            action_types: [actionType],
+            ...(target ? { target_prefix: target } : {}),
+            short_list: true,
+          },
+        };
+        ctx.push(`/policies?prefill=${encodeURIComponent(JSON.stringify(draft))}`);
+      },
+    });
+  }
   items.push({
     id: 'delete',
     label: 'Delete',

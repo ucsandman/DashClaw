@@ -492,13 +492,12 @@ export default async function SetupPage() {
             >
               Connect an agent
             </Link>
-            <Link
-              href="/policies/packs"
-              className="rounded-lg border border-border-hover bg-surface-tertiary px-4 py-2 text-sm font-medium text-secondary transition-colors hover:bg-surface-elevated hover:text-primary"
-            >
-              Browse policy packs
-            </Link>
           </div>
+          <p className="text-sm text-secondary">
+            Your Short List is live — review it on <Link href="/policies" className="text-brand transition-colors hover:text-brand-hover">/policies</Link>. Add a{' '}
+            <Link href="/policies/packs" className="text-brand transition-colors hover:text-brand-hover">pack</Link> when you want more than catastrophe coverage; pack
+            rules start in Watch.
+          </p>
         </section>
 
         <section className="grid gap-4 md:grid-cols-3">

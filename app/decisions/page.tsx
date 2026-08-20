@@ -724,7 +724,7 @@ function DecisionsLedgerInner() {
                 const artifacts = parseJsonArray(action.artifacts_created);
 
                 return (
-                  <div key={action.action_id} data-entity-type="decision" data-entity-id={action.action_id} data-entity-status={action.status} className="overflow-hidden rounded-lg border border-border bg-surface-tertiary transition-colors hover:border-border-hover">
+                  <div key={action.action_id} data-entity-type="decision" data-entity-id={action.action_id} data-entity-status={action.status} data-entity-action-type={action.action_type} className="overflow-hidden rounded-lg border border-border bg-surface-tertiary transition-colors hover:border-border-hover">
                     <div
                       onClick={() => toggleExpand(action.action_id)}
                       role="button"
