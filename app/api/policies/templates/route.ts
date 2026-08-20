@@ -6,14 +6,19 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { getSql } from '../../../lib/db';
 import { getOrgId } from '../../../lib/org';
-import { getActivePolicies } from '../../../lib/repositories/guardrails.repository';
+import { getAllPolicies } from '../../../lib/repositories/guardrails.repository';
 import {
   PACK_PREVIEWS, AVAILABLE_PACKS, PACK_AUDIENCES, PACK_STRICTNESS,
   inferPolicyType, summarizeRules, bucketForPackPolicy,
 } from '../../../lib/policyPackPreviews';
 import type { PackPreview } from '../../../lib/policyPackPreviews';
 
-// Active policy names for the caller's org, used to mark packs as installed.
+// Policy names already present for the caller's org, used to mark packs as
+// installed. Rows in ANY active state count: the packs whose lines have no
+// Watch tier (read-only-analyst, fleet-control, outbound-comms-guard,
+// support-agent) install DORMANT (active = 0) by design, and an active-only
+// read made those packs permanently un-installed — the badge lied and the
+// re-install button silently no-opped.
 // Best-effort: any failure (no DB in tests, schema drift) degrades to an empty
 // set — the catalog itself must never 500 because the installed check couldn't run.
 async function loadInstalledPolicyNames(request: Request): Promise<Set<string>> {
@@ -23,7 +28,7 @@ async function loadInstalledPolicyNames(request: Request): Promise<Set<string>> 
   try {
     const sql = getSql();
     const orgId = getOrgId(request);
-    const rows = await getActivePolicies(sql, orgId);
+    const rows = await getAllPolicies(sql, orgId);
     return new Set(rows.map((r) => String(r.name)));
   } catch {
     return new Set();

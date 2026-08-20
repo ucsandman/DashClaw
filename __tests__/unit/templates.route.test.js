@@ -1,6 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeRequest } from '../helpers.js';
 
+const { mockSql, mockGetAllPolicies } = vi.hoisted(() => ({
+  mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
+  mockGetAllPolicies: vi.fn(async () => []),
+}));
+
+vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
+vi.mock('@/lib/repositories/guardrails.repository.js', () => ({
+  getAllPolicies: mockGetAllPolicies,
+}));
+
 const SAMPLE_YAML = `version: 1
 project: test-pack
 policies:
@@ -42,6 +52,7 @@ import { GET } from '@/api/policies/templates/route.js';
 describe('/api/policies/templates GET', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetAllPolicies.mockResolvedValue([]);
   });
 
   it('returns 200 with a templates array', async () => {
@@ -144,6 +155,35 @@ describe('/api/policies/templates GET', () => {
     const enterprise = data.templates.find(t => t.id === 'enterprise-strict');
     expect(enterprise.name).toBe('Enterprise Strict');
     expect(enterprise.recommended_for).toContain('SOC 2');
+  });
+
+  // Regression: the installed check read ACTIVE policies only, so a pack whose
+  // lines have no Watch tier — read-only-analyst, fleet-control,
+  // outbound-comms-guard, support-agent — installs dormant (active = 0) and
+  // could never show as installed. The badge lied and re-install silently
+  // no-opped.
+  it('counts a dormant row as installed (read-only-analyst)', async () => {
+    mockGetAllPolicies.mockResolvedValue([
+      { name: 'Block all shell commands', active: 0 },
+      { name: 'Data export requires approval', active: 0 },
+      { name: 'Warn when risk is high', active: 0 },
+    ]);
+    const res = await GET(makeRequest('http://localhost/api/policies/templates', {
+      headers: { 'x-org-id': 'org_1' },
+    }));
+    const data = await res.json();
+    const analyst = data.templates.find((t) => t.id === 'read-only-analyst');
+    expect(analyst).toBeTruthy();
+    expect(analyst.installed).toBe(true);
+  });
+
+  it('still reports a pack with a missing line as not installed', async () => {
+    mockGetAllPolicies.mockResolvedValue([{ name: 'Block all shell commands', active: 1 }]);
+    const res = await GET(makeRequest('http://localhost/api/policies/templates', {
+      headers: { 'x-org-id': 'org_1' },
+    }));
+    const data = await res.json();
+    expect(data.templates.every((t) => t.installed === false)).toBe(true);
   });
 
   it('returns 500 on unexpected error', async () => {

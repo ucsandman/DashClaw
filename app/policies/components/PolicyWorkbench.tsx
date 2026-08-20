@@ -213,9 +213,12 @@ export default function PolicyWorkbench() {
           </button>
         }
         defaultOpen={false}
-        // A `?policy=` deep link must always land on a visible row — never let
-        // a persisted collapse hide the section the link is trying to reveal.
-        forceOpen={Boolean(highlightPolicy) || forceLedgerOpen}
+        // A `?policy=` deep link must always land on a visible row, and a
+        // `?prefill=` link opens Ledger's rule-editor MODAL — which also lives
+        // inside this section. Never let a persisted collapse hide what the
+        // link came here to show: a hidden container renders the editor to
+        // nothing and the human sees an ordinary /policies page.
+        forceOpen={Boolean(highlightPolicy) || Boolean(prefill) || forceLedgerOpen}
         // Release the top-row force the moment the human manually toggles the
         // section — otherwise forceOpen would win forever and the section
         // could never be collapsed again for the rest of the page session.

@@ -242,7 +242,7 @@ function PackDrawer({ pack, allPacks, onClose, onJump, onInstalled }: PackDrawer
   const [simulation, setSimulation] = useState<PackSimulation | null>(null);
   const [installing, setInstalling] = useState(false);
   const [installResult, setInstallResult] = useState<
-    { imported: number; skipped: number; watched: number; dormant: number } | null
+    { imported: number; skipped: number; capSkipped: number; watched: number; dormant: number } | null
   >(null);
   const [installError, setInstallError] = useState<string | null>(null);
 
@@ -313,9 +313,15 @@ function PackDrawer({ pack, allPacks, onClose, onJump, onInstalled }: PackDrawer
       if (!res.ok) {
         throw new Error(res.status === 403 ? 'Admin access required to install packs.' : data.error || 'Install failed');
       }
+      // A skip is not one thing: a name collision is a no-op, but a line the
+      // ten-line cap turned away was DROPPED and the operator has to know.
+      // The reason rides as a suffix on skipped_names.
+      const skippedNames: string[] = Array.isArray(data.skipped_names) ? data.skipped_names : [];
+      const capSkipped = skippedNames.filter((n) => String(n).includes('(short_list_full)')).length;
       setInstallResult({
         imported: data.imported ?? 0,
-        skipped: data.skipped ?? 0,
+        skipped: Math.max(0, (data.skipped ?? 0) - capSkipped),
+        capSkipped,
         watched: data.watched ?? 0,
         // Types with no Watch tier install dormant; `dormant` is newer than the
         // rest of this payload, so read it as optional.
@@ -474,6 +480,11 @@ function PackDrawer({ pack, allPacks, onClose, onJump, onInstalled }: PackDrawer
               {installResult.dormant > 0 && (
                 <p className="mt-1 text-tertiary">
                   {installResult.dormant} installed dormant — they can only interrupt; turn them on from the Short List.
+                </p>
+              )}
+              {installResult.capSkipped > 0 && (
+                <p className="mt-1 text-error">
+                  {installResult.capSkipped} dropped — the Short List is full (10 of 10).
                 </p>
               )}
             </div>

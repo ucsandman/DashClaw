@@ -11,8 +11,9 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
  * glossary, and a rule editor that can put a new line on the Short List.
  */
 
+let searchParams = '';
 vi.mock('next/navigation', () => ({
-  useSearchParams: () => new URLSearchParams(''),
+  useSearchParams: () => new URLSearchParams(searchParams),
 }));
 
 import PolicyWorkbench from '@/policies/components/PolicyWorkbench';
@@ -123,6 +124,7 @@ describe('/policies workbench layout (B5)', () => {
     vi.stubGlobal('fetch', mockFetch());
     Element.prototype.scrollIntoView = vi.fn();
     try { localStorage.clear(); } catch { /* jsdom always has it */ }
+    searchParams = '';
   });
 
   afterEach(() => {
@@ -165,6 +167,28 @@ describe('/policies workbench layout (B5)', () => {
     const menu = within(topRow()).getByRole('menu');
     expect(within(menu).getByRole('menuitem', { name: /Browse packs/ }).getAttribute('href')).toBe('/policies/packs');
     expect(within(menu).getByRole('menuitem', { name: /Import pack \/ YAML/ })).toBeTruthy();
+  });
+
+  // The "Never let this happen unattended" flow on /decisions deep-links here
+  // with ?prefill=. The editor it opens lives INSIDE the collapsed-by-default
+  // ledger section, so without a forceOpen the human lands on an ordinary
+  // /policies page and the whole flow dead-ends.
+  it('shows the prefilled rule editor even though the ledger is collapsed', async () => {
+    searchParams = `prefill=${encodeURIComponent(JSON.stringify({
+      name: 'Never let this happen unattended',
+      policy_type: 'require_approval',
+      rules: { action_types: ['deploy'], short_list: true },
+    }))}`;
+    render(<PolicyWorkbench />);
+
+    // getByRole skips anything inside a `hidden` ancestor — finding the dialog
+    // is the proof that the section is genuinely open.
+    const dialog = await screen.findByRole('dialog', { name: 'New rule' });
+    expect(within(dialog).getByLabelText('Policy Name')).toHaveProperty(
+      'value',
+      'Never let this happen unattended',
+    );
+    expect((within(dialog).getByLabelText(/Interrupts unattended runs \(Short List\)/) as HTMLInputElement).checked).toBe(true);
   });
 
   it('writes rules.short_list when the Short List checkbox is ticked', async () => {
