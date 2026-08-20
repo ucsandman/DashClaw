@@ -477,13 +477,22 @@ export default function Ledger({
   useEffect(() => { refetch(); }, [refetch, refreshSignal]);
 
   // Pick the default lens once, from the size of the rule set (spec 4.6).
-  // Never default into a lens with nothing to render: Sentences is built from
-  // the contract, which a caller may not have passed.
+  // Two things veto the Sentences default:
+  //  - no governed contract — Sentences is built from it, so it would render
+  //    an empty state on a page that has rules;
+  //  - a struck-through inert row to show. The strike-through and the grant
+  //    that caused it live in the Table lens only, and an inert rule the human
+  //    cannot see is the false confidence this product exists to prevent
+  //    (spec 4.1). Cheaper than teaching Sentences a second grammar.
   useEffect(() => {
     if (loading || lensPicked.current) return;
     lensPicked.current = true;
-    if (policies.length < 10 && contract?.governed) setLens('sentences');
-  }, [loading, policies, contract]);
+    // Same membership test the above-the-fold alert uses (PostureHero): an
+    // inert rule NOT on the Short List is the one that only the ledger shows.
+    const onList = new Set((summary?.shortList ?? []).map((line) => line.id));
+    const hasVisibleInert = (summary?.inert ?? []).some((p) => !onList.has(p.id));
+    if (policies.length < 10 && contract?.governed && !hasVisibleInert) setLens('sentences');
+  }, [loading, policies, contract, summary]);
 
   /** Any deliberate lens choice — human or reveal — retires the size default. */
   const chooseLens = useCallback((next: Lens) => {
@@ -714,11 +723,10 @@ export default function Ledger({
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const full = res.status === 409 && body.code === 'SHORT_LIST_FULL';
-        setCapFull(full);
-        setEditorError(full
-          ? 'The Short List is full (10 of 10). Remove one line to add this one.'
-          : (body.error || 'Failed to save rule'));
+        // The route owns this sentence (SHORT_LIST_CAP lives there); echoing
+        // it here is how the two copies drift apart. Only the link is ours.
+        setCapFull(body.code === 'SHORT_LIST_FULL');
+        setEditorError(body.error || 'Failed to save rule');
       } else {
         setShowEditor(false);
         await afterChange();
@@ -1232,7 +1240,7 @@ export default function Ledger({
               <h3>{editingId ? 'Edit rule' : 'New rule'}</h3>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {!editingId && (
-                  <button className={`${styles.btn} ${styles.btnSm}`} onClick={openGenerate}>
+                  <button className={`${styles.btn} ${styles.btnSm}`} onClick={() => { setShowEditor(false); openGenerate(); }}>
                     <Sparkles size={13} aria-hidden="true" />Generate with AI
                   </button>
                 )}

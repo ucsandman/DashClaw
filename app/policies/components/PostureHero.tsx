@@ -19,7 +19,6 @@ import styles from '../policies.module.css';
 interface PostureCardsProps {
   summary: PolicySummary;
   friction: { interrupts_7d: number; est_seconds: number } | null;
-  inboxCount: number;
   /** Opens the ledger on the grants that nullified the inert rules. */
   onReviewSuppressed: (grantIds: string[]) => void;
 }

@@ -16,6 +16,9 @@ import ExternalVerdictPanel from './ExternalVerdictPanel';
 import Ledger, { type LedgerActions } from './Ledger';
 import styles from '../policies.module.css';
 
+/** TriageInbox reports its count; nothing above the fold shows it any more. */
+const noop = () => {};
+
 /**
  * The /policies workbench, rebuilt around the Short List (spec §4).
  *
@@ -49,13 +52,17 @@ export default function PolicyWorkbench() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refreshSignal, setRefreshSignal] = useState(0);
-  const [, setInboxCount] = useState(0);
   const [packsOpen, setPacksOpen] = useState(false);
   // The top action row calls into Ledger's modals, which live inside the
   // collapsible ledger section. If that section is collapsed (persisted in
   // localStorage), the click would silently no-op behind a hidden div —
   // force the section open the moment any of those actions fires.
-  const [forceLedgerOpen, setForceLedgerOpen] = useState(false);
+  //
+  // A `?prefill=` link opens Ledger's rule-editor MODAL, which lives in that
+  // same section, so it seeds the force too — as a ONE-SHOT: it is released by
+  // the first manual toggle like every other force, rather than pinning the
+  // section open for the rest of the page session.
+  const [forceLedgerOpen, setForceLedgerOpen] = useState(Boolean(prefill));
 
   const ledgerActions = useRef<LedgerActions | null>(null);
 
@@ -168,7 +175,6 @@ export default function PolicyWorkbench() {
       <PostureCards
         summary={summary}
         friction={contract?.friction ?? null}
-        inboxCount={0}
         // Same shape as the top action row: force the (possibly collapsed)
         // ledger section open, then call into Ledger via its registered ref.
         onReviewSuppressed={(grantIds) => {
@@ -185,7 +191,7 @@ export default function PolicyWorkbench() {
         />
       </div>
 
-      <TriageInbox onChanged={refresh} onCount={setInboxCount} />
+      <TriageInbox onChanged={refresh} onCount={noop} />
 
       {/* Expanded, always mounted: it owns id="calibration" and scrolls itself
           into view for /policies#calibration. A collapsible that unmounts it
@@ -213,12 +219,9 @@ export default function PolicyWorkbench() {
           </button>
         }
         defaultOpen={false}
-        // A `?policy=` deep link must always land on a visible row, and a
-        // `?prefill=` link opens Ledger's rule-editor MODAL — which also lives
-        // inside this section. Never let a persisted collapse hide what the
-        // link came here to show: a hidden container renders the editor to
-        // nothing and the human sees an ordinary /policies page.
-        forceOpen={Boolean(highlightPolicy) || Boolean(prefill) || forceLedgerOpen}
+        // A `?policy=` deep link must always land on a visible row — never let
+        // a persisted collapse hide the section the link is trying to reveal.
+        forceOpen={Boolean(highlightPolicy) || forceLedgerOpen}
         // Release the top-row force the moment the human manually toggles the
         // section — otherwise forceOpen would win forever and the section
         // could never be collapsed again for the rest of the page session.
@@ -250,7 +253,6 @@ export default function PolicyWorkbench() {
             </span>
           </>
         }
-        defaultOpen={false}
       >
         <ExternalVerdictPanel />
       </CollapsibleSection>

@@ -93,12 +93,13 @@ const POLICY_ROWS = [
   },
 ];
 
+let summary: any = SUMMARY;
 let posted: Array<{ url: string; body: any }>;
 
 function mockFetch() {
   posted = [];
   const routes: Record<string, () => unknown> = {
-    '/api/policies/summary': () => SUMMARY,
+    '/api/policies/summary': () => summary,
     '/api/policies/contract': () => CONTRACT,
     '/api/calibration/controller': () => CONTROLLER,
     '/api/policies': () => ({ policies: POLICY_ROWS }),
@@ -125,6 +126,7 @@ describe('/policies workbench layout (B5)', () => {
     Element.prototype.scrollIntoView = vi.fn();
     try { localStorage.clear(); } catch { /* jsdom always has it */ }
     searchParams = '';
+    summary = SUMMARY;
   });
 
   afterEach(() => {
@@ -137,6 +139,9 @@ describe('/policies workbench layout (B5)', () => {
     await screen.findByText('The Short List');
 
     const headings = Array.from(container.querySelectorAll('h2')).map((h) => (h.textContent || '').trim());
+    // Pinned: a new section silently appended (or one lost) is exactly the
+    // drift this test exists to catch.
+    expect(headings).toHaveLength(5);
     expect(headings[0]).toBe('The Short List');
     expect(headings[1]).toBe('Needs your call');
     expect(headings[2]).toBe('Calibration');
@@ -189,6 +194,27 @@ describe('/policies workbench layout (B5)', () => {
       'Never let this happen unattended',
     );
     expect((within(dialog).getByLabelText(/Interrupts unattended runs \(Short List\)/) as HTMLInputElement).checked).toBe(true);
+  });
+
+  // The strike-through that says "this rule is nullified by a grant" only
+  // exists in the Table lens. A small org would otherwise open on Sentences
+  // and never see that one of its rules does nothing.
+  it('keeps the Table lens when a non-Short-List rule is inert', async () => {
+    summary = {
+      ...SUMMARY,
+      inert: [{
+        id: 'gp_watched',
+        name: 'Watched deploy gate',
+        policy_type: 'warn_action_type',
+        action_types: ['deploy'],
+        suppressed_by: [{ id: 'gp_grant', name: '[Grant] deploy', target_prefix: null }],
+      }],
+    };
+    render(<PolicyWorkbench />);
+    fireEvent.click(await screen.findByRole('button', { name: /Everything else/ }));
+
+    const table = await screen.findByRole('tab', { name: /Table/ });
+    await waitFor(() => expect(table.getAttribute('aria-selected')).toBe('true'));
   });
 
   it('writes rules.short_list when the Short List checkbox is ticked', async () => {

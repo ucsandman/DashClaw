@@ -76,7 +76,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const { imported, skipped, errors, watched, dormant } = await importPolicies(
+    const { imported, skipped, errors, watched, short_listed, dormant } = await importPolicies(
       sql, orgId, policies as Array<Record<string, unknown>>,
     );
 
@@ -84,9 +84,11 @@ export async function POST(request: Request) {
       imported: imported.length,
       skipped: skipped.length,
       skipped_names: skipped,
-      // Rules demoted to Watch on install (Short List, spec 2.3) — they record
-      // and do not interrupt. The install banner reports this.
+      // Bucket split for the install banner (Short List, spec 2.3): `watched`
+      // rules record and never interrupt; `short_listed` rules kept their
+      // interrupting action because the pack opted them in and a slot was free.
       watched,
+      short_listed,
       // Rules installed dormant (active = 0) because their type has no Watch
       // tier; a human promotes them from /policies.
       dormant,

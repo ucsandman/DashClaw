@@ -5,10 +5,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 /**
  * The pack-install banner has to be honest about what an install actually did.
  *
- * Two lies it used to tell: it called every import an "imported rule" without
- * saying the rules land in Watch and cannot interrupt, and it rendered every
- * skipped line as "already present" — including lines the hard ten-line Short
- * List cap DROPPED, which is not a no-op the operator can ignore.
+ * Three lies it used to tell: it said nothing about the rules landing in
+ * Watch; then it said ALL of them landed in Watch and "none of them can
+ * interrupt", which is exactly false for catastrophe-only (every line opts
+ * into the Short List); and it rendered every skipped line as "already
+ * present" — including lines the hard ten-line cap DROPPED, which is not a
+ * no-op the operator can ignore.
  */
 
 vi.mock('next/link', () => ({
@@ -57,15 +59,32 @@ afterEach(() => {
 });
 
 describe('pack install banner', () => {
-  it('says the imported rules landed in Watch and cannot interrupt', async () => {
-    await install({ imported: 2, skipped: 0, skipped_names: [], watched: 2, dormant: 0 });
+  it('says the watched rules cannot interrupt', async () => {
+    await install({ imported: 2, skipped: 0, skipped_names: [], watched: 2, short_listed: 0, dormant: 0 });
 
-    expect(await screen.findByText(/Installed 2 rules in Watch\./)).toBeTruthy();
-    expect(screen.getByText(/none of them can interrupt until you promote them/)).toBeTruthy();
+    expect(await screen.findByText(/2 in Watch — they record and feed calibration; none can interrupt until you promote them\./)).toBeTruthy();
+    expect(screen.queryByText(/Short List — these CAN interrupt/)).toBeNull();
+  });
+
+  // catastrophe-only: every line carries short_list: true, so it skips the
+  // Watch demotion entirely. A banner counting off `imported` claimed four
+  // rules that block a `DROP TABLE` "cannot interrupt".
+  it('says out loud when the installed rules CAN interrupt', async () => {
+    await install({ imported: 4, skipped: 0, skipped_names: [], watched: 0, short_listed: 4, dormant: 0 });
+
+    expect(await screen.findByText(/4 on the Short List — these CAN interrupt\./)).toBeTruthy();
+    expect(screen.queryByText(/in Watch/)).toBeNull();
+  });
+
+  it('renders both buckets when a pack splits across them', async () => {
+    await install({ imported: 3, skipped: 0, skipped_names: [], watched: 2, short_listed: 1, dormant: 0 });
+
+    expect(await screen.findByText(/2 in Watch/)).toBeTruthy();
+    expect(screen.getByText(/1 on the Short List — these CAN interrupt\./)).toBeTruthy();
   });
 
   it('names the dormant installs separately', async () => {
-    await install({ imported: 1, skipped: 0, skipped_names: [], watched: 1, dormant: 1 });
+    await install({ imported: 1, skipped: 0, skipped_names: [], watched: 1, short_listed: 0, dormant: 1 });
 
     expect(await screen.findByText(/1 installed dormant/)).toBeTruthy();
     expect(screen.getByText(/turn them on from the Short List/)).toBeTruthy();
@@ -77,18 +96,19 @@ describe('pack install banner', () => {
       skipped: 3,
       skipped_names: ['Already here', 'Analyst role (short_list_full)', 'Second gate (short_list_full)'],
       watched: 0,
+      short_listed: 0,
       dormant: 0,
     });
 
     // The two the cap turned away are DROPPED, not "already present".
     expect(await screen.findByText(/2 dropped — the Short List is full \(10 of 10\)\./)).toBeTruthy();
-    expect(screen.getByText(/1 already present, skipped/)).toBeTruthy();
+    expect(screen.getByText(/1 already present, skipped\./)).toBeTruthy();
   });
 
   it('reads a payload with no skipped_names without inventing cap drops', async () => {
     await install({ imported: 1, skipped: 1 });
 
-    expect(await screen.findByText(/1 already present, skipped/)).toBeTruthy();
+    expect(await screen.findByText(/1 already present, skipped\./)).toBeTruthy();
     expect(screen.queryByText(/dropped/)).toBeNull();
   });
 });

@@ -31,8 +31,19 @@ export interface ImportPoliciesResult {
   /** Names that were not imported, each with a parenthesised reason where it is not a name conflict. */
   skipped: string[];
   errors: string[];
-  /** How many imported rules were demoted to Watch (they record, they do not interrupt). */
+  /**
+   * How many imported rules LANDED in Watch — they fire and are recorded, they
+   * never interrupt. This is `imported.length - short_listed`, not the number
+   * DEMOTED: a pack line that was already warn-tier is in Watch too, and the
+   * install banner has to name the bucket a rule is in, not how it got there.
+   */
   watched: number;
+  /**
+   * How many imported rules kept their interrupting action because the pack
+   * opted them in with `rules.short_list: true` and a slot was free. These CAN
+   * stop an agent — the banner must say so out loud.
+   */
+  short_listed: number;
   /**
    * How many rules installed DORMANT (active = 0) because their type has no
    * Watch tier. Not counted in `imported`: `imported + dormant` is the number
@@ -69,7 +80,6 @@ export async function importPolicies(
   const imported: ImportedPolicySummary[] = [];
   const skipped: string[] = [];
   const errors: string[] = [];
-  let watched = 0;
   let dormant = 0;
 
   // Slots already taken by this org's active interrupting rules. Read once:
@@ -113,7 +123,6 @@ export async function importPolicies(
         if (hasWatchTier(policyType)) {
           effectiveRules = toWatchTier(parsedRules, policyType);
           policyType = watchPolicyType(policyType);
-          watched++;
         } else {
           // No warn tier exists for this type, so there is nothing we could
           // write that would make it record-without-interrupting. Spec 2.3
@@ -151,7 +160,9 @@ export async function importPolicies(
     }
   }
 
-  return { imported, skipped, errors, watched, dormant };
+  // Every active insert that did not claim a Short List slot is in Watch, by
+  // construction — no separate counter can drift away from that.
+  return { imported, skipped, errors, watched: imported.length - claimed, short_listed: claimed, dormant };
 }
 
 /** Load a named pack and import its policies for the org. */

@@ -242,7 +242,7 @@ function PackDrawer({ pack, allPacks, onClose, onJump, onInstalled }: PackDrawer
   const [simulation, setSimulation] = useState<PackSimulation | null>(null);
   const [installing, setInstalling] = useState(false);
   const [installResult, setInstallResult] = useState<
-    { imported: number; skipped: number; capSkipped: number; watched: number; dormant: number } | null
+    { skipped: number; capSkipped: number; watched: number; shortListed: number; dormant: number } | null
   >(null);
   const [installError, setInstallError] = useState<string | null>(null);
 
@@ -319,12 +319,16 @@ function PackDrawer({ pack, allPacks, onClose, onJump, onInstalled }: PackDrawer
       const skippedNames: string[] = Array.isArray(data.skipped_names) ? data.skipped_names : [];
       const capSkipped = skippedNames.filter((n) => String(n).includes('(short_list_full)')).length;
       setInstallResult({
-        imported: data.imported ?? 0,
         skipped: Math.max(0, (data.skipped ?? 0) - capSkipped),
         capSkipped,
+        // Per BUCKET, never per total: a pack line that opted into the Short
+        // List (catastrophe-only opts in on all four) keeps its interrupting
+        // action, so "installed in Watch, none of them can interrupt" would be
+        // a flat lie if it were counted off `imported`.
         watched: data.watched ?? 0,
-        // Types with no Watch tier install dormant; `dormant` is newer than the
-        // rest of this payload, so read it as optional.
+        shortListed: data.short_listed ?? 0,
+        // Types with no Watch tier install dormant; both of these are newer
+        // than the rest of this payload, so read them as optional.
         dormant: data.dormant ?? 0,
       });
       onInstalled();
@@ -472,11 +476,21 @@ function PackDrawer({ pack, allPacks, onClose, onJump, onInstalled }: PackDrawer
           {installError && <p className="mb-2 text-xs text-error">{installError}</p>}
           {installResult && (
             <div className="mb-2 text-xs text-success">
-              <p>
-                Installed {installResult.imported} {installResult.imported === 1 ? 'rule' : 'rules'} in Watch.
-                They record and feed calibration; none of them can interrupt until you promote them.
-                {installResult.skipped > 0 && <span className="text-tertiary"> · {installResult.skipped} already present, skipped</span>}
-              </p>
+              {installResult.watched > 0 && (
+                <p>
+                  {installResult.watched} in Watch — they record and feed calibration; none can interrupt until you promote them.
+                </p>
+              )}
+              {installResult.shortListed > 0 && (
+                <p className="mt-1">
+                  {installResult.shortListed} on the Short List — these CAN interrupt.
+                </p>
+              )}
+              {installResult.skipped > 0 && (
+                <p className="mt-1 text-tertiary">
+                  {installResult.skipped} already present, skipped.
+                </p>
+              )}
               {installResult.dormant > 0 && (
                 <p className="mt-1 text-tertiary">
                   {installResult.dormant} installed dormant — they can only interrupt; turn them on from the Short List.

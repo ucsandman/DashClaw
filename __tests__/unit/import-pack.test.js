@@ -35,7 +35,7 @@ beforeEach(() => {
 describe('import-pack', () => {
   it('empty policy list → zero imported/skipped/errors (provisioning-safe edge)', async () => {
     const result = await importPolicies(vi.fn(), 'org_edge', []);
-    expect(result).toEqual({ imported: [], skipped: [], errors: [], watched: 0, dormant: 0 });
+    expect(result).toEqual({ imported: [], skipped: [], errors: [], watched: 0, short_listed: 0, dormant: 0 });
   });
 
   it('loadPackPolicies reads the real claude-code-starter pack (4 policies)', async () => {
@@ -78,13 +78,27 @@ describe('import-pack — Short List admission', () => {
     const policies = await loadPackPolicies('claude-code-starter');
     const result = await importPolicies(vi.fn(), 'org_1', policies);
     expect(result.imported).toHaveLength(4);
-    // block + two require_approval rules demoted; the rate_limit was already warn.
-    expect(result.watched).toBe(3);
+    // `watched` is the bucket the rules LANDED in, not how they got there:
+    // block + two require_approval rules were demoted, the rate_limit was
+    // already warn — all four are in Watch, none can interrupt.
+    expect(result.watched).toBe(4);
+    expect(result.short_listed).toBe(0);
     for (const row of stored()) {
       expect(['warn', undefined]).toContain(row.rules.action);
       expect(row.policy_type).not.toBe('require_approval');
       expect(row.policy_type).not.toBe('block_action_type');
     }
+  });
+
+  // The install banner reads these two numbers. catastrophe-only is the pack
+  // that proves they must be separate: every line opts in with short_list, so
+  // "installed in Watch, none of them can interrupt" would be a flat lie.
+  it('the real catastrophe-only pack installs entirely on the Short List', async () => {
+    const policies = await loadPackPolicies('catastrophe-only');
+    const result = await importPolicies(vi.fn(), 'org_1', policies);
+    expect(result.imported).toHaveLength(4);
+    expect(result.short_listed).toBe(4);
+    expect(result.watched).toBe(0);
   });
 
   it('a short_list: true line keeps its interrupting action and its flags', async () => {
@@ -97,6 +111,7 @@ describe('import-pack — Short List admission', () => {
       },
     ]);
     expect(result.watched).toBe(0);
+    expect(result.short_listed).toBe(1);
     expect(stored()).toEqual([
       {
         name: 'Catastrophe',

@@ -66,7 +66,6 @@ function renderCards(props: Record<string, unknown> = {}) {
     <PostureCards
       summary={summary(props.summary as Record<string, unknown> | undefined)}
       friction={(props.friction as { interrupts_7d: number; est_seconds: number } | null) ?? { interrupts_7d: 1, est_seconds: 20 }}
-      inboxCount={0}
       onReviewSuppressed={() => {}}
     />
   );
