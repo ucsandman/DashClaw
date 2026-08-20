@@ -6,6 +6,9 @@ import { POLICY_MODE_CATALOG, type InterruptionLevel } from './catalog';
 import { nominalDecision } from './compile';
 import { SHIELDS, matchShieldsToPolicies } from '../../policies/lib/shields';
 import { findInertPolicies, type InertPolicy } from '../inert-policies';
+import { describePolicyScope } from './contract';
+import { SHORT_LIST_CAP, isShortListLine, shortListTier, type ShortListTier } from '../guardrails/short-list';
+import { INTERRUPTION_BUDGET_DEFAULTS } from '../posture/loosening';
 import type { GuardPolicyType, DecisionType } from '@/lib/types';
 
 export interface ActivePolicyRow {
@@ -53,6 +56,59 @@ export interface PolicySummaryShield {
   lastFiredAt: string | null;
 }
 
+/** One line on the Short List — the derived set allowed to interrupt (spec 4.2). */
+export interface ShortListLine {
+  id: string;
+  name: string;
+  tier: ShortListTier;
+  policy_type: string;
+  /** Plain-English one-liner, the same sentence the Sentences lens shows. */
+  scope: string;
+  fired30d: number;
+  ungrantable: boolean;
+  shape_exceptions: string[];
+  active: boolean;
+  /** Seeded at org birth by the catastrophe pack, rather than added by hand. */
+  seeded: boolean;
+}
+
+/** A rule worth having that the org does not have yet. Never auto-applied. */
+export interface PolicySuggestion {
+  id: 'real_money';
+  title: 'Real money';
+  scope: string;
+  rule: {
+    policy_type: 'require_approval';
+    rules: {
+      action: 'require_approval';
+      action_types: string[];
+      ungrantable: true;
+      short_list: true;
+    };
+  };
+}
+
+export interface BudgetReport {
+  policiesOverBudget: number;
+  shapesOverBudget: number;
+  window_hours: number;
+  budget: number;
+  shape_budget: number;
+}
+
+/** Inputs the summary cannot derive from the policy rows alone. */
+export interface PolicySummaryExtras {
+  /** The spend class, read from the spend-lockdown pack by the caller. */
+  spendActionTypes?: string[];
+  policiesOverBudget?: number;
+  shapesOverBudget?: number;
+  /** The org's configured budget, so the report never contradicts the guard. */
+  budget?: number;
+}
+
+/** Names the catastrophe pack writes at org birth. */
+const SEEDED_NAME_PREFIX = 'Catastrophe Pack — ';
+
 export interface PolicySummary {
   governed: boolean;
   modes: PolicySummaryMode[];
@@ -73,6 +129,14 @@ export interface PolicySummary {
    *  policy is worse than no policy — it manufactures false confidence — so
    *  /policies renders these with the suppressing grant. */
   inert: InertPolicy[];
+  /** The rules allowed to interrupt, derived (never stored). Spec 4.2. */
+  shortList: ShortListLine[];
+  /** Hard cap on the above. An 11th line is a 409, not a silent overflow. */
+  shortListCap: typeof SHORT_LIST_CAP;
+  /** Rules worth having that this org does not have. A human clicks to adopt. */
+  suggestions: PolicySuggestion[];
+  /** What the interruption budget is currently relieving. Spec 4.4. */
+  budgetReport: BudgetReport;
 }
 
 function policyTargetsAllAgents(agentIds: string | null | undefined): boolean {
@@ -120,6 +184,7 @@ export function buildPolicySummary(
   decisions30d: OutcomeCounts,
   agentsTotal: number,
   pendingApprovals: number,
+  extras: PolicySummaryExtras = {},
 ): PolicySummary {
   const governed = active.length > 0;
 
@@ -190,5 +255,97 @@ export function buildPolicySummary(
     // F1: gating rules an active grant currently nullifies. Computed here so
     // every consumer of the summary sees the same truth as the cockpit.
     inert: findInertPolicies(active as Parameters<typeof findInertPolicies>[0]),
+    shortList: buildShortList(active, counts),
+    shortListCap: SHORT_LIST_CAP,
+    suggestions: buildSuggestions(active, extras.spendActionTypes ?? []),
+    budgetReport: buildBudgetReport(extras),
+  };
+}
+
+function stringList(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : [];
+}
+
+/**
+ * The Short List: membership is DERIVED from the rules (block/require_approval,
+ * or the explicit `short_list` opt-in), never stored. One source of truth with
+ * the write paths, which enforce the cap through the same predicate.
+ */
+function buildShortList(
+  active: ActivePolicyRow[],
+  counts: Record<string, PolicyDecisionCount>,
+): ShortListLine[] {
+  const out: ShortListLine[] = [];
+  for (const p of active) {
+    const parsed = parseRules(p.rules);
+    if (!isShortListLine(p.policy_type, parsed)) continue;
+    out.push({
+      id: p.id,
+      name: p.name,
+      tier: shortListTier(p.policy_type, parsed),
+      policy_type: p.policy_type,
+      scope: describePolicyScope(p),
+      fired30d: counts[p.id]?.fired ?? 0,
+      ungrantable: parsed.ungrantable === true,
+      shape_exceptions: stringList(parsed.shape_exceptions),
+      active: p.active === undefined || Number(p.active) === 1,
+      seeded: p.name.startsWith(SEEDED_NAME_PREFIX),
+    });
+  }
+  return out;
+}
+
+/**
+ * Real money is the one class worth proposing unprompted: an unattended agent
+ * that can spend is the failure nobody recovers from by reverting a commit.
+ * Proposed only when NOTHING already gates the class — and proposed, never
+ * applied (MAINTAINER.md 3: enforcement moves only on a human click).
+ */
+function buildSuggestions(active: ActivePolicyRow[], spendActionTypes: string[]): PolicySuggestion[] {
+  if (spendActionTypes.length === 0) return [];
+  const spend = new Set(spendActionTypes);
+  const alreadyGated = active.some((p) => {
+    const parsed = parseRules(p.rules);
+    const decision = nominalDecision({
+      name: p.name,
+      policy_type: p.policy_type as GuardPolicyType,
+      rules: parsed,
+      active: 1,
+    });
+    if (decision !== 'require_approval' && decision !== 'block') return false;
+    return stringList(parsed.action_types).some((t) => spend.has(t));
+  });
+  if (alreadyGated) return [];
+
+  const rules = {
+    action: 'require_approval',
+    action_types: spendActionTypes,
+    ungrantable: true,
+    short_list: true,
+  } as const;
+  return [
+    {
+      id: 'real_money',
+      title: 'Real money',
+      scope: describePolicyScope({
+        id: 'suggestion_real_money',
+        name: 'Real money',
+        policy_type: 'require_approval',
+        rules,
+      }),
+      rule: { policy_type: 'require_approval', rules },
+    },
+  ];
+}
+
+function buildBudgetReport(extras: PolicySummaryExtras): BudgetReport {
+  const budget = extras.budget ?? INTERRUPTION_BUDGET_DEFAULTS.perWindow;
+  return {
+    policiesOverBudget: extras.policiesOverBudget ?? 0,
+    shapesOverBudget: extras.shapesOverBudget ?? 0,
+    window_hours: INTERRUPTION_BUDGET_DEFAULTS.windowHours,
+    budget,
+    // One switch turns both grains off — mirrors the loosening route.
+    shape_budget: budget > 0 ? INTERRUPTION_BUDGET_DEFAULTS.shapePerWindow : 0,
   };
 }

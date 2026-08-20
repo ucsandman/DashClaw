@@ -4,6 +4,10 @@
 // params. Data-driven from policy rows — unknown types fall into `custom`.
 
 import { shapeKey } from '../policy-shapes';
+import {
+  buildPolicySummary as formSummary,
+  decompilePolicyForm,
+} from '../../policies/lib/policyFormModel';
 
 export interface ContractSentence {
   policy_id: string;
@@ -183,4 +187,28 @@ export function buildContract(
   const interrupts7d = view.interrupts.reduce((sum, x) => sum + x.fired_7d, 0);
   view.friction = { interrupts_7d: interrupts7d, est_seconds: interrupts7d * SECONDS_PER_INTERRUPT };
   return view;
+}
+
+/**
+ * The plain-English one-liner for a SINGLE rule — the same sentence the
+ * /policies Sentences lens shows, reused by the Short List so the two surfaces
+ * can never describe the same rule differently.
+ *
+ * buildContract is the definition; running one row through it costs nothing
+ * and forks nothing. Types it drops into `custom` (no sentence of their own)
+ * fall back to the policy form's canonical summary — exactly the fallback the
+ * Ledger's describeRule already uses.
+ */
+export function describePolicyScope(row: {
+  id: string;
+  name: string;
+  policy_type: string;
+  rules: string | Record<string, unknown> | null;
+}): string {
+  const rulesText = typeof row.rules === 'string' ? row.rules : JSON.stringify(row.rules ?? {});
+  const v = buildContract([{ ...row, rules: rulesText, active: 1 }], {});
+  const sentence = v.interrupts[0] ?? v.blocks[0] ?? v.silent[0];
+  if (sentence) return sentence.text;
+  if (v.grants[0]) return `never bother me about ${v.grants[0].label}`;
+  return formSummary(decompilePolicyForm({ ...row, rules: rulesText }));
 }

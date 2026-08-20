@@ -119,6 +119,22 @@ describe('demo workbench fixtures — /policies, /calibration, /doctor', () => {
     expect(s.shields.some((sh) => sh.on)).toBe(true);
     expect(s.decisions30d.total).toBeGreaterThan(0);
     expect(s.agents.total).toBeGreaterThan(0);
+    // Short List + budget report: the /policies rewrite reads these off the
+    // summary, so an empty demo response would render an empty page.
+    expect(s.shortListCap).toBe(10);
+    expect(s.shortList.length).toBeGreaterThan(0);
+    expect(s.shortList.length).toBeLessThanOrEqual(10);
+    expect(s.shortList[0]).toMatchObject({
+      id: expect.any(String), name: expect.any(String), tier: expect.any(String),
+      policy_type: expect.any(String), scope: expect.any(String), fired30d: expect.any(Number),
+      ungrantable: expect.any(Boolean), shape_exceptions: expect.any(Array),
+      active: expect.any(Boolean), seeded: expect.any(Boolean),
+    });
+    expect(Array.isArray(s.suggestions)).toBe(true);
+    expect(s.budgetReport).toMatchObject({
+      policiesOverBudget: expect.any(Number), shapesOverBudget: expect.any(Number),
+      window_hours: 24, budget: expect.any(Number), shape_budget: expect.any(Number),
+    });
   });
 
   it('approval floods (/api/approvals/floods) trip a real rule so the banner renders', () => {

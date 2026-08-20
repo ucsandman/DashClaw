@@ -1,6 +1,13 @@
 import { getHomepageDemoActions } from '../homepageDemoActions';
 import { describeAction } from '../plain-language';
 import { reliefReady } from '../guard/calibration';
+import {
+  SHORT_LIST_CAP,
+  isShortListLine,
+  shortListTier,
+  parseRules as parseShortListRules,
+} from '../guardrails/short-list';
+import { describePolicyScope } from '../policy-modes/contract';
 
 // Demo fixtures are dynamically-shaped demo data assembled fresh per request.
 // They are an external boundary to this module, so collections are typed loosely.
@@ -701,6 +708,39 @@ export function demoPolicySummary(fixtures: DemoFixtures) {
     scope: { allAgents: true },
     agents: { total: demoAgents(fixtures).agents.length },
     pendingApprovals,
+    // Short List: derived from the SAME predicate the real summary uses, so the
+    // demo /policies page cannot show a list the product would not.
+    shortList: active
+      .filter((p) => isShortListLine(p.policy_type, parseShortListRules(p.rules)))
+      .map((p) => {
+        const r = parseShortListRules(p.rules);
+        const c = counts.get(p.id);
+        return {
+          id: p.id,
+          name: p.name,
+          tier: shortListTier(p.policy_type, r),
+          policy_type: p.policy_type,
+          scope: describePolicyScope(p as { id: string; name: string; policy_type: string; rules: string }),
+          fired30d: c?.fired ?? 0,
+          ungrantable: r.ungrantable === true,
+          shape_exceptions: Array.isArray(r.shape_exceptions) ? (r.shape_exceptions as string[]) : [],
+          active: true,
+          seeded: String(p.name).startsWith('Catastrophe Pack — '),
+        };
+      })
+      .slice(0, SHORT_LIST_CAP),
+    shortListCap: SHORT_LIST_CAP,
+    // Empty on purpose: this file compiles into the EDGE middleware, which
+    // cannot read the spend-lockdown pack, and re-typing its 11 action types
+    // here would be the second hardcoded copy the real route exists to avoid.
+    suggestions: [] as Array<never>,
+    budgetReport: {
+      policiesOverBudget: 0,
+      shapesOverBudget: 0,
+      window_hours: 24,
+      budget: 50,
+      shape_budget: 10,
+    },
   };
 }
 
