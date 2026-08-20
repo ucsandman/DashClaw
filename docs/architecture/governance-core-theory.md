@@ -2,7 +2,7 @@
 
 **Status:** Accepted 2026-07-06 · **Author:** Claude (maintainer), under the MAINTAINER.md delegation
 **Companions:** `enforcement-boundary.md`, `trust-and-failure-model.md`, `durable-execution-finality.md`, `runtime-api.md`
-**Implemented component:** the calibrated interruption controller (§1) — `app/lib/guard/calibration.ts`, shipped shadow-mode-first, default off.
+**Implemented component:** the calibrated interruption controller (§1) — `app/lib/guard/calibration.ts`, shipped shadow-mode-first; shadow (Preview) is the default for an org with no explicit setting, `off` remains selectable.
 
 This document rebuilds the theory under DashClaw's governance runtime so its
 guarantees are provable rather than heuristic, section by section. Each section
@@ -214,7 +214,7 @@ resolution splits it along the charter's asymmetry:
   existing human-ratified rails (`/policies` tuning proposals —
   `raise_risk_threshold`). No third ratification path was built; the
   calibrated θ makes the existing rails *quantitative*.
-- **Shadow mode records, active mode enforces, off is the default.** Every
+- **Shadow mode records, active mode enforces; shadow is the day-0 default.** Every
   decision carries the assessment as a `_calibration` sibling in the persisted
   context (same pattern as `_risk_breakdown`) so shadow mode accumulates an
   auditable would-have-done trail before anyone flips it on. Activation is an
@@ -242,7 +242,7 @@ absorb it.
 
 ### 1.7 Implementation, complexity, hot-path budget
 
-Files (all shipped, default off):
+Files (all shipped; shadow is the default for an unconfigured org, off remains selectable):
 
 | Piece | File |
 |---|---|
@@ -276,7 +276,7 @@ they stay here, mapped to what the UI says instead:
 |---|---|
 | θ (calibrated threshold) | "Pausing above risk" |
 | α (target false-interruption rate) | "Acceptable false interruptions" |
-| adjudication | "Verdict from you" |
+| adjudication | "Verdict" (`CalibrationSection.tsx:470`) / "What your verdicts taught it" (`CalibrationSection.tsx:495`) |
 | `relief` mode | "Fewer interruptions" |
 | `active` mode | "Fewer and more interruptions" |
 | `reliefCeiling` | "the riskiest action you approved" |
@@ -711,13 +711,13 @@ what a sentence already says is decoration; per the mandate, it is left out.
 
 ## 9. Migration path from heuristics to the rebuilt core
 
-1. **Now (this ship):** controller off by default; adjudications start
-   calibrating θ once **shadow** is on, whether an operator switches it on
-   from /policies#calibration or (2026-08-20, The Short List) a fresh org is
-   seeded with `settings.mode = shadow` from day 0. Every decision carries
-   `_calibration`; nothing changes behavior in shadow. The observed-vs-target
-   panel makes the org's real false-interruption rate a number for the first
-   time.
+1. **Now (this ship):** shadow (Preview) is the default the moment an org
+   has no explicit `mode` setting — self-hosted orgs at birth and hosted
+   trial orgs at provisioning both start there (2026-08-20, The Short List);
+   `off` stays selectable for an operator who deliberately turns the
+   controller off. Every decision carries `_calibration`; nothing changes
+   behavior in shadow. The observed-vs-target panel makes the org's real
+   false-interruption rate a number for the first time.
 2. **After a shadow soak** (enough labels that Theorem 1's 11/T term is small —
    ~100+ adjudications): operator sets α deliberately and activates. The
    controller tightens automatically; loosening evidence flows to the existing
