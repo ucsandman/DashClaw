@@ -7,6 +7,7 @@ import { getSql } from '../../../lib/db';
 import { apiErrorResponse } from '../../../lib/apiErrors';
 import {
   getActivePolicies,
+  getAllPolicies,
   getDecisionCountsByPolicy,
   getDecisionOutcomeCounts,
 } from '../../../lib/repositories/guardrails.repository';
@@ -26,11 +27,19 @@ import {
 
 const ZERO_OUTCOMES: OutcomeCounts = { total: 0, allow: 0, warn: 0, require_approval: 0, block: 0 };
 
+/** The pack is a build artifact — read it once per process, not per request. */
+let spendActionTypesPromise: Promise<string[]> | null = null;
+
 /**
  * The real-money action class, read from the spend-lockdown pack's hold rule.
  * Best-effort: an unreadable pack means no suggestion, never a broken page.
  */
-async function loadSpendActionTypes(): Promise<string[]> {
+function loadSpendActionTypes(): Promise<string[]> {
+  spendActionTypesPromise ??= readSpendActionTypes();
+  return spendActionTypesPromise;
+}
+
+async function readSpendActionTypes(): Promise<string[]> {
   try {
     const policies = await loadPackPolicies('spend-lockdown');
     const hold = policies.find((p) => p.policy_type === 'require_approval');
@@ -55,9 +64,12 @@ export async function GET(request: Request) {
     const orgId = getOrgId(request);
     const sql = getSql();
 
-    const [active, agents, counts, decisions30d, stats, spendActionTypes, budget, overPolicies, overShapes] =
+    const [active, allPolicies, agents, counts, decisions30d, stats, spendActionTypes, budget, overPolicies, overShapes] =
       await Promise.all([
         getActivePolicies(sql, orgId),
+        // Dormant rules belong on the Short List too — struck through, with an
+        // On control. Degrades to the active set so the page never 500s.
+        getAllPolicies(sql, orgId).catch(() => null),
         listAgentsForOrg(sql, orgId).catch(() => [] as unknown[]),
         getDecisionCountsByPolicy(sql, orgId, 30).catch(() => ({})),
         getDecisionOutcomeCounts(sql, orgId, 30).catch(() => ZERO_OUTCOMES),
@@ -81,6 +93,7 @@ export async function GET(request: Request) {
       pendingApprovals,
       {
         spendActionTypes,
+        allPolicies: (allPolicies ?? undefined) as ActivePolicyRow[] | undefined,
         policiesOverBudget: overPolicies.size,
         shapesOverBudget: overShapes.size,
         budget,

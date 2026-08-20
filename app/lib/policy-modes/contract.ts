@@ -5,7 +5,7 @@
 
 import { shapeKey } from '../policy-shapes';
 import {
-  buildPolicySummary as formSummary,
+  buildPolicySummary as describeFormSummary,
   decompilePolicyForm,
 } from '../../policies/lib/policyFormModel';
 
@@ -210,5 +210,5 @@ export function describePolicyScope(row: {
   const sentence = v.interrupts[0] ?? v.blocks[0] ?? v.silent[0];
   if (sentence) return sentence.text;
   if (v.grants[0]) return `never bother me about ${v.grants[0].label}`;
-  return formSummary(decompilePolicyForm({ ...row, rules: rulesText }));
+  return describeFormSummary(decompilePolicyForm({ ...row, rules: rulesText }));
 }

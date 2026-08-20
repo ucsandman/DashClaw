@@ -3,27 +3,41 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const {
   mockSql,
   mockGetActivePolicies,
+  mockGetAllPolicies,
   mockGetDecisionCountsByPolicy,
   mockGetDecisionOutcomeCounts,
   mockListAgentsForOrg,
   mockGetActionStats,
+  mockGetInterruptionBudget,
+  mockGetOverBudgetPolicyIds,
+  mockGetOverBudgetShapeKeys,
 } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockGetActivePolicies: vi.fn(),
+  mockGetAllPolicies: vi.fn(),
   mockGetDecisionCountsByPolicy: vi.fn(),
   mockGetDecisionOutcomeCounts: vi.fn(),
   mockListAgentsForOrg: vi.fn(),
   mockGetActionStats: vi.fn(),
+  mockGetInterruptionBudget: vi.fn(),
+  mockGetOverBudgetPolicyIds: vi.fn(),
+  mockGetOverBudgetShapeKeys: vi.fn(),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
 vi.mock('@/lib/repositories/guardrails.repository.js', () => ({
   getActivePolicies: mockGetActivePolicies,
+  getAllPolicies: mockGetAllPolicies,
   getDecisionCountsByPolicy: mockGetDecisionCountsByPolicy,
   getDecisionOutcomeCounts: mockGetDecisionOutcomeCounts,
 }));
 vi.mock('@/lib/repositories/agents.repository.js', () => ({ listAgentsForOrg: mockListAgentsForOrg }));
 vi.mock('@/lib/repositories/actions.repository.js', () => ({ getActionStats: mockGetActionStats }));
+vi.mock('@/lib/guard/caches.js', () => ({
+  getInterruptionBudget: mockGetInterruptionBudget,
+  getOverBudgetPolicyIds: mockGetOverBudgetPolicyIds,
+  getOverBudgetShapeKeys: mockGetOverBudgetShapeKeys,
+}));
 
 import { GET } from '@/api/policies/summary/route.js';
 import { makeRequest as rawRequest } from '../helpers.js';
@@ -38,10 +52,16 @@ const rules = (o: Record<string, unknown>) => JSON.stringify(o);
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetActivePolicies.mockResolvedValue([]);
+  // Default: nothing dormant, so getAllPolicies mirrors getActivePolicies.
+  mockGetAllPolicies.mockImplementation((...args) => mockGetActivePolicies(...args));
   mockGetDecisionCountsByPolicy.mockResolvedValue({});
   mockGetDecisionOutcomeCounts.mockResolvedValue({ total: 0, allow: 0, warn: 0, require_approval: 0, block: 0 });
   mockListAgentsForOrg.mockResolvedValue([]);
   mockGetActionStats.mockResolvedValue({ current: { approval: 0 }, previousTotal: 0 });
+  // Non-default on purpose: a report that hardcodes 50 would pass either way.
+  mockGetInterruptionBudget.mockResolvedValue(25);
+  mockGetOverBudgetPolicyIds.mockResolvedValue(new Set(['c1']));
+  mockGetOverBudgetShapeKeys.mockResolvedValue(new Set(['git log', 'npm test']));
 });
 
 describe('GET /api/policies/summary', () => {
@@ -160,6 +180,38 @@ describe('GET /api/policies/summary — Short List', () => {
     expect(data.shortList.every((l: { policy_type: string }) => typeof l.policy_type === 'string')).toBe(true);
   });
 
+  it('carries dormant interrupting lines with active:false, uncounted by the cap', async () => {
+    const dormant = {
+      id: 'd1',
+      name: 'Reviewer role ceiling',
+      policy_type: 'role_constraint',
+      rules: rules({ allowed_action_types: ['read'] }),
+      active: 0,
+    };
+    mockGetActivePolicies.mockResolvedValue([...CATASTROPHE, CUSTOM_HOLD]);
+    mockGetAllPolicies.mockResolvedValue([...CATASTROPHE, CUSTOM_HOLD, dormant]);
+
+    const data = await (await GET(req())).json();
+    const line = data.shortList.find((l: { id: string }) => l.id === 'd1');
+    expect(line).toBeDefined();
+    expect(line.active).toBe(false);
+    expect(line.tier).toBe('HOLD');
+    // The cap counts what is actually interrupting: 5 active, the 6th is off.
+    expect(data.shortList).toHaveLength(6);
+    expect(data.shortList.filter((l: { active: boolean }) => l.active)).toHaveLength(5);
+    expect(data.shortListCap).toBe(10);
+    // A dormant rule must not leak into the enforcement buckets.
+    expect(data.enforcement.total).toBe(5);
+  });
+
+  it('falls back to the active rows when the all-policies query fails', async () => {
+    mockGetActivePolicies.mockResolvedValue([...CATASTROPHE, CUSTOM_HOLD]);
+    mockGetAllPolicies.mockRejectedValue(new Error('guard_policies unreadable'));
+    const data = await (await GET(req())).json();
+    expect(data.shortList).toHaveLength(5);
+    expect(data.shortList.every((l: { active: boolean }) => l.active)).toBe(true);
+  });
+
   it('suggests the real-money rule when nothing gates the spend action types', async () => {
     mockGetActivePolicies.mockResolvedValue([...CATASTROPHE, CUSTOM_WARN, CUSTOM_HOLD]);
     const data = await (await GET(req())).json();
@@ -186,15 +238,30 @@ describe('GET /api/policies/summary — Short List', () => {
     expect(data.suggestions.find((x: { id: string }) => x.id === 'real_money')).toBeUndefined();
   });
 
-  it('reports the interruption budget', async () => {
+  it('reports the ORG budget and the live over-budget counts, not the defaults', async () => {
     mockGetActivePolicies.mockResolvedValue(CATASTROPHE);
     const data = await (await GET(req())).json();
     expect(data.budgetReport).toEqual({
-      policiesOverBudget: 0,
-      shapesOverBudget: 0,
+      policiesOverBudget: 1,
+      shapesOverBudget: 2,
       window_hours: 24,
-      budget: 50,
+      budget: 25,
       shape_budget: 10,
     });
+  });
+
+  it('reports both grains off when the org budget is 0', async () => {
+    mockGetActivePolicies.mockResolvedValue(CATASTROPHE);
+    mockGetInterruptionBudget.mockResolvedValue(0);
+    const data = await (await GET(req())).json();
+    expect(data.budgetReport.budget).toBe(0);
+    expect(data.budgetReport.shape_budget).toBe(0);
+  });
+
+  it('falls back to the default budget when the budget load fails', async () => {
+    mockGetActivePolicies.mockResolvedValue(CATASTROPHE);
+    mockGetInterruptionBudget.mockRejectedValue(new Error('settings unreadable'));
+    const data = await (await GET(req())).json();
+    expect(data.budgetReport.budget).toBe(50);
   });
 });

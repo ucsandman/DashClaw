@@ -16,6 +16,7 @@ function row(policyId: string, goal: string, createdAt = minutesAgo(10)): Misfir
   return { matched_policies: JSON.stringify([policyId]), declared_goal: goal, created_at: createdAt };
 }
 
+/** BLOCK/HOLD tiers only — a WATCH line never held anyone. */
 const shortList = new Set(['p_hold']);
 
 describe('deriveMisfires', () => {
@@ -93,7 +94,34 @@ describe('deriveMisfires', () => {
     expect(deriveMisfires(rows, commandShapeKey, shortList, NOW)).toEqual([]);
   });
 
-  it('counts a decision once per matched Short List policy', () => {
+  it('does not count a hold relief already downgraded', () => {
+    // The shape-budget query keeps relieved decisions on purpose (volume must
+    // not erase itself). A misfire claims the line HELD, so these are not holds.
+    const relieved = (marker: string, n: number): MisfireRow => ({
+      matched_policies: JSON.stringify(['p_hold', marker]),
+      declared_goal: `Bash: git log -${n}`,
+      created_at: minutesAgo(n),
+    });
+    const rows = [
+      row('p_hold', 'Bash: git log -0'),
+      relieved('builtin:shape_budget', 1),
+      relieved('builtin:calibration_relief', 2),
+    ];
+    expect(deriveMisfires(rows, commandShapeKey, shortList, NOW)).toEqual([]);
+  });
+
+  it('does not blame a WATCH co-matcher for a hold it did not cause', () => {
+    const rows = [1, 2, 3].map((n) => ({
+      matched_policies: JSON.stringify(['p_hold', 'p_watch']),
+      declared_goal: `Bash: git log -${n}`,
+      created_at: minutesAgo(n),
+    }));
+    // p_watch is on the Short List but tier WATCH, so the caller leaves it out.
+    const out = deriveMisfires(rows, commandShapeKey, shortList, NOW);
+    expect(out.map((m) => m.policy_id)).toEqual(['p_hold']);
+  });
+
+  it('counts a decision once per matched interrupting policy', () => {
     const both = ['p_hold', 'p_hold2'];
     const rows = [1, 2, 3].map((n) => ({
       matched_policies: JSON.stringify(both),

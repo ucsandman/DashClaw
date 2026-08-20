@@ -12,8 +12,15 @@
  */
 
 import { nominalDecision } from '../policy-modes/compile';
-import { isKnownPolicyType } from '../guard/policy';
+// POLICY_TYPES, not guard/policy's isKnownPolicyType: this module is reachable
+// from demoMiddleware, which compiles into the EDGE middleware bundle, and
+// guard/policy drags the whole guard engine (webhooks, undici, node:net,
+// node:dns, crypto) in with it. validate.js is a leaf with zero imports and
+// carries the SAME 17 types the validator accepts.
+import { POLICY_TYPES } from '../validate.js';
 import type { GuardPolicyType } from '../types';
+
+const KNOWN_POLICY_TYPES = new Set<string>(POLICY_TYPES);
 
 /** Hard cap. Adding an 11th interrupting line is a 409, not a silent overflow. */
 export const SHORT_LIST_CAP = 10;
@@ -32,15 +39,26 @@ const ACTION_VALUES = new Set<string>(['allow', 'warn', 'require_approval', 'blo
 const ESCALATE_ACTION_TYPES = new Set(['delegation_constraint', 'role_constraint', 'deviation_response']);
 
 /**
- * Types with NO warn tier — their only settings are require_approval/block, so
- * they cannot be demoted to Watch at all:
+ * Types with NO warn tier — there is no way to write "record but do not
+ * interrupt" into their rules, so any demotion we wrote would be a flag the
+ * evaluator ignores:
  *   non_fabrication        on_violation      require_approval | block (policy.ts:121)
  *   delegation_constraint  escalate_action   require_approval | block (validate.js:718)
  *   role_constraint        escalate_action   require_approval | block (validate.js:748)
+ *   webhook_check          —                 evaluator returns null (policy.ts:381);
+ *                                            the endpoint decides, so nothing local to demote
  * deviation_response is NOT here: validate.js:776 accepts `warn` and the
  * evaluator clamps every consequence to that ceiling.
+ *
+ * On import these install DORMANT (active = 0, rules untouched); a human
+ * promotes them from /policies, which runs the PATCH cap check.
  */
-const NO_WATCH_TIER_TYPES = new Set(['non_fabrication', 'delegation_constraint', 'role_constraint']);
+const NO_WATCH_TIER_TYPES = new Set([
+  'non_fabrication',
+  'delegation_constraint',
+  'role_constraint',
+  'webhook_check',
+]);
 
 /**
  * Policy types whose evaluator HARDCODES its decision and ignores every action
@@ -76,7 +94,7 @@ export function parseRules(raw: unknown): Record<string, unknown> {
  * which nominalDecision's `default:` branch would report as `block`.
  */
 export function effectiveAction(policyType: string, rules: Record<string, unknown>): EffectiveAction {
-  if (!isKnownPolicyType(policyType)) return 'other';
+  if (!KNOWN_POLICY_TYPES.has(policyType)) return 'other';
   if (ESCALATE_ACTION_TYPES.has(policyType)) {
     const escalate = rules?.escalate_action;
     return typeof escalate === 'string' && ACTION_VALUES.has(escalate)

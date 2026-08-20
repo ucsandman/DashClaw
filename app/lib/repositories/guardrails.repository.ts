@@ -79,6 +79,23 @@ export async function getActivePolicies(
   `;
 }
 
+/**
+ * Every policy row for the org, active or not. The Short List surface needs
+ * the dormant ones too: a pack line installed without a watch tier lands
+ * `active = 0`, and /policies renders it struck-through with an On control —
+ * an invisible dormant rule is a rule nobody can turn back on.
+ */
+export async function getAllPolicies(
+  sql: SqlTag,
+  orgId: string
+): Promise<Record<string, unknown>[]> {
+  return sql`
+    SELECT * FROM guard_policies
+    WHERE org_id = ${orgId}
+    ORDER BY created_at DESC
+  `;
+}
+
 export async function findPolicyByName(
   sql: SqlTag,
   orgId: string,

@@ -708,6 +708,19 @@ export interface MisfireRow {
   created_at?: unknown;
 }
 
+/**
+ * Relief markers the SHAPE-budget query keeps on purpose (a demoted decision
+ * still counts toward volume, or the signal erases itself). A misfire is a
+ * different claim — "this line HELD me three times" — so a decision relief
+ * already downgraded is not one of the three.
+ */
+const RELIEF_MARKERS = ['builtin:shape_budget', 'builtin:calibration_relief'];
+
+function wasRelieved(matchedPolicies: unknown): boolean {
+  if (typeof matchedPolicies !== 'string') return false;
+  return RELIEF_MARKERS.some((m) => matchedPolicies.includes(m));
+}
+
 export interface Misfire {
   policy_id: string;
   /** Filled by the caller, which is the layer that knows policy names. */
@@ -747,6 +760,10 @@ function safeJsonArray(raw: string): unknown {
  * `shapeKeyOf` is injected for the same reason deriveOverBudgetShapes injects
  * it — the caller owns the normalizer version, and the two must bucket alike.
  *
+ * `interruptingPolicyIds` is the BLOCK/HOLD half of the Short List, not the
+ * whole list: a WATCH line that co-matched the same decision did not stop
+ * anyone, so blaming it for the hold would report a defect in the wrong rule.
+ *
  * The rows carry no approval outcome (the shape-evidence query deliberately
  * does not join action_records, because the operator who is drowning is the
  * one who stops clicking). `approvals`/`denials` are therefore 0 and the
@@ -755,7 +772,7 @@ function safeJsonArray(raw: string): unknown {
 export function deriveMisfires(
   rows: MisfireRow[],
   shapeKeyOf: (goal: unknown) => string | null,
-  shortListPolicyIds: Set<string>,
+  interruptingPolicyIds: Set<string>,
   nowIso: string,
   exceptionsByPolicy: Map<string, string[]> = new Map(),
 ): Misfire[] {
@@ -766,13 +783,14 @@ export function deriveMisfires(
   for (const row of rows) {
     const key = shapeKeyOf(row?.declared_goal);
     if (!key) continue; // an unreadable goal is never a misfire
+    if (wasRelieved(row.matched_policies)) continue; // relief already answered this one
     const at = typeof row.created_at === 'string' ? row.created_at : String(row.created_at ?? '');
     const atMs = Date.parse(at);
     if (!Number.isFinite(atMs) || atMs <= cutoffMs) continue;
     const goal = typeof row.declared_goal === 'string' ? row.declared_goal : null;
 
     for (const policyId of misfirePolicyIds(row)) {
-      if (!shortListPolicyIds.has(policyId)) continue;
+      if (!interruptingPolicyIds.has(policyId)) continue;
       if (exceptionsByPolicy.get(policyId)?.includes(key)) continue;
       const gk = `${policyId}\n${key}`;
       const g = groups.get(gk);

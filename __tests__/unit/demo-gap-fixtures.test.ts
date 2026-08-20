@@ -130,6 +130,8 @@ describe('demo workbench fixtures — /policies, /calibration, /doctor', () => {
       ungrantable: expect.any(Boolean), shape_exceptions: expect.any(Array),
       active: expect.any(Boolean), seeded: expect.any(Boolean),
     });
+    // Dormant lines belong on the list, struck through with an On control.
+    expect(s.shortList.some((l) => l.active === false)).toBe(true);
     expect(Array.isArray(s.suggestions)).toBe(true);
     expect(s.budgetReport).toMatchObject({
       policiesOverBudget: expect.any(Number), shapesOverBudget: expect.any(Number),

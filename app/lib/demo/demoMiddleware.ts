@@ -710,7 +710,10 @@ export function demoPolicySummary(fixtures: DemoFixtures) {
     pendingApprovals,
     // Short List: derived from the SAME predicate the real summary uses, so the
     // demo /policies page cannot show a list the product would not.
-    shortList: active
+    // ALL fixture policies, dormant included — the demo must show an Off line
+    // the way the product does (fixtures carry one inactive protected_path).
+    shortList: fixtures.policies
+      .map(toApiPolicyShape)
       .filter((p) => isShortListLine(p.policy_type, parseShortListRules(p.rules)))
       .map((p) => {
         const r = parseShortListRules(p.rules);
@@ -724,11 +727,11 @@ export function demoPolicySummary(fixtures: DemoFixtures) {
           fired30d: c?.fired ?? 0,
           ungrantable: r.ungrantable === true,
           shape_exceptions: Array.isArray(r.shape_exceptions) ? (r.shape_exceptions as string[]) : [],
-          active: true,
+          active: p.active === 1,
           seeded: String(p.name).startsWith('Catastrophe Pack — '),
         };
-      })
-      .slice(0, SHORT_LIST_CAP),
+      }),
+    // No slice: a legacy org over the cap must look over the cap here too.
     shortListCap: SHORT_LIST_CAP,
     // Empty on purpose: this file compiles into the EDGE middleware, which
     // cannot read the spend-lockdown pack, and re-typing its 11 action types

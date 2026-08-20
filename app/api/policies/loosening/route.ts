@@ -32,7 +32,7 @@ import {
 import { normalizeFlags, precedentEligible, PRECEDENT_TTL_DAYS, commandShapeKey } from '../../../lib/policy-shapes';
 import { getInterruptionBudget } from '../../../lib/guard/caches';
 import { getActivePolicies } from '../../../lib/repositories/guardrails.repository';
-import { isShortListLine, parseRules as parseShortListRules } from '../../../lib/guardrails/short-list';
+import { isShortListLine, shortListTier, parseRules as parseShortListRules } from '../../../lib/guardrails/short-list';
 import {
   getInterruptOutcomesByPolicyAction,
   getInterruptVolumeByPolicy,
@@ -157,7 +157,8 @@ export async function GET(request: Request) {
     // Misfires: the same 24h slice the shape budget reads, at (Short List
     // policy, shape) grain. Reported, never applied — the exit is the
     // operator's "stop asking about this shape" click (rules.shape_exceptions).
-    const shortListPolicyIds = new Set<string>();
+    // BLOCK/HOLD only — a WATCH line records, it never held anyone.
+    const interruptingPolicyIds = new Set<string>();
     const exceptionsByPolicy = new Map<string, string[]>();
     const policyNameById = new Map<string, string>();
     for (const p of policies) {
@@ -165,8 +166,9 @@ export async function GET(request: Request) {
       if (!id) continue;
       policyNameById.set(id, typeof p.name === 'string' ? p.name : id);
       const r = parseShortListRules(p.rules);
-      if (!isShortListLine(String(p.policy_type ?? ''), r)) continue;
-      shortListPolicyIds.add(id);
+      const type = String(p.policy_type ?? '');
+      if (!isShortListLine(type, r) || shortListTier(type, r) === 'WATCH') continue;
+      interruptingPolicyIds.add(id);
       if (Array.isArray(r.shape_exceptions)) {
         exceptionsByPolicy.set(id, r.shape_exceptions.filter((s): s is string => typeof s === 'string'));
       }
@@ -174,7 +176,7 @@ export async function GET(request: Request) {
     const misfires = deriveMisfires(
       goalRows,
       commandShapeKey,
-      shortListPolicyIds,
+      interruptingPolicyIds,
       new Date().toISOString(),
       exceptionsByPolicy,
     ).map((m) => ({ ...m, policy_name: policyNameById.get(m.policy_id) ?? m.policy_id }));

@@ -100,6 +100,11 @@ export interface BudgetReport {
 export interface PolicySummaryExtras {
   /** The spend class, read from the spend-lockdown pack by the caller. */
   spendActionTypes?: string[];
+  /**
+   * ALL policy rows, dormant included — the Short List renders `active: false`
+   * lines struck-through with an On control. Defaults to the active rows.
+   */
+  allPolicies?: ActivePolicyRow[];
   policiesOverBudget?: number;
   shapesOverBudget?: number;
   /** The org's configured budget, so the report never contradicts the guard. */
@@ -255,7 +260,7 @@ export function buildPolicySummary(
     // F1: gating rules an active grant currently nullifies. Computed here so
     // every consumer of the summary sees the same truth as the cockpit.
     inert: findInertPolicies(active as Parameters<typeof findInertPolicies>[0]),
-    shortList: buildShortList(active, counts),
+    shortList: buildShortList(extras.allPolicies ?? active, counts),
     shortListCap: SHORT_LIST_CAP,
     suggestions: buildSuggestions(active, extras.spendActionTypes ?? []),
     budgetReport: buildBudgetReport(extras),
@@ -270,13 +275,16 @@ function stringList(v: unknown): string[] {
  * The Short List: membership is DERIVED from the rules (block/require_approval,
  * or the explicit `short_list` opt-in), never stored. One source of truth with
  * the write paths, which enforce the cap through the same predicate.
+ *
+ * Includes DORMANT lines. The cap counts only the active ones (a rule that is
+ * off is not interrupting anybody), which is the consumer's `filter` to make.
  */
 function buildShortList(
-  active: ActivePolicyRow[],
+  rows: ActivePolicyRow[],
   counts: Record<string, PolicyDecisionCount>,
 ): ShortListLine[] {
   const out: ShortListLine[] = [];
-  for (const p of active) {
+  for (const p of rows) {
     const parsed = parseRules(p.rules);
     if (!isShortListLine(p.policy_type, parsed)) continue;
     out.push({
