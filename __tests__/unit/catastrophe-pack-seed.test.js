@@ -39,23 +39,24 @@ function makeSqlStub(existingNames = []) {
 }
 
 describe('loadCatastrophePackPolicies', () => {
-  it('parses exactly three policies from the pack yml', () => {
+  it('parses exactly four policies from the pack yml', () => {
     const policies = loadCatastrophePackPolicies();
-    expect(policies).toHaveLength(3);
+    expect(policies).toHaveLength(4);
     expect(policies.map((p) => p.id)).toEqual([
       'block_mass_destructive',
       'hold_secret_file_writes',
+      'hold_force_push_protected',
       'rate_limit_runaway_safety',
     ]);
   });
 });
 
 describe('seedCatastrophePack', () => {
-  it('inserts all three policies into an empty org', async () => {
+  it('inserts all four policies into an empty org', async () => {
     const sql = makeSqlStub([]);
     const result = await seedCatastrophePack(sql, 'org_default');
-    expect(result).toEqual({ imported: 3, skipped: 0 });
-    expect(sql._inserts).toHaveLength(3);
+    expect(result).toEqual({ imported: 4, skipped: 0 });
+    expect(sql._inserts).toHaveLength(4);
     for (const row of sql._inserts) {
       expect(row.orgId).toBe('org_default');
       expect(row.id).toMatch(/^gp_/);
@@ -70,6 +71,7 @@ describe('seedCatastrophePack', () => {
     expect(names).toEqual([
       'Catastrophe Pack — Block Mass-Destructive Operations',
       'Catastrophe Pack — Hold Secret-File Writes for Approval',
+      'Catastrophe Pack — Hold Force-Push Over Protected Branches',
       'Catastrophe Pack — Rate-Limit Runaway Agents',
     ]);
   });
@@ -78,19 +80,21 @@ describe('seedCatastrophePack', () => {
     const sql = makeSqlStub([
       'Catastrophe Pack — Block Mass-Destructive Operations',
       'Catastrophe Pack — Hold Secret-File Writes for Approval',
+      'Catastrophe Pack — Hold Force-Push Over Protected Branches',
       'Catastrophe Pack — Rate-Limit Runaway Agents',
     ]);
     const result = await seedCatastrophePack(sql, 'org_default');
-    expect(result).toEqual({ imported: 0, skipped: 3 });
+    expect(result).toEqual({ imported: 0, skipped: 4 });
     expect(sql._inserts).toHaveLength(0);
   });
 
   it('inserts only the missing policy when one already exists', async () => {
     const sql = makeSqlStub(['Catastrophe Pack — Block Mass-Destructive Operations']);
     const result = await seedCatastrophePack(sql, 'org_default');
-    expect(result).toEqual({ imported: 2, skipped: 1 });
+    expect(result).toEqual({ imported: 3, skipped: 1 });
     expect(sql._inserts.map((r) => r.name)).toEqual([
       'Catastrophe Pack — Hold Secret-File Writes for Approval',
+      'Catastrophe Pack — Hold Force-Push Over Protected Branches',
       'Catastrophe Pack — Rate-Limit Runaway Agents',
     ]);
   });

@@ -10,15 +10,20 @@ description: >
 
 policies:
   # Fires when the server-computed risk score hits the 100 clamp: rm -rf on
-  # non-regenerable paths, DROP TABLE / TRUNCATE / DELETE FROM, mkfs, wipe,
-  # and git push --force (security base 80 + irreversible 15 + push 10 = 105
-  # -> clamped 100). Bounded/regenerable rm re-maps to cleanup and passes.
+  # non-regenerable paths, DROP TABLE / TRUNCATE / DELETE FROM, mkfs, wipe
+  # (security base 80 + irreversible 15 + ... -> clamped 100). Bounded/
+  # regenerable rm re-maps to cleanup and passes. git push --force also scores
+  # 100 but is carved out to line 3: `block` always wins the severity merge, so
+  # excluding it here is the only way it can be a HOLD with an approval card.
   - id: block_mass_destructive
     description: "Catastrophe Pack — Block Mass-Destructive Operations"
     policy_type: risk_threshold
     rules:
       threshold: 100
       action: block
+      except_git_push:
+        force: true
+      short_list: true
     tests:
       - name: blocks_rm_rf
         input:
@@ -44,6 +49,8 @@ policies:
     policy_type: protected_path
     rules:
       action: require_approval
+      ungrantable: true
+      short_list: true
       paths:
         - "**/.env"
         - "**/.env.local"
@@ -68,6 +75,39 @@ policies:
         expect:
           decision: allow
 
+  # The force-push line. Rewriting published history is destructive but
+  # sometimes exactly what the human meant, so it HOLDS instead of blocking —
+  # grantable on purpose (a single-use grant is the right answer when they
+  # meant it). Matches on the command text, not on an action_type spelling:
+  # a force-push arrives under several.
+  - id: hold_force_push_protected
+    description: "Catastrophe Pack — Hold Force-Push Over Protected Branches"
+    policy_type: require_approval
+    rules:
+      action: require_approval
+      git_push:
+        force: true
+        branches:
+          - main
+          - master
+          - trunk
+          - production
+          - "release/*"
+      short_list: true
+    tests:
+      - name: holds_force_push_main
+        input:
+          action_type: security
+          declared_goal: "Bash: git push --force origin main"
+        expect:
+          decision: require_approval
+      - name: allows_force_push_feature_branch
+        input:
+          action_type: security
+          declared_goal: "Bash: git push --force origin feature/x"
+        expect:
+          decision: allow
+
   # Warn-only safety net — never interrupts (handle_warn exits 0).
   - id: rate_limit_runaway_safety
     description: "Catastrophe Pack — Rate-Limit Runaway Agents"
@@ -76,6 +116,7 @@ policies:
       max_actions: 200
       window_minutes: 10
       action: warn
+      short_list: true
     tests:
       - name: warns_on_200_plus_actions
         input:

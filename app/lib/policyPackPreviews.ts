@@ -75,7 +75,7 @@ export const PACK_PREVIEWS: Record<string, PackPreview> = {
   },
   'catastrophe-only': {
     name: 'Catastrophe Only',
-    description: 'The self-hosted default — blocks mass-destructive operations, holds secret-file writes for approval, rate-limits runaways. Everything else runs.',
+    description: 'The self-hosted default — blocks mass-destructive operations, holds secret-file writes and force-pushes over protected branches for approval, rate-limits runaways. Everything else runs.',
     recommended_for: 'Every org. Seeded automatically for new self-hosted instances; import here to retrofit an existing one.',
     audience: 'baseline',
     strictness: 'permissive',

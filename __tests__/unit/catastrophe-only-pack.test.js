@@ -18,8 +18,16 @@ describe('catastrophe-only pack', () => {
     expect(PACK_PREVIEWS['catastrophe-only'].name).toBe('Catastrophe Only');
   });
 
-  it('declares exactly three policies', () => {
-    expect(pack.policies).toHaveLength(3);
+  it('declares exactly four policies', () => {
+    expect(pack.policies).toHaveLength(4);
+  });
+
+  // The Short List: the pack IS the list of things that stop the agent, so
+  // every line carries the flag the /policies surface reads.
+  it('every policy is flagged short_list', () => {
+    for (const p of pack.policies) {
+      expect(p.rules.short_list).toBe(true);
+    }
   });
 
   it('every policy declares an explicit policy_type (no inference ambiguity)', () => {
@@ -105,6 +113,58 @@ describe('catastrophe-only pack', () => {
       30,
     );
     expect(result).toBeNull();
+  });
+
+  it('hold_secret_file_writes is ungrantable (an allow_grant can never clear it)', () => {
+    const policy = pack.policies.find((p) => p.id === 'hold_secret_file_writes');
+    expect(policy.rules.ungrantable).toBe(true);
+  });
+
+  // Force-push is a HOLD, not a dead run: `block` always wins the severity
+  // merge, so the risk-100 block line EXCLUDES force-pushes and line 3 owns
+  // them with an approval card.
+  it('block_mass_destructive excludes force-pushes so the hold line can own them', async () => {
+    const policy = pack.policies.find((p) => p.id === 'block_mass_destructive');
+    const result = await evaluatePolicy(
+      { policy_type: policy.policy_type },
+      policy.rules,
+      { action_type: 'security', declared_goal: 'Bash: git push --force origin main' },
+      null,
+      'org_test',
+      100,
+    );
+    expect(result).toBeNull();
+  });
+
+  it('hold_force_push_protected holds a force-push over main at risk 100', async () => {
+    const policy = pack.policies.find((p) => p.id === 'hold_force_push_protected');
+    expect(policy.policy_type).toBe('require_approval');
+    expect(policy.rules.ungrantable).toBeUndefined(); // grantable: a single-use grant is the right answer when the human meant it
+    const result = await evaluatePolicy(
+      { policy_type: policy.policy_type },
+      policy.rules,
+      { action_type: 'security', declared_goal: 'Bash: git push --force origin main' },
+      null,
+      'org_test',
+      100,
+    );
+    expect(result).toMatchObject({ action: 'require_approval' });
+  });
+
+  it('a force-push over a feature branch is neither blocked nor held', async () => {
+    const context = { action_type: 'security', declared_goal: 'Bash: git push --force origin feature/x' };
+    for (const id of ['block_mass_destructive', 'hold_force_push_protected']) {
+      const policy = pack.policies.find((p) => p.id === id);
+      const result = await evaluatePolicy(
+        { policy_type: policy.policy_type },
+        policy.rules,
+        context,
+        null,
+        'org_test',
+        100,
+      );
+      expect(result).toBeNull();
+    }
   });
 
   it('rate_limit_runaway_safety declares a warn-only rate-limit rule shape', () => {
