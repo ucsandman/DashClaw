@@ -69,6 +69,13 @@ async function api(method, path, body) {
   return { status: res.status, json };
 }
 
+// Since v5.27.0 (the Short List), POST /api/policies stores an interrupting
+// rule in Watch (warn) unless the caller opts in with rules.short_list: true,
+// and caps opted-in active lines at 10 per org (the seeded catastrophe pack
+// holds 4 of those slots). Every interrupting smoke policy therefore opts in
+// at its call site AND is retired (deactivated) at the end of its section via
+// retirePolicy() so concurrent smoke lines never approach the cap. The gate
+// itself is pinned live by the SL checks below section B1.
 async function createPolicy(name, policy_type, rules, agentIds) {
   const { status, json } = await api('POST', '/api/policies', {
     name: `policy-smoke:${name}:${RUN}`,
@@ -86,6 +93,14 @@ async function createPolicy(name, policy_type, rules, agentIds) {
   if (!id) throw new Error(`policy create ${name}: no id in response ${JSON.stringify(json)}`);
   createdPolicyIds.push(id);
   return id;
+}
+
+// Free the policy's Short List slot the moment its section is done. The final
+// cleanup loop still DELETEs the row; this only keeps the concurrent active
+// count under SHORT_LIST_CAP across the run.
+async function retirePolicy(pid) {
+  const { status } = await api('PATCH', '/api/policies', { id: pid, active: false });
+  if (status >= 400) console.log(`  warn: retire ${pid} → ${status}`);
 }
 
 function check(claim, name, pass, detail) {
@@ -121,7 +136,7 @@ async function main() {
   {
     const agent = agentFor('rs1');
     const pid = await createPolicy('hold-secret-writes', 'protected_path',
-      { action: 'require_approval', paths: ['**/.env', '**/*.key', '**/secrets/**'] }, [agent]);
+      { action: 'require_approval', short_list: true, paths: ['**/.env', '**/*.key', '**/secrets/**'] }, [agent]);
 
     const guarded = await api('POST', '/api/guard?record=true', {
       action_type: 'security', declared_goal: `Write: .env ${RUN}`,
@@ -147,6 +162,7 @@ async function main() {
       check('RS1', 'approval accepted (POST /api/approvals returns 2xx)', false, 'no action_id to approve');
       check('RS1', 'action left pending_approval so the paused tool call resumes', false, 'no action_id to poll');
     }
+    await retirePolicy(pid);
   }
 
   // A1: decision vocabulary
@@ -179,10 +195,14 @@ async function main() {
   }
 
   // B1: block_action_type blocks matching type, ignores others (scoped to smoke agent)
+  // pidB1/pidB3 are hoisted: C1/C2/F1/A6 and the AE act-binding section below
+  // reuse these agents+policies, so the slots are retired after AE, not here.
+  let pidB1;
+  let pidB3;
   {
     const agent = agentFor('b1');
-    const pid = await createPolicy('block-type', 'block_action_type',
-      { action_types: [`smoke.blocked.${RUN}`] }, [agent]);
+    const pid = pidB1 = await createPolicy('block-type', 'block_action_type',
+      { action_types: [`smoke.blocked.${RUN}`], short_list: true }, [agent]);
     const hit = await api('POST', '/api/guard', {
       action_type: `smoke.blocked.${RUN}`, declared_goal: `attempt the blocked type ${RUN}`, agent_id: agent,
     });
@@ -197,11 +217,37 @@ async function main() {
       `matched=${JSON.stringify(miss.json?.matched_policies)}`);
   }
 
+  // SL: the Short List admission gate itself (v5.27.0). A bare interrupting
+  // create — no rules.short_list opt-in — must land in Watch: it still fires
+  // and is matched, but the decision is warn, never block. And a type with no
+  // Watch tier (delegation_constraint) must be refused outright with a 409
+  // NO_WATCH_TIER, never stored with a demotion flag its evaluator ignores.
+  {
+    const agent = agentFor('sl');
+    const pid = await createPolicy('watch-demoted', 'block_action_type',
+      { action_types: [`smoke.sl.${RUN}`] }, [agent]); // deliberately NO short_list
+    const demoted = await api('POST', '/api/guard', {
+      action_type: `smoke.sl.${RUN}`, declared_goal: `bare interrupting create lands watched ${RUN}`, agent_id: agent,
+    });
+    check('SL1', 'bare interrupting create is demoted to Watch: fires as warn, never block',
+      demoted.json?.decision === 'warn' && (demoted.json?.matched_policies || []).includes(pid),
+      `decision=${demoted.json?.decision} matched=${JSON.stringify(demoted.json?.matched_policies)}`);
+
+    const refused = await api('POST', '/api/policies', {
+      name: `policy-smoke:no-watch-tier:${RUN}`, policy_type: 'delegation_constraint',
+      rules: { parent: agent, child_types: ['*'], max_risk_score: 40, escalate_action: 'require_approval' },
+      active: true, agent_ids: [agent],
+    });
+    check('SL2', 'no-watch-tier type without opt-in → 409 NO_WATCH_TIER',
+      refused.status === 409 && refused.json?.code === 'NO_WATCH_TIER',
+      `status=${refused.status} body=${JSON.stringify(refused.json)?.slice(0, 160)}`);
+  }
+
   // B3: risk_threshold with action require_approval
   {
     const agent = agentFor('b3');
-    const pid = await createPolicy('risk-approval', 'risk_threshold',
-      { threshold: 60, action: 'require_approval' }, [agent]);
+    const pid = pidB3 = await createPolicy('risk-approval', 'risk_threshold',
+      { threshold: 60, action: 'require_approval', short_list: true }, [agent]);
     const above = await api('POST', '/api/guard', {
       action_type: 'smoke.risky', declared_goal: `risky smoke action ${RUN}`, agent_id: agent, risk_score: 75,
     });
@@ -224,7 +270,7 @@ async function main() {
     const parent = agentFor('fam');
     const child = `${parent}:explore`;
     const pid = await createPolicy('family-block', 'block_action_type',
-      { action_types: [`smoke.family.${RUN}`] }, [parent]);
+      { action_types: [`smoke.family.${RUN}`], short_list: true }, [parent]);
     const viaChild = await api('POST', '/api/guard', {
       action_type: `smoke.family.${RUN}`, declared_goal: `family-targeted action via sub-agent ${RUN}`, agent_id: child,
     });
@@ -238,7 +284,7 @@ async function main() {
     check('L2', 'the targeted policy does not leak to unrelated composed ids',
       !(unrelated.json?.matched_policies || []).includes(pid),
       `matched=${JSON.stringify(unrelated.json?.matched_policies)}`);
-
+    await retirePolicy(pid);
   }
 
   // C1 + C2: /api/actions runs guard internally
@@ -352,13 +398,16 @@ async function main() {
     } else {
       check('AE', 'act binding flow', false, 'no action_id returned for act-stamped pending action');
     }
+    // b1/b3 reuse ends here — free their Short List slots.
+    await retirePolicy(pidB1);
+    await retirePolicy(pidB3);
   }
 
   // A5: blocks are absolute — approval on identical goal never downgrades block
   {
     const agent = agentFor('a5');
-    await createPolicy('absolute-block', 'block_action_type',
-      { action_types: [`smoke.absolute.${RUN}`] }, [agent]);
+    const pid = await createPolicy('absolute-block', 'block_action_type',
+      { action_types: [`smoke.absolute.${RUN}`], short_list: true }, [agent]);
     // guard → block (twice; the second simulates "retry after someone approved something")
     const first = await api('POST', '/api/guard', {
       agent_id: agent, action_type: `smoke.absolute.${RUN}`, declared_goal: `absolutely blocked ${RUN}`,
@@ -369,6 +418,7 @@ async function main() {
     check('A5', 'block is returned and stays block on identical re-ask',
       first.json?.decision === 'block' && second.json?.decision === 'block',
       `first=${first.json?.decision} second=${second.json?.decision}`);
+    await retirePolicy(pid);
   }
 
   // C3: idempotent replay
@@ -392,7 +442,7 @@ async function main() {
   {
     const agent = agentFor('b5');
     const pid = await createPolicy('toggle', 'block_action_type',
-      { action_types: [`smoke.toggle.${RUN}`] }, [agent]);
+      { action_types: [`smoke.toggle.${RUN}`], short_list: true }, [agent]);
     const before = await api('POST', '/api/guard', {
       agent_id: agent, action_type: `smoke.toggle.${RUN}`, declared_goal: `toggle probe 1 ${RUN}`,
     });
@@ -409,7 +459,7 @@ async function main() {
   {
     const agent = agentFor('b5del');
     const pid = await createPolicy('delete-invalidation', 'block_action_type',
-      { action_types: [`smoke.del.${RUN}`] }, [agent]);
+      { action_types: [`smoke.del.${RUN}`], short_list: true }, [agent]);
     const before = await api('POST', '/api/guard', {
       agent_id: agent, action_type: `smoke.del.${RUN}`, declared_goal: `delete probe 1 ${RUN}`,
     });
@@ -428,7 +478,7 @@ async function main() {
   {
     const agent = agentFor('t1');
     const pid = await createPolicy('tuning-loop', 'risk_threshold',
-      { threshold: 60, action: 'require_approval' }, [agent]);
+      { threshold: 60, action: 'require_approval', short_list: true }, [agent]);
 
     // Drive 3 require_approval interruptions and approve each. declared_goal
     // must be unique per iteration — an identical goal would trigger the
@@ -517,6 +567,7 @@ async function main() {
     } else {
       check('T1', 'dismiss/accept round-trip', false, 'no raise_risk_threshold proposal to exercise');
     }
+    await retirePolicy(pid);
   }
 
   // H: agent's-advocate rollup (owner roadmap item 4)
@@ -648,8 +699,8 @@ async function main() {
   // env the server reads); everything else is proven over real HTTP.
   {
     const agent = agentFor('m');
-    await createPolicy('lifecycle', 'risk_threshold',
-      { threshold: 60, action: 'require_approval' }, [agent]);
+    const lifecyclePid = await createPolicy('lifecycle', 'risk_threshold',
+      { threshold: 60, action: 'require_approval', short_list: true }, [agent]);
 
     let seedSql = null;
     try {
@@ -701,6 +752,7 @@ async function main() {
     // postgres.js keeps a live TCP pool that would hold the process open;
     // Neon's HTTP driver has no end() — hence the guarded call.
     if (typeof seedSql?.end === 'function') await seedSql.end().catch(() => {});
+    await retirePolicy(lifecyclePid);
   }
 
   // ── Advocate v2a: assumption-invalidation notifications (N1–N5) ─────────
@@ -786,8 +838,8 @@ async function main() {
     // /api/actions with that guard_decision_id (server validates it resolves
     // to a real same-org guard decision — drizzle/0035 FK linkage).
     const blockType = `smoke.retro.blocked.${RUN}`;
-    await createPolicy(`smoke retro block ${RUN}`, 'block_action_type',
-      { action_types: [blockType] }, [agent]);
+    const retroPid = await createPolicy(`smoke retro block ${RUN}`, 'block_action_type',
+      { action_types: [blockType], short_list: true }, [agent]);
     const blocked = await api('POST', '/api/guard', {
       agent_id: agent, action_type: blockType,
       declared_goal: `retro baseline goal ${RUN}`,
@@ -815,6 +867,7 @@ async function main() {
       (retro.coverage?.actions_with_guard_decision ?? 0) >= 1 &&
       retro.coverage.actions_with_guard_decision < retro.coverage.actions_total,
       `coverage=${JSON.stringify(retro.coverage)}`);
+    await retirePolicy(retroPid);
   }
 
   // ── Calibration proposals human surface (P1–P5, roadmap v2.6b) ──────────
@@ -985,7 +1038,7 @@ async function main() {
     const agent = agentFor('u');
     const floodType = `smoke.flood.${RUN}`;
     const pid = await createPolicy('flood-guard', 'require_approval',
-      { action_types: [floodType] }, [agent]);
+      { action_types: [floodType], short_list: true }, [agent]);
 
     // Read the org's effective budget so the burst provably exceeds it.
     const budgetView = await api('GET', '/api/approvals/floods');
@@ -1030,6 +1083,7 @@ async function main() {
       bulk.status === 200 && bulk.json?.matched === burst
       && bulk.json?.resolved === burst && bulk.json?.failed === 0,
       `status=${bulk.status} body=${JSON.stringify(bulk.json)}`);
+    await retirePolicy(pid);
   }
 
   // V1–V3: coverage truth (roadmap v4.2) — the record knows what it missed.
@@ -1173,7 +1227,7 @@ async function main() {
     const carveType = `smoke.loosen.carve.${RUN}`;
     const keepType = `smoke.loosen.keep.${RUN}`;
     const pid = await createPolicy('loosening-loop', 'require_approval',
-      { action_types: [carveType, keepType] }, [agent]);
+      { action_types: [carveType, keepType], short_list: true }, [agent]);
 
     // Drive 3 interruptions on the carve type and approve each — unique
     // declared_goal per iteration (identical goals would trigger the builtin
@@ -1284,6 +1338,7 @@ async function main() {
       check('Z4', 'retire + undo change_kept', false, 'no proposal from Z1');
       check('Z5', 'integrity checks', false, 'no proposal from Z1');
     }
+    await retirePolicy(pid);
   }
 
   // ---------------------------------------------------------------- AA ----
@@ -1398,7 +1453,8 @@ async function main() {
       `status=${status} intent_source=${json?.intent_source} mismatch=${json?.evidence_mismatch} risk=${json?.risk_score}`);
 
     // Evidence Required switch: a declared-only deploy (no act) must escalate.
-    await createPolicy('evidence-required', 'require_evidence', { action_types: ['deploy'], enforcement: 'require_approval' }, [agentFor('evidence-req')]);
+    const evidencePid = await createPolicy('evidence-required', 'require_evidence',
+      { action_types: ['deploy'], enforcement: 'require_approval', short_list: true }, [agentFor('evidence-req')]);
     const declaredOnly = await api('POST', '/api/guard', {
       action_type: 'deploy',
       declared_goal: `evidence required ${RUN}`,
@@ -1418,6 +1474,7 @@ async function main() {
     check('AD3', 'require_evidence: an evidence-graded deploy is NOT escalated by the switch',
       withEvidence.status === 200 && withEvidence.json?.intent_source === 'evidence' && withEvidence.json?.decision !== 'require_approval',
       `status=${withEvidence.status} decision=${withEvidence.json?.decision} intent_source=${withEvidence.json?.intent_source}`);
+    await retirePolicy(evidencePid);
   }
 
   // ---------------------------------------------------------------- AE ----
@@ -1482,8 +1539,8 @@ async function main() {
   console.log('\nAF. preflight plan authorization...');
   {
     const agent = agentFor('plan');
-    await createPolicy('af-preflight', 'risk_threshold',
-      { threshold: 60, action: 'require_approval' }, [agent]);
+    const afPid = await createPolicy('af-preflight', 'risk_threshold',
+      { threshold: 60, action: 'require_approval', short_list: true }, [agent]);
     const goal = `plan-smoke deploy ${RUN}`;
     const submit = await api('POST', '/api/plans', {
       agent_id: agent,
@@ -1525,8 +1582,8 @@ async function main() {
     // AF6-AF8: act-bound proof. A separate plan/agent/policy so this is
     // fully independent of AF1-AF5's declared-goal-bound step above.
     const actAgent = agentFor('plan-act');
-    await createPolicy('af-preflight-act', 'risk_threshold',
-      { threshold: 60, action: 'require_approval' }, [actAgent]);
+    const afActPid = await createPolicy('af-preflight-act', 'risk_threshold',
+      { threshold: 60, action: 'require_approval', short_list: true }, [actAgent]);
     const actGoal = `plan-smoke act-bound deploy ${RUN}`;
     const actCommand = `echo af-act-${RUN}`;
     const actSubmit = await api('POST', '/api/plans', {
@@ -1559,6 +1616,8 @@ async function main() {
     check('AF8', 'revoke kills the act-bound plan',
       actRevoked.status === 200 && actRevoked.json?.plan?.status === 'revoked',
       `status=${actRevoked.status} plan=${actRevoked.json?.plan?.status}`);
+    await retirePolicy(afPid);
+    await retirePolicy(afActPid);
   }
 
   // ---------------------------------------------------------------- AG ----
@@ -1568,8 +1627,9 @@ async function main() {
   {
     const parent = agentFor('dc');
     const child = `${parent}:explore`;
+    // delegation_constraint has NO Watch tier (see SL2): the opt-in is mandatory.
     const pid = await createPolicy('dc-ceiling', 'delegation_constraint',
-      { parent, child_types: ['*'], max_risk_score: 40, escalate_action: 'require_approval' }, [parent, child]);
+      { parent, child_types: ['*'], max_risk_score: 40, escalate_action: 'require_approval', short_list: true }, [parent, child]);
     const childHigh = await api('POST', '/api/guard', {
       action_type: 'smoke.risky', declared_goal: `dc child high ${RUN}`, agent_id: child, risk_score: 75,
     });
@@ -1593,7 +1653,7 @@ async function main() {
     });
     // depth check needs its own policy (max_depth 1):
     const pid2 = await createPolicy('dc-depth', 'delegation_constraint',
-      { parent, child_types: ['*'], max_depth: 1, escalate_action: 'block' }, [parent, child, `${child}:sub`]);
+      { parent, child_types: ['*'], max_depth: 1, escalate_action: 'block', short_list: true }, [parent, child, `${child}:sub`]);
     const deep2 = await api('POST', '/api/guard', {
       action_type: 'smoke.read', declared_goal: `dc deep2 ${RUN}`, agent_id: `${child}:sub`, risk_score: 5,
     });
@@ -1601,6 +1661,8 @@ async function main() {
       deep2.json?.decision === 'block' && (deep2.json?.matched_policies || []).includes(pid2),
       `decision=${deep2.json?.decision}`);
     void deep; // first deep call predates pid2 — not asserted
+    await retirePolicy(pid);
+    await retirePolicy(pid2);
   }
 
   // ---------------------------------------------------------------- AH ----
@@ -1627,7 +1689,7 @@ async function main() {
   {
     const agent = agentFor('contain');
     const pid = await createPolicy('ah-containment', 'risk_threshold',
-      { threshold: 80, action: 'require_approval', contain_above: 40 }, [agent]);
+      { threshold: 80, action: 'require_approval', contain_above: 40, short_list: true }, [agent]);
     check('AH1', 'agent-scoped risk_threshold policy with a containment band created',
       Boolean(pid), `policy_id=${pid}`);
 
@@ -1791,6 +1853,7 @@ async function main() {
     check('AH8', 'mutated merge act is never covered by the grant (act-content-hash bind)',
       mergeMutated.json?.decision === 'require_approval',
       `decision=${mergeMutated.json?.decision}`);
+    await retirePolicy(pid);
   }
 
   // DV: plan deviation events (RFC 2026-08-11-plan-deviation-events).
@@ -1800,7 +1863,7 @@ async function main() {
   {
     const agent = agentFor('dv');
     await createPolicy('deviation-response', 'deviation_response',
-      { on_kind: { act_substitution: 'require_approval', unplanned_action: 'warn' } }, [agent]);
+      { on_kind: { act_substitution: 'require_approval', unplanned_action: 'warn' }, short_list: true }, [agent]);
 
     const declaredAct = { kind: 'shell', command: `echo deploy-staging-${RUN}` };
     const submitted = await api('POST', '/api/plans', {

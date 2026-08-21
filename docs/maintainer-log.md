@@ -14,6 +14,41 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-20 — CI red on 5.27.0: the policy smoke predates its own gate
+
+The 5.27.0 push went red in CI, and the failure was the release working as
+designed: the startup policy smoke creates its interrupting policies through
+`POST /api/policies`, and since the Short List that route demotes any
+interrupting rule to Watch unless the caller opts in with
+`rules.short_list: true` — so every block/hold the smoke expected came back
+`warn` (30 failed checks), and the `delegation_constraint` create died on the
+new `NO_WATCH_TIER` 409 outright. The smoke was written against the old
+contract; the product behaved exactly as shipped.
+
+Fix is confined to `scripts/policy-smoke.mjs`: every interrupting create now
+opts in with `short_list: true` at its call site, and — because the cap is 10
+active lines org-wide and the seeded catastrophe pack already holds 4 — each
+section now retires (deactivates) its policy the moment its checks are done
+via a new `retirePolicy()` helper, so concurrent smoke lines never exceed ~3.
+Two new checks pin the admission contract itself so this class of drift fails
+loudly next time: SL1 proves a bare interrupting create is demoted to Watch
+(fires as `warn`, matched, never blocks), SL2 proves a no-watch-tier type
+without the opt-in is refused with the 409 rather than stored with a flag its
+evaluator would ignore. Checked the proposal paths for the same leak and they
+are clean — tuning and loosening patches spread the existing rules, so an
+accepted proposal keeps its `short_list` slot.
+
+One verification honesty note: local runs can't prove the approval-dependent
+half of the suite on this machine — the local key resolves through the
+`api_keys` table to a `key_<uuid>` principal, so every self-approval hits the
+(correct, deliberate) `SELF_APPROVAL_FORBIDDEN` gate; CI's env-var operator
+key takes the `operator` fast path that is exempt. Ran the pre-fix smoke
+against the same local server to prove that class is pre-existing environment,
+not this change: identical 403s, identical AG fatal. Everything the CI failure
+actually flagged is verified fixed locally (105/137 checks green, all 32
+remaining failures in the pre-existing local-identity class), plus the full
+vitest suite.
+
 ## 2026-08-20 — The Short List
 
 Ran a design tournament before touching code: six proposals, three judges
