@@ -358,7 +358,13 @@ function classifyShellSegment(seg: string, rawScan: boolean): EvidenceClassifica
   const isSudo = /^\s*sudo\b/.test(s);
 
   const deviceWrite = DEVICE_WRITE_RE.test(scan);
-  if (RM_RECURSIVE_RE.test(scan) || /\bshred\b|\bmkfs(\.|\b)|\bdd\b|\btruncate\b/.test(scan)
+  // `dd` only in command position: the bare `\bdd\b` form graded every
+  // `yyyy-MM-dd` date-format string destructive (OpenClaw's read-only startup
+  // `Get-Content SOUL.md; $d.ToString('yyyy-MM-dd')` held for approval,
+  // 2026-08-21). Segments are chain-split above, so start-of-segment (after an
+  // optional sudo) is the command slot — mirrors bash_classifier.py's
+  // token-based `base == "dd"`.
+  if (RM_RECURSIVE_RE.test(scan) || /\bshred\b|\bmkfs(\.|\b)|^\s*(sudo\s+)?dd\s|\btruncate\b/.test(scan)
       || FIND_DELETE_RE.test(scan) || INTERPRETER_DESTRUCTIVE_RE.test(scan) || deviceWrite) {
     base = 80; action = 'security'; reversible = false; flags.push('destructive');
     if (INTERPRETER_DESTRUCTIVE_RE.test(scan)) flags.push('interpreter_destructive');

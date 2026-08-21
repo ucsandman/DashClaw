@@ -750,3 +750,30 @@ describe('evaluateGuard — evidence fold and mismatch', () => {
     expect(JSON.parse(contextJson).intent_source).toBe('evidence');
   });
 });
+
+describe('date-format strings are not the dd disk tool (2026-08-21 OpenClaw startup false positive)', () => {
+  it('keeps a PowerShell startup read with yyyy-MM-dd below the destructive band', () => {
+    const c = classifyAct({
+      kind: 'shell',
+      command: "Get-Content -Raw SOUL.md; Get-Content -Raw USER.md; $d=Get-Date; $a=Join-Path 'memory' ($d.ToString('yyyy-MM-dd')+'.md')",
+    });
+    expect(c.flags).not.toContain('destructive');
+    expect(c.derived_action_type).not.toBe('security');
+    expect(c.base_risk).toBeLessThan(80);
+  });
+
+  it('keeps `echo yyyy-MM-dd` and `date +%Y-%m-dd` out of the destructive band', () => {
+    for (const command of ['echo yyyy-MM-dd', 'date +%Y-%m-dd']) {
+      const c = classifyAct({ kind: 'shell', command });
+      expect(c.flags, command).not.toContain('destructive');
+    }
+  });
+
+  it('still grades dd in command position (incl. sudo and chained) destructive', () => {
+    for (const command of ['dd if=/dev/zero of=out.img bs=1M', 'sudo dd if=in of=out', 'echo go && dd if=a of=b']) {
+      const c = classifyAct({ kind: 'shell', command });
+      expect(c.flags, command).toContain('destructive');
+      expect(c.base_risk, command).toBeGreaterThanOrEqual(80);
+    }
+  });
+});
