@@ -378,11 +378,13 @@ function classifyShellSegment(seg: string, rawScan: boolean): EvidenceClassifica
       modifiers.push({ reason: 'raw block device write target', delta: 20 });
       flags.push('device_write', 'protected_target');
     } else if (/\bmkfs(\.|\b)/.test(scan)) {
-      // Formatting a filesystem is the catastrophic class by construction:
-      // `protected_target` is the flag the default packs' mass-destructive
-      // line keys on (rules.only_evidence_flags), so mkfs must carry it or it
-      // would be the one disk-wipe that runs unheld.
-      flags.push('protected_target');
+      // Formatting a filesystem IS a raw device write: same modifier and the
+      // same flags as the dd/redirect branch. `protected_target` is what the
+      // default packs' mass-destructive line keys on (rules.only_evidence_flags)
+      // and the +20 is what lifts it to the line's threshold — with the flag
+      // alone mkfs graded 90 on the live guard and ran unheld (2026-08-21).
+      modifiers.push({ reason: 'filesystem format (raw device write)', delta: 20 });
+      flags.push('device_write', 'protected_target');
     } else if (RM_RECURSIVE_RE.test(scan)) {
       const targets = rmDeleteTargets(s);
       if (targets.length > 0 && targets.every(isRegenerableArtifactTarget)) {

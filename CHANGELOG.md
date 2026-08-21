@@ -13,6 +13,18 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.27.3] — 2026-08-21
+
+### Fixed
+
+- **`mkfs` grades as a raw device write.** The 5.27.2 live proof ran three
+  shapes through the deployed guard: `rm -rf ~` held, `rm -rf ./dist`
+  ran, and `mkfs.ext4 /dev/sdb1` **ran** — it carried the `protected_target`
+  flag the gated line keys on but totalled 90, below the line's threshold,
+  because it had the flag without the device-write modifier. `mkfs` now
+  rides the same branch as `dd of=/dev/sda` (+20, flags `device_write` +
+  `protected_target`, evidence total 100) and holds.
+
 ## [5.27.2] — 2026-08-21
 
 ### Fixed

@@ -51,6 +51,15 @@ Rule I am writing down: an interrupt line is keyed on *what the act is*
 (a classifier flag, a path, a verb), never on the blended score alone. The
 score is for the ledger.
 
+Addendum, 5.27.3 (same hour): the live proof is why this log exists. I ran
+three shapes through the deployed guard before calling it done. `rm -rf ~`
+held; `rm -rf ./dist` ran; `mkfs.ext4 /dev/sdb1` ran. It carried the flag
+I had just added — and totalled 90, under the line's threshold, because I
+gave it the flag without the device-write modifier. A gate that keys on a
+flag AND a score needs both to be right; the unit test checked the flag and
+not the total. mkfs now rides the raw-device-write branch (+20, total 100)
+and the test pins the total. Re-proved on live after the 5.27.3 deploy.
+
 ## 2026-08-21 — The runtime refused a deploy. It does not get to decide.
 
 Wes hit it first, then I did ten minutes later: the catastrophe pack's

@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.27.2",
+    "current_version": "5.27.3",
     "next_bump": "none",
-    "reason": "v5.27.2 is platform-only (mass-destructive line keys on protected_target evidence, not the risk score) — no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 5.27.1.",
+    "reason": "v5.27.3 is platform-only (mkfs grades as a raw device write so the evidence-gated catastrophe line actually reaches its threshold) — no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 5.27.2.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.27.2",
+    "current_version": "5.27.3",
     "next_bump": "none",
-    "reason": "v5.27.2 is platform-only (mass-destructive line keys on protected_target evidence, not the risk score) — no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 5.27.1.",
+    "reason": "v5.27.3 is platform-only (mkfs grades as a raw device write so the evidence-gated catastrophe line actually reaches its threshold) — no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 5.27.2.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.27.2 adds rules.only_evidence_flags to risk_threshold and pins the catastrophe-only and claude-code-starter mass-destructive lines to the classifier's protected_target flag (rm/find on root/home/system/drive, raw device write, mkfs). The bare threshold-100 line held `cat .env.example` and heredoc prose containing `dd ` — five hand-approvals in one morning, none a catastrophe. Seeded rows are upgraded in place on every deploy. Zero new API routes, zero new pages. Neither SDK source changed.",
+  "reason": "5.27.3 follows 5.27.2 within the hour: on the live guard mkfs carried the protected_target flag but graded 90 (no device-write modifier) and ran unheld under the flag-gated line. mkfs now rides the raw-device-write branch (+20, flags device_write + protected_target) and totals 100. Zero new API routes, zero new pages. Neither SDK source changed.",
   "domains": [
     "platform"
   ]

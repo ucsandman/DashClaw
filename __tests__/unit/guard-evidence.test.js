@@ -419,6 +419,8 @@ describe('classifyAct — F2 coverage backlog', () => {
     const mkfs = classifyAct({ kind: 'shell', command: 'mkfs.ext4 /dev/sdb1' });
     expect(mkfs.base_risk).toBe(80);
     expect(mkfs.flags).toContain('protected_target'); // the packs' catastrophe gate keys on it
+    expect(mkfs.flags).toContain('device_write');
+    expect(evidenceTotal(mkfs)).toBe(100); // flag alone graded 90 live and ran unheld (2026-08-21)
     expect(classifyAct({ kind: 'shell', command: 'truncate -s 0 important.db' }).base_risk).toBe(80);
     const clean = classifyAct({ kind: 'shell', command: 'git clean -xfd' });
     expect(clean.flags).toContain('vcs_dangerous');
