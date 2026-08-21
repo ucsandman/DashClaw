@@ -33,7 +33,7 @@ function line(over: Partial<ShortListLine>): ShortListLine {
 }
 
 const LINES: ShortListLine[] = [
-  line({}),
+  line({ tier: 'HOLD', policy_type: 'risk_threshold', ungrantable: false }),
   line({ id: 'gp_2', name: 'Secret-file writes', tier: 'HOLD', policy_type: 'require_approval', scope: 'writes to .env, secrets/**' }),
   line({ id: 'gp_3', name: 'Force-push over main', tier: 'HOLD', policy_type: 'require_approval', scope: 'git push --force onto a protected branch' }),
   line({ id: 'gp_4', name: 'Runaway loop', tier: 'WATCH', policy_type: 'warn_action_type', scope: 'over 200 governed actions in 10 min' }),
@@ -62,7 +62,7 @@ describe('ShortListReceipt — the /connect receipt (B7)', () => {
     expect(await screen.findByText('Your Short List is live')).toBeTruthy();
     expect(
       screen.getByText(
-        'One of these refuses outright. Two hold for your approval. Everything else runs and is recorded.',
+        'Three of these hold for your approval. Everything else runs and is recorded.',
       ),
     ).toBeTruthy();
 
@@ -75,8 +75,8 @@ describe('ShortListReceipt — the /connect receipt (B7)', () => {
     expect(screen.queryByText('Dormant role constraint')).toBeNull();
 
     // The chip carries the WORD, never colour alone.
-    expect(screen.getByText('BLOCK')).toBeTruthy();
-    expect(screen.getAllByText('HOLD')).toHaveLength(2);
+    expect(screen.queryByText('BLOCK')).toBeNull();
+    expect(screen.getAllByText('HOLD')).toHaveLength(3);
     expect(screen.getByText('WATCH')).toBeTruthy();
 
     const review = screen.getByRole('link', { name: /Review the Short List/i });

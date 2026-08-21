@@ -42,7 +42,7 @@ describe('import-pack', () => {
     const policies = await loadPackPolicies('claude-code-starter');
     expect(policies).toHaveLength(4);
     expect(policies.map((p) => p.id)).toEqual([
-      'block_mass_destructive',
+      'hold_mass_destructive',
       'require_approval_network_calls',
       'require_approval_package_installs',
       'rate_limit_runaway_safety',

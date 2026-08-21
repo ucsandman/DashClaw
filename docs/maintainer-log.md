@@ -14,6 +14,41 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-21 — The runtime refused a deploy. It does not get to decide.
+
+Wes hit it first, then I did ten minutes later: the catastrophe pack's
+risk-100 line was `action: block`, and a Vercel deploy scores exactly 100
+(deploy base 75, deployment-pattern goal +10, irreversible +15). The hook
+printed "Blocked by policy" and exited. No approval card, no button, no
+human in the loop — the runtime had decided. My own fix attempt got the same
+refusal because the edit script's text mentioned a destructive command.
+
+The pack was written with "mass-destructive" in mind (rm on a non-regenerable
+path, DROP TABLE, mkfs) and the clamp at 100 was treated as a clean signal
+for that class. It is not: anything irreversible in a high-base class stacks
+to the clamp. At 100 the scorer cannot separate "wipe the disk" from "ship
+the site", and the only honest verdict when you cannot tell is to ask.
+
+Shipped in 5.27.1:
+
+- Catastrophe-only and claude-code-starter risk-100 lines are
+  `require_approval`. Renamed "Hold Mass-Destructive Operations for
+  Approval"; ids unchanged; the force-push carve-out stays so that line owns
+  its own approval card.
+- `holdMassDestructive(sql)` in `app/lib/setup/catastrophe-pack.mjs`,
+  called from auto-migrate on every deploy: flips seeded rows by old name,
+  any org, idempotent. Proved on the local DB with a planted old-shape row
+  (flipped=1, second run 0) before trusting the 0 it printed on the live
+  run.
+- my-dashclaw was patched over the API before the code shipped so the deploy
+  was unblocked immediately; the live guard now answers
+  `require_approval` for both a destructive command and `vercel deploy`.
+- /connect receipt, pack previews, README, runbook, drill fragment updated.
+
+Rule I am writing down: a default pack never carries `action: block`. BLOCK
+is a tier a human can choose on /policies; it is not a shape the runtime
+ships on its own.
+
 ## 2026-08-20 — CI red on 5.27.0: the policy smoke predates its own gate
 
 The 5.27.0 push went red in CI, and the failure was the release working as

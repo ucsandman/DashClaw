@@ -3,34 +3,39 @@ project: catastrophe-only
 description: >
   The default pack for every new self-hosted org. Interrupts are reserved for
   the irreversible class: mass-destructive filesystem/database/git operations
-  are blocked outright, writes to secret files are held for one-click approval,
-  and a warn-only rate limit nets runaway loops. Everything else runs. Broader
+  and writes to secret files are held for one-click approval, and a warn-only
+  rate limit nets runaway loops. Nothing is refused outright — the human
+  decides, never the runtime. Everything else runs. Broader
   gates (network calls, package installs) live in the opt-in
   claude-code-starter pack.
 
 policies:
   # Fires when the server-computed risk score hits the 100 clamp: rm -rf on
   # non-regenerable paths, DROP TABLE / TRUNCATE / DELETE FROM, mkfs, wipe
-  # (security base 80 + irreversible 15 + ... -> clamped 100). Bounded/
-  # regenerable rm re-maps to cleanup and passes. git push --force also scores
-  # 100 but is carved out to line 3: `block` always wins the severity merge, so
-  # excluding it here is the only way it can be a HOLD with an approval card.
-  - id: block_mass_destructive
-    description: "Catastrophe Pack — Block Mass-Destructive Operations"
+  # (security base 80 + irreversible 15 + ... -> clamped 100), and anything
+  # else that stacks to 100 — a `deploy` marked irreversible lands here too.
+  # That is exactly why this is a HOLD, not a block: the runtime cannot tell
+  # "wipe the disk" from "ship the site" at score 100, so it asks the human
+  # instead of deciding (2026-08-21: a Vercel deploy was refused outright).
+  # Bounded/regenerable rm re-maps to cleanup and passes. git push --force
+  # also scores 100 but is carved out to line 3 so the force-push line owns
+  # its approval card (one reason on the card, not two).
+  - id: hold_mass_destructive
+    description: "Catastrophe Pack — Hold Mass-Destructive Operations for Approval"
     policy_type: risk_threshold
     rules:
       threshold: 100
-      action: block
+      action: require_approval
       except_git_push:
         force: true
       short_list: true
     tests:
-      - name: blocks_rm_rf
+      - name: holds_rm_rf
         input:
           action_type: security
           declared_goal: "Bash: rm -rf /tmp/build"
         expect:
-          decision: block
+          decision: require_approval
       - name: allows_normal_file_edit
         input:
           action_type: apply

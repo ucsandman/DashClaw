@@ -72,3 +72,37 @@ export async function seedCatastrophePack(sql, orgId) {
 
   return { imported, skipped };
 }
+
+// Rows seeded by the pre-2026-08-21 packs carried `action: block` on the
+// risk-100 line. Nothing in the default packs refuses outright any more — the
+// runtime cannot tell "wipe the disk" from "ship the site" at score 100, so it
+// holds for the human instead (a Vercel deploy was being refused). Flip every
+// seeded row still on the old shape, by its seeded name, in place: the policy
+// keeps its id, so grants/decisions that reference it stay attached.
+const BLOCK_TO_HOLD = [
+  ['Catastrophe Pack — Block Mass-Destructive Operations', 'Catastrophe Pack — Hold Mass-Destructive Operations for Approval'],
+  ['Claude Code Starter — Block Mass-Destructive Operations', 'Claude Code Starter — Hold Mass-Destructive Operations for Approval'],
+];
+
+/**
+ * Re-point already-seeded "Block Mass-Destructive" rows at require_approval.
+ * Idempotent (matches the old name only); touches every org. Returns the
+ * number of rows flipped.
+ * @param {(strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>} sql postgres.js tag
+ */
+export async function holdMassDestructive(sql) {
+  let updated = 0;
+  const now = new Date().toISOString();
+  for (const [oldName, newName] of BLOCK_TO_HOLD) {
+    const rows = await sql`
+      UPDATE guard_policies
+      SET name = ${newName},
+          rules = (rules::jsonb || '{"action":"require_approval"}'::jsonb)::text,
+          updated_at = ${now}
+      WHERE name = ${oldName}
+      RETURNING id
+    `;
+    updated += rows.length;
+  }
+  return updated;
+}

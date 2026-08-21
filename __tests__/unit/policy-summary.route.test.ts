@@ -117,9 +117,9 @@ describe('GET /api/policies/summary', () => {
 const CATASTROPHE = [
   {
     id: 'c1',
-    name: 'Catastrophe Pack — Block Mass-Destructive Operations',
+    name: 'Catastrophe Pack — Hold Mass-Destructive Operations for Approval',
     policy_type: 'risk_threshold',
-    rules: rules({ threshold: 100, action: 'block', except_git_push: { force: true }, short_list: true }),
+    rules: rules({ threshold: 100, action: 'require_approval', except_git_push: { force: true }, short_list: true }),
   },
   {
     id: 'c2',
@@ -163,7 +163,7 @@ describe('GET /api/policies/summary — Short List', () => {
     // 4 seeded catastrophe lines + the custom hold. The warn rule is watched.
     expect(data.shortList).toHaveLength(5);
     const byId = Object.fromEntries(data.shortList.map((l: { id: string }) => [l.id, l]));
-    expect(byId.c1.tier).toBe('BLOCK');
+    expect(byId.c1.tier).toBe('HOLD'); // the risk-100 line holds, never blocks (2026-08-21)
     expect(byId.c2.tier).toBe('HOLD');
     expect(byId.c3.tier).toBe('HOLD');
     expect(byId.c4.tier).toBe('WATCH'); // short_list opt-in, warn action

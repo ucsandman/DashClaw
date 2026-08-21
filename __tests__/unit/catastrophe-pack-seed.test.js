@@ -43,7 +43,7 @@ describe('loadCatastrophePackPolicies', () => {
     const policies = loadCatastrophePackPolicies();
     expect(policies).toHaveLength(4);
     expect(policies.map((p) => p.id)).toEqual([
-      'block_mass_destructive',
+      'hold_mass_destructive',
       'hold_secret_file_writes',
       'hold_force_push_protected',
       'rate_limit_runaway_safety',
@@ -69,7 +69,7 @@ describe('seedCatastrophePack', () => {
     await seedCatastrophePack(sql, 'org_default');
     const names = sql._inserts.map((r) => r.name);
     expect(names).toEqual([
-      'Catastrophe Pack — Block Mass-Destructive Operations',
+      'Catastrophe Pack — Hold Mass-Destructive Operations for Approval',
       'Catastrophe Pack — Hold Secret-File Writes for Approval',
       'Catastrophe Pack — Hold Force-Push Over Protected Branches',
       'Catastrophe Pack — Rate-Limit Runaway Agents',
@@ -78,7 +78,7 @@ describe('seedCatastrophePack', () => {
 
   it('skips policies whose name already exists (idempotent second layer)', async () => {
     const sql = makeSqlStub([
-      'Catastrophe Pack — Block Mass-Destructive Operations',
+      'Catastrophe Pack — Hold Mass-Destructive Operations for Approval',
       'Catastrophe Pack — Hold Secret-File Writes for Approval',
       'Catastrophe Pack — Hold Force-Push Over Protected Branches',
       'Catastrophe Pack — Rate-Limit Runaway Agents',
@@ -89,7 +89,7 @@ describe('seedCatastrophePack', () => {
   });
 
   it('inserts only the missing policy when one already exists', async () => {
-    const sql = makeSqlStub(['Catastrophe Pack — Block Mass-Destructive Operations']);
+    const sql = makeSqlStub(['Catastrophe Pack — Hold Mass-Destructive Operations for Approval']);
     const result = await seedCatastrophePack(sql, 'org_default');
     expect(result).toEqual({ imported: 3, skipped: 1 });
     expect(sql._inserts.map((r) => r.name)).toEqual([

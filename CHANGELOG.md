@@ -13,6 +13,26 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.27.1] — 2026-08-21
+
+### Changed
+
+- **Nothing in the default packs refuses outright any more.** The risk-100
+  line of the catastrophe-only pack (seeded into every new org) and of the
+  claude-code-starter pack was `action: block`. At score 100 the runtime
+  cannot tell "wipe the disk" from "ship the site" — an irreversible
+  `deploy` stacks to exactly 100 (deploy 75 + deployment-pattern 10 +
+  irreversible 15) — and it was refusing a Vercel deploy with no approval
+  card and no way for a human to say yes. Both lines are now
+  `require_approval`: the hold lands on `/approvals` with one-click
+  approve/deny, and the human decides. Renamed to "Hold Mass-Destructive
+  Operations for Approval"; the policy ids are unchanged.
+- **Already-seeded orgs are migrated in place.** `scripts/auto-migrate.mjs`
+  now flips any seeded "Block Mass-Destructive Operations" row (any org) to
+  the hold shape on every deploy — matches the old name only, so it is a
+  no-op once flipped. The `/connect` receipt sentence follows the new
+  shape ("Three of these hold for your approval").
+
 ## [5.27.0] — 2026-08-20
 
 ### Added

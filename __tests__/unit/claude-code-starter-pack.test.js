@@ -29,8 +29,8 @@ describe('claude-code-starter pack', () => {
     }
   });
 
-  it('block_mass_destructive fires at risk score 100', async () => {
-    const policy = pack.policies.find((p) => p.id === 'block_mass_destructive');
+  it('hold_mass_destructive fires at risk score 100', async () => {
+    const policy = pack.policies.find((p) => p.id === 'hold_mass_destructive');
     const result = await evaluatePolicy(
       { policy_type: policy.policy_type },
       policy.rules,
@@ -39,11 +39,11 @@ describe('claude-code-starter pack', () => {
       'org_test',
       100,
     );
-    expect(result).toEqual({ action: 'block', reason: expect.stringContaining('100 >= threshold 100') });
+    expect(result).toEqual({ action: 'require_approval', reason: expect.stringContaining('100 >= threshold 100') });
   });
 
-  it('block_mass_destructive allows normal file edits', async () => {
-    const policy = pack.policies.find((p) => p.id === 'block_mass_destructive');
+  it('hold_mass_destructive allows normal file edits', async () => {
+    const policy = pack.policies.find((p) => p.id === 'hold_mass_destructive');
     const result = await evaluatePolicy(
       { policy_type: policy.policy_type },
       policy.rules,

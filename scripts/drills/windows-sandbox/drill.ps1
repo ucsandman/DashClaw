@@ -164,7 +164,7 @@ try {
             -Headers @{ 'x-api-key' = $apiKey } -UseBasicParsing
         $names = @(($polResp.Content | ConvertFrom-Json).policies | ForEach-Object { $_.name })
         $fragments = @(
-            'Block Mass-Destructive Operations',
+            'Hold Mass-Destructive Operations for Approval',
             'Hold Secret-File Writes for Approval',
             'Rate-Limit Runaway Agents'
         )

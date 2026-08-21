@@ -3,31 +3,32 @@ project: claude-code-starter
 description: >
   Day-one baseline for Claude Code (and similar coding-agent) hooks. Four
   policies that cover the common cases: silently allow git commits and test
-  runs (no policy needed — default is allow), always block mass-destructive
-  operations, require approval for network calls and package installs, and
+  runs (no policy needed — default is allow), hold mass-destructive
+  operations for approval, require approval for network calls and package installs, and
   rate-limit runaway agents. Install this pack first; stack layered-intelligence
   on top once the baseline is in place.
 
 policies:
-  # --- Block mass-destructive operations ---
+  # --- Hold mass-destructive operations for approval ---
   # Fires when the server-computed risk score hits the 100 clamp. In practice
   # this means bash intent=destructive on a shell-touching command (security
   # base 80 + DESTRUCTIVE_GOAL_PATTERNS +20 = 100): rm -rf, drop table,
   # truncate, format, wipe. Normal file edits and git commits score well
-  # below 100 and pass through.
-  - id: block_mass_destructive
-    description: "Claude Code Starter — Block Mass-Destructive Operations"
+  # below 100 and pass through. A HOLD, never a block: score 100 also catches
+  # an irreversible deploy, and only the human can tell the two apart.
+  - id: hold_mass_destructive
+    description: "Claude Code Starter — Hold Mass-Destructive Operations for Approval"
     policy_type: risk_threshold
     rules:
       threshold: 100
-      action: block
+      action: require_approval
     tests:
-      - name: blocks_rm_rf
+      - name: holds_rm_rf
         input:
           action_type: security
           declared_goal: "Bash: rm -rf /tmp/build"
         expect:
-          decision: block
+          decision: require_approval
 
       - name: allows_normal_file_edit
         input:

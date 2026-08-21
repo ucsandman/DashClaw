@@ -28,7 +28,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
 import { splitSqlStatements } from '../app/lib/setup/sql-statements.mjs';
-import { seedCatastrophePack } from '../app/lib/setup/catastrophe-pack.mjs';
+import { seedCatastrophePack, holdMassDestructive } from '../app/lib/setup/catastrophe-pack.mjs';
 
 // Load .env / .env.local if present (no-op in Vercel where vars are injected).
 import './_load-env.mjs';
@@ -279,6 +279,16 @@ try {
 } catch (err) {
   // Non-fatal: log and continue. The app can still boot; setup page will guide user.
   log(`Warning: Could not seed org_default — ${err.message}`);
+}
+
+// Step 2b: the default packs never refuse outright (2026-08-21). Re-point any
+// seeded "Block Mass-Destructive" row, in any org, at require_approval. Runs
+// every deploy; matches the old name only, so it is a no-op once flipped.
+try {
+  const flipped = await holdMassDestructive(sql);
+  log(`Mass-destructive line: ${flipped} seeded row(s) flipped from block to hold`);
+} catch (err) {
+  log(`Warning: Could not flip mass-destructive rows to hold — ${err.message}`);
 }
 
 // ── Step 3: Optionally seed DASHCLAW_API_KEY ───────────────────────────────

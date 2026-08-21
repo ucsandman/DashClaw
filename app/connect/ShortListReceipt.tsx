@@ -25,7 +25,7 @@ import type { ShortListLine } from '../lib/policy-modes/summary';
 const PACK_LINE = 'Add a pack when you want more than catastrophe coverage. Pack rules start in Watch.';
 
 const SEED_SENTENCE =
-  'One of these refuses outright. Two hold for your approval. Everything else runs and is recorded.';
+  'Three of these hold for your approval. Everything else runs and is recorded.';
 
 /** The chip carries the WORD; colour is a second signal, never the only one. */
 const TIER_CHIP: Record<ShortListLine['tier'], string> = {
@@ -35,14 +35,15 @@ const TIER_CHIP: Record<ShortListLine['tier'], string> = {
 };
 
 /**
- * The seeded list is 1 BLOCK + 2 HOLD, and reads best in words. Any other
- * shape — a line switched off, a fifth line added from a decision — has to
- * report itself honestly rather than keep claiming "one" and "two".
+ * The seeded list is 3 HOLD + 1 WATCH (nothing refuses outright — the human
+ * decides), and reads best in words. Any other shape — a line switched off, a
+ * BLOCK line added by hand — has to report itself honestly rather than keep
+ * claiming "three".
  */
 function tierSentence(lines: ShortListLine[]): string {
   const block = lines.filter((l) => l.tier === 'BLOCK').length;
   const hold = lines.filter((l) => l.tier === 'HOLD').length;
-  if (block === 1 && hold === 2) return SEED_SENTENCE;
+  if (block === 0 && hold === 3) return SEED_SENTENCE;
   const clauses = [];
   if (block) clauses.push(`${block} ${block === 1 ? 'refuses' : 'refuse'} outright.`);
   if (hold) clauses.push(`${hold} ${hold === 1 ? 'holds' : 'hold'} for your approval.`);

@@ -43,7 +43,7 @@ npm run hosted:check-ready   # with the hosted env values exported — expect st
    ```bash
    curl -H "x-api-key: <minted-key>" https://<hosted-host>/api/policies
    ```
-   Expect the four `Claude Code Starter — …` policies (Block Mass-Destructive Operations, Require Approval for Network Calls, Require Approval for Package Installs, Rate-Limit Runaway Agents). If the list is empty, check the Vercel function logs for `[HOSTED] starter-pack seeding failed` — provisioning deliberately succeeds even when seeding fails.
+   Expect the four `Claude Code Starter — …` policies (Hold Mass-Destructive Operations for Approval, Require Approval for Network Calls, Require Approval for Package Installs, Rate-Limit Runaway Agents). If the list is empty, check the Vercel function logs for `[HOSTED] starter-pack seeding failed` — provisioning deliberately succeeds even when seeding fails.
 3. **Governed request returns 200:**
    ```bash
    curl -X POST -H "x-api-key: <minted-key>" -H "Content-Type: application/json" \

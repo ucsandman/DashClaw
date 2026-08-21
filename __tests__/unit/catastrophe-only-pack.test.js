@@ -45,8 +45,8 @@ describe('catastrophe-only pack', () => {
     }
   });
 
-  it('block_mass_destructive fires at risk score 100', async () => {
-    const policy = pack.policies.find((p) => p.id === 'block_mass_destructive');
+  it('hold_mass_destructive fires at risk score 100', async () => {
+    const policy = pack.policies.find((p) => p.id === 'hold_mass_destructive');
     const result = await evaluatePolicy(
       { policy_type: policy.policy_type },
       policy.rules,
@@ -55,11 +55,11 @@ describe('catastrophe-only pack', () => {
       'org_test',
       100,
     );
-    expect(result).toEqual({ action: 'block', reason: expect.stringContaining('100 >= threshold 100') });
+    expect(result).toEqual({ action: 'require_approval', reason: expect.stringContaining('100 >= threshold 100') });
   });
 
-  it('block_mass_destructive allows normal file edits (risk well below 100)', async () => {
-    const policy = pack.policies.find((p) => p.id === 'block_mass_destructive');
+  it('hold_mass_destructive allows normal file edits (risk well below 100)', async () => {
+    const policy = pack.policies.find((p) => p.id === 'hold_mass_destructive');
     const result = await evaluatePolicy(
       { policy_type: policy.policy_type },
       policy.rules,
@@ -128,11 +128,10 @@ describe('catastrophe-only pack', () => {
     expect(policy.rules.ungrantable).toBe(true);
   });
 
-  // Force-push is a HOLD, not a dead run: `block` always wins the severity
-  // merge, so the risk-100 block line EXCLUDES force-pushes and line 3 owns
-  // them with an approval card.
-  it('block_mass_destructive excludes force-pushes so the hold line can own them', async () => {
-    const policy = pack.policies.find((p) => p.id === 'block_mass_destructive');
+  // The risk-100 line EXCLUDES force-pushes so line 3 owns their approval
+  // card (one reason on the card, not two).
+  it('hold_mass_destructive excludes force-pushes so the force-push line owns them', async () => {
+    const policy = pack.policies.find((p) => p.id === 'hold_mass_destructive');
     const result = await evaluatePolicy(
       { policy_type: policy.policy_type },
       policy.rules,
@@ -161,7 +160,7 @@ describe('catastrophe-only pack', () => {
 
   it('a force-push over a feature branch is neither blocked nor held', async () => {
     const context = { action_type: 'security', declared_goal: 'Bash: git push --force origin feature/x' };
-    for (const id of ['block_mass_destructive', 'hold_force_push_protected']) {
+    for (const id of ['hold_mass_destructive', 'hold_force_push_protected']) {
       const policy = pack.policies.find((p) => p.id === id);
       const result = await evaluatePolicy(
         { policy_type: policy.policy_type },
@@ -184,7 +183,7 @@ describe('catastrophe-only pack', () => {
   });
 
   // All four lines at once through the REAL engine, so the severity merge
-  // (block beats require_approval) is exercised rather than assumed.
+  // is exercised rather than assumed.
   describe('all four lines seeded, through evaluateGuard', () => {
     let orgCounter = 0;
     const decide = (declaredGoal) => {
@@ -201,7 +200,7 @@ describe('catastrophe-only pack', () => {
       );
     };
 
-    it('a force-push over main HOLDS (the block line excluded it)', async () => {
+    it('a force-push over main HOLDS (the risk-100 line excluded it)', async () => {
       const result = await decide('Bash: git push --force origin main');
       expect(result.decision).toBe('require_approval');
     });
@@ -211,14 +210,20 @@ describe('catastrophe-only pack', () => {
       expect(['block', 'require_approval']).not.toContain(result.decision);
     });
 
-    it('rm -rf still BLOCKS', async () => {
+    // Nothing in the pack refuses outright: the human decides, never the
+    // runtime (2026-08-21 — a Vercel deploy at score 100 was being refused).
+    it('rm -rf HOLDS for approval, never blocks', async () => {
       const result = await decide('Bash: rm -rf /');
-      expect(result.decision).toBe('block');
+      expect(result.decision).toBe('require_approval');
     });
 
-    it('a force-push smuggled into an rm chain still BLOCKS', async () => {
+    it('a force-push smuggled into an rm chain still HOLDS', async () => {
       const result = await decide('Bash: rm -rf / && git push --force origin main');
-      expect(result.decision).toBe('block');
+      expect(result.decision).toBe('require_approval');
+    });
+
+    it('no line in the pack carries action: block', () => {
+      for (const p of pack.policies) expect(p.rules.action).not.toBe('block');
     });
   });
 });

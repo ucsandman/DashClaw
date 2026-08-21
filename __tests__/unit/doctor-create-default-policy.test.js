@@ -38,7 +38,7 @@ describe('doctor fix: create_default_policy', () => {
   it('partially seeded org (2 names present) — imports the missing 2, notes the rest', async () => {
     mockGetSql.mockReturnValue(
       makeSqlStub([
-        'Catastrophe Pack — Block Mass-Destructive Operations',
+        'Catastrophe Pack — Hold Mass-Destructive Operations for Approval',
         'Catastrophe Pack — Hold Secret-File Writes for Approval',
       ]),
     );
@@ -51,7 +51,7 @@ describe('doctor fix: create_default_policy', () => {
   it('all four already present — applied false with an honest description', async () => {
     mockGetSql.mockReturnValue(
       makeSqlStub([
-        'Catastrophe Pack — Block Mass-Destructive Operations',
+        'Catastrophe Pack — Hold Mass-Destructive Operations for Approval',
         'Catastrophe Pack — Hold Secret-File Writes for Approval',
         'Catastrophe Pack — Hold Force-Push Over Protected Branches',
         'Catastrophe Pack — Rate-Limit Runaway Agents',

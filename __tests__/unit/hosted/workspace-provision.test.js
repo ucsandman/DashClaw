@@ -70,7 +70,7 @@ describe('hosted-workspace repository', () => {
 
     // The real pack yml defines exactly these four Short List policies.
     expect(insertedPolicies.map((p) => p.name)).toEqual([
-      'Catastrophe Pack — Block Mass-Destructive Operations',
+      'Catastrophe Pack — Hold Mass-Destructive Operations for Approval',
       'Catastrophe Pack — Hold Secret-File Writes for Approval',
       'Catastrophe Pack — Hold Force-Push Over Protected Branches',
       'Catastrophe Pack — Rate-Limit Runaway Agents',

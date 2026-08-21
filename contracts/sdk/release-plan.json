@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.27.0",
+    "current_version": "5.27.1",
     "next_bump": "none",
-    "reason": "v5.27.0 is platform-only (the Short List: policies+calibration onboarding redesign) \u2014 no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 5.26.0.",
+    "reason": "v5.27.1 is platform-only (default packs hold instead of block at risk 100; seeded rows migrated in place) — no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 5.26.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.27.0",
+    "current_version": "5.27.1",
     "next_bump": "none",
-    "reason": "v5.27.0 is platform-only (the Short List: policies+calibration onboarding redesign) \u2014 no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 5.26.0.",
+    "reason": "v5.27.1 is platform-only (default packs hold instead of block at risk 100; seeded rows migrated in place) — no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 5.26.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.27.0 opens the Team Tasks ledger to any lowercase agent-id slug (^[a-z][a-z0-9_-]{0,39}$) and adds origin company-loop, so a second multi-agent system - the Practical Systems company loop with moltfire/forge/cinder/ps-*/mission-control - can post to the same ledger the /team skill writes; statuses and event types are unchanged. It also releases the calibration controller's demote arm, the interruption budget, and the two guard fixes that landed on main after 5.25.0. Zero new API routes, zero new pages. Neither SDK source changed.",
+  "reason": "5.27.1 flips the catastrophe-only and claude-code-starter risk-100 lines from block to require_approval (an irreversible deploy scores exactly 100 and was being refused with no approval card), renames them \"Hold Mass-Destructive Operations for Approval\", and migrates already-seeded rows in place on every deploy. Zero new API routes, zero new pages. Neither SDK source changed.",
   "domains": [
     "platform"
   ]
