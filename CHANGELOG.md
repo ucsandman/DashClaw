@@ -13,6 +13,8 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.27.0] — 2026-08-20
+
 ### Added
 
 - **The Short List.** The catastrophe-only pack DashClaw already shipped and

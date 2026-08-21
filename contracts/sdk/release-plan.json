@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.26.0",
+    "current_version": "5.27.0",
     "next_bump": "none",
-    "reason": "5.26.0 is a platform-only ship: Team Tasks accept any lowercase agent-id slug (the Practical Systems company loop now mirrors its cycles onto the ledger), plus the calibration demote arm, interruption budget and two guard fixes accumulated since 5.25.0. sdk/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.26.0 tag fires release.yml, whose publish-npm job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "v5.27.0 is platform-only (the Short List: policies+calibration onboarding redesign) \u2014 no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 5.26.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.26.0",
+    "current_version": "5.27.0",
     "next_bump": "none",
-    "reason": "5.26.0 is a platform-only ship (Team Tasks agent-id slugs, calibration demote arm, interruption budget, guard fixes). sdk-python/ source did NOT change this release. The unified-version model advances the number anyway. Pushing the v5.26.0 tag fires release.yml, whose publish-pypi job only skips versions ALREADY on the registry - decide the publish by deciding whether to tag, not by editing this file.",
+    "reason": "v5.27.0 is platform-only (the Short List: policies+calibration onboarding redesign) \u2014 no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 5.26.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.26.0 opens the Team Tasks ledger to any lowercase agent-id slug (^[a-z][a-z0-9_-]{0,39}$) and adds origin company-loop, so a second multi-agent system - the Practical Systems company loop with moltfire/forge/cinder/ps-*/mission-control - can post to the same ledger the /team skill writes; statuses and event types are unchanged. It also releases the calibration controller's demote arm, the interruption budget, and the two guard fixes that landed on main after 5.25.0. Zero new API routes, zero new pages. Neither SDK source changed.",
+  "reason": "5.27.0 opens the Team Tasks ledger to any lowercase agent-id slug (^[a-z][a-z0-9_-]{0,39}$) and adds origin company-loop, so a second multi-agent system - the Practical Systems company loop with moltfire/forge/cinder/ps-*/mission-control - can post to the same ledger the /team skill writes; statuses and event types are unchanged. It also releases the calibration controller's demote arm, the interruption budget, and the two guard fixes that landed on main after 5.25.0. Zero new API routes, zero new pages. Neither SDK source changed.",
   "domains": [
     "platform"
   ]
