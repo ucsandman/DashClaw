@@ -120,6 +120,35 @@ describe('POST /api/policies/generate', () => {
     expect(JSON.parse(input.rules).action).toBe('warn');
   });
 
+  // Residual from a529c7b4: toWatchTier is a no-op for NO_WATCH_TIER_TYPES
+  // (non_fabrication, delegation_constraint, role_constraint, webhook_check).
+  // A generated draft of such a type must land dormant, not active-and-untouched.
+  it('dry_run=false lands a no-watch-tier draft (non_fabrication) dormant, rules untouched', async () => {
+    mockGeneratePolicies.mockResolvedValue({
+      drafts: [
+        { name: 'Require evidence', policy_type: 'non_fabrication', rules: { on_violation: 'require_approval' }, confidence: 0.7 },
+      ],
+      assumptions: [],
+      clarifications: [],
+      warnings: [],
+      input_hash: 'h2',
+    });
+
+    const req = makeRequest('http://localhost/api/policies/generate', {
+      body: { input_text: 'require cited evidence', dry_run: false },
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.dormant).toBe(1);
+
+    const [, , input] = mockInsertPolicy.mock.calls[0];
+    expect(input.policyType).toBe('non_fabrication');
+    expect(JSON.parse(input.rules).on_violation).toBe('require_approval');
+    expect(input.active).toBe(0);
+  });
+
   it('returns 403 for a non-admin on dry_run=false', async () => {
     mockGetOrgRole.mockReturnValue('member');
 

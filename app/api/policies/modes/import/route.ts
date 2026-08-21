@@ -13,7 +13,7 @@ import {
   insertPolicy,
   reactivateModePolicy,
 } from '../../../../lib/repositories/guardrails.repository';
-import { toWatchTier, watchPolicyType } from '../../../../lib/guardrails/short-list';
+import { hasWatchTier, toWatchTier, watchPolicyType } from '../../../../lib/guardrails/short-list';
 
 /**
  * POST /api/policies/modes/import — apply a mode by compiling it into ordinary
@@ -49,18 +49,28 @@ export async function POST(request: Request) {
     const policies = compileMode(modeId);
     const imported: Array<Record<string, unknown>> = [];
     const reactivated: Array<Record<string, unknown>> = [];
+    const dormant: Array<Record<string, unknown>> = [];
     const errors: string[] = [];
 
     for (const p of policies) {
       try {
         // Short List (spec 2.3): this back-compat route writes straight past
         // the /api/policies admission gate, so it demotes here — a mode apply
-        // records, it does not mint an interrupting line.
-        const policyType = watchPolicyType(p.policy_type);
-        const rules = JSON.stringify(toWatchTier(p.rules, p.policy_type));
+        // records, it does not mint an interrupting line. A type with no Watch
+        // tier (see NO_WATCH_TIER_TYPES) cannot be demoted at all — it lands
+        // DORMANT (active = 0, rules untouched) instead, same as pack import.
+        const noWatch = !hasWatchTier(p.policy_type);
+        const policyType = noWatch ? p.policy_type : watchPolicyType(p.policy_type);
+        const rules = noWatch ? JSON.stringify(p.rules) : JSON.stringify(toWatchTier(p.rules, p.policy_type));
         const existing = await findPolicyByName(sql, orgId, p.name);
         if (existing.length > 0) {
           const existingId = String((existing[0] as { id?: string }).id ?? '');
+          if (noWatch) {
+            // A dormant row must not be reactivated by a mode apply — leave
+            // whatever active/rules state it already has untouched.
+            dormant.push({ id: existingId, name: p.name, policy_type: policyType, active: 0 });
+            continue;
+          }
           const result = (await reactivateModePolicy(sql, orgId, existingId, {
             policyType,
             rules,
@@ -79,8 +89,12 @@ export async function POST(request: Request) {
           name: p.name,
           policyType,
           rules,
-          active: p.active,
+          active: noWatch ? 0 : p.active,
         })) as Record<string, unknown> | null;
+        if (noWatch) {
+          dormant.push({ id: result?.id ?? id, name: p.name, policy_type: policyType, active: 0 });
+          continue;
+        }
         imported.push({
           id: result?.id ?? id,
           name: p.name,
@@ -97,9 +111,10 @@ export async function POST(request: Request) {
         mode_id: modeId,
         imported: imported.length,
         reactivated: reactivated.length,
+        dormant: dormant.length,
         skipped: 0,
         errors,
-        policies: [...imported, ...reactivated],
+        policies: [...imported, ...reactivated, ...dormant],
       },
       { status: 201 },
     );

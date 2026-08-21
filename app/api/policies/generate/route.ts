@@ -8,7 +8,7 @@ import { getSql } from '../../../lib/db';
 import { apiErrorResponse } from '../../../lib/apiErrors';
 import { generatePolicies } from '../../../lib/policy-generator';
 import { insertPolicy } from '../../../lib/repositories/guardrails.repository';
-import { parseRules, toWatchTier, watchPolicyType } from '../../../lib/guardrails/short-list';
+import { hasWatchTier, parseRules, toWatchTier, watchPolicyType } from '../../../lib/guardrails/short-list';
 
 const MAX_INPUT_LENGTH = 5000;
 
@@ -67,23 +67,33 @@ export async function POST(request: Request) {
 
     // dry_run=false — create the drafts via repository
     const createdPolicies = [];
+    let dormant = 0;
     for (const policy of result.drafts ?? []) {
       const policyId = `gp_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
       // Short List (spec 2.3): a generated draft is stored in Watch. This
       // route writes past the /api/policies admission gate, so the demotion
       // happens here or the generator mints interrupting rules unreviewed.
+      // A type with no Watch tier (see NO_WATCH_TIER_TYPES) cannot be
+      // demoted at all — it lands DORMANT (active = 0, rules untouched)
+      // instead, same as pack import and mode apply.
+      const noWatch = !hasWatchTier(policy.policy_type);
       await insertPolicy(sql, orgId, {
         id: policyId,
         name: policy.name,
-        policyType: watchPolicyType(policy.policy_type),
-        rules: JSON.stringify(toWatchTier(parseRules(policy.rules), policy.policy_type)),
+        policyType: noWatch ? policy.policy_type : watchPolicyType(policy.policy_type),
+        rules: noWatch
+          ? JSON.stringify(parseRules(policy.rules))
+          : JSON.stringify(toWatchTier(parseRules(policy.rules), policy.policy_type)),
+        active: noWatch ? 0 : 1,
       });
+      if (noWatch) dormant++;
       createdPolicies.push(policyId);
     }
 
     return NextResponse.json({
       created_policies: createdPolicies,
       count: createdPolicies.length,
+      dormant,
     });
   } catch (err) {
     return apiErrorResponse(err, 'POLICIES GENERATE');
