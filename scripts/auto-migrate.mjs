@@ -28,7 +28,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
 import { splitSqlStatements } from '../app/lib/setup/sql-statements.mjs';
-import { seedCatastrophePack, holdMassDestructive } from '../app/lib/setup/catastrophe-pack.mjs';
+import { seedCatastrophePack, holdMassDestructive, gateMassDestructiveOnEvidence } from '../app/lib/setup/catastrophe-pack.mjs';
 
 // Load .env / .env.local if present (no-op in Vercel where vars are injected).
 import './_load-env.mjs';
@@ -289,6 +289,16 @@ try {
   log(`Mass-destructive line: ${flipped} seeded row(s) flipped from block to hold`);
 } catch (err) {
   log(`Warning: Could not flip mass-destructive rows to hold — ${err.message}`);
+}
+
+// Step 2c: the mass-destructive line fires on the classifier's protected_target
+// flag, not on the score (2026-08-21). Add the gate to any seeded row that
+// predates it; a no-op once every row carries the key.
+try {
+  const gated = await gateMassDestructiveOnEvidence(sql);
+  log(`Mass-destructive line: ${gated} seeded row(s) gated on protected_target evidence`);
+} catch (err) {
+  log(`Warning: Could not gate mass-destructive rows on evidence — ${err.message}`);
 }
 
 // ── Step 3: Optionally seed DASHCLAW_API_KEY ───────────────────────────────

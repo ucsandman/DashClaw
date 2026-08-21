@@ -45,17 +45,33 @@ describe('catastrophe-only pack', () => {
     }
   });
 
-  it('hold_mass_destructive fires at risk score 100', async () => {
+  it('hold_mass_destructive fires at risk score 100 on protected_target evidence', async () => {
     const policy = pack.policies.find((p) => p.id === 'hold_mass_destructive');
     const result = await evaluatePolicy(
       { policy_type: policy.policy_type },
       policy.rules,
-      { action_type: 'security', declared_goal: 'Bash: rm -rf /tmp/build' },
+      { action_type: 'security', declared_goal: 'Bash: rm -rf ~', evidence_flags: ['destructive', 'protected_target'] },
       null,
       'org_test',
       100,
     );
     expect(result).toEqual({ action: 'require_approval', reason: expect.stringContaining('100 >= threshold 100') });
+  });
+
+  // 2026-08-21: the score saturates at 100 for `cat .env.example` and friends;
+  // the line keys on the catastrophic flag, so score-100 without it passes.
+  it('hold_mass_destructive stays silent at risk 100 without protected_target', async () => {
+    const policy = pack.policies.find((p) => p.id === 'hold_mass_destructive');
+    expect(policy.rules.only_evidence_flags).toEqual(['protected_target']);
+    const result = await evaluatePolicy(
+      { policy_type: policy.policy_type },
+      policy.rules,
+      { action_type: 'security', declared_goal: 'Bash: cat -n site/.env.example', evidence_flags: ['secret_exposure'] },
+      null,
+      'org_test',
+      100,
+    );
+    expect(result).toBeNull();
   });
 
   it('hold_mass_destructive allows normal file edits (risk well below 100)', async () => {
@@ -193,9 +209,15 @@ describe('catastrophe-only pack', () => {
         policy_type: p.policy_type,
         rules: JSON.stringify(p.rules),
       }));
+      // The real hook shape: declared_goal "Bash: <cmd>" plus the act itself,
+      // so the evidence classifier grades the command (the mass-destructive
+      // line keys on its protected_target flag, not on the declared score).
       return evaluateGuard(
         `org_pack_${++orgCounter}`,
-        { action_type: 'security', agent_id: 'a1', risk_score: 100, declared_goal: declaredGoal },
+        {
+          action_type: 'security', agent_id: 'a1', risk_score: 100, declared_goal: declaredGoal,
+          act: { kind: 'shell', command: declaredGoal.replace(/^Bash: /, '') },
+        },
         createSqlMock({ taggedResponses: [rows] }),
       );
     };
@@ -215,6 +237,13 @@ describe('catastrophe-only pack', () => {
     it('rm -rf HOLDS for approval, never blocks', async () => {
       const result = await decide('Bash: rm -rf /');
       expect(result.decision).toBe('require_approval');
+    });
+
+    // The whole point of the flag gate: a score-100 act that is NOT the
+    // catastrophic class runs (and is logged) instead of paging the human.
+    it('cat .env.example at declared risk 100 is neither blocked nor held', async () => {
+      const result = await decide('Bash: cat -n site/.env.example');
+      expect(['block', 'require_approval']).not.toContain(result.decision);
     });
 
     it('a force-push smuggled into an rm chain still HOLDS', async () => {

@@ -10,32 +10,46 @@ description: >
   claude-code-starter pack.
 
 policies:
-  # Fires when the server-computed risk score hits the 100 clamp: rm -rf on
-  # non-regenerable paths, DROP TABLE / TRUNCATE / DELETE FROM, mkfs, wipe
-  # (security base 80 + irreversible 15 + ... -> clamped 100), and anything
-  # else that stacks to 100 — a `deploy` marked irreversible lands here too.
-  # That is exactly why this is a HOLD, not a block: the runtime cannot tell
-  # "wipe the disk" from "ship the site" at score 100, so it asks the human
-  # instead of deciding (2026-08-21: a Vercel deploy was refused outright).
-  # Bounded/regenerable rm re-maps to cleanup and passes. git push --force
-  # also scores 100 but is carved out to line 3 so the force-push line owns
-  # its approval card (one reason on the card, not two).
+  # Fires ONLY when the server-side evidence classifier tagged the act
+  # `protected_target`: rm/find -delete on a filesystem root, drive, home or
+  # system tree, a raw block-device write (dd of=/dev/sda, > /dev/nvme0n1),
+  # mkfs. Those are the shapes no agent should finish unattended, so it HOLDS
+  # (never blocks — the human decides). The score alone was the wrong key: it
+  # saturates at 100 for `cat .env.example`, a heredoc line containing `dd ` or
+  # `truncate`, any `security`-typed shell call — and the pack held all of
+  # them (2026-08-21: 5 hand-approvals in one morning, none a catastrophe).
+  # Everything that is not this class runs and is logged. `rm -rf` on a
+  # project path keeps its security/100 grade in the ledger but does not
+  # interrupt; bounded/regenerable rm re-maps to cleanup. git push --force
+  # is carved out to line 3 so the force-push line owns its approval card.
   - id: hold_mass_destructive
     description: "Catastrophe Pack — Hold Mass-Destructive Operations for Approval"
     policy_type: risk_threshold
     rules:
       threshold: 100
       action: require_approval
+      only_evidence_flags:
+        - protected_target
       except_git_push:
         force: true
       short_list: true
     tests:
-      - name: holds_rm_rf
+      - name: holds_rm_rf_home
+        input:
+          action_type: security
+          declared_goal: "Bash: rm -rf ~"
+          risk_score: 100
+          evidence_flags: [destructive, protected_target]
+        expect:
+          decision: require_approval
+      - name: allows_rm_rf_project_dir
         input:
           action_type: security
           declared_goal: "Bash: rm -rf /tmp/build"
+          risk_score: 100
+          evidence_flags: [destructive]
         expect:
-          decision: require_approval
+          decision: allow
       - name: allows_normal_file_edit
         input:
           action_type: apply

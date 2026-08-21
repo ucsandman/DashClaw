@@ -554,6 +554,14 @@ const POLICY_TYPE_VALIDATORS = {
       }
     }
     validateGitPushPredicate(rules, 'except_git_push', addError);
+    if (rules.only_evidence_flags !== undefined) {
+      if (!Array.isArray(rules.only_evidence_flags)
+        || rules.only_evidence_flags.length === 0
+        || rules.only_evidence_flags.length > 32
+        || !rules.only_evidence_flags.every((f) => typeof f === 'string' && /^[a-z_]{1,64}$/.test(f))) {
+        addError('risk_threshold rules.only_evidence_flags must be a non-empty array (<=32) of snake_case evidence flag names');
+      }
+    }
   },
   require_approval: (rules, addError, policyType) => validateActionTypesRequired(rules, addError, policyType),
   block_action_type: (rules, addError, policyType) => validateActionTypesRequired(rules, addError, policyType),

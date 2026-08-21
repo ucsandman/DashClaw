@@ -10,23 +10,27 @@ description: >
 
 policies:
   # --- Hold mass-destructive operations for approval ---
-  # Fires when the server-computed risk score hits the 100 clamp. In practice
-  # this means bash intent=destructive on a shell-touching command (security
-  # base 80 + DESTRUCTIVE_GOAL_PATTERNS +20 = 100): rm -rf, drop table,
-  # truncate, format, wipe. Normal file edits and git commits score well
-  # below 100 and pass through. A HOLD, never a block: score 100 also catches
-  # an irreversible deploy, and only the human can tell the two apart.
+  # Fires ONLY when the server-side evidence classifier tagged the act
+  # `protected_target`: rm/find -delete on a filesystem root, drive, home or
+  # system tree, a raw block-device write, mkfs. A HOLD, never a block. The
+  # score alone was the wrong key — it saturates at 100 for `cat .env.example`
+  # or a heredoc line containing `dd ` (2026-08-21) — so everything outside
+  # this class runs and is logged.
   - id: hold_mass_destructive
     description: "Claude Code Starter — Hold Mass-Destructive Operations for Approval"
     policy_type: risk_threshold
     rules:
       threshold: 100
       action: require_approval
+      only_evidence_flags:
+        - protected_target
     tests:
-      - name: holds_rm_rf
+      - name: holds_rm_rf_home
         input:
           action_type: security
-          declared_goal: "Bash: rm -rf /tmp/build"
+          declared_goal: "Bash: rm -rf ~"
+          risk_score: 100
+          evidence_flags: [destructive, protected_target]
         expect:
           decision: require_approval
 

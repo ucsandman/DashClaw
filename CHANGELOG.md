@@ -13,6 +13,33 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.27.2] — 2026-08-21
+
+### Fixed
+
+- **The default packs' mass-destructive line now keys on evidence, not on
+  the score.** `risk_threshold` rules accept `only_evidence_flags: [...]`:
+  the line fires only when the server-side classifier tagged the act with
+  one of the listed flags (`context.evidence_flags` is server-set; a client
+  copy is stripped by validate). The catastrophe-only and claude-code-starter
+  "Hold Mass-Destructive Operations for Approval" lines pin
+  `only_evidence_flags: [protected_target]` — rm/`find -delete` on a
+  filesystem root, drive, home or system tree, a raw block-device write,
+  `mkfs` (which now carries the flag). The bare `threshold: 100` was the
+  wrong key: the score saturates at 100 for `cat -n site/.env.example`
+  (secret_exposure), for a heredoc whose prose contains `dd now …` or
+  `truncate`, for any `security`-typed shell call — five hand-approvals in
+  one morning, none a catastrophe. Everything outside the flagged class now
+  runs and is logged; `rm -rf` on a project path keeps its security/100
+  grade in the ledger without interrupting.
+- **Already-seeded orgs are upgraded in place.** `gateMassDestructiveOnEvidence(sql)`
+  (`app/lib/setup/catastrophe-pack.mjs`), called from `scripts/auto-migrate.mjs`
+  on every deploy, merges the flag gate into both seeded line names wherever
+  the key is absent — same policy id, grants and decisions stay attached;
+  rows an operator already tuned are untouched.
+- `/policies` Ledger describes a gated line ("… whose evidence is tagged
+  `protected_target`") so the human can read what the rule actually keys on.
+
 ## [5.27.1] — 2026-08-21
 
 ### Changed

@@ -119,7 +119,7 @@ const CATASTROPHE = [
     id: 'c1',
     name: 'Catastrophe Pack — Hold Mass-Destructive Operations for Approval',
     policy_type: 'risk_threshold',
-    rules: rules({ threshold: 100, action: 'require_approval', except_git_push: { force: true }, short_list: true }),
+    rules: rules({ threshold: 100, action: 'require_approval', only_evidence_flags: ['protected_target'], except_git_push: { force: true }, short_list: true }),
   },
   {
     id: 'c2',

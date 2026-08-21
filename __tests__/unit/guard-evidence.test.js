@@ -416,7 +416,9 @@ describe('classifyAct — F2 coverage backlog', () => {
   });
 
   it('pins mkfs, truncate, and git clean -xfd coverage (already-covered audit shapes)', () => {
-    expect(classifyAct({ kind: 'shell', command: 'mkfs.ext4 /dev/sdb1' }).base_risk).toBe(80);
+    const mkfs = classifyAct({ kind: 'shell', command: 'mkfs.ext4 /dev/sdb1' });
+    expect(mkfs.base_risk).toBe(80);
+    expect(mkfs.flags).toContain('protected_target'); // the packs' catastrophe gate keys on it
     expect(classifyAct({ kind: 'shell', command: 'truncate -s 0 important.db' }).base_risk).toBe(80);
     const clean = classifyAct({ kind: 'shell', command: 'git clean -xfd' });
     expect(clean.flags).toContain('vcs_dangerous');

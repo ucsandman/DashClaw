@@ -14,6 +14,43 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-21 — A score is not a catastrophe detector.
+
+Five approval cards on Wes's phone in one morning, all from the catastrophe
+pack's "Hold Mass-Destructive Operations" line, none a catastrophe:
+`cat -n site/.env.example` (the classifier says secret_exposure, the server
+base for `security` is 80, it clamps to 100), a backgrounded dev server with
+its output redirected to a log, and a Python heredoc whose *prose* contained
+"dd now command-position only" and "`\\btruncate\\b` still bare" — the
+chain-splitter graded those lines as commands. Yesterday's fix made the line
+hold instead of block; the hold was still wrong for every one of these.
+Wes: approve everything, log it, only stop the absolutely catastrophic.
+
+The bug was the key, not the tier. A risk score is a blend that saturates at
+100 for whole families of mundane shapes, and the pack was using "== 100" as
+a proxy for "mass-destructive". The classifier already knows the difference:
+it tags `protected_target` on rm/find over a root, drive, home or system
+tree and on a raw device write. So the line now fires on that flag.
+
+Shipped in 5.27.2:
+
+- `rules.only_evidence_flags` on `risk_threshold`: fire only when the
+  server-set evidence flags intersect the list. Both default packs pin
+  `[protected_target]`. `mkfs` now carries the flag (it was the one
+  disk-wipe that would have run unheld).
+- `gateMassDestructiveOnEvidence(sql)` in auto-migrate: merges the key into
+  every seeded row that lacks it, any org, every deploy, idempotent.
+- Ledger copy names the flag on the card.
+- Live: I deactivated Wes's row over the API the moment I found the cause
+  (stop the bleeding), then re-armed it with the gate once the deploy was
+  green. The three held shapes re-run through the real classifier carry no
+  `protected_target`; `rm -rf ~`, `find / -delete`, `dd of=/dev/sda`,
+  `mkfs` do.
+
+Rule I am writing down: an interrupt line is keyed on *what the act is*
+(a classifier flag, a path, a verb), never on the blended score alone. The
+score is for the ledger.
+
 ## 2026-08-21 — The runtime refused a deploy. It does not get to decide.
 
 Wes hit it first, then I did ten minutes later: the catastrophe pack's

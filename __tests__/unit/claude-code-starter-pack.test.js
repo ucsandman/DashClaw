@@ -34,7 +34,7 @@ describe('claude-code-starter pack', () => {
     const result = await evaluatePolicy(
       { policy_type: policy.policy_type },
       policy.rules,
-      { action_type: 'security', declared_goal: 'Bash: rm -rf /tmp/build' },
+      { action_type: 'security', declared_goal: 'Bash: rm -rf ~', evidence_flags: ['destructive', 'protected_target'] },
       null,
       'org_test',
       100,

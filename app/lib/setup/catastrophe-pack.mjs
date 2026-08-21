@@ -106,3 +106,34 @@ export async function holdMassDestructive(sql) {
   }
   return updated;
 }
+
+// The mass-destructive line keys on the classifier's `protected_target` flag,
+// not on the score (2026-08-21): risk saturates at 100 for `cat .env.example`
+// or a heredoc line containing `dd `, and the bare threshold held every one of
+// them. Seeded rows that predate the flag gate get it added in place (same id,
+// grants/decisions stay attached); rows an operator already tuned are left
+// alone because the merge only fires when the key is absent.
+const FLAG_GATED_LINES = BLOCK_TO_HOLD.map(([, newName]) => newName);
+
+/**
+ * Add `only_evidence_flags: ["protected_target"]` to every seeded
+ * "Hold Mass-Destructive" row that does not carry the key yet. Idempotent;
+ * touches every org. Returns the number of rows updated.
+ * @param {(strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>} sql postgres.js tag
+ */
+export async function gateMassDestructiveOnEvidence(sql) {
+  let updated = 0;
+  const now = new Date().toISOString();
+  for (const name of FLAG_GATED_LINES) {
+    const rows = await sql`
+      UPDATE guard_policies
+      SET rules = (rules::jsonb || '{"only_evidence_flags":["protected_target"]}'::jsonb)::text,
+          updated_at = ${now}
+      WHERE name = ${name}
+        AND NOT (rules::jsonb ? 'only_evidence_flags')
+      RETURNING id
+    `;
+    updated += rows.length;
+  }
+  return updated;
+}

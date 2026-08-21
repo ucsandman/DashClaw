@@ -302,6 +302,18 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
         gitPushPredicateMatches(rules.except_git_push, commandTextOf(context), { strict: true })) {
       return null;
     }
+    // Evidence gate: fire only when the server-side classifier tagged the act
+    // with one of these flags (context.evidence_flags is server-set — validate()
+    // strips any client copy). A risk score saturates at 100 for mundane shapes
+    // (`cat .env.example` = secret_exposure, a heredoc line containing `dd ` or
+    // `truncate`), so a bare threshold-100 line cannot tell "wipe the disk" from
+    // "read a placeholder file". The default packs pin their mass-destructive
+    // line to `protected_target` (rm/find on root/home/system/drive, raw device
+    // write, mkfs) — everything else runs and is logged (2026-08-21).
+    if (Array.isArray(rules.only_evidence_flags) && rules.only_evidence_flags.length > 0) {
+      const actFlags = Array.isArray(context.evidence_flags) ? context.evidence_flags : [];
+      if (!rules.only_evidence_flags.some((f) => actFlags.includes(f))) return null;
+    }
     if (riskScore >= threshold) {
       return { action: rules.action || 'block', reason: `Risk score ${riskScore} >= threshold ${threshold}` };
     }

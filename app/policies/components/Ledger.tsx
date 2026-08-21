@@ -214,7 +214,14 @@ function ruleVerb(action: unknown): string {
 function describeRule(row: any, rules: Record<string, any>): React.ReactNode {
   switch (row.policy_type) {
     case 'risk_threshold':
-      return <>{ruleVerb(rules.action)} any action scoring risk &ge; {rules.threshold ?? '?'}</>;
+      return (
+        <>
+          {ruleVerb(rules.action)} any action scoring risk &ge; {rules.threshold ?? '?'}
+          {Array.isArray(rules.only_evidence_flags) && rules.only_evidence_flags.length > 0 && (
+            <> whose evidence is tagged {joinCodes(rules.only_evidence_flags)}</>
+          )}
+        </>
+      );
     case 'require_approval':
       return <>Require approval for {joinCodes(rules.action_types)}</>;
     case 'block_action_type':
