@@ -71,6 +71,27 @@ describe('GET /api/guard/decisions', () => {
     );
   });
 
+  it('passes action_type and since filters to repository (since normalized to ISO)', async () => {
+    mockListGuardDecisions.mockResolvedValueOnce({ decisions: [], total: 0 });
+    mockGetGuardDecisionStats.mockResolvedValueOnce({ blocks: 0, approvals: 0, warns: 0 });
+
+    await GET(getReq('?action_type=deploy&since=2026-08-21T00:00:00Z'));
+
+    expect(mockListGuardDecisions).toHaveBeenCalledWith(
+      expect.anything(), 'org_test',
+      expect.objectContaining({ actionType: 'deploy', since: '2026-08-21T00:00:00.000Z' })
+    );
+  });
+
+  it('rejects an unparseable since with 400 instead of silently returning full history', async () => {
+    const res = await GET(getReq('?since=not-a-date'));
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toMatch(/since/i);
+    expect(mockListGuardDecisions).not.toHaveBeenCalled();
+  });
+
   it('returns empty with zero stats on no data', async () => {
     mockListGuardDecisions.mockResolvedValueOnce({ decisions: [], total: 0 });
     mockGetGuardDecisionStats.mockResolvedValueOnce({ blocks: 0, approvals: 0, warns: 0 });

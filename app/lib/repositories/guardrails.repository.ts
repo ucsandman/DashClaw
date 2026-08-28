@@ -29,6 +29,9 @@ interface CreateTestRunData {
 interface GuardrailDecisionFilters {
   decision?: string;
   agentId?: string;
+  actionType?: string;
+  /** ISO-8601 lower bound on created_at (inclusive). */
+  since?: string;
   limit?: number;
   offset?: number;
 }
@@ -125,7 +128,7 @@ export async function listGuardrailDecisions(
   orgId: string,
   filters: GuardrailDecisionFilters = {}
 ): Promise<{ decisions: Record<string, unknown>[]; total: number }> {
-  const { decision, agentId, limit = 50, offset = 0 } = filters;
+  const { decision, agentId, actionType, since, limit = 50, offset = 0 } = filters;
 
   let paramIdx = 1;
   const conditions = [`gd.org_id = $${paramIdx++}`];
@@ -138,6 +141,14 @@ export async function listGuardrailDecisions(
   if (agentId) {
     conditions.push(`gd.agent_id = $${paramIdx++}`);
     params.push(agentId);
+  }
+  if (actionType) {
+    conditions.push(`gd.action_type = $${paramIdx++}`);
+    params.push(actionType);
+  }
+  if (since) {
+    conditions.push(`gd.created_at::timestamptz >= $${paramIdx++}::timestamptz`);
+    params.push(since);
   }
 
   const where = `WHERE ${conditions.join(' AND ')}`;
