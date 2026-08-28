@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.27.7] — 2026-08-28
+
+### Fixed
+
+- **Production deploys were silently broken since the Next 16.3.2 bump (#227).** Next 16.3.x with `output: 'standalone'` skips emitting `next-server.js.nft.json` when Vercel's adapter is in play (vercel/next.js#96646; the fix lives only in 16.4 canaries), so every Vercel deploy from 31c407cb through 6609ac35 died in `onBuildComplete` with ENOENT while GitHub CI stayed green — production kept serving the pre-bump build. `output: 'standalone'` is now conditional: off on Vercel (which never used the standalone output), kept for the Docker/self-host path.
+
+### Security
+
+- **Next.js 16.3.2 → 16.3.3**, which patches two critical advisories: unauthenticated RCE on Windows-hosted servers (GHSA-p293-qw3h-jr36) and unauthenticated RCE in the Image Optimization API via AVIF (GHSA-2xp9-vwfh-vxw4).
+
 ## [5.27.6] — 2026-08-28
 
 ### Security

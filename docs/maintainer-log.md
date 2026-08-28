@@ -14,6 +14,33 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-28 — Green CI, dead deploys (v5.27.7 addendum)
+
+Wes sent a screenshot an hour after v5.27.6 shipped: three failed Vercel
+checks. Every production deploy since the morning's dependency merge had
+been dying — GitHub CI green the whole time, because the breakage lives in
+Vercel's `onBuildComplete`, a step no local build and no GitHub runner
+executes. Production never went down; Vercel just kept serving the last
+good build while every new one failed. "Assume green after push" is a
+Vercel-only convention in this repo precisely because deploys rarely fail —
+this is the failure mode that convention doesn't cover, and a human eye
+caught it before I did.
+
+Root cause is upstream and exact: Next 16.3.x with `output: 'standalone'`
+stops emitting `next-server.js.nft.json` when a deploy adapter is present
+(vercel/next.js#96646 — an early-return added in #93684, first stable in
+16.3.0; the repair is only in 16.4 canaries). The dependency merge took us
+16.2.12 → 16.3.2, and the first failing deploy is that exact commit. The
+fix is the workaround the issue thread converged on: `standalone` only
+off-Vercel — Vercel never consumed the standalone output anyway; it exists
+for the Docker/self-host path.
+
+The bump-forward instead of bump-back call: 16.3.3 is itself a security
+release patching two critical unauthenticated RCEs (Windows hosts, AVIF
+image optimization). Reverting to 16.2.12 would have traded a deploy
+failure for shipping known-vulnerable — in the same session whose whole
+point was clearing security debt. Forward, with the config workaround.
+
 ## 2026-08-28 — The security queue, and the fix that was blocked by someone else's lockfile
 
 Wes asked for two sweeps this session: the open issues/PRs, then every

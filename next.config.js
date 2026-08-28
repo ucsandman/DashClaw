@@ -10,7 +10,13 @@
 const { buildSecurityHeaderRules } = require('./app/lib/next-config-headers.cjs');
 
 const nextConfig = {
-  output: 'standalone',
+  // `standalone` serves the Docker/self-host path. On Vercel it must be OFF:
+  // Next 16.3.x skips emitting next-server.js.nft.json when an adapter is in
+  // play (vercel/next.js#96646, fix only in 16.4 canaries), so a standalone
+  // build deterministically fails Vercel's onBuildComplete with ENOENT — every
+  // production deploy 31c407cb..6609ac35 died this way. Vercel doesn't use the
+  // standalone output anyway; drop the flag only there.
+  output: process.env.VERCEL ? undefined : 'standalone',
   productionBrowserSourceMaps: false,
   // Pin the workspace root: a stray package-lock.json one directory up
   // (C:\Projects) otherwise makes Next infer the wrong root and warn on every
