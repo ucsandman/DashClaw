@@ -45,6 +45,21 @@ describe('GET /api/guard/decisions', () => {
     expect(data.decisions[0].context).toBeUndefined();
     expect(data.total).toBe(1);
     expect(data.stats).toEqual({ blocks: 5, approvals: 3, warns: 2 });
+    expect(data.stats_scope).toBe('org-wide, last 7 days, unfiltered');
+    expect(data.filters).toEqual({});
+  });
+
+  it('echoes the applied filters so the response is self-describing', async () => {
+    mockListGuardDecisions.mockResolvedValueOnce({ decisions: [], total: 0 });
+    mockGetGuardDecisionStats.mockResolvedValueOnce({ blocks: 0, approvals: 0, warns: 0 });
+
+    const res = await GET(getReq('?agent_id=claude-desktop&since=2026-08-21T00:00:00Z'));
+    const data = await res.json();
+
+    expect(data.filters).toEqual({
+      agent_id: 'claude-desktop',
+      since: '2026-08-21T00:00:00.000Z',
+    });
   });
 
   it('passes decision filter to repository', async () => {

@@ -13,6 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.27.5] — 2026-08-28
+
+### Fixed
+
+- **`GET /api/guard/decisions` responses are self-describing about scope.** The listing obeys the caller's filters while `stats` has always been org-wide over the last 7 days — and nothing said so, so a filtered caller (the MCP client pins its configured agent id onto every listing) got an apparent contradiction: 9 rows beside 997 warns in one envelope. The response now echoes the applied `filters` and carries `stats_scope: "org-wide, last 7 days, unfiltered"`. Additive fields only; no consumer contract changes.
+
 ## [5.27.4] — 2026-08-28
 
 ### Fixed

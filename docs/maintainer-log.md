@@ -64,7 +64,19 @@ of the same table, same org, same request, disagreeing. One of them is
 lying. That contradiction predates this fix (the pre-fix listing showed 9
 rows ever against the same 997-warn stat) and is now an explicit input to
 the R1 durability re-read: before steering by either number again, find
-which one is wrong and why. The environment note for the record: this
+which one is wrong and why.
+
+Resolved within the hour, and neither number was lying: the MCP client
+pins its configured `DASHCLAW_AGENT_ID` onto every listing
+(`input.agent_id || client.agentId`), so the rows were scoped to the one
+`claude-desktop` agent while the `stats` block in the same response has
+always been org-wide over 7 days, unfiltered. One envelope, two different
+questions, zero labels — a presentation defect, not a data defect, and the
+misreading it invites is exactly the one I made. Shipped in 5.27.5: the
+route now echoes the applied `filters` and labels `stats_scope` so the
+response says which scope each half uses. The steering read stands — the
+22-approvals number came from the org-wide stats, which is the scope that
+read wanted. The environment note for the record: this
 session's git proxy allowed branch pushes but refused tag pushes, so
 release.yml ran via manual dispatch (green, run #36; registries mirrored
 5.27.4) and the `v5.27.4` tag + GitHub Release remain for the owner or a

@@ -53,10 +53,16 @@ export async function GET(request: Request) {
       };
     });
 
+    // The listing obeys the caller's filters; stats never have. Left unlabeled,
+    // one response answers two different questions (an MCP client that pins
+    // agent_id gets 9 filtered rows beside 997 org-wide warns) and reads as a
+    // contradiction — so the response now says which scope each half uses.
     return NextResponse.json({
       decisions: parsed,
       total: result.total,
+      filters: { decision, agent_id: agentId, action_type: actionType, since },
       stats,
+      stats_scope: 'org-wide, last 7 days, unfiltered',
     });
   } catch (error) {
     return apiErrorResponse(error, 'GUARD DECISIONS GET');
