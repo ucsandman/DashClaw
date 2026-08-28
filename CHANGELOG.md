@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.27.4] — 2026-08-28
+
+### Fixed
+
+- **`GET /api/guard/decisions` now honors the `since` and `action_type` filters it has always advertised.** The `dashclaw_decisions_recent` MCP tool documents both filters and forwards them, but the route read neither — so an agent asking "what have I done recently?" got unfiltered history back while believing the time bound was applied (the maintainer found it by steering off exactly such a read). Both filters now reach the repository (`created_at` lower bound, exact `action_type` match) and apply to the `total` count as well; an unparseable `since` answers 400 instead of silently returning full history. `/decisions` had this same silently-ignored-params class of bug fixed once before — this closes the API sibling and pins the contract with tests on both the route params and the SQL conditions. No new routes, pages, or SDK methods.
+
+### Changed
+
+- **Roadmap: the 2026-08-28 post-calibration steering decision is on record** (`docs/plans/owner-roadmap.md`): the 7-day live-org read (22 approvals / 0 blocks / 997 warns against the 1,759-approvals baseline of 2026-08-16) plus three dated obligations — R1 durability re-read (2026-09-15), R2 secret-file-hold re-arm proposed for the owner's ratification, R3 next activation-funnel read (2026-09-30).
+
 ## [5.27.3] — 2026-08-21
 
 ### Fixed

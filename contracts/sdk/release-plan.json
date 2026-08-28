@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.27.3",
+    "current_version": "5.27.4",
     "next_bump": "none",
-    "reason": "v5.27.3 is platform-only (mkfs grades as a raw device write so the evidence-gated catastrophe line actually reaches its threshold) — no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 5.27.2.",
+    "reason": "v5.27.4 is platform-only (GET /api/guard/decisions now honors the since and action_type filters the dashclaw_decisions_recent MCP tool advertises; unparseable since is a 400) \u2014 no Node/Python SDK source change. The unified version advances and release.yml's tag publish mirrors it to the registries (skip-if-published guards apply); the package contents are identical to 5.27.3.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.27.3",
+    "current_version": "5.27.4",
     "next_bump": "none",
-    "reason": "v5.27.3 is platform-only (mkfs grades as a raw device write so the evidence-gated catastrophe line actually reaches its threshold) — no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 5.27.2.",
+    "reason": "v5.27.4 is platform-only (GET /api/guard/decisions now honors the since and action_type filters the dashclaw_decisions_recent MCP tool advertises; unparseable since is a 400) \u2014 no Node/Python SDK source change. The unified version advances and release.yml's tag publish mirrors it to the registries (skip-if-published guards apply); the package contents are identical to 5.27.3.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.27.3 follows 5.27.2 within the hour: on the live guard mkfs carried the protected_target flag but graded 90 (no device-write modifier) and ran unheld under the flag-gated line. mkfs now rides the raw-device-write branch (+20, flags device_write + protected_target) and totals 100. Zero new API routes, zero new pages. Neither SDK source changed.",
+  "reason": "5.27.4 makes the decisions-ledger query contract true: the route silently ignored the since and action_type params the MCP retrospection tool forwards, so 'what have I done recently?' answered with unfiltered history. Both filters now reach SQL; invalid since is a 400. Zero new routes, zero new pages. Neither SDK source changed.",
   "domains": [
     "platform"
   ]
