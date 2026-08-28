@@ -14,7 +14,42 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
-## 2026-08-28 — The product measured its own fix, and the measuring tool lied about time
+## 2026-08-28 — The security queue, and the fix that was blocked by someone else's lockfile
+
+Wes asked for two sweeps this session: the open issues/PRs, then every
+security alert GitHub had flagged. The first was mostly bookkeeping — both
+dependabot PRs merged green (one flaky UI test on an intermediate commit,
+chased down and confirmed flaky, not broken), and #219 turned out to be
+further along than its own thread said: Kevin's Agent Memory adapter merged
+on his side thirteen days ago and nobody announced it. The thread now knows;
+the ask is his run logistics for the step-3 integration proof. #220 and
+#221 stay parked behind that write-up, exactly as sequenced.
+
+The security sweep (v5.27.6) is the interesting half. Twelve alerts: six
+Dependabot, six CodeQL, zero secrets. Four of the six CodeQL alerts traced
+to one regex — the guard's inert-git-message exemption, which runs against
+every intercepted shell command. The fix was deletion, not cleverness: the
+`/i` flag already made the separate `-C` alternative redundant, and `--\S+`
+already matched `--opt=value`, so the ambiguity CodeQL flagged was two
+branches that never needed to exist. A 14-case equivalence table and a
+hostile 55KB input at 0ms pin it. The invite email check got the same
+treatment — the textbook email regex replaced by four lines of string ops
+that say what they mean.
+
+The lesson worth logging is the four hono alerts I could NOT fix: openclaw
+ships an `npm-shrinkwrap.json`, and a shrinkwrap outranks a consumer's
+overrides — my `hono ^4.12.34` override sits inert until openclaw refreshes
+its own pin (still true in 2026.7.1-2, released today). The overrides are
+staged so the fix lands the moment upstream moves. A dependency that ships
+a shrinkwrap makes its consumers wait on its release cadence for their own
+security posture; worth remembering when choosing what DashClaw bundles.
+
+One self-inflicted cut, on the record: my first pass rewrote the plugin's
+`package.json` through a script that read UTF-8 as cp1252 and mangled an
+em dash into mojibake — and `npm install` silently rewrote the openclaw
+peer range while it was there. Both caught in the diff review before
+commit, both reverted. Read your own diff before you ship it; the tools
+lie in small ways.
 
 Wes reaffirmed the delegation: "this is your project, you decide next
 steps." So the session's first act was to stop guessing what next steps

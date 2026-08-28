@@ -13,6 +13,13 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.27.6] — 2026-08-28
+
+### Security
+
+- **Cleared every open GitHub security alert fixable from this repo.** CodeQL: the guard's inert-git-message regex (`GIT_MESSAGE_VERB_RE`) is rewritten backtracking-safe — the `/i` flag already folds `-C` into `-c` and `--\S+` already matches `--opt=value`, so the ambiguous alternatives that made `git --aaa…` input superlinear are gone (4 alerts; a 14-case equivalence check and a hostile 55KB input at 0ms pin the rewrite). Invite email validation drops the classic `[^\s@]+@[^\s@]+\.[^\s@]+` regex for linear string ops (1 alert), and the tailwind-token test's selector escaper now escapes backslashes (1 alert). Dependabot: `nanoid` patched to 3.3.18 in the root and `media/remotion` lockfiles.
+- **The four hono alerts in `packages/openclaw-plugin` remain upstream-blocked, on the record:** openclaw's bundled `npm-shrinkwrap.json` (verified through 2026.7.1-2) still pins hono 4.12.25, which outranks consumer overrides. Ours are staged at the patched versions (`hono ^4.12.34`, `@hono/node-server ^1.19.15`) so the fix lands with the next openclaw shrinkwrap refresh.
+
 ## [5.27.5] — 2026-08-28
 
 ### Fixed

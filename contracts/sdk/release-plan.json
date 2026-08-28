@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.27.5",
+    "current_version": "5.27.6",
     "next_bump": "none",
-    "reason": "v5.27.5 is platform-only (GET /api/guard/decisions responses now label scope: applied filters echoed, stats_scope named) \u2014 no Node/Python SDK source change. The unified version advances and release.yml's tag/dispatch publish mirrors it to the registries (skip-if-published guards apply); package contents are identical to 5.27.4.",
+    "reason": "v5.27.6 is platform-only (security sweep: guard evidence git-message regex made backtracking-safe, invite email validation made linear, nanoid lockfile patches) — no Node/Python SDK source change. The unified version advances and release.yml's tag/dispatch publish mirrors it to the registries (skip-if-published guards apply); package contents are identical to 5.27.4.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.27.5",
+    "current_version": "5.27.6",
     "next_bump": "none",
-    "reason": "v5.27.5 is platform-only (GET /api/guard/decisions responses now label scope: applied filters echoed, stats_scope named) \u2014 no Node/Python SDK source change. The unified version advances and release.yml's tag/dispatch publish mirrors it to the registries (skip-if-published guards apply); package contents are identical to 5.27.4.",
+    "reason": "v5.27.6 is platform-only (security sweep: guard evidence git-message regex made backtracking-safe, invite email validation made linear, nanoid lockfile patches) — no Node/Python SDK source change. The unified version advances and release.yml's tag/dispatch publish mirrors it to the registries (skip-if-published guards apply); package contents are identical to 5.27.4.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.27.5 closes the scope ambiguity 5.27.4's live proof surfaced: the decisions listing obeys filters while stats are org-wide 7-day, and the response never said so. Additive response fields only (filters echo + stats_scope label). Zero new routes, zero new pages. Neither SDK source changed.",
+  "reason": "5.27.6 is a security sweep: the guard's inert-git-message regex is rewritten backtracking-safe (4 CodeQL ReDoS alerts), invite email validation drops the ambiguous regex for linear string ops, and nanoid is patched in both flagged lockfiles. Zero new routes, zero new pages. Neither SDK source changed.",
   "domains": [
     "platform"
   ]
