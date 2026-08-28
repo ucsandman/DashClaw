@@ -189,7 +189,11 @@ function isProtectedRootTarget(target: string): boolean {
 // (substitution survives), and `git commit … | sh` all fall through to normal
 // scanning. Matches shell quoting semantics: single-quoted `$(…)` does NOT
 // substitute, double-quoted `$(…)`/backticks do.
-const GIT_MESSAGE_VERB_RE = /^\s*git\s+(?:(?:-c\s+\S+|-C\s+\S+|--\S+(?:=\S+)?)\s+)*(?:commit|tag|stash|notes)\b/i;
+// Backtracking-safe on hostile input (CodeQL 140/141/139/143): the /i flag
+// already folds -C into -c, and `--\S+` already matches `--opt=value`, so the
+// redundant alternatives that made `git --aaa…` backtrack are gone. The two
+// branches are prefix-disjoint and \S/\s never overlap, so matching is linear.
+const GIT_MESSAGE_VERB_RE = /^\s*git\s+(?:(?:-c\s+\S+|--\S+)\s+)*(?:commit|tag|stash|notes)\b/i;
 
 // Prefixes that are transparent to the command word: env assignments, launcher
 // wrappers and their flags. `sudo -u root "rm" -rf /` puts the quoted command

@@ -25,7 +25,7 @@ async function compile(classes) {
 }
 
 // Tailwind escapes `/` in the selector, so `.bg-brand/10` is written `.bg-brand\/10`.
-const selectorFor = (cls) => '.' + cls.replace(/([./])/g, '\\$1');
+const selectorFor = (cls) => '.' + cls.replace(/[\\./]/g, (m) => '\\' + m);
 
 const emitted = (css, cls) => {
   const sel = selectorFor(cls);

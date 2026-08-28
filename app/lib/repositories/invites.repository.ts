@@ -13,9 +13,17 @@ import type { SqlTag } from '../types/db';
 
 const INVITE_TTL_DAYS = 14;
 const VALID_ROLES = new Set(['admin', 'member']);
-// Deliberately loose: one @, no whitespace, something on both sides. The
-// real verification is the OAuth provider's — this only catches typos.
-const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Deliberately loose: one @, no whitespace, something on both sides plus a
+// dotted domain. The real verification is the OAuth provider's — this only
+// catches typos. String ops rather than the classic email regex so a hostile
+// address can't make validation superlinear (CodeQL 144).
+function hasEmailShape(s: string): boolean {
+  if (!s || /\s/.test(s)) return false;
+  const at = s.indexOf('@');
+  if (at <= 0 || at !== s.lastIndexOf('@')) return false;
+  const dot = s.lastIndexOf('.');
+  return dot > at + 1 && dot < s.length - 1;
+}
 
 export function normalizeInviteEmail(email: string): string {
   return String(email ?? '').trim().toLowerCase();
@@ -30,7 +38,7 @@ export async function createInvite(
   { orgId, email, role, createdByUserId }: { orgId: string; email: string; role: string; createdByUserId: string },
 ): Promise<CreateInviteResult> {
   const normalized = normalizeInviteEmail(email);
-  if (!EMAIL_SHAPE.test(normalized)) return { created: false, reason: 'invalid_email' };
+  if (!hasEmailShape(normalized)) return { created: false, reason: 'invalid_email' };
   if (!VALID_ROLES.has(role)) return { created: false, reason: 'invalid_role' };
 
   const members = await sql`
