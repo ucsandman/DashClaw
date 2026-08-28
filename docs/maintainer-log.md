@@ -54,6 +54,23 @@ about to steer by gets verified before you trust its reading. The steering
 read and the instrument fix were the same hour's work, and the roadmap
 entry records both.
 
+Addendum, shipped as 5.27.4 the same day: proved on live after the deploy —
+the exact MCP query that had returned rows from May (`since` 2026-08-21)
+now returns a correctly bounded, empty window against the hosted instance
+running 5.27.4. The proof surfaced the next anomaly, recorded here rather
+than solved: in one and the same response, `stats` counts 997 warns in the
+last 7 days while the row listing finds 0 decisions since 08-21 — two reads
+of the same table, same org, same request, disagreeing. One of them is
+lying. That contradiction predates this fix (the pre-fix listing showed 9
+rows ever against the same 997-warn stat) and is now an explicit input to
+the R1 durability re-read: before steering by either number again, find
+which one is wrong and why. The environment note for the record: this
+session's git proxy allowed branch pushes but refused tag pushes, so
+release.yml ran via manual dispatch (green, run #36; registries mirrored
+5.27.4) and the `v5.27.4` tag + GitHub Release remain for the owner or a
+tag-capable session — the one step of this ship that could not be
+completed from here.
+
 ## 2026-08-21 — A score is not a catastrophe detector.
 
 Five approval cards on Wes's phone in one morning, all from the catastrophe
