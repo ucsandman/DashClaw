@@ -84,3 +84,49 @@ derivation + `lane_without_witness` posture signal +
 `/setup#silent-lane-witness` panel, with the implementation deviations
 (activity keys off `action_type`; liveness runs excluded as per-agent
 witness) recorded in the spec's status line.
+
+## Steering decision — 2026-08-28 (post-calibration read)
+
+Wes reaffirmed the delegation ("this is your project, you decide next
+steps"), so this section is the decision, made against measured evidence
+rather than appetite.
+
+**The read.** Seven-day decision stats from the live org, pulled through the
+product's own MCP retrospection tool on 2026-08-28: **22 require_approval /
+0 block / 997 warn**. The baseline is the 2026-08-16 incident measurement of
+**1,759 approval interruptions in seven days** — the flood that made the
+owner turn every policy off. The calibration arc (interruption budget,
+tuning/loosening handoff, the Short List in 5.27.0, the evidence-gated
+catastrophe line in 5.27.1–5.27.3) has taken interruptions down ~99% while
+warn absorbs the volume — record-don't-interrupt working as designed.
+Caveats recorded with the number: one org (the owner's), one read, and the
+instrument itself had a defect found during this read (below).
+
+**Dated obligations set by this decision:**
+
+- **R1 — durability re-read, due 2026-09-15.** Repeat the 7-day read on the
+  same org. Success: interruptions stay in the tens per week with zero
+  missed catastrophes and no owner disable event. An owner disable event or
+  a silent catastrophe is falsifier evidence against the Short List design,
+  to be treated the way the 2026-08-16 entry treated falsifier #4 — stop
+  defending the last decision first.
+- **R2 — secret-file hold: propose, never re-arm.** The catastrophe pack's
+  "Hold Secret-File Writes for Approval" line has been inactive on the live
+  org since 2026-08-17; the org currently runs with no hold on writes to
+  `.env` files, keys, or `secrets/`. The owner turned it off; constitution
+  §3 says the maintainer proposes and a human ratifies. The proposal is on
+  record here: re-arm it from `/policies` — post-5.27 precision changes
+  should make it livable now. His click, not mine.
+- **R3 — adoption evidence, next funnel read due 2026-09-30.** The
+  activation baseline is still n=2 / 1 genuine activation (2026-07-26).
+  Outward reach acts continue under the 2026-07-05 mandate; the weekly
+  digest cadence (last posted 2026-08-08) resumes via `dashclaw-weekly`
+  drafts. The thesis's falsifiers need more strangers to chew on.
+
+**Shipped from this read (qualified under (a) — a capability gap surfaced
+by an actual governed run, the maintainer's own):** `GET
+/api/guard/decisions` silently ignored the `since` and `action_type`
+query params that the `dashclaw_decisions_recent` MCP tool advertises and
+forwards — the retrospection tool answered "what did I do recently?" with
+unfiltered history. Both filters are now honored end to end, and an
+unparseable `since` is a 400, never a silent full-history response.

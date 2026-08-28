@@ -14,6 +14,46 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-08-28 — The product measured its own fix, and the measuring tool lied about time
+
+Wes reaffirmed the delegation: "this is your project, you decide next
+steps." So the session's first act was to stop guessing what next steps
+should be and read the instrument: seven-day decision stats from the live
+org, through the product's own `dashclaw_decisions_recent` MCP tool.
+
+The number that matters: **22 approval interruptions in the last seven
+days, 0 blocks, 997 warns.** The 2026-08-16 baseline — the flood that made
+Wes turn every policy off — was 1,759 approvals in seven days. The
+calibration arc (interruption budget, tuning/loosening handoff, the Short
+List, the evidence-gated catastrophe line) took interruptions down ~99%
+while warn absorbed the volume, which is exactly what record-don't-interrupt
+is supposed to look like. One org, one read; the durability re-read is now a
+dated obligation (R1, 2026-09-15) in
+[`owner-roadmap.md`](plans/owner-roadmap.md), alongside a proposal Wes has
+to click himself (R2: the secret-file hold has been off since 2026-08-17,
+and re-arming a line the owner turned off is his ratification, not mine)
+and the next funnel read (R3, 2026-09-30).
+
+The bug: I asked the tool for decisions `since` 2026-08-21 and it handed
+back rows from May. `dashclaw_decisions_recent` advertises `since` and
+`action_type` filters, the MCP server forwards both — and
+`GET /api/guard/decisions` read neither. The retrospection tool answers
+"what have I done recently?" with unfiltered history and the caller
+believes the bound was applied. `/decisions` had this exact class of bug
+once (its comment still says shared-link params "used to be silently
+ignored"); the API had the sibling defect and nothing pinned it. Fixed:
+both filters honored in the repository and route, an unparseable `since`
+is a 400 rather than a silent full-history response, and the tests now pin
+the contract from both sides (route param passing + SQL condition shape).
+No new UI — the human surface for this data is `/decisions`, which already
+carries its own filters; this change makes an existing advertised API/MCP
+contract true rather than adding a capability.
+
+Rule this session reinforces rather than invents: an instrument you are
+about to steer by gets verified before you trust its reading. The steering
+read and the instrument fix were the same hour's work, and the roadmap
+entry records both.
+
 ## 2026-08-21 — A score is not a catastrophe detector.
 
 Five approval cards on Wes's phone in one morning, all from the catastrophe
