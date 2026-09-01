@@ -13,6 +13,13 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.27.8] — 2026-09-01
+
+### Fixed
+
+- **The sidebar Tuning link now works when you're already on `/policies#calibration`.** Tuning is a same-page hash link, and the browser only scrolls on a hash *change* — with `#calibration` already in the URL a click was a genuine no-op (the calibration section's own scroll effect fires once at first data load, never on click). The nav click handler now detects a same-page hash link and scrolls the target section into view itself; cross-page navigation is unchanged.
+- **Self-host consoles no longer show a red 404 on every dashboard page.** `GET /api/hosted/claim` returned 404 when `DASHCLAW_HOSTED` is off, but `ClaimWorkspaceBanner` probes it on every page; GET now returns the same calm 200 non-claimable preview used for the no-cookie case (`{claimable: false, reason: 'not_hosted'}`). `POST` stays 404 off-hosted.
+
 ## [5.27.7] — 2026-08-28
 
 ### Fixed

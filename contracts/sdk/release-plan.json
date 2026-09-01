@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.27.7",
+    "current_version": "5.27.8",
     "next_bump": "none",
-    "reason": "v5.27.7 is platform-only (Vercel deploy fix: conditional standalone output; Next 16.3.3 security patch) — no Node/Python SDK source change. The unified version advances and release.yml's tag/dispatch publish mirrors it to the registries (skip-if-published guards apply); package contents are identical to 5.27.4.",
+    "reason": "v5.27.8 is platform-only (sidebar Tuning link scroll fix; calm-200 claim probe quieted off-hosted) — no Node/Python SDK source change. The unified version advances and release.yml's tag/dispatch publish mirrors it to the registries (skip-if-published guards apply); package contents are identical to 5.27.4.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.27.7",
+    "current_version": "5.27.8",
     "next_bump": "none",
-    "reason": "v5.27.7 is platform-only (Vercel deploy fix: conditional standalone output; Next 16.3.3 security patch) — no Node/Python SDK source change. The unified version advances and release.yml's tag/dispatch publish mirrors it to the registries (skip-if-published guards apply); package contents are identical to 5.27.4.",
+    "reason": "v5.27.8 is platform-only (sidebar Tuning link scroll fix; calm-200 claim probe quieted off-hosted) — no Node/Python SDK source change. The unified version advances and release.yml's tag/dispatch publish mirrors it to the registries (skip-if-published guards apply); package contents are identical to 5.27.4.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.27.7 unbreaks production deploys and takes Next's critical security patch: Next 16.3.x + output:'standalone' skips emitting next-server.js.nft.json on Vercel (vercel/next.js#96646), which killed every deploy since the 16.3.2 bump — standalone is now conditional (off on Vercel, kept for Docker/self-host). Next moves to 16.3.3 (two critical RCE advisories). Zero new routes, zero new pages. Neither SDK source changed.",
+  "reason": "5.27.8 fixes two UI/console annoyances: the sidebar Tuning link (/policies#calibration) did nothing when the hash was already in the URL — the nav click handler now scrolls the calibration section into view itself — and the calm-200 claim probe no longer spams the console on self-host (landed unreleased in 0d2dfb0f). Zero new routes, zero new pages. Neither SDK source changed.",
   "domains": [
     "platform"
   ]
