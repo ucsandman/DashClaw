@@ -46,7 +46,10 @@ function clearTrialCookie(response: NextResponse): NextResponse {
 
 export async function GET(request: Request) {
   if (!isHostedMode()) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    // Same calm-200 rule as the no-cookie case below: ClaimWorkspaceBanner
+    // probes this on every dashboard page, and self-host installs were eating
+    // a red 404 in the console on every page load. POST stays 404 off-hosted.
+    return NextResponse.json({ claimable: false, reason: 'not_hosted' });
   }
   const trialOrgId = await trialOrgFromCookie(request);
   if (!trialOrgId) {

@@ -64,9 +64,11 @@ beforeEach(() => {
 });
 
 describe('shared gates', () => {
-  it('404 when hosted mode is off', async () => {
+  it('off-hosted: GET is a calm 200 non-claimable preview, POST stays 404', async () => {
     mockIsHostedMode.mockReturnValue(false);
-    expect((await GET(req('GET'))).status).toBe(404);
+    const get = await GET(req('GET'));
+    expect(get.status).toBe(200);
+    expect(await get.json()).toEqual({ claimable: false, reason: 'not_hosted' });
     expect((await POST(req('POST'))).status).toBe(404);
   });
 
