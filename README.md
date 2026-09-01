@@ -248,6 +248,14 @@ Every instance also serves Streamable HTTP MCP at `/api/mcp`. For Claude Desktop
 
 ## The governance model
 
+<div align="center">
+  <br />
+  <img src="brand/social/governance-blueprint.png" alt="Blueprint-style diagram: an agent's tool call is risk-scored, enters the guard, and routes to one of four verdicts — allow, warn, require_approval held for a human, or block — with every decision recorded on an append-only audit trail" width="760" />
+  <br />
+  <sub>Every tool call, governed: one guard, four verdicts, a permanent record.</sub>
+  <br />
+</div>
+
 Control before execution, not observability after it. Eight points, each falsifiable:
 
 1. **Every risky action is evaluated against active policies before it runs.** Policies are declarative. The builder ships with ten pre-built safety switches (Deploy Gate, Risk Threshold, Rate Limiter, Evidence Required, Protected Path, Subagent Constraint, and others across 17 guard policy types), an AI generator, YAML import, and a pack gallery at `/policies/packs` — 18 curated packs (spend, outbound comms, unattended overnight runs, prod infra, subagent fleets, and more), each previewable against your own action history before a one-click install.
