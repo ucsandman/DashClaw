@@ -262,16 +262,16 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 
 | Surface | Ceiling | Counted from |
 |---|---|---|
-| Active API routes | 133 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
+| Active API routes | 134 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
 | App pages | 53 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 17 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
-| Node SDK methods | 39 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
-| Python SDK methods | 59 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
+| Node SDK methods | 40 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
+| Python SDK methods | 60 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
 | CLI commands | 15 | `cli/bin/dashclaw.js` (`COMMAND_HANDLERS`) |
 | Guard policy types | 17 | `app/lib/guard/policy.ts` (`KNOWN_POLICY_TYPES`) |
 
-(This table mirrors `contracts/surface-budget.json` as of 2026-08-20; it had
+(This table mirrors `contracts/surface-budget.json` as of 2026-09-01; it had
 drifted from the JSON across several amendments — the JSON is the machine
 source of truth, the amendment log below is the history.)
 
@@ -280,6 +280,26 @@ Raising any ceiling requires amending this section **and**
 recorded, deliberate act that falsifier #3 (Regrowth) watches for.
 
 **Amendment log:**
+- **2026-09-01 — API routes 133 → 134, Node SDK methods 39 → 40, Python SDK
+  methods 59 → 60 (`/api/plans/[planId]/attest`, `attestPlan`,
+  `attest_plan`).** Plan Attestation (v5.28.0), the run-start seam for
+  unattended agents. Preflight Plan Authorization already binds each STEP by
+  `act_content_hash`, but nothing pinned the plan as a whole and nothing gave a
+  runner a place to ask, at wake, whether the authority it is about to spend is
+  still live. `plan_hash` is that pin; the attest seam is the question. A
+  runner posts the hash it was authorized under and gets a yes, or one of
+  `not_found | not_approved | expired | revoked | hash_mismatch` — and fails
+  closed before its first model call. Pins authority by content hash rather
+  than by plan id, so a plan edited or re-approved out from under a paused
+  runner cannot be resumed against silently; every attestation, pass or fail,
+  is journaled on the row. Adapted from memcode's autonomous-agent wake design.
+  Zero new tables (four additive columns on `plan_authorizations`), zero new
+  policy types, zero new pages, no change to guard evaluation. The route was
+  not foldable into the existing `POST /api/plans/[planId]`: that path is the
+  OPERATOR verdict behind admin + attributable-principal auth, and this one is
+  the constrained agent asking about its own authority — merging them would put
+  an agent-facing call behind an admin credential or an admin verb behind an
+  agent one.
 - **2026-08-20 — App pages 54 → 53 (`/calibration` folded into
   `/policies#calibration`).** The Short List (`docs/superpowers/specs/2026-08-20-policies-calibration-onboarding-redesign.md`).
   `app/calibration/page.jsx` is deleted; `next.config.js` gains a permanent

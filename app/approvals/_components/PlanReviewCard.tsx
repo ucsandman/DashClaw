@@ -4,6 +4,7 @@ import { useState, Fragment } from 'react';
 import { Check, X, ListChecks } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import PlanAttestLine, { type PlanAttestFields } from './PlanAttestLine';
 
 const PREVIEW_VARIANT: Record<string, string> = {
   allow: 'success', warn: 'warning', require_approval: 'warning', block: 'error',
@@ -24,7 +25,7 @@ function countRedactions(act: unknown): number {
   if (act === undefined || act === null) return 0;
   return (JSON.stringify(act).match(/\[REDACTED:/g) ?? []).length;
 }
-interface Plan {
+interface Plan extends PlanAttestFields {
   plan_id: string; agent_id: string; declared_goal: string; status: string;
   ttl_minutes: number; created_at: string;
 }
@@ -79,7 +80,18 @@ export default function PlanReviewCard({ plan, steps, canDecide, onResolved }: {
           <span className="text-xs text-tertiary">{plan.agent_id}</span>
           <span className="text-xs text-tertiary">· TTL {plan.ttl_minutes}m after approval</span>
         </div>
-        <h3 className="text-lg font-semibold text-white mb-3">{plan.declared_goal}</h3>
+        <h3 className="text-lg font-semibold text-white mb-1">{plan.declared_goal}</h3>
+        {/* The whole-plan pin an unattended runner attests against at wake
+            (drizzle/0075). Shown short — it is an identity to recognize
+            across the plan card and the runner's logs, not a value to read. */}
+        <div className="mb-3">
+          {plan.plan_hash && (
+            <div className="font-mono text-xs text-tertiary" title={`Plan hash: ${plan.plan_hash}`}>
+              hash {plan.plan_hash.slice(0, 12)}
+            </div>
+          )}
+          <PlanAttestLine plan={plan} />
+        </div>
 
         <div className="rounded-lg border border-border overflow-hidden mb-4">
           <table className="w-full text-sm">

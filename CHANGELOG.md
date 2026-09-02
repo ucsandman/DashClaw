@@ -13,6 +13,20 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.28.0] — 2026-09-01 — Plan Attestation: pinned authority for unattended runs
+
+### Added
+
+- **Plans are now pinned by a whole-plan hash, and a runner can prove that pin is still good before it does anything.** Preflight Plan Authorization bound each *step* to its `act_content_hash`, but nothing bound the plan as a unit and nothing gave an unattended agent a place to ask, at wake, whether the authority it is about to spend is still approved. `plan_authorizations.plan_hash` is that pin — `sha256` over the canonical JSON `{ agent_id, declared_goal, steps: [{ seq, action_type, act_content_hash }] }`, computed at submission (where every input is final: nothing later rewrites a step's act hash) and returned from `POST /api/plans`, `GET /api/plans` and `GET /api/plans/[planId]`.
+- **`POST /api/plans/[planId]/attest` — the run-start seam.** Agent-facing (the same org-scoped credential the plan detail GET takes, not the operator verdict's admin auth). Body `{ plan_hash }`; returns `{ ok: true, plan_id, plan_hash, expires_at, steps_remaining }` on success, or `{ ok: false, reason }` with `reason` one of `not_found | not_approved | expired | revoked | hash_mismatch`. `200` for ok, `404` for `not_found`, `403` for every other refusal.
+- **The contract is fail closed.** A runner attests at run start and makes no model call until it gets `ok: true`. Every ambiguity resolves to a refusal: a `NULL` stored hash (a row predating the migration) is a mismatch, an approved plan with no `expires_at` is expired, and any status outside `approved`/`partially_approved` is `not_approved` rather than interpreted. An explicit operator "no" (`revoked`/`denied`) is reported ahead of liveness and content, so a stopped runner learns it was stopped rather than merely stale. The stored hash is never echoed on a mismatch — handing it back would give a caller holding a drifted plan the exact digest needed to forge a passing attestation.
+- **Every attestation is journaled.** Pass or fail, a call that finds the plan in the org bumps `attest_count`, stamps `attested_at`/`last_attest_result` and writes a `plan.attested` activity row — a runner hammering a revoked plan is the signal, not noise. `/approvals` shows the short hash and an "Attested N× · last … · result" line on both the review card and the live-plans row.
+- **SDK parity:** `attestPlan(planId, planHash)` (Node) and `attest_plan(plan_id, plan_hash)` (Python), each documented with a five-line fail-closed example.
+
+### Changed
+
+- **Surface budget amended (`contracts/surface-budget.json` + `THESIS.md`, same commit, as the brake requires):** API routes 133 → 134, Node SDK methods 39 → 40, Python SDK methods 59 → 60. The seam could not fold into the existing `POST /api/plans/[planId]` — that is the operator verdict behind admin plus attributable-principal auth, and this is the constrained agent asking about its own authority; merging them would put an agent-facing call behind an admin credential or an admin verb behind an agent one. Zero new tables (four additive columns in `drizzle/0075_plan_attestation.sql`), zero new policy types, no change to guard evaluation. Adapted from memcode's autonomous-agent wake design.
+
 ## [5.27.8] — 2026-09-01
 
 ### Fixed

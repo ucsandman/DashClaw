@@ -22,7 +22,7 @@ Python agents typically pair the SDK with one or more of these:
 
 ## Quick Start
 
-The Python SDK exposes the governance-core surface (59 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK exposes the governance-core surface (60 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -641,9 +641,9 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK exposes the governance surface (59 methods) — the same intercept → decide → approve → prove core as the Node SDK, plus a handful of read/admin conveniences (webhooks, org management, activity logs).
+This SDK exposes the governance surface (60 methods) — the same intercept → decide → approve → prove core as the Node SDK, plus a handful of read/admin conveniences (webhooks, org management, activity logs).
 
-The Node.js SDK exposes a curated subset of **39 methods** focused on agent governance. The following core methods are available in both the Node.js SDK and this Python SDK:
+The Node.js SDK exposes a curated subset of **40 methods** focused on agent governance. The following core methods are available in both the Node.js SDK and this Python SDK:
 
 | Category | Node method | Python equivalent |
 |----------|-------------|-------------------|
@@ -684,6 +684,17 @@ Preflight plan authorization, at parity with the Node SDK: submit an ordered pla
 - `list_plans(status=None, agent_id=None, limit=None)` -- List submitted plans.
 - `resolve_plan(plan_id, verdict, step_overrides=None)` -- Operator verdict: `approve`, `deny`, or `revoke` (admin credential required).
 - `wait_for_plan_review(plan_id, timeout=300, interval=5)` -- Poll until the operator reviews the plan (status leaves `pending`).
+- `attest_plan(plan_id, plan_hash)` -- Prove a pinned plan is still approved, unexpired and unrevoked before acting on it. Raises on every other outcome (`403` with `reason` one of `not_approved | expired | revoked | hash_mismatch`, `404` for `not_found`); the stored hash is never echoed back on a mismatch.
+
+Fail closed before the first model call:
+
+```python
+plan = dc.get_plan(plan_id)["plan"]            # plan_hash was pinned at submission
+attest = dc.attest_plan(plan_id, plan["plan_hash"])  # raises if it drifted, lapsed, or was revoked
+if attest["steps_remaining"] == 0:
+    return                                     # nothing left to spend
+run_the_agent()                                # only now does a model get called
+```
 
 ## Containment Verdicts (RFC 2026-07-06)
 

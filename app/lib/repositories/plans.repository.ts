@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { computeActContentHash } from '../act-content-hash';
 import { redactAny } from '../security';
 import { sweepAbandonedSteps } from './plan-deviations.repository';
@@ -33,6 +33,34 @@ export interface PlanStepInput {
   declared_systems?: string[];
 }
 
+/**
+ * Whole-plan pin (drizzle/0075). sha256 over a canonical JSON string of
+ * { agent_id, declared_goal, steps: [{ seq, action_type, act_content_hash }] }
+ * — keys in that fixed order, steps sorted by seq. Pure and dependency-free
+ * so an unattended runner, the submit path and the attest seam all derive the
+ * same digest from the same three facts.
+ *
+ * Deliberately narrow: it binds WHO plans, WHAT the goal is, and the ordered
+ * act-identity of each step. step_goal is act-bound already via
+ * act_content_hash for act-carrying steps, and preview verdicts / grant
+ * statuses are review OUTPUT — folding them in would make the hash change
+ * under the operator's own approval, which is exactly what the pin must not do.
+ */
+export function computePlanHash(input: {
+  agentId: string;
+  declaredGoal: string;
+  steps: Array<{ seq: number; action_type: string; act_content_hash: string | null }>;
+}): string {
+  const canonical = JSON.stringify({
+    agent_id: input.agentId,
+    declared_goal: input.declaredGoal,
+    steps: [...input.steps]
+      .sort((a, b) => a.seq - b.seq)
+      .map((s) => ({ seq: s.seq, action_type: s.action_type, act_content_hash: s.act_content_hash ?? null })),
+  });
+  return createHash('sha256').update(canonical).digest('hex');
+}
+
 // T3: a pending plan older than the max grant TTL ceiling can never matter —
 // aging it out of the cap query prevents an orphaned submission (one the
 // operator never reviewed and that has long since exceeded any TTL a grant
@@ -47,6 +75,30 @@ export async function createPlanWithSteps(
   input: { agentId: string; declaredGoal: string; ttlMinutes: number; steps: PlanStepInput[]; maxPending: number; createdBy?: string | null },
 ) {
   const planId = mintId('pa');
+  // The plan hash is computed HERE, before the INSERT, because this is the
+  // only point at which every input to it is final AND still in hand:
+  // act_content_hash is derived from the raw submitted act (nothing later
+  // rewrites it — stampStepPreview writes preview_* only, markPlanPending
+  // writes status only), and seq/action_type are assigned right here. Hashing
+  // after the preview loop would pin the same bytes one round trip later for
+  // no gain; hashing at review time would let the pin drift from what the
+  // agent submitted. Steps appended later by amendPlanFromDeviation
+  // intentionally do NOT re-pin: the hash attests to the plan the operator
+  // reviewed, and an amendment is a separate recorded act.
+  const preparedSteps = input.steps.map((step, i) => ({
+    ...step,
+    seq: i + 1,
+    step_id: mintId('ps'),
+    // S2: the hash binds the act AS RECEIVED (what the operator's approval
+    // actually attests to), but the persisted/returned copy is redacted —
+    // otherwise a secret-bearing act would sit unredacted in the DB and in
+    // every GET /api/plans response. Same redaction guard decisions use.
+    act_content_hash: computeActContentHash(step.act),
+    redacted_act: step.act === undefined ? null : JSON.stringify(redactAny(step.act, [])),
+  }));
+  const planHash = computePlanHash({
+    agentId: input.agentId, declaredGoal: input.declaredGoal, steps: preparedSteps,
+  });
   // R3: the pending-plan cap is enforced HERE, not only via the route's
   // countPendingPlans pre-read — that read-then-insert has a TOCTOU window
   // (two concurrent submissions can both pass the pre-read before either
@@ -61,31 +113,22 @@ export async function createPlanWithSteps(
   // 'previewing' and 'pending' (each consumes a slot for the same reason:
   // an in-flight or unreviewed submission still occupies the org's cap).
   const planRows = await sql`
-    INSERT INTO plan_authorizations (plan_id, org_id, agent_id, declared_goal, status, ttl_minutes, created_by)
-    SELECT ${planId}, ${orgId}, ${input.agentId}, ${input.declaredGoal}, 'previewing', ${input.ttlMinutes}, ${input.createdBy ?? null}
+    INSERT INTO plan_authorizations (plan_id, org_id, agent_id, declared_goal, status, ttl_minutes, created_by, plan_hash)
+    SELECT ${planId}, ${orgId}, ${input.agentId}, ${input.declaredGoal}, 'previewing', ${input.ttlMinutes}, ${input.createdBy ?? null}, ${planHash}
     WHERE (SELECT COUNT(*) FROM plan_authorizations WHERE org_id = ${orgId} AND status IN ('previewing', 'pending')
       AND created_at > now() - make_interval(mins => ${PENDING_PLAN_CAP_WINDOW_MINUTES})) < ${input.maxPending}
     RETURNING *
   `;
   if (!planRows[0]) return null;
   const steps: Record<string, unknown>[] = [];
-  let seq = 0;
-  for (const step of input.steps) {
-    seq += 1;
-    const stepId = mintId('ps');
-    // S2: the hash binds the act AS RECEIVED (what the operator's approval
-    // actually attests to), but the persisted/returned copy is redacted —
-    // otherwise a secret-bearing act would sit unredacted in the DB and in
-    // every GET /api/plans response. Same redaction guard decisions use.
-    const actHash = computeActContentHash(step.act);
-    const redactedAct = step.act === undefined ? null : JSON.stringify(redactAny(step.act, []));
+  for (const step of preparedSteps) {
     const rows = await sql`
       INSERT INTO plan_authorization_steps
         (step_id, plan_id, org_id, seq, action_type, step_goal, act, act_content_hash,
          declared_paths, declared_systems)
       VALUES
-        (${stepId}, ${planId}, ${orgId}, ${seq}, ${step.action_type}, ${step.step_goal},
-         ${redactedAct}, ${actHash},
+        (${step.step_id}, ${planId}, ${orgId}, ${step.seq}, ${step.action_type}, ${step.step_goal},
+         ${step.redacted_act}, ${step.act_content_hash},
          ${step.declared_paths ? JSON.stringify(step.declared_paths) : null},
          ${step.declared_systems ? JSON.stringify(step.declared_systems) : null})
       RETURNING *
@@ -539,4 +582,72 @@ export async function getLivePlanForAgent(sql: SqlClient, orgId: string, agentId
     ORDER BY seq ASC
   `;
   return { plan_id: planId, steps };
+}
+
+export type AttestFailureReason = 'not_found' | 'not_approved' | 'expired' | 'revoked' | 'hash_mismatch';
+export type AttestResult =
+  | { ok: true; plan_id: string; plan_hash: string; expires_at: string | null; steps_remaining: number }
+  | { ok: false; reason: AttestFailureReason };
+
+/**
+ * Run-start seam for unattended agents (drizzle/0075). The runner proves the
+ * plan hash it is about to act under is still approved, unexpired and
+ * unrevoked BEFORE its first model call; anything else fails closed. Every
+ * call that finds the plan in this org is journaled on the row
+ * (attest_count/attested_at/last_attest_result) whether it succeeded or not —
+ * a runner hammering a revoked plan is exactly the signal an operator wants.
+ *
+ * Ordering is deliberate and fail-closed: an explicit operator "no"
+ * (revoked/denied) is reported before anything else, liveness before content,
+ * and any status that is not approved/partially_approved falls through to
+ * 'not_approved' rather than being interpreted. Reads RAW status — the derived
+ * presentation status renders a lapsed denial as 'expired', which would report
+ * a revoked plan as merely stale. A NULL stored plan_hash (a row written
+ * before this migration) is a mismatch: a plan that cannot prove its own
+ * content cannot pin authority.
+ */
+export async function attestPlan(
+  sql: SqlClient,
+  orgId: string,
+  planId: string,
+  expectedHash: string,
+): Promise<AttestResult> {
+  const rows = await sql`
+    SELECT plan_id, status, plan_hash, expires_at,
+      -- Liveness is decided by the DATABASE clock, the same one that stamped
+      -- expires_at and that every enforcement path (consumePlanStepGrant,
+      -- findDeniedStepMatch) compares against. Deciding it from the app's
+      -- Date.now() would let clock skew hand out an attestation for a grant
+      -- the guard would refuse a millisecond later.
+      (expires_at IS NULL OR expires_at <= now()) AS is_expired,
+      (SELECT COUNT(*)::int FROM plan_authorization_steps s
+        WHERE s.org_id = ${orgId} AND s.plan_id = ${planId}
+          AND s.grant_status = 'approved' AND s.grant_used_at IS NULL) AS steps_remaining
+    FROM plan_authorizations WHERE org_id = ${orgId} AND plan_id = ${planId}
+  `;
+  const plan = rows[0] as {
+    plan_id: string; status: string; plan_hash: string | null;
+    expires_at: string | Date | null; is_expired: boolean; steps_remaining: number;
+  } | undefined;
+  if (!plan) return { ok: false, reason: 'not_found' };
+
+  let reason: AttestFailureReason | null = null;
+  if (plan.status === 'revoked' || plan.status === 'denied') reason = 'revoked';
+  else if (plan.status !== 'approved' && plan.status !== 'partially_approved') reason = 'not_approved';
+  else if (plan.is_expired !== false) reason = 'expired';
+  else if (!plan.plan_hash || plan.plan_hash !== expectedHash) reason = 'hash_mismatch';
+
+  await sql`
+    UPDATE plan_authorizations
+    SET attest_count = attest_count + 1, attested_at = now(), last_attest_result = ${reason ?? 'ok'}
+    WHERE org_id = ${orgId} AND plan_id = ${planId}
+  `;
+  if (reason) return { ok: false, reason };
+  return {
+    ok: true,
+    plan_id: plan.plan_id,
+    plan_hash: plan.plan_hash as string,
+    expires_at: plan.expires_at instanceof Date ? plan.expires_at.toISOString() : plan.expires_at,
+    steps_remaining: Number(plan.steps_remaining ?? 0),
+  };
 }

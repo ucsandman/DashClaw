@@ -1089,6 +1089,18 @@ class DashClaw {
   }
 
   /**
+   * POST /api/plans/:planId/attest — Prove a pinned plan is still usable
+   * before acting on it. Resolves `{ ok: true, ... }` only when the plan is
+   * approved, unexpired, unrevoked and still carries `planHash`; every other
+   * outcome throws (403/404) so an unattended run fails closed.
+   * @param {string} planId
+   * @param {string} planHash - the `plan.plan_hash` the run was authorized under
+   */
+  async attestPlan(planId, planHash) {
+    return this._post(`/api/plans/${encodeURIComponent(planId)}/attest`, { plan_hash: planHash });
+  }
+
+  /**
    * GET /api/plans — List plans.
    * @param {object} [opts] - { status?, agent_id?, limit? }
    */

@@ -5008,7 +5008,7 @@
           ],
           "cryptography (not declared as an extra, documented ad-hoc in README for identity signing/pairing)": []
         },
-        "method_count": 59,
+        "method_count": 60,
         "method_count_evidence": "59 public (non-underscore, non-__init__) methods on DashClaw counted via AST parse of client.py; matches README (59 methods).",
         "constructor": {
           "signature": "DashClaw(base_url, api_key, agent_id, agent_name=None, auth_token=None, swarm_id=None, guard_mode='off', guard_callback=None, hitl_mode='off', private_key=None, auto_recommend='off', recommendation_confidence_min=70, recommendation_callback=None)",

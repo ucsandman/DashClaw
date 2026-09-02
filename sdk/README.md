@@ -408,6 +408,16 @@ Terminal outcome reporting that is one-shot, retry-safe, and immutable once non-
 - `listPlans(opts?)` -- `GET /api/plans`. List plans. `opts`: `{ status?, agent_id?, limit? }`.
 - `resolvePlan(planId, verdict, opts?)` -- `POST /api/plans/:planId`. Operator verdict (admin credential required). `verdict`: `'approve' | 'deny' | 'revoke'`; `opts`: `{ step_overrides? }`.
 - `waitForPlanReview(planId, opts?)` -- Poll `getPlan()` until the operator reviews it (status leaves `pending`) or the timeout elapses. Same polling shape as `waitForApproval`. `opts`: `{ timeout = 300000, interval = 5000 }`.
+- `attestPlan(planId, planHash)` -- `POST /api/plans/:planId/attest`. Prove a pinned plan is still approved, unexpired and unrevoked before acting on it. Throws on every other outcome (`403` with `reason` one of `not_approved | expired | revoked | hash_mismatch`, `404` for `not_found`), and the stored hash is never echoed back on a mismatch.
+
+Fail closed before the first model call:
+
+```js
+const { plan } = await dc.getPlan(planId);            // plan.plan_hash was pinned at submission
+const attest = await dc.attestPlan(planId, plan.plan_hash);  // throws if it drifted, lapsed, or was revoked
+if (attest.steps_remaining === 0) return;             // nothing left to spend
+await runTheAgent();                                  // only now does a model get called
+```
 
 ### Containment Verdicts (RFC 2026-07-06)
 A provably file-scoped act can come back from `guard()` as `decision: 'allow_contained'` — the server lets it proceed but holds it for an operator promote/discard verdict, **only when the caller declared `client_capabilities: ['allow_contained']`** in the guard context. This SDK never sets that field, so it never sees `allow_contained` itself; these two methods manage rows that reached `awaiting_promotion` some other way (a capability-aware caller, or the dashboard).

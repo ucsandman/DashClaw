@@ -4,6 +4,7 @@ import { Fragment, useState } from 'react';
 import { ListChecks, GitCompareArrows } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import PlanAttestLine, { type PlanAttestFields } from './PlanAttestLine';
 
 const STATUS_VARIANT: Record<string, string> = {
   approved: 'success', partially_approved: 'warning', denied: 'error',
@@ -21,7 +22,7 @@ const SEVERITY_STYLE: Record<string, string> = {
 };
 
 interface PlanStep { grant_used_at: string | null; }
-interface Plan {
+interface Plan extends PlanAttestFields {
   plan_id: string; agent_id: string; declared_goal: string; status: string; expires_at: string | null;
 }
 export interface PlanDeviation {
@@ -179,6 +180,7 @@ export default function LivePlansSection({ plans, canDecide, onResolved }: {
                       )}
                       {isDenied && <> · denials active until {relativeUntil(plan.expires_at)}</>}
                     </div>
+                    <PlanAttestLine plan={plan} />
                   </div>
                   {deviations.length > 0 && (
                     <button

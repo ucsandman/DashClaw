@@ -1166,6 +1166,16 @@ class DashClaw:
         """Fetch a plan with per-step grant status."""
         return self._request(f"/api/plans/{plan_id}", "GET")
 
+    def attest_plan(self, plan_id, plan_hash):
+        """Prove a pinned plan is still usable before acting on it.
+
+        Returns the attestation only when the plan is approved, unexpired,
+        unrevoked and still carries ``plan_hash``; every other outcome raises
+        (403/404), so an unattended run fails closed before its first model
+        call.
+        """
+        return self._request(f"/api/plans/{plan_id}/attest", "POST", json={"plan_hash": plan_hash})
+
     def list_plans(self, status=None, agent_id=None, limit=None):
         """List submitted plans."""
         params = {k: v for k, v in {"status": status, "agent_id": agent_id, "limit": limit}.items() if v is not None}

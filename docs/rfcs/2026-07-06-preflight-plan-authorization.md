@@ -72,6 +72,44 @@ Two new tables (new migration — take the **next free** drizzle number at build
 
 **Denied steps are deny-grants.** A step explicitly denied by the operator creates an act-scoped *raise*: a later guard call matching that step (same matching rule as consumption, below) is raised to `block` with reason `Plan step ps_x was explicitly denied by <reviewer>` for the plan's TTL. Tighten-only, so charter-compliant.
 
+### Attest before you act (added v5.28.0, drizzle/0075)
+
+Steps are pinned by `act_content_hash`, but v1 pinned nothing at the level of
+the plan and gave an unattended runner nowhere to ask, at wake, whether the
+authority it is about to spend is still live. Two additions close that:
+
+- **`plan_hash`** — `sha256` over the canonical JSON
+  `{ agent_id, declared_goal, steps: [{ seq, action_type, act_content_hash }] }`
+  (keys in that order, steps sorted by `seq`). Computed at submission, before
+  the header INSERT, because that is where every input is final: nothing later
+  rewrites a step's `act_content_hash`, and `seq`/`action_type` are assigned
+  right there. Returned by `POST /api/plans`, `GET /api/plans` and
+  `GET /api/plans/[planId]`.
+- **`POST /api/plans/[planId]/attest`** — agent-facing (the same org-scoped
+  credential the detail GET uses, *not* the operator verdict's admin auth).
+  Body `{ plan_hash }`. Returns
+  `{ ok: true, plan_id, plan_hash, expires_at, steps_remaining }`, or
+  `{ ok: false, reason }` with `reason` one of
+  `not_found | not_approved | expired | revoked | hash_mismatch`.
+  `404` for `not_found`, `403` for everything else, `200` for ok.
+
+The contract is fail-closed: a runner calls this at run start and does not make
+its first model call until it gets `ok: true`. Anything ambiguous resolves to
+`ok: false` — a `NULL` stored hash (a row predating the migration) is a
+mismatch, a missing `expires_at` on an approved plan is expired, and any status
+outside `approved`/`partially_approved` is `not_approved` rather than
+interpreted. An explicit operator "no" (`revoked`/`denied`) is reported before
+liveness or content so the runner learns it was stopped, not merely stale. The
+stored hash is never echoed on a mismatch — returning it would hand a caller
+holding a drifted plan the exact digest needed to forge a passing attestation.
+
+Every call that finds the plan in the org is journaled on the row
+(`attest_count`, `attested_at`, `last_attest_result`) whether it passed or
+failed, and writes an activity row; the approvals surface renders the short
+hash and an "Attested N× · last … · result" line. Amendments via
+`amend_plan` deliberately do **not** re-pin: the hash attests to the plan the
+operator reviewed, and an amendment is its own recorded act.
+
 ### Dry-run at submission
 
 Reuse before forking: check whether `/api/policies/simulate` already runs the full `evaluateGuard` pipeline side-effect-free. If yes, factor and reuse. If it is policy-scoped only, add `GuardOptions.simulate: true` to `evaluateGuard` (`app/lib/guard/evaluate.ts:709`) which MUST skip: guard_decisions persistence, rate-limit counting, calibration feedback/state writes, SSE event publish (`publishGuardDecisionEvent`), and x402 side effects — and MUST still run: halt check, all policy phases, evidence folding, predictive risk, calibration **assessment** (shadow-style read-only), prompt-injection scan. The preview decision stored on the step is the full-pipeline verdict.

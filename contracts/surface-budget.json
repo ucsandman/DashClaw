@@ -2,9 +2,9 @@
   "_note": "Anti-regrowth surface budget. See THESIS.md, section 'The anti-regrowth brake'. Each ceiling is the exact live count of a governed surface at v5.0.0. The gate (scripts/check-surface-budget.mjs, npm run surface:check) fails the build when any live count exceeds its ceiling. Raising a ceiling requires amending THESIS.md (anti-regrowth section) AND this file in the same commit with a written reason. Sprawl is a deliberate, recorded act, not a drift.",
   "ceilings": {
     "apiRoutes": {
-      "ceiling": 133,
+      "ceiling": 134,
       "source": "app/api/**/route.{js,ts,tsx} (must export ≥1 HTTP method, matching discoverApiRoutes())",
-      "reason": "2026-08-12: 132 -> 133. +1 for /api/approvals/[actionId]/grant - 'Allow, don't ask again' on the approval card. Reuses the existing allow_grant type, shape system, F1 unscoped-grant rejection and ungrantable gate; mints no new policy type and no table. Approves nothing itself (returns release_ids for the existing per-item approval route), so there stays exactly one approval path. Ships WITH a tightening: allow_grant gains a max_risk ceiling defaulting to 70, closing the any-risk downgrade hole. Prior: 2026-08-12 131 -> 132 /api/approval-pause, the bounded self-expiring pause that gives approval fatigue an exit other than 'turn every policy off'; 2026-08-09 130 -> 131 widget pulse; 127 -> 130 billing; 125 -> 127 claim + invites."
+      "reason": "2026-09-01: +1 /api/plans/[planId]/attest — the run-start seam for unattended agents: a runner proves the plan hash it is about to act under is still approved, unexpired, and unrevoked, and fails closed before its first model call. Pins authority by content hash rather than by plan id; journals every attestation. Adapted from memcode's autonomous-agent wake design. (Prior: 2026-08-12: 132 -> 133. +1 for /api/approvals/[actionId]/grant - 'Allow, don't ask again' on the approval card. Reuses the existing allow_grant type, shape system, F1 unscoped-grant rejection and ungrantable gate; mints no new policy type and no table. Approves nothing itself (returns release_ids for the existing per-item approval route), so there stays exactly one approval path. Ships WITH a tightening: allow_grant gains a max_risk ceiling defaulting to 70, closing the any-risk downgrade hole. Prior: 2026-08-12 131 -> 132 /api/approval-pause, the bounded self-expiring pause that gives approval fatigue an exit other than 'turn every policy off'; 2026-08-09 130 -> 131 widget pulse; 127 -> 130 billing; 125 -> 127 claim + invites.)"
     },
     "appPages": {
       "ceiling": 53,
@@ -21,14 +21,14 @@
       "source": "mcp-server/src/resources.ts (uri entries)"
     },
     "sdkNodeMethods": {
-      "ceiling": 39,
+      "ceiling": 40,
       "source": "sdk/dashclaw.js via scripts/count-sdk-methods.mjs",
-      "reason": "2026-07-27: +2 (resolveContainment, listContained) — Containment Verdicts (governed-autonomy RFC 2026-07-06, feature 3): operator promote/discard on a contained action, and listing by containment_status."
+      "reason": "2026-09-01: +1 attestPlan — the run-start seam for unattended agents: a runner proves the plan hash it is about to act under is still approved, unexpired, and unrevoked, and fails closed before its first model call. Pins authority by content hash rather than by plan id; journals every attestation. Adapted from memcode's autonomous-agent wake design. (Prior: 2026-07-27: +2 (resolveContainment, listContained) — Containment Verdicts (governed-autonomy RFC 2026-07-06, feature 3): operator promote/discard on a contained action, and listing by containment_status.)"
     },
     "sdkPythonMethods": {
-      "ceiling": 59,
+      "ceiling": 60,
       "source": "sdk-python/dashclaw/client.py via scripts/count-sdk-methods.mjs",
-      "reason": "2026-07-27: +2 (resolve_containment, list_contained) — snake_case parity for the containment-verdicts convenience wrappers."
+      "reason": "2026-09-01: +1 attest_plan — the run-start seam for unattended agents: a runner proves the plan hash it is about to act under is still approved, unexpired, and unrevoked, and fails closed before its first model call. Pins authority by content hash rather than by plan id; journals every attestation. Adapted from memcode's autonomous-agent wake design. (Prior: 2026-07-27: +2 (resolve_containment, list_contained) — snake_case parity for the containment-verdicts convenience wrappers.)"
     },
     "cliCommands": {
       "ceiling": 15,

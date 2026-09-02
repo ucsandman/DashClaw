@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.27.8",
+    "current_version": "5.28.0",
     "next_bump": "none",
-    "reason": "v5.27.8 is platform-only (sidebar Tuning link scroll fix; calm-200 claim probe quieted off-hosted) — no Node/Python SDK source change. The unified version advances and release.yml's tag/dispatch publish mirrors it to the registries (skip-if-published guards apply); package contents are identical to 5.27.4.",
+    "reason": "v5.28.0 adds Plan Attestation. The Node SDK source DID change (+1 method, attestPlan) — this is NOT a platform-only release, and the reason line is corrected here rather than left carrying 5.27.8's claim. Publication is deliberately deferred: next_bump stays 'none' and domains stays ['platform'] so no registry push is triggered by this commit. Set next_bump and add 'node' to domains when the SDK is actually released.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.27.8",
+    "current_version": "5.28.0",
     "next_bump": "none",
-    "reason": "v5.27.8 is platform-only (sidebar Tuning link scroll fix; calm-200 claim probe quieted off-hosted) — no Node/Python SDK source change. The unified version advances and release.yml's tag/dispatch publish mirrors it to the registries (skip-if-published guards apply); package contents are identical to 5.27.4.",
+    "reason": "v5.28.0 adds Plan Attestation. The Python SDK source DID change (+1 method, attest_plan) — this is NOT a platform-only release, and the reason line is corrected here rather than left carrying 5.27.8's claim. Publication is deliberately deferred: next_bump stays 'none' and domains stays ['platform'] so no registry push is triggered by this commit. Set next_bump and add 'python' to domains when the SDK is actually released.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.27.8 fixes two UI/console annoyances: the sidebar Tuning link (/policies#calibration) did nothing when the hash was already in the URL — the nav click handler now scrolls the calibration section into view itself — and the calm-200 claim probe no longer spams the console on self-host (landed unreleased in 0d2dfb0f). Zero new routes, zero new pages. Neither SDK source changed.",
+  "reason": "5.28.0 ships Plan Attestation: plan_authorizations gains plan_hash + attest_* journal columns (drizzle/0075) and POST /api/plans/[planId]/attest becomes the run-start seam an unattended runner calls to prove its pinned authority is still approved, unexpired and unrevoked before its first model call. +1 API route, +1 Node SDK method, +1 Python SDK method (surface budget amended in THESIS.md and contracts/surface-budget.json in the same commit); zero new pages, zero new tables, zero new policy types. Both SDK sources changed; publication is deferred, so domains stays ['platform'] and neither next_bump is set.",
   "domains": [
     "platform"
   ]
