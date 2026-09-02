@@ -4,6 +4,22 @@ Newest first. Full entries for multi-attempt debugging or reusable lessons; one-
 
 ---
 
+## 2026-09-01 - `bundles:refresh` on Windows produces a corrupt, incomplete zip that is worse than the committed one (v5.28.0 ship)
+
+**Symptom:** during the v5.28.0 ship, `npm run bundles:refresh` reported every mirrored file "unchanged" but still rewrote all three `public/downloads/*.zip` artifacts with different sizes, so `git status` showed bundle churn that looked like ordinary staleness.
+
+**What it actually was - three defects in the Windows-generated artifact, all of which would have shipped:**
+
+1. **Backslash path separators.** Entries were written as `dashclaw\hooks\dashclaw_pretool.py`. The ZIP spec requires forward slashes; many extractors create a single literal file with backslashes in its name instead of a directory tree, so the downloaded plugin does not unpack correctly.
+2. **Build garbage included.** `__pycache__/` directories and roughly 94KB of `.cpython-312.pyc` files were packed in, despite `hooks/` sources being filtered for `__pycache__` elsewhere in the same script (`SOURCE_PATH_RE` excludes it for the *staging* predicate, but the packer did not for the *contents*).
+3. **Missing files.** 37 entries versus the committed bundle's 41 - the regenerated plugin zip dropped `.claude-plugin/plugin.json`, `assets/`, `.hermes-plugin/`, `.codex-plugin/`, `.mcp.json`, `PLUGIN_PARITY.md`, and `README.md`.
+
+**Not nondeterminism.** Two consecutive refreshes produced byte-identical output (md5 `13d34d60879bb92ec368005cc08d129b`), which is what ruled out "flaky zip timestamps" and turned this into a real finding. The committed bundles (generated 2026-08-28: forward slashes, 41 files, no `.pyc`) are the *correct* ones.
+
+**Resolution this ship:** the regenerated bundles were discarded (`git checkout -- public/downloads/`) and the good committed artifacts kept. This was safe because the pre-commit hook runs `refresh-bundles.mjs --if-staged`, which only refreshes when a bundle *source* (`hooks/`, `plugins/dashclaw/{.claude-plugin,.codex-plugin,.hermes-plugin,assets,.mcp.json,.mcp-claude.json,PLUGIN_PARITY.md}`, `public/downloads/dashclaw-governance/`) is staged. v5.28.0 staged none of those, so the hook correctly skipped the refresh and did not reintroduce the bad zip.
+
+**Lesson / open item:** `scripts/refresh-bundles.mjs` is not safe to run on Windows and no gate catches it - `bundles:refresh` is trusted to be correct, and its own per-file "unchanged" log actively hides the fact that the *archive* changed. Anyone shipping from Windows must diff `unzip -l` against `git show HEAD:<zip>` before committing a bundle refresh, or run the refresh on Linux/CI. The packer needs forward-slash normalization and a `__pycache__`/`.pyc` exclusion; until then a Windows refresh should be treated as a corrupting operation, not a self-healing one. NOT FIXED in v5.28.0 - the ship carried no bundle-source change, so fixing the packer was out of scope.
+
 ## 2026-08-17 — a real domain purchase executed unguarded; four independent gates all missed
 
 A Namecheap `purchase_domain` through the offlocal MCP returned `decision: allow`,

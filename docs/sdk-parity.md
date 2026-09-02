@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: SDK Lead
-last-verified: 2026-08-10
+last-verified: 2026-09-01
 doc-type: architecture
 ---
 
@@ -43,7 +43,7 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
 - **Sessions**: `createSession`, `getSession`, `updateSession`, `listSessions`,
   `getSessionEvents`.
 - **Plans (preflight authorization)**: `submitPlan`, `getPlan`, `listPlans`,
-  `resolvePlan`, `waitForPlanReview`.
+  `resolvePlan`, `waitForPlanReview`, `attestPlan`.
 - **Containment (`allow_contained` verdicts)**: `resolveContainment` /
   `resolve_containment`, `listContained` / `list_contained` — operator
   promote/discard and status reads. Neither SDK advertises
@@ -79,7 +79,7 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
 | Guard / actions / approvals | Yes | Yes | Canonical. Phase 2 JWKS attribution (`authToken` / `auth_token`) at parity; server returns `verification_status`. Non-fabrication (`content` + `sourceOfTruth` / `source_of_truth`) verified server-side with a signed Ed25519 receipt; re-verify at `POST /api/integrity/verify` (`/.well-known/jwks.json`). |
 | Action outcome (durable execution finality) | Yes | Yes | `POST/GET /api/actions/:id/outcome` + cron sweep + `lost_confirmation` signal + SDK wrappers. Full parity. |
 | Sessions / action graph | Yes | Yes | Canonical. |
-| Plans (preflight authorization) | Yes | Yes | `submitPlan`/`submit_plan`, `getPlan`/`get_plan`, `listPlans`/`list_plans`, `resolvePlan`/`resolve_plan`, `waitForPlanReview`/`wait_for_plan_review`. Full parity (5 Node + 5 Python). |
+| Plans (preflight authorization) | Yes | Yes | `submitPlan`/`submit_plan`, `getPlan`/`get_plan`, `listPlans`/`list_plans`, `resolvePlan`/`resolve_plan`, `waitForPlanReview`/`wait_for_plan_review`, `attestPlan`/`attest_plan`. Full parity (6 Node + 6 Python). |
 | Containment (`allow_contained` verdicts) | Yes | Yes | `resolveContainment`/`resolve_containment`, `listContained`/`list_contained`. Full parity (2 Node + 2 Python). Neither SDK sets `client_capabilities: ['allow_contained']` in v1 — only hook-cooperating harnesses opt in. |
 | Assumptions | Record | Record + read/validate | `recordAssumption` at parity; `get_assumption` / `validate_assumption` are Python-only. Invalidated assumptions surface as the `assumption_drift` signal. |
 | Signals | Yes | Yes | Canonical. |

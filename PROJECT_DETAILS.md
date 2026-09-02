@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-08-20
+last-verified: 2026-09-01
 doc-type: architecture
 ---
 
@@ -112,6 +112,7 @@ These modules consume core runtime data and add operator value without changing 
 | Artifacts | `/api/artifacts/*` | Durable artifacts linked to actions, plus signed evidence bundles. `GET /api/artifacts/evidence-bundle` signs via `app/lib/integrity/bundle` (the compliance-era signed export folded into the Prove layer). |
 | Capability invoke seam | `GET /api/capabilities`, `/api/capabilities/[id]/invoke`, `/api/capabilities/[id]/access/check` | The `dashclaw_invoke` enforcement seam: server-executed HTTP capabilities pass through guard + per-agent access rules + the action ledger before they run. Inert by default post-cull — there is no in-product create path; capabilities are fed by manual SQL. |
 | Sessions and coverage | `/api/sessions/*`, `GET /api/coverage`, `GET /api/agents/fanouts` | Session lifecycle + retrospection used by the coding-agent hooks and SDK; per-turn expected-vs-recorded tool-use coverage (`close_source` provenance, explicit "no evidence" state); and a fan-outs view of recent multi-agent harness sessions. |
+| Plan attestation (`experimental`) | `POST /api/plans/[planId]/attest` | Run-start seam for preflight plan authorization (v5.28.0): an unattended runner posts the plan hash (`plan_hash`) it is about to act under and gets a yes/no before its first model call. Agent-facing org-scoped credential, not the operator verdict's admin auth. Fails closed (`403` with `reason` one of `not_approved \| expired \| revoked \| hash_mismatch`, `404 not_found`) and never echoes the stored hash back on a mismatch; journals `attest_count`/`attested_at`/`last_attest_result` on every call, rendered in the approvals UI. `app/api/plans/[planId]/attest/route.ts`. |
 | Operations summary | `GET /api/operations/summary` | Read-only runtime metrics over the ledger. |
 
 ## Durable execution finality (v2.13.3)

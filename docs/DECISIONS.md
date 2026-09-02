@@ -1,5 +1,18 @@
 # Decision log
 
+## 2026-09-01 - Plan authority is pinned by content hash; the attest seam fails closed before the first model call
+
+v5.28.0 closes the gap between "the operator approved a plan" and "this run is still entitled to act on it." Adapted from memcode's pinned-content model.
+
+- **The authority is the hash, not the row.** `plan_authorizations` gains `plan_hash`, computed at submission (drizzle/0075). An approval binds to that exact content, so a plan whose steps drift after review no longer carries the operator's yes. Previously the grant was keyed on plan identity alone, and identity survives edits.
+- **The check happens before the run spends anything.** `POST /api/plans/[planId]/attest` is the run-start seam: an unattended runner posts the hash it is about to act under and gets a yes/no *before* its first model call. Placing it there, rather than at the first guarded act, means a lapsed, revoked, or drifted plan costs zero tokens instead of a partial run that has to be unwound.
+- **Fail closed, and say little.** Every non-ok outcome is a refusal: `403` with `reason` one of `not_approved | expired | revoked | hash_mismatch`, `404` for `not_found`. The stored hash is **never** echoed back on a mismatch. Returning it would hand a caller holding a stale or forged plan the exact digest needed to forge a matching attestation, which would make the pin authenticate nothing.
+- **Attesting is a read of one's own authority, not a grant of it.** The route takes the agent-facing org-scoped credential (the same one the plan GET poll uses), deliberately NOT the admin + attributable-principal auth an operator verdict requires. Separation of duties is preserved: a runner can ask whether it may proceed, and can never answer itself.
+- **Both arms are journaled** (`attest_count`, `attested_at`, `last_attest_result`). A runner repeatedly attesting against a revoked or drifted plan is exactly the signal an operator wants, so the failure path is recorded as loudly as the success path. `PlanAttestLine` renders the readout on the approvals plan card, and renders *nothing* at `attest_count 0` - an empty row would read as "checked, fine" when nothing was checked (L2: a verdict must carry the volume it processed).
+- Additive only: +1 experimental route, +1 Node SDK method, +1 Python SDK method; zero new pages, tables, or policy types. Surface budget amended in `THESIS.md` and `contracts/surface-budget.json` in the same commit.
+
+Files: `drizzle/0075_plan_attestation.sql`, `app/api/plans/[planId]/attest/route.ts`, `app/lib/repositories/plans.repository.ts`, `app/approvals/_components/PlanAttestLine.tsx`, `sdk/dashclaw.js`, `sdk-python/dashclaw/client.py`, `docs/rfcs/2026-07-06-preflight-plan-authorization.md`
+
 ## 2026-08-17 — The calibration controller enforces both directions, bounded by the operator's own verdicts
 
 **Decision.** The calibrated interruption controller gains a demote arm: below the

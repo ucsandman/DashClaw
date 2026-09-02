@@ -2,21 +2,25 @@
   "node": {
     "current_version": "5.28.0",
     "next_bump": "none",
-    "reason": "v5.28.0 adds Plan Attestation. The Node SDK source DID change (+1 method, attestPlan) — this is NOT a platform-only release, and the reason line is corrected here rather than left carrying 5.27.8's claim. Publication is deliberately deferred: next_bump stays 'none' and domains stays ['platform'] so no registry push is triggered by this commit. Set next_bump and add 'node' to domains when the SDK is actually released.",
+    "reason": "v5.28.0 adds Plan Attestation. The Node SDK source DID change (+1 method, attestPlan), so this release republishes: pushing the v5.28.0 tag fires .github/workflows/release.yml, whose publish-npm job uploads sdk/ to npm via OIDC trusted publishing (it skips if the version is already on the registry). domains includes 'node' because the Node SDK surface actually moved this release.",
     "domains": [
-      "platform"
+      "platform",
+      "node"
     ]
   },
   "python": {
     "current_version": "5.28.0",
     "next_bump": "none",
-    "reason": "v5.28.0 adds Plan Attestation. The Python SDK source DID change (+1 method, attest_plan) — this is NOT a platform-only release, and the reason line is corrected here rather than left carrying 5.27.8's claim. Publication is deliberately deferred: next_bump stays 'none' and domains stays ['platform'] so no registry push is triggered by this commit. Set next_bump and add 'python' to domains when the SDK is actually released.",
+    "reason": "v5.28.0 adds Plan Attestation. The Python SDK source DID change (+1 method, attest_plan), so this release republishes: pushing the v5.28.0 tag fires .github/workflows/release.yml, whose publish-pypi job builds sdk-python/ and uploads to PyPI via OIDC trusted publishing (skip-existing). domains includes 'python' because the Python SDK surface actually moved this release.",
     "domains": [
-      "platform"
+      "platform",
+      "python"
     ]
   },
-  "reason": "5.28.0 ships Plan Attestation: plan_authorizations gains plan_hash + attest_* journal columns (drizzle/0075) and POST /api/plans/[planId]/attest becomes the run-start seam an unattended runner calls to prove its pinned authority is still approved, unexpired and unrevoked before its first model call. +1 API route, +1 Node SDK method, +1 Python SDK method (surface budget amended in THESIS.md and contracts/surface-budget.json in the same commit); zero new pages, zero new tables, zero new policy types. Both SDK sources changed; publication is deferred, so domains stays ['platform'] and neither next_bump is set.",
+  "reason": "5.28.0 ships Plan Attestation: plan_authorizations gains plan_hash + attest_* journal columns (drizzle/0075) and POST /api/plans/[planId]/attest becomes the run-start seam an unattended runner calls to prove its pinned authority is still approved, unexpired and unrevoked before its first model call. +1 API route, +1 Node SDK method, +1 Python SDK method (surface budget amended in THESIS.md and contracts/surface-budget.json in the same commit); zero new pages, zero new tables, zero new policy types. Both SDK sources changed and both ARE published this release via the v5.28.0 tag (release.yml, OIDC trusted publishing), so domains carries 'node' and 'python' alongside 'platform'. @dashclaw/cli is unchanged at 0.12.0 and its job skips.",
   "domains": [
-    "platform"
+    "platform",
+    "node",
+    "python"
   ]
 }

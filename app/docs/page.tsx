@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import {
   BookOpen, Terminal, Zap, ShieldAlert,
-  ChevronRight, Network, Scale, Shield,
+  ChevronRight, Network, Scale, Shield, Fingerprint,
 } from 'lucide-react';
 import DashClawLogo from '../components/DashClawLogo';
 import CopyDocsButton from '../components/CopyDocsButton';
@@ -149,6 +149,8 @@ const navItems = [
   { href: '#waitForApproval', label: 'waitForApproval', indent: true },
   { href: '#updateOutcome', label: 'updateOutcome', indent: true },
   { href: '#recordAssumption', label: 'recordAssumption', indent: true },
+  { href: '#plans', label: 'Plans' },
+  { href: '#attestPlan', label: 'attestPlan', indent: true },
   { href: '#signals', label: 'Signals' },
   { href: '#policies', label: 'Policies' },
   { href: '#simulatePolicy', label: 'simulatePolicy', indent: true },
@@ -853,6 +855,44 @@ if created.get("action", {}).get("status") == "pending_approval":
                 <DocsCodeTabs 
                   nodeSnippet="await claw.recordAssumption({ action_id, assumption: '...' });"
                   pythonSnippet='claw.record_assumption({"action_id": action_id, "assumption": "..."})'
+                />
+              }
+            />
+          </section>
+
+          {/* ── Plans ── */}
+          <section id="plans" className="scroll-mt-20 pt-12 border-t border-border">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-brand-subtle flex items-center justify-center">
+                <Fingerprint size={16} className="text-brand" />
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight">Plans</h2>
+            </div>
+            <p className="text-sm text-text-secondary mb-6 leading-relaxed">
+              Preflight plan authorization (<code className="font-mono text-text-secondary">submitPlan</code> /
+              <code className="font-mono text-text-secondary">getPlan</code>, also exposed as the MCP{' '}
+              <code className="font-mono text-text-secondary">dashclaw_plan_submit</code> /{' '}
+              <code className="font-mono text-text-secondary">dashclaw_plan_status</code> tools above) pins a plan&apos;s
+              authority to a content hash (<code className="font-mono text-text-secondary">plan_hash</code>) computed at
+              submission. <code className="font-mono text-text-secondary">attestPlan</code> is the run-start seam for that
+              hash: an unattended runner proves its pinned plan is still good before it spends anything.
+            </p>
+            <MethodEntry
+              id="attestPlan"
+              signature="claw.attestPlan(planId, planHash) / claw.attest_plan(plan_id, plan_hash)"
+              description="POST /api/plans/:planId/attest. Proves a pinned plan is still approved, unexpired and unrevoked before the caller spends its first model call. Authenticates with the agent's own org-scoped credential, not the admin credential an operator verdict requires -- attesting reads your own authority, it does not grant it. Resolves { ok: true, ... } only when the plan is approved, unexpired, unrevoked and still carries the presented plan_hash; every other outcome throws, so an unattended run fails closed: 403 with reason not_approved | expired | revoked | hash_mismatch, or 404 not_found. On hash_mismatch the stored hash is never echoed back, so a caller holding a stale or forged plan can't use the response to forge a matching attestation. Every call is journaled on the plan row (attest_count, attested_at, last_attest_result) whether it succeeds or not, and the approvals UI renders it as an 'Attested N x -- last <when> -- <result>' line on the plan card."
+              returns="Promise<{ ok: true, plan_id, plan_hash, expires_at, steps_remaining }>"
+              example={
+                <DocsCodeTabs
+                  nodeSnippet={`const { plan } = await claw.getPlan(planId);                 // plan.plan_hash was pinned at submission
+const attest = await claw.attestPlan(planId, plan.plan_hash); // throws if it drifted, lapsed, or was revoked
+if (attest.steps_remaining === 0) return;                     // nothing left to spend
+await runTheAgent();                                           // only now does a model get called`}
+                  pythonSnippet={`plan = claw.get_plan(plan_id)["plan"]
+attest = claw.attest_plan(plan_id, plan["plan_hash"])  # raises if it drifted, lapsed, or was revoked
+if attest["steps_remaining"] == 0:
+    return
+run_the_agent()`}
                 />
               }
             />

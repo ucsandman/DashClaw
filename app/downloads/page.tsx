@@ -359,7 +359,7 @@ hermes dashclaw doctor`}
                 </a>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed mb-3">
-                Canonical 40-method surface across core governance, durable execution finality, security scanning, sessions and the action graph, agent identity, risk signals, policy simulation, plan authorization, delegation constraints, containment verdicts, and team tasks.
+                Canonical 40-method surface across core governance, durable execution finality, security scanning, sessions and the action graph, agent identity, risk signals, policy simulation, plan authorization and attestation, delegation constraints, containment verdicts, and team tasks.
               </p>
               <CommandBlock label="Install">{`npm install dashclaw`}</CommandBlock>
             </div>

@@ -195,6 +195,7 @@ dashclaw doctor`}</pre>
                   'Policy pack gallery on /policies/packs -- 18 curated packs (spend, outbound comms, unattended runs, infra, fleets, and more), each previewable against your own action history before a one-click install',
                   'Human-in-the-loop approval gates with expiry (a lapsed approval can never release work)',
                   'Preflight plan authorization -- an agent submits its plan, you review one card with per-step verdicts, approved steps become single-use act-bound grants',
+                  'Plan attestation -- the plan\'s authority is pinned by a content hash at submission, and an unattended run proves at start-up that its pinned plan is still approved, unexpired and unrevoked before it spends its first model call, failing closed if it drifted',
                   'Plan deviation events -- every governed action is diffed against the live approved plan; departures (substituted payloads, scope escapes, off-plan actions) are always recorded, and consequence is your explicit per-kind policy choice',
                   'Scoped delegation constraints -- cap a spawned subagent\'s risk, action types, paths, and depth; attenuation only tightens',
                   'Role constraints -- a named authority bundle per agent role (allowed action types, risk ceiling, path scope); anything outside the role escalates to your inbox',

@@ -14,6 +14,55 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-01 - v5.28.0: plan attestation - the run proves its authority before it spends anything
+
+Preflight plans (v5.4.0) let an operator approve a whole plan once instead of
+being woken per step. The hole that left: approval bound to a plan's
+*identity*, and identity survives edits. A plan could be approved, then drift,
+and the grant would still read as good. Worse, an unattended runner starting
+hours later had no way to ask "is my authority still live?" without simply
+attempting an act and seeing what the guard said - which costs a model call,
+and leaves a partial run to unwind when the answer is no.
+
+v5.28.0 pins the authority to content. `plan_authorizations` gains `plan_hash`,
+computed at submission (drizzle/0075), and `POST /api/plans/[planId]/attest`
+becomes the run-start seam: the runner posts the hash it is about to act under
+and gets a yes/no **before its first model call**. Every other outcome is a
+refusal - `403` with `not_approved | expired | revoked | hash_mismatch`, `404`
+for `not_found`.
+
+Two design calls worth recording. First, the failure response returns a reason
+and nothing else; echoing the stored hash on a mismatch would hand a caller
+holding a stale or forged plan the exact digest needed to forge a matching
+attestation, which would make the pin authenticate nothing. Second, the route
+takes the agent-facing org-scoped credential, deliberately not the admin +
+attributable-principal auth an operator verdict requires: attesting is a read
+of one's own authority, never a grant of it, so a runner can ask whether it may
+proceed and can never answer itself. Both arms are journaled
+(`attest_count`, `attested_at`, `last_attest_result`) - a runner hammering a
+revoked plan is precisely the signal an operator wants - and the approvals plan
+card renders the readout, staying silent at zero attestations rather than
+showing an empty row that would read as "checked, fine".
+
+Additive and cheap: +1 experimental route, +1 method in each SDK, zero new
+pages, tables, or policy types, with the surface budget amended in `THESIS.md`
+and `contracts/surface-budget.json` in the same commit. 25 tests.
+
+The ship itself turned up one thing worth more than the feature. Running
+`npm run bundles:refresh` on Windows rewrote all three download bundles while
+logging every mirrored file as "unchanged" - and the regenerated plugin zip was
+*corrupt*: backslash path separators (invalid per the ZIP spec, so the plugin
+does not unpack correctly for a real downloader), roughly 94KB of
+`__pycache__`/`.pyc` build garbage packed in, and four files missing outright
+against the committed artifact. Two consecutive refreshes were byte-identical,
+which is what ruled out flaky timestamps and made it a finding instead of
+noise. The bad bundles were discarded and the correct committed ones kept; the
+pre-commit hook's `--if-staged` gate meant nothing reintroduced them, because
+this ship staged no bundle source. The packer is still broken and is now
+written down in `docs/ERRORS.md`: a Windows bundle refresh is a corrupting
+operation, not a self-healing one, and `bundles:refresh` has no gate that would
+have caught it.
+
 ## 2026-08-28 — Green CI, dead deploys (v5.27.7 addendum)
 
 Wes sent a screenshot an hour after v5.27.6 shipped: three failed Vercel
