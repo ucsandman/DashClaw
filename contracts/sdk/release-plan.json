@@ -1,23 +1,23 @@
 {
   "node": {
-    "current_version": "5.31.0",
+    "current_version": "5.31.1",
     "next_bump": "none",
-    "reason": "v5.31.0 (server-side confidence inheritance + MCP sub-agent identity). Node SDK source unchanged: no method added or changed (40 methods), no docs touched. Platform-only release; the v5.31.0 tag fires release.yml and republishes the Node SDK at 5.31.0 via OIDC with identical source (5.27.8 precedent: platform-only versions still advance the shared number).",
+    "reason": "v5.31.1 (inherited confidence stamps guard_decision_id on the record). Node SDK source unchanged: no method added or changed (40 methods), no docs touched. Platform-only patch; the v5.31.1 tag fires release.yml and republishes the Node SDK at 5.31.1 via OIDC with identical source (5.27.8 precedent: platform-only versions still advance the shared number).",
     "domains": [
       "platform",
       "node"
     ]
   },
   "python": {
-    "current_version": "5.31.0",
+    "current_version": "5.31.1",
     "next_bump": "none",
-    "reason": "v5.31.0 (server-side confidence inheritance + MCP sub-agent identity). Python SDK source unchanged: no method added or changed (60 methods), no docs touched. Platform-only release; the v5.31.0 tag fires release.yml and republishes the Python SDK at 5.31.0 via OIDC (skip-existing) with identical source.",
+    "reason": "v5.31.1 (inherited confidence stamps guard_decision_id on the record). Python SDK source unchanged: no method added or changed (60 methods), no docs touched. Platform-only patch; the v5.31.1 tag fires release.yml and republishes the Python SDK at 5.31.1 via OIDC (skip-existing) with identical source.",
     "domains": [
       "platform",
       "python"
     ]
   },
-  "reason": "5.31.0 closes the 5.30.0 transport gap: POST /api/actions inherits a guard-stated confidence from the matching guard_decisions row (same org, agent, action_type, declared_goal, 24h) when the record states none, so the hosted HTTP MCP connector and the SDK guard()-then-createAction() flow score on /decisions without restating. MCP callers may name a sub-agent under the configured identity (<configured>/<name>) so routines behind one shared connector get their own row. Zero new API routes, pages, MCP tools, SDK methods or CLI commands (surface budget untouched); no migration. Both SDKs unchanged and republished at 5.31.0 by the tag. @dashclaw/mcp-server 3.1.5 ships separately via release:mcp; @dashclaw/cli is unchanged and its job skips.",
+  "reason": "5.31.1 makes the 5.31.0 confidence inheritance auditable: findInheritedConfidence returns the matched guard decision's id with its confidence, and POST /api/actions stamps it as guard_decision_id when the client sent none, so the scored row links explicitly to the decision that stated the prediction. Client-supplied ids are kept; the same-org gate on client ids is unchanged. Zero new API routes, pages, MCP tools, SDK methods or CLI commands (surface budget untouched); no migration. Both SDKs unchanged and republished at 5.31.1 by the tag. @dashclaw/mcp-server stays at 3.1.5 (already on npm); @dashclaw/cli is unchanged and its job skips.",
   "domains": [
     "platform",
     "node",

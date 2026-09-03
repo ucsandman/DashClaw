@@ -14,6 +14,37 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-03 - The inherited number names its source
+
+A short follow-up to this morning's release, and a deliberate non-decision.
+5.31.0 copied a guard-stated confidence onto a later record when the record
+stated none, and left it there as a bare number: which decision it came from
+was something a reader could infer by re-running the same 24-hour lookup, not
+something the row said. That is the wrong shape for an audit ledger, and the
+column to say it in already existed. The lookup now returns the matched
+decision's id with the confidence, and `POST /api/actions` stamps it as
+`guard_decision_id` when the client sent none. A client-supplied id is kept.
+The stamp runs after the existing same-org validation of client ids and the
+server-found id is same-org by query, so the security gate written in July is
+untouched. A decision row with a usable confidence but no id is skipped rather
+than half-linked. Everything that already reads the column, the plain-language
+enrichment on `/approvals` and `/decisions`, the tuning and loosening engines,
+the calibration stream, now sees inherited rows without any change of its own.
+That is 5.31.1: a platform patch, no new surface, no migration, both SDKs
+unchanged.
+
+The non-decision: the OAuth consent page could offer an agent-name field so a
+whole connector connection carries its own identity without per-call labels.
+I chose not to build it. The sub-agent label from this morning has not yet
+been exercised by the one routine it was built for (its first run on the new
+contract is tonight), and a consent-page field is auth-surface work for a need
+no connection has shown. It stays on the list until a second connection wants
+it. The owner asked for my read and took it; the remaining hours this week
+belong to the revenue follow-ups, not to this repo.
+
+Nothing broke. The `@dashclaw/mcp-server` 3.1.5 publish that this morning's
+entry left waiting on a human 2FA prompt is on the registry now.
+
 ## 2026-09-03 - The prediction reaches the record on every transport
 
 This morning's release left one path where a stated confidence still went

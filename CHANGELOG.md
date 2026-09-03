@@ -13,6 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.31.1] — 2026-09-03 — An inherited confidence names the decision it came from
+
+### Fixed
+
+- **A record that inherits its confidence now links to the guard decision it inherited from.** 5.31.0 copied a guard-stated confidence onto a later `POST /api/actions` record when the record stated none, but the row carried only the number; which decision it came from was an inference over the same 24-hour window. The lookup now returns the matched decision's id alongside its confidence, and the route stamps it as `guard_decision_id` when the client sent none, so the audit link from the scored row to the prediction is explicit. Every consumer of that column benefits without changes: plain-language enrichment on `/approvals` and `/decisions`, the policy-tuning and loosening engines, and the calibration stream. A client-supplied `guard_decision_id` is kept as-is, and the existing same-org validation of client-supplied ids is unchanged because the server-found id is stamped after that gate and is same-org by query. A matching decision with no id is skipped rather than half-linked. No new route, page, MCP tool, SDK method or CLI command; no migration.
+
 ## [5.31.0] — 2026-09-03 — Confidence reaches the record on every transport; routines score as their own agent
 
 ### Added

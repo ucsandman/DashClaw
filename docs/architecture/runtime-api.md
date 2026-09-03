@@ -121,7 +121,7 @@ Prompt-injection scanning runs against `declared_goal` before guard evaluation a
 }
 ```
 
-`confidence` is the agent's own 0-100 odds that the action completes without a human stepping in. It is advisory and storage-only: it never reaches evaluation, `risk_score`, containment, the replay binding or the idempotency key. Accepted as an integer 0-100 (a numeric string is coerced); anything else is dropped rather than rejected, since an optional advisory field must never fail a guard call. Omitted leaves the record's column default of 50, which `/decisions` reads as "unstated" and does not score.
+`confidence` is the agent's own 0-100 odds that the action completes without a human stepping in. It is advisory and storage-only: it never reaches evaluation, `risk_score`, containment, the replay binding or the idempotency key. Accepted as an integer 0-100 (a numeric string is coerced); anything else is dropped rather than rejected, since an optional advisory field must never fail a guard call. Omitted leaves the record's column default of 50, which `/decisions` reads as "unstated" and does not score. On stateless transports (the hosted MCP connector, SDK `guard()` then `createAction()`), a later `POST /api/actions` that states no confidence inherits it from the most recent guard decision for the same org, agent, action type and declared goal within 24 hours, and stamps that decision's id as `guard_decision_id` when the client sent none, so the link from the scored row back to the prediction is explicit. An explicit value, including an explicit 50, is never overridden.
 
 **Response:**
 ```json

@@ -44,7 +44,9 @@ the code corrects the natural framing of the problem:
    verdict) — `app/api/approvals/[actionId]/route.ts`,
    `app/lib/repositories/actions.repository.ts:104-125` — and
    `action_records.guard_decision_id` links each verdict back to the scored
-   decision. Two human-ratified adaptation rails already consume this stream
+   decision (stamped server-side on the `?record=true` guard path, and since
+   5.31.1 also when `POST /api/actions` inherits a guard-stated confidence,
+   pointing at the decision it inherited from). Two human-ratified adaptation rails already consume this stream
    heuristically: the tuning engine (`app/lib/policy-tuning/engine.ts`,
    `raise_risk_threshold` at override rate ≥ 0.9) and the loosening engine
    (`app/lib/posture/loosening.ts`, carve-out/deactivate at ≥ 0.95). Neither
