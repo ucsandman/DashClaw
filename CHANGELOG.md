@@ -13,6 +13,10 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Fixed
+
+- **`dashclaw_record` can now close the record it opened.** Pass the `action_id` returned by an earlier `dashclaw_record` (status `running`) or `dashclaw_guard` together with the final `status` and `output_summary`, and the MCP server PATCHes that record instead of inserting a second row. The managed AGENTS block has told agents to do exactly this since the governance protocol shipped, but the tool only ever POSTed, so every MCP-opened action stayed `outcome_status = pending` until the lost-confirmation sweep took it. Stated confidence on those records could never be scored. `@dashclaw/mcp-server` 3.1.3; no new tools.
+
 ## [5.29.0] — 2026-09-03 — Predicted vs actual: the ledger scores the agent's stated confidence
 
 ### Added

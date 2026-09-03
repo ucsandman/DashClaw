@@ -141,6 +141,36 @@ describe('Tool Handlers', () => {
     });
   });
 
+  describe('dashclaw_record with action_id closes the existing record', () => {
+    it('PATCHes /api/actions/{id} with status + summary and never POSTs a second row', async () => {
+      mockPatch.mockResolvedValueOnce({ action_id: 'act_open', status: 'completed', outcome_status: 'completed' });
+      const result = await handlers.dashclaw_record({
+        action_id: 'act_open',
+        action_type: 'research',
+        declared_goal: 'ignored on close',
+        status: 'completed',
+        output_summary: 'shipped the page',
+      });
+      expect(mockPost).not.toHaveBeenCalled();
+      expect(mockPatch).toHaveBeenCalledWith(
+        '/api/actions/act_open',
+        { status: 'completed', output_summary: 'shipped the page' },
+        { timeout: 10000 },
+      );
+      expect(JSON.parse(result).outcome_status).toBe('completed');
+    });
+
+    it('reports a transport failure loudly instead of pretending the outcome landed', async () => {
+      mockPatch.mockResolvedValueOnce({ error: 'ECONNREFUSED', _status: 0 });
+      const result = JSON.parse(await handlers.dashclaw_record({
+        action_id: 'act_open', action_type: 'research', declared_goal: 'g', status: 'failed', error_message: 'gate tripped',
+      }));
+      expect(result.recorded).toBe(false);
+      expect(result.action_id).toBe('act_open');
+      expect(mockPost).not.toHaveBeenCalled();
+    });
+  });
+
   describe('dashclaw_record session_id stamping', () => {
     it('stamps the active session from dashclaw_session_start onto a later record', async () => {
       mockPost.mockResolvedValueOnce({ session: { id: 'sess_42' } }); // session_start

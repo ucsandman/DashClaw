@@ -51,6 +51,7 @@ export const TOOL_DEFINITIONS = [
         inputSchema: {
             type: 'object',
             properties: {
+                action_id: { type: 'string', description: 'Close an EXISTING record instead of creating one: the action_id returned by an earlier dashclaw_record (status running) or dashclaw_guard. Only status, output_summary and error_message are applied; the server stamps the outcome from status. Omit to create a new record.' },
                 action_type: { type: 'string', description: 'Category (e.g., research, analysis, code_change, deploy)' },
                 declared_goal: { type: 'string', description: 'What was accomplished' },
                 status: { type: 'string', enum: ['running', 'completed', 'failed', 'pending_approval'], description: 'Outcome status' },
@@ -61,6 +62,7 @@ export const TOOL_DEFINITIONS = [
                 systems_touched: { type: 'array', items: { type: 'string' }, description: 'Systems affected' },
                 reversible: { type: 'boolean', description: 'Whether the action can be undone' },
                 output_summary: { type: 'string', description: 'Brief summary of what was produced' },
+                error_message: { type: 'string', description: 'For status failed: what went wrong (applied on the action_id close path; ignored otherwise)' },
                 tokens_in: { type: 'integer', description: 'Input tokens consumed' },
                 tokens_out: { type: 'integer', description: 'Output tokens produced' },
                 model: { type: 'string', description: 'Model used' },
@@ -501,6 +503,29 @@ export function createToolHandlers(client) {
             return JSON.stringify(result);
         },
         async dashclaw_record(input) {
+            // Close path: an action_id means "stamp the outcome on the record I
+            // opened earlier", not "open another one". Without this the managed
+            // AGENTS block's instruction ("call dashclaw_record with the action id
+            // and the outcome") created a second row and left the first one to the
+            // lost_confirmation sweep, so no MCP-recorded action ever closed with a
+            // real outcome (and the Predicted vs actual panel had nothing to score).
+            if (typeof input.action_id === 'string' && input.action_id) {
+                const patch = { status: input.status };
+                if (typeof input.output_summary === 'string')
+                    patch.output_summary = input.output_summary;
+                if (typeof input.error_message === 'string')
+                    patch.error_message = input.error_message;
+                const closed = await client.patch(`/api/actions/${encodeURIComponent(input.action_id)}`, patch, { timeout: 10000 });
+                if (transportFailed(closed)) {
+                    return JSON.stringify({
+                        recorded: false,
+                        action_id: input.action_id,
+                        error: `DashClaw record close failed — the outcome was NOT written to the audit ledger: ${transportDetail(closed)}`,
+                        guidance: 'Retry dashclaw_record with the same action_id; if the instance stays unreachable, surface this to the user instead of continuing silently.',
+                    });
+                }
+                return JSON.stringify(closed);
+            }
             const sessionId = input.session_id ?? activeSessionId;
             const body = {
                 action_type: input.action_type,

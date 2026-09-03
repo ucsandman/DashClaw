@@ -109,7 +109,7 @@ Record all significant actions with `dashclaw_record`. This powers the audit tra
 in Approvals and the Decisions ledger.
 
 **Always record:**
-- Long-running actions (status: `running`) when you record up front; PATCH later with the final outcome
+- Long-running actions (status: `running`) when you record up front; close them later by calling `dashclaw_record` again with the returned `action_id` and the final `status` (plus `output_summary`). That call updates the record; it does not open a second one.
 - Completed actions (status: `completed`)
 - Failed actions (status: `failed`) — include error details in `output_summary`
 - Blocked actions (status: `failed`) — include the guard block reason (the server has no separate `blocked` status on records you create)
