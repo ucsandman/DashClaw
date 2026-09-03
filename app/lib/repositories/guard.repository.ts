@@ -242,3 +242,57 @@ export async function getGuardDecisionByIdempotencyKey(
     return null;
   }
 }
+
+/**
+ * Server-side confidence inheritance. A confidence stated on a bare
+ * POST /api/guard lands only in guard_decisions.context; the record that
+ * follows over POST /api/actions is a separate request, so on stateless
+ * transports (the hosted HTTP MCP connector, the SDK guard-then-createAction
+ * flow) the prediction never reached the scored row. This returns the stated
+ * confidence of the most recent decision for the same org, agent, action type
+ * and declared goal inside the same 24h window the stdio MCP carry uses, or
+ * null when none stated one.
+ *
+ * Served by idx_guard_decisions_org_agent_created (drizzle/0045), so no new
+ * index. action_type narrows in SQL; the goal and the confidence are matched
+ * in JS because context is TEXT and a ::jsonb cast rejects some stored rows
+ * (see listGuardDecisions). Fails open: any error is a miss and the record
+ * stays unstated, exactly as before.
+ */
+export async function findInheritedConfidence(
+  sql: SqlQueryClient,
+  orgId: string,
+  match: { agentId?: string | null; actionType?: string | null; declaredGoal?: string | null },
+): Promise<number | null> {
+  const { agentId, actionType, declaredGoal } = match;
+  if (!agentId || !actionType || !declaredGoal) return null;
+  try {
+    const rows = await sql.query(
+      `SELECT context
+       FROM guard_decisions
+       WHERE org_id = $1
+         AND agent_id = $2
+         AND action_type = $3
+         AND created_at::timestamptz > NOW() - INTERVAL '24 hours'
+       ORDER BY created_at::timestamptz DESC
+       LIMIT 25`,
+      [orgId, agentId, actionType],
+    );
+    for (const row of rows) {
+      let ctx: Record<string, unknown> | null = null;
+      const raw = row.context;
+      if (typeof raw === 'string') {
+        try { ctx = JSON.parse(raw) as Record<string, unknown>; } catch { continue; }
+      } else if (raw && typeof raw === 'object') {
+        ctx = raw as Record<string, unknown>;
+      }
+      if (!ctx || ctx.declared_goal !== declaredGoal) continue;
+      const c = ctx.confidence;
+      if (typeof c === 'number' && Number.isInteger(c) && c >= 0 && c <= 100) return c;
+    }
+    return null;
+  } catch (err) {
+    console.warn('[Actions] confidence inheritance lookup failed (record stays unstated):', (err as Error).message);
+    return null;
+  }
+}

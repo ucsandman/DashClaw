@@ -36,7 +36,7 @@ import {
 } from '../../lib/repositories/actions.repository';
 import { getModelPricing, getSettings } from '../../lib/repositories/settings.repository';
 import { getLatestPatchRefs } from '../../lib/repositories/artifacts.repository';
-import { guardDecisionExists } from '../../lib/repositories/guard.repository';
+import { findInheritedConfidence, guardDecisionExists } from '../../lib/repositories/guard.repository';
 import { deleteSyntheticAgentTraces, deleteAgentTracesByIds } from '../../lib/repositories/agents.repository';
 import crypto from 'crypto';
 
@@ -436,6 +436,22 @@ export async function POST(request: Request) {
           { status: 401 }
         );
       }
+    }
+
+    // Confidence inheritance: a prediction stated on a bare POST /api/guard
+    // (hosted HTTP MCP connector, SDK guard-then-createAction) lives only in
+    // guard_decisions.context. When this record states none, copy it from the
+    // matching decision so the row scores on /decisions. Runs BEFORE the
+    // evaluateGuard below on purpose: that call persists its own decision row
+    // (which would otherwise be the "most recent" match), and the inherited
+    // value should ride on it too. Absent only — an explicit 50 is a statement.
+    if (data.confidence === undefined) {
+      const inherited = await findInheritedConfidence(sql, orgId, {
+        agentId: data.agent_id,
+        actionType: data.action_type,
+        declaredGoal: data.declared_goal,
+      });
+      if (inherited !== null) data.confidence = inherited;
     }
 
     // BEHAVIOR GUARD EVALUATION

@@ -13,6 +13,10 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Added
+
+- **A confidence stated at guard time now reaches the record on every transport, server-side.** 5.30.0 carried a `dashclaw_guard` confidence onto the following `dashclaw_record` only inside the stdio MCP process; the hosted HTTP connector is stateless, and the SDK `guard()` then `createAction()` flow never had a carry at all, so on both the prediction stopped in `guard_decisions.context` and the row scored as unstated. `POST /api/actions` now inherits it: when the record states no confidence, the route looks up the most recent guard decision for the same org, agent, action type and declared goal within 24 hours (the same window as the MCP carry) and copies its stated confidence onto the record and onto the decision row the POST itself writes. Served by the existing `(org_id, agent_id, created_at)` index, no migration. An explicitly stated value is never overridden, including an explicit 50, and the lookup fails open: an error leaves the record unstated exactly as before. No new route, page, MCP tool, SDK method or CLI command.
+
 ## [5.30.0] — 2026-09-03 — Confidence at guard time: the prediction is stated before the act
 
 ### Added

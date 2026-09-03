@@ -21,6 +21,7 @@ const {
   mockEstimateCost,
   mockResolveAgentIdentity,
   mockGuardDecisionExists,
+  mockFindInheritedConfidence,
   mockAfter,
   mockLogActivityStrict,
   mockDeleteSyntheticAgentTraces,
@@ -45,6 +46,7 @@ const {
   mockEstimateCost: vi.fn(),
   mockResolveAgentIdentity: vi.fn(),
   mockGuardDecisionExists: vi.fn(),
+  mockFindInheritedConfidence: vi.fn(async () => null),
   mockAfter: vi.fn(),
   mockLogActivityStrict: vi.fn(async () => undefined),
   mockDeleteSyntheticAgentTraces: vi.fn(async () => ({ presence: 0, goals: 0, decisions: 0 })),
@@ -107,7 +109,10 @@ vi.mock('@/lib/security.js', () => ({
   },
 }));
 vi.mock('@/lib/billing.js', () => ({ estimateCost: mockEstimateCost }));
-vi.mock('@/lib/repositories/guard.repository.js', () => ({ guardDecisionExists: mockGuardDecisionExists }));
+vi.mock('@/lib/repositories/guard.repository.js', () => ({
+  guardDecisionExists: mockGuardDecisionExists,
+  findInheritedConfidence: mockFindInheritedConfidence,
+}));
 vi.mock('@/lib/audit.js', () => ({ logActivityStrict: mockLogActivityStrict }));
 
 import { GET, POST, DELETE } from '@/api/actions/route.js';
@@ -310,6 +315,49 @@ describe('/api/actions POST', () => {
     mockCreateActionRecord.mockResolvedValue({ ...validBody, action_id: 'act_new' });
     mockScanSensitiveData.mockImplementation((val) => ({ clean: true, redacted: val, findings: [] }));
     mockGuardDecisionExists.mockResolvedValue(true);
+    mockFindInheritedConfidence.mockResolvedValue(null);
+  });
+
+  describe('confidence inheritance from a prior guard decision', () => {
+    it('a record stating no confidence inherits the matching guard decision\'s stated confidence', async () => {
+      mockFindInheritedConfidence.mockResolvedValue(80);
+      const res = await POST(makeRequest('http://localhost/api/actions', {
+        headers: { 'x-org-id': 'org_1' },
+        body: validBody,
+      }));
+      expect(res.status).toBe(201);
+      expect(mockFindInheritedConfidence).toHaveBeenCalledWith(mockSql, 'org_1', {
+        agentId: 'agent_1', actionType: 'build', declaredGoal: 'Build the project',
+      });
+      // The inherited value is on the persisted record AND on the guard context
+      // evaluated for it, so the decision row this POST writes carries it too.
+      expect(mockCreateActionRecord.mock.calls[0][1].data.confidence).toBe(80);
+      expect(mockEvaluateGuard.mock.calls[0][1].confidence).toBe(80);
+      // Lookup precedes this route's own evaluateGuard (else it would match itself).
+      expect(mockFindInheritedConfidence.mock.invocationCallOrder[0]).toBeLessThan(mockEvaluateGuard.mock.invocationCallOrder[0]);
+    });
+
+    it('an explicitly stated confidence, including 50, is never overridden and skips the lookup', async () => {
+      mockValidateActionRecord.mockReturnValue({ valid: true, data: { ...validBody, confidence: 50 }, errors: [] });
+      mockFindInheritedConfidence.mockResolvedValue(80);
+      const res = await POST(makeRequest('http://localhost/api/actions', {
+        headers: { 'x-org-id': 'org_1' },
+        body: { ...validBody, confidence: 50 },
+      }));
+      expect(res.status).toBe(201);
+      expect(mockFindInheritedConfidence).not.toHaveBeenCalled();
+      expect(mockCreateActionRecord.mock.calls[0][1].data.confidence).toBe(50);
+    });
+
+    it('no matching decision leaves the record unstated (column default applies)', async () => {
+      mockFindInheritedConfidence.mockResolvedValue(null);
+      const res = await POST(makeRequest('http://localhost/api/actions', {
+        headers: { 'x-org-id': 'org_1' },
+        body: validBody,
+      }));
+      expect(res.status).toBe(201);
+      expect(mockCreateActionRecord.mock.calls[0][1].data.confidence).toBeUndefined();
+    });
   });
 
   describe('guard_decision_id stamp validation (2026-07-01 security review)', () => {
