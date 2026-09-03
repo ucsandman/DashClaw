@@ -13,11 +13,12 @@ const sqlReturning = (rows) => ({ query: vi.fn(async () => rows) });
 describe('guard.repository findInheritedConfidence', () => {
   it('returns the stated confidence of the newest same-goal decision, skipping other goals', async () => {
     const sql = sqlReturning([
-      { context: JSON.stringify({ declared_goal: 'Something else', confidence: 10 }) },
-      { context: JSON.stringify({ declared_goal: 'Build the project', confidence: 80 }) },
-      { context: JSON.stringify({ declared_goal: 'Build the project', confidence: 20 }) },
+      { id: 'act_gd_0000000000000001', context: JSON.stringify({ declared_goal: 'Something else', confidence: 10 }) },
+      { id: 'act_gd_0000000000000002', context: JSON.stringify({ declared_goal: 'Build the project', confidence: 80 }) },
+      { id: 'act_gd_0000000000000003', context: JSON.stringify({ declared_goal: 'Build the project', confidence: 20 }) },
     ]);
-    await expect(findInheritedConfidence(sql, 'org_1', match)).resolves.toBe(80);
+    // The matched decision's id rides along so the record can link back to it.
+    await expect(findInheritedConfidence(sql, 'org_1', match)).resolves.toEqual({ confidence: 80, decisionId: 'act_gd_0000000000000002' });
 
     const [text, params] = sql.query.mock.calls[0];
     // Narrowed on the indexed (org_id, agent_id, created_at) prefix plus action_type, in-window, newest first.
@@ -30,16 +31,18 @@ describe('guard.repository findInheritedConfidence', () => {
   });
 
   it('accepts a context already parsed to an object', async () => {
-    const sql = sqlReturning([{ context: { declared_goal: 'Build the project', confidence: 65 } }]);
-    await expect(findInheritedConfidence(sql, 'org_1', match)).resolves.toBe(65);
+    const sql = sqlReturning([{ id: 'act_gd_0000000000000009', context: { declared_goal: 'Build the project', confidence: 65 } }]);
+    await expect(findInheritedConfidence(sql, 'org_1', match)).resolves.toEqual({ confidence: 65, decisionId: 'act_gd_0000000000000009' });
   });
 
   it('returns null when the matching decision stated no usable confidence', async () => {
     const sql = sqlReturning([
-      { context: JSON.stringify({ declared_goal: 'Build the project' }) },
-      { context: JSON.stringify({ declared_goal: 'Build the project', confidence: 250 }) },
-      { context: JSON.stringify({ declared_goal: 'Build the project', confidence: '80' }) },
-      { context: 'not json' },
+      { id: 'act_gd_0000000000000004', context: JSON.stringify({ declared_goal: 'Build the project' }) },
+      { id: 'act_gd_0000000000000005', context: JSON.stringify({ declared_goal: 'Build the project', confidence: 250 }) },
+      { id: 'act_gd_0000000000000006', context: JSON.stringify({ declared_goal: 'Build the project', confidence: '80' }) },
+      { id: 'act_gd_0000000000000007', context: 'not json' },
+      // A usable confidence on a row with no id cannot be linked, so it is skipped too.
+      { context: JSON.stringify({ declared_goal: 'Build the project', confidence: 80 }) },
     ]);
     await expect(findInheritedConfidence(sql, 'org_1', match)).resolves.toBeNull();
   });

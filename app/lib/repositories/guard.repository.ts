@@ -263,12 +263,12 @@ export async function findInheritedConfidence(
   sql: SqlQueryClient,
   orgId: string,
   match: { agentId?: string | null; actionType?: string | null; declaredGoal?: string | null },
-): Promise<number | null> {
+): Promise<{ confidence: number; decisionId: string } | null> {
   const { agentId, actionType, declaredGoal } = match;
   if (!agentId || !actionType || !declaredGoal) return null;
   try {
     const rows = await sql.query(
-      `SELECT context
+      `SELECT id, context
        FROM guard_decisions
        WHERE org_id = $1
          AND agent_id = $2
@@ -288,7 +288,9 @@ export async function findInheritedConfidence(
       }
       if (!ctx || ctx.declared_goal !== declaredGoal) continue;
       const c = ctx.confidence;
-      if (typeof c === 'number' && Number.isInteger(c) && c >= 0 && c <= 100) return c;
+      if (typeof c === 'number' && Number.isInteger(c) && c >= 0 && c <= 100 && typeof row.id === 'string') {
+        return { confidence: c, decisionId: row.id };
+      }
     }
     return null;
   } catch (err) {

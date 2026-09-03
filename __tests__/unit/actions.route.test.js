@@ -320,7 +320,7 @@ describe('/api/actions POST', () => {
 
   describe('confidence inheritance from a prior guard decision', () => {
     it('a record stating no confidence inherits the matching guard decision\'s stated confidence', async () => {
-      mockFindInheritedConfidence.mockResolvedValue(80);
+      mockFindInheritedConfidence.mockResolvedValue({ confidence: 80, decisionId: 'act_gd_0123456789abcdef' });
       const res = await POST(makeRequest('http://localhost/api/actions', {
         headers: { 'x-org-id': 'org_1' },
         body: validBody,
@@ -333,13 +333,28 @@ describe('/api/actions POST', () => {
       // evaluated for it, so the decision row this POST writes carries it too.
       expect(mockCreateActionRecord.mock.calls[0][1].data.confidence).toBe(80);
       expect(mockEvaluateGuard.mock.calls[0][1].confidence).toBe(80);
+      // The matched decision is linked explicitly, not inferred later.
+      expect(mockCreateActionRecord.mock.calls[0][1].data.guard_decision_id).toBe('act_gd_0123456789abcdef');
       // Lookup precedes this route's own evaluateGuard (else it would match itself).
       expect(mockFindInheritedConfidence.mock.invocationCallOrder[0]).toBeLessThan(mockEvaluateGuard.mock.invocationCallOrder[0]);
     });
 
+    it('a client-supplied guard_decision_id is kept even when confidence is inherited', async () => {
+      const body = { ...validBody, guard_decision_id: 'act_gd_fedcba9876543210' };
+      mockValidateActionRecord.mockReturnValue({ valid: true, data: { ...body }, errors: [] });
+      mockFindInheritedConfidence.mockResolvedValue({ confidence: 80, decisionId: 'act_gd_0123456789abcdef' });
+      const res = await POST(makeRequest('http://localhost/api/actions', {
+        headers: { 'x-org-id': 'org_1' },
+        body,
+      }));
+      expect(res.status).toBe(201);
+      expect(mockCreateActionRecord.mock.calls[0][1].data.confidence).toBe(80);
+      expect(mockCreateActionRecord.mock.calls[0][1].data.guard_decision_id).toBe('act_gd_fedcba9876543210');
+    });
+
     it('an explicitly stated confidence, including 50, is never overridden and skips the lookup', async () => {
       mockValidateActionRecord.mockReturnValue({ valid: true, data: { ...validBody, confidence: 50 }, errors: [] });
-      mockFindInheritedConfidence.mockResolvedValue(80);
+      mockFindInheritedConfidence.mockResolvedValue({ confidence: 80, decisionId: 'act_gd_0123456789abcdef' });
       const res = await POST(makeRequest('http://localhost/api/actions', {
         headers: { 'x-org-id': 'org_1' },
         body: { ...validBody, confidence: 50 },

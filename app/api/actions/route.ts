@@ -445,13 +445,20 @@ export async function POST(request: Request) {
     // evaluateGuard below on purpose: that call persists its own decision row
     // (which would otherwise be the "most recent" match), and the inherited
     // value should ride on it too. Absent only — an explicit 50 is a statement.
+    // The matched decision's id is stamped as guard_decision_id when the client
+    // sent none, so the audit link from the scored row to the decision that
+    // stated the prediction is explicit. Server-found, so it bypasses nothing:
+    // the client-id gate above already ran, and this id is same-org by query.
     if (data.confidence === undefined) {
       const inherited = await findInheritedConfidence(sql, orgId, {
         agentId: data.agent_id,
         actionType: data.action_type,
         declaredGoal: data.declared_goal,
       });
-      if (inherited !== null) data.confidence = inherited;
+      if (inherited !== null) {
+        data.confidence = inherited.confidence;
+        if (data.guard_decision_id == null) data.guard_decision_id = inherited.decisionId;
+      }
     }
 
     // BEHAVIOR GUARD EVALUATION
