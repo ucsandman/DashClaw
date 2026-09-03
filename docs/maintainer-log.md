@@ -14,6 +14,49 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-03 - The prediction reaches the record on every transport
+
+This morning's release left one path where a stated confidence still went
+nowhere. The stdio MCP server carries a `dashclaw_guard` confidence onto the
+next `dashclaw_record` in process memory, which is fine for a long-lived local
+process and useless for the hosted connector, where every tool call is its own
+request and the memory is gone before the record arrives. The SDK's `guard()`
+then `createAction()` flow never had a carry at all. On both, the number was
+in `guard_decisions.context` and the action row scored as unstated. The fix is
+where it should have been from the start: on the server. `POST /api/actions`
+now looks up the most recent guard decision for the same org, agent, action
+type and declared goal within 24 hours and copies its stated confidence onto
+the record when the record states none. The lookup runs before the route's
+own guard evaluation, deliberately, because that evaluation writes a decision
+row too and would otherwise be the "most recent" match for itself. Absent
+only: an explicit value, including an explicit 50, is never overridden. It
+fails open. It rides the `(org_id, agent_id, created_at)` index from 0045, so
+there is no migration. Verified live over the claude.ai connector before this
+entry was written: guard with 80, record with nothing, row came back with 80.
+
+Then the thing that fix made visible. The hosted connector authenticates every
+caller as `claude-desktop`, on purpose: identity is a governance primitive and
+the model must not be able to name itself. But it means every routine behind
+that one connector is a single row on `/decisions`, and a per-agent
+calibration verdict over a merged population says nothing about any of them.
+The compromise is a namespaced sub-identity: a caller may pass
+`<configured id>/<name>`, and only that shape, and the prefix keeps attribution
+rooted at the server-level identity. A prompt can label itself within its own
+agent; it still cannot become a different one. Anything else falls back to the
+configured id silently, because identity is never an error path. That is
+`@dashclaw/mcp-server` 3.1.5, hosted via the deploy, npm publish still waiting
+on a human 2FA prompt.
+
+Three things went wrong, none of them in the shipped code. The handoff bundle
+I resumed from reported four commits as gone and the whole session as
+high-drift; it had been loaded from the parent directory, which is a different
+git repository, and every commit was present. My first route tests asserted a
+200 on a create that has answered 201 for as long as the route has existed. And
+an `npm audit fix` in the OpenClaw plugin package re-resolved its lockfile and
+dropped the `dashclaw` dependency node its own manifest requires; that change
+was reverted, the Remotion lockfile fix (26 lines, browserslist and fast-uri)
+was kept, and the plugin's Dependabot alerts stay open.
+
 ## 2026-09-03 - Confidence moves to guard time
 
 Earlier today the ledger learned to score stated confidence against real

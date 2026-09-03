@@ -1,23 +1,23 @@
 {
   "node": {
-    "current_version": "5.30.0",
+    "current_version": "5.31.0",
     "next_bump": "none",
-    "reason": "v5.30.0 (confidence at guard time). Node SDK source changed in docs only: sdk/dashclaw.js gains the guard(context) JSDoc for context.confidence and sdk/README.md shows it; no method added or changed (40 methods). The v5.30.0 tag fires release.yml and republishes the Node SDK at 5.30.0 via OIDC so the published package carries the updated guard() documentation.",
+    "reason": "v5.31.0 (server-side confidence inheritance + MCP sub-agent identity). Node SDK source unchanged: no method added or changed (40 methods), no docs touched. Platform-only release; the v5.31.0 tag fires release.yml and republishes the Node SDK at 5.31.0 via OIDC with identical source (5.27.8 precedent: platform-only versions still advance the shared number).",
     "domains": [
       "platform",
       "node"
     ]
   },
   "python": {
-    "current_version": "5.30.0",
+    "current_version": "5.31.0",
     "next_bump": "none",
-    "reason": "v5.30.0 (confidence at guard time). Python SDK source changed in docs only: the guard docstring in sdk-python/dashclaw/client.py documents context confidence and sdk-python/README.md shows it; no method added or changed (60 methods). The v5.30.0 tag fires release.yml and republishes the Python SDK at 5.30.0 via OIDC (skip-existing).",
+    "reason": "v5.31.0 (server-side confidence inheritance + MCP sub-agent identity). Python SDK source unchanged: no method added or changed (60 methods), no docs touched. Platform-only release; the v5.31.0 tag fires release.yml and republishes the Python SDK at 5.31.0 via OIDC (skip-existing) with identical source.",
     "domains": [
       "platform",
       "python"
     ]
   },
-  "reason": "5.30.0 moves stated confidence to guard time: POST /api/guard, MCP dashclaw_guard and both SDK guard() calls accept confidence (0-100) and the guard-created action record stores it, validated server-side and never used in evaluation, replay binding or idempotency. Zero new API routes, pages, MCP tools, SDK methods or CLI commands (surface budget untouched). Both SDKs changed in documentation only and are republished at 5.30.0 by the tag. @dashclaw/mcp-server 3.1.4 ships separately via release:mcp; @dashclaw/cli is unchanged and its job skips.",
+  "reason": "5.31.0 closes the 5.30.0 transport gap: POST /api/actions inherits a guard-stated confidence from the matching guard_decisions row (same org, agent, action_type, declared_goal, 24h) when the record states none, so the hosted HTTP MCP connector and the SDK guard()-then-createAction() flow score on /decisions without restating. MCP callers may name a sub-agent under the configured identity (<configured>/<name>) so routines behind one shared connector get their own row. Zero new API routes, pages, MCP tools, SDK methods or CLI commands (surface budget untouched); no migration. Both SDKs unchanged and republished at 5.31.0 by the tag. @dashclaw/mcp-server 3.1.5 ships separately via release:mcp; @dashclaw/cli is unchanged and its job skips.",
   "domains": [
     "platform",
     "node",
