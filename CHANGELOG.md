@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.30.0] — 2026-09-03 — Confidence at guard time: the prediction is stated before the act
+
+### Added
+
+- **Stated confidence moves to guard time, where it is still a prediction.** `POST /api/guard`, MCP `dashclaw_guard` and both SDKs' `guard()` now accept `confidence` (0-100) and thread it onto the `action_records` row the guard creates with `?record=true` — including the blocked-action row. 5.29.0 shipped the Predicted vs actual panel on `/decisions`, but the only ways to state a confidence were `dashclaw_record` and SDK `createAction`, and a number written after the act is a postscript, not a prediction. The agent-facing instructions (governance skill, managed Codex AGENTS block) now tell agents to state it on the guard call and never restate it afterwards. Over MCP on the stdio transport (the `@dashclaw/mcp-server` process), a confidence stated on `dashclaw_guard` is carried onto the following `dashclaw_record` for the same agent, action type and declared goal automatically, one use, 24 hour window, so it is scored without being restated. The hosted HTTP connector is stateless and cannot carry it; there, state it on the `dashclaw_record` you open before acting.
+- **Validation cannot fail the guard hot path.** `confidence` is deliberately absent from the guard input schema: the route coerces it server-side and accepts only an integer 0-100 (a numeric string like `"80"` is coerced), dropping anything else — out of range, fractional, non-numeric — rather than answering `400`. An omitted or dropped value leaves the column default of 50, which `/decisions` already reads as "unstated" and does not score. An optional advisory field never gains the power to refuse a governed action.
+- **Stored, never decided on.** `confidence` does not reach guard evaluation, `risk_score`, containment, the replay binding (`buildReplayBinding` is a field allowlist and excludes it, so two honest retries stating different confidence still dedupe) or any idempotency-key derivation (every one of them hashes an explicit named field list). Pinned by unit tests on both the replay path and the record path.
+- **Hooks intentionally send no confidence.** A `PreToolUse` event carries no prediction from the model, so any value the hook sent would be fabricated. `hooks/dashclaw_pretool.py` says so in a comment at the payload it builds, and keeps leaving the field unstated.
+- No new route, page, MCP tool, SDK method or CLI command. `@dashclaw/mcp-server` 3.1.4.
+
 ### Fixed
 
 - **`dashclaw_record` can now close the record it opened.** Pass the `action_id` returned by an earlier `dashclaw_record` (status `running`) or `dashclaw_guard` together with the final `status` and `output_summary`, and the MCP server PATCHes that record instead of inserting a second row. The managed AGENTS block has told agents to do exactly this since the governance protocol shipped, but the tool only ever POSTed, so every MCP-opened action stayed `outcome_status = pending` until the lost-confirmation sweep took it. Stated confidence on those records could never be scored. `@dashclaw/mcp-server` 3.1.3; no new tools.

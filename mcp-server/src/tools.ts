@@ -55,6 +55,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         action_type: { type: 'string', description: 'Category of action (e.g., deploy, send_email, database_write, api_call)' },
         declared_goal: { type: 'string', description: 'What you intend to do, in plain language' },
         risk_score: { type: 'integer', description: 'Estimated risk 0-100. Use 70+ for production systems.' },
+        confidence: { type: 'integer', description: 'Your honest 0-100 confidence, stated BEFORE acting, that this action completes without a human stepping in. Stored on the action record and scored against the real outcome on /decisions (Predicted vs actual). Leave it out rather than guess; exactly 50 is treated as unstated.' },
         agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
         systems_touched: { type: 'array', items: { type: 'string' }, description: 'Systems affected (e.g., production, database, email)' },
         reversible: { type: 'boolean', description: 'Whether the action can be undone' },
@@ -84,7 +85,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         risk_score: { type: 'integer', description: 'Risk level 0-100 (default 30)' },
         agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
         reasoning: { type: 'string', description: 'Why this action was chosen' },
-        confidence: { type: 'integer', description: 'Confidence 0-100' },
+        confidence: { type: 'integer', description: 'Your honest 0-100 confidence, stated BEFORE acting, that this action completes without a human stepping in. Scored against the real outcome on /decisions (Predicted vs actual). State it on dashclaw_guard where possible; here it belongs on the up-front record (status running/pending_approval), never backfilled onto a close. Leave it out rather than guess; exactly 50 is treated as unstated. A value stated on the preceding dashclaw_guard call for the same agent/action_type/declared_goal is carried over automatically — no need to restate it here.' },
         systems_touched: { type: 'array', items: { type: 'string' }, description: 'Systems affected' },
         reversible: { type: 'boolean', description: 'Whether the action can be undone' },
         output_summary: { type: 'string', description: 'Brief summary of what was produced' },
@@ -489,6 +490,44 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
   // org's session onto another's record.
   let activeSessionId: string | null = null;
 
+  // Guard→record confidence carry: a prediction is only honest if it's
+  // stated BEFORE the act, and dashclaw_guard is where that happens —
+  // dashclaw_record fires after, and is what actually gets scored on
+  // /decisions. Without this, a confidence stated at guard time was lost
+  // unless the agent restated it on the following record, which would be a
+  // postscript, not a prediction. Same per-closure scope as
+  // activeSessionId above (per-process for stdio, per-request for HTTP) so
+  // one org's stated confidence can never attach to another org's row.
+  const pendingConfidence = new Map<string, { confidence: number; at: number }>();
+  const CONFIDENCE_TTL_MS = 24 * 60 * 60 * 1000;
+  const CONFIDENCE_CAP = 100;
+
+  const confidenceKey = (input: any) => `${agentId(input)}|${input.action_type}|${input.declared_goal}`;
+
+  function rememberConfidence(input: any, confidence: number): void {
+    const key = confidenceKey(input);
+    pendingConfidence.delete(key); // re-set so insertion order (oldest-first) stays correct on overwrite
+    pendingConfidence.set(key, { confidence, at: Date.now() });
+    while (pendingConfidence.size > CONFIDENCE_CAP) {
+      const oldestKey = pendingConfidence.keys().next().value;
+      if (oldestKey === undefined) break;
+      pendingConfidence.delete(oldestKey);
+    }
+  }
+
+  // One-use: consumes the entry whether or not it's still fresh, and
+  // whether or not the caller ends up using the value (an explicit
+  // dashclaw_record confidence for the same key still retires the guard's
+  // stated one — restating it is what "wins" means, not stacking).
+  function takeConfidence(input: any): number | undefined {
+    const key = confidenceKey(input);
+    const entry = pendingConfidence.get(key);
+    if (!entry) return undefined;
+    pendingConfidence.delete(key);
+    if (Date.now() - entry.at > CONFIDENCE_TTL_MS) return undefined;
+    return entry.confidence;
+  }
+
   return {
     // Record semantics: deliberately NOT ?record=true (the hook's single-call
     // path). The hook records a "running" action at pretool and patches it at
@@ -497,6 +536,14 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
     // guarded action (guard insert + record insert) or force dashclaw_record
     // into update semantics, breaking its documented contract.
     async dashclaw_guard(input: any) {
+      // Remember a validly-stated confidence for the following dashclaw_record
+      // to pick up (see pendingConfidence above). Range-checked here only —
+      // this gate is stricter than the forwarding check below on purpose,
+      // since it decides what gets carried onto the scored record, not what
+      // reaches /api/guard (which already coerces/drops out-of-range values).
+      if (Number.isInteger(input.confidence) && input.confidence >= 0 && input.confidence <= 100) {
+        rememberConfidence(input, input.confidence);
+      }
       const result = await client.post('/api/guard', {
         action_type: input.action_type,
         declared_goal: input.declared_goal,
@@ -504,6 +551,11 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
         agent_id: agentId(input),
         systems_touched: input.systems_touched,
         reversible: input.reversible,
+        // Stated confidence: the prediction belongs at guard time, before the
+        // act. Forwarded only when the model actually stated an integer — a
+        // fabricated or coerced value would be a prediction no agent made,
+        // and the server's column default (50) already reads as "unstated".
+        ...(Number.isInteger(input.confidence) ? { confidence: input.confidence } : {}),
         // Context enrichment toward hook parity: the guard input schema accepts
         // target / write_paths / content / tool, so protected-path, secret-scan,
         // and content policies can fire on MCP-originated calls too. Only fields
@@ -576,6 +628,12 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
         return JSON.stringify(closed);
       }
       const sessionId = input.session_id ?? activeSessionId;
+      // Confidence carry-over: consume any guard-stated value for this same
+      // agent/action_type/declared_goal (one-use, whether or not it's still
+      // fresh) before deciding what wins. An explicit confidence stated here
+      // on the record is a restatement, not a stack — it wins outright.
+      const rememberedConfidence = takeConfidence(input);
+      const resolvedConfidence = Number.isInteger(input.confidence) ? input.confidence : rememberedConfidence;
       const body = {
         action_type: input.action_type,
         declared_goal: input.declared_goal,
@@ -583,7 +641,7 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
         risk_score: input.risk_score ?? 30,
         agent_id: agentId(input),
         reasoning: input.reasoning,
-        confidence: input.confidence,
+        ...(resolvedConfidence !== undefined ? { confidence: resolvedConfidence } : {}),
         systems_touched: input.systems_touched,
         reversible: input.reversible,
         output_summary: input.output_summary,

@@ -134,6 +134,14 @@ describe('/api/guard?record=true on a block verdict', () => {
     expect(mockFireActionAlert).toHaveBeenCalledWith('blocked', expect.objectContaining({ status: 'blocked' }), mockSql, 'org_1');
   });
 
+  it('carries the stated confidence onto the blocked record', async () => {
+    // A block is still an outcome the prediction should be scored against —
+    // the blocked path builds its own payload, so it needs its own pin.
+    await post({ action_type: 'security', declared_goal: 'rm -rf /', agent_id: 'agt_1', confidence: 30 });
+
+    expect(mockCreateBlockedActionRecord.mock.calls[0][1].data.confidence).toBe(30);
+  });
+
   it('still reports recorded:false when agent_id/declared_goal are missing', async () => {
     const res = await post({ action_type: 'security' });
     const body = await res.json();

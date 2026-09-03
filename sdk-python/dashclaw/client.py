@@ -764,6 +764,14 @@ class DashClaw:
         overrides `agent_id` in the audit record on success. See
         docs/agent-identity.md.
 
+        Stated confidence (optional): include ``confidence`` — your honest
+        0-100 integer, stated BEFORE acting, that this action completes
+        without a human stepping in. It is stored on the action record the
+        guard call creates and scored against the real outcome on /decisions
+        (Predicted vs actual); it never affects the decision. Omit it rather
+        than guess — exactly 50 is the column default and reads as
+        "unstated", and an unusable value is dropped rather than rejected.
+
         Non-fabrication (optional): include ``content`` (outbound text) and
         ``source_of_truth`` in the context to have a ``non_fabrication`` policy
         verify the content; the decision carries a signed, re-verifiable receipt

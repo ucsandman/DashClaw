@@ -24,8 +24,27 @@ import { getAssumptionAlerts } from '../../lib/assumption-notify';
 import { digestJson } from '../../lib/integrity/canonicalize';
 
 type GuardSql = ReturnType<typeof getSql>;
-type GuardData = Record<string, unknown> & { agent_id?: string; agent_name?: string; declared_goal?: string; verification_status?: string };
+type GuardData = Record<string, unknown> & { agent_id?: string; agent_name?: string; declared_goal?: string; verification_status?: string; confidence?: number };
 type GuardResult = { decision: string; risk_score?: number; decision_id?: string; reason?: string | null; reasons?: string[]; matched_policies?: string[]; containment?: { status: string; basis: string; ref: string } | null };
+
+/**
+ * Stated confidence (5.30.0): the agent's own 0-100 odds that this action
+ * completes without a human stepping in, declared BEFORE the act so
+ * /decisions can score the prediction against the real outcome. Advisory
+ * only — it is stored on the action record and never read by evaluation,
+ * risk_score, containment, buildReplayBinding or the idempotency key.
+ *
+ * Deliberately NOT in GUARD_INPUT_SCHEMA: a schema entry would 400 the guard
+ * hot path on a bad value, and an optional advisory field must never gain the
+ * power to refuse a governed call. A junk value is dropped instead, leaving
+ * the column default (50) to read as "unstated".
+ */
+function statedConfidence(value: unknown): number | undefined {
+  const n = typeof value === 'number'
+    ? value
+    : (typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN);
+  return Number.isInteger(n) && n >= 0 && n <= 100 ? n : undefined;
+}
 
 
 /**
@@ -485,6 +504,13 @@ export async function POST(request: Request) {
     // above): rides in the persisted decision context so signals/doctor can
     // surface agents whose hooks observe but do not enforce.
     data.enforcement_mode = enforcementModeField(body?.enforcement_mode);
+    // Stated confidence, threaded onto the same field bag so the ?record=true
+    // insert persists it (see statedConfidence above). The route is the
+    // authority: an unusable value clears the field outright rather than
+    // trusting the validator to have stripped it.
+    const stated = statedConfidence(body?.confidence);
+    if (stated === undefined) delete data.confidence;
+    else data.confidence = stated;
 
     // SECURITY: Block prompt injection patterns in declared_goal (per D-04)
     const goalText = data.declared_goal || '';

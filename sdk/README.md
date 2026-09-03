@@ -46,6 +46,7 @@ const decision = await claw.guard({
   action_type: 'deploy',
   declared_goal: 'Ship v2.4.0 to production',
   risk_score: 90,
+  confidence: 75, // stated BEFORE acting; scored against the outcome on /decisions
 });
 if (decision.decision === 'block') {
   throw new GuardBlockedError(decision);

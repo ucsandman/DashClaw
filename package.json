@@ -1,6 +1,6 @@
 {
   "name": "dashclaw-platform",
-  "version": "5.29.0",
+  "version": "5.30.0",
   "description": "Decision infrastructure for AI agents — governance runtime with policy enforcement, decision recording, and human-in-the-loop approval.",
   "private": true,
   "license": "MIT",

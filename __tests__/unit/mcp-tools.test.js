@@ -96,6 +96,35 @@ describe('Tool Handlers', () => {
       }), expect.anything());
     });
 
+    it('forwards a stated confidence and omits anything that is not an integer', async () => {
+      // The prediction belongs at guard time. Forwarding a non-integer would
+      // manufacture a confidence the model never stated; the server default
+      // (50 = unstated) is the honest fallback.
+      mockPost.mockResolvedValue({ decision: 'allow' });
+      await handlers.dashclaw_guard({ action_type: 'deploy', declared_goal: 'test', risk_score: 30, confidence: 80 });
+      expect(mockPost).toHaveBeenCalledWith('/api/guard', expect.objectContaining({ confidence: 80 }), expect.anything());
+
+      for (const bad of [79.5, '80', 'high', null, undefined]) {
+        mockPost.mockClear();
+        await handlers.dashclaw_guard({ action_type: 'deploy', declared_goal: 'test', risk_score: 30, confidence: bad });
+        expect(mockPost.mock.calls[0][1]).not.toHaveProperty('confidence');
+      }
+    });
+
+    it('stores nothing carry-forward-able for a fractional or stringified confidence', async () => {
+      // Guard→record carry: the store gate must be at least as strict as the
+      // forwarding gate above — a value that never reached /api/guard as a
+      // real integer must not surface later on dashclaw_record either.
+      mockPost.mockResolvedValue({ decision: 'allow' });
+      for (const bad of [79.5, '80']) {
+        await handlers.dashclaw_guard({ action_type: 'deploy', declared_goal: 'carry test', risk_score: 30, confidence: bad });
+      }
+      mockPost.mockClear();
+      mockPost.mockResolvedValue({ action_id: 'act_1' });
+      await handlers.dashclaw_record({ action_type: 'deploy', declared_goal: 'carry test', status: 'completed' });
+      expect(mockPost.mock.calls[0][1]).not.toHaveProperty('confidence');
+    });
+
     it('falls back to LLM-supplied agent_id only when server has no default', async () => {
       // Last-resort fallback: if the MCP server was started with no
       // --agent-id, no DASHCLAW_AGENT_ID, AND clientInfo auto-derivation
@@ -138,6 +167,41 @@ describe('Tool Handlers', () => {
         agent_id: 'default-agent',
       }), { timeout: 10000 });
       expect(result).toContain('act_abc');
+    });
+
+    it('carries a guard-stated confidence onto the following record for the same action, one use only', async () => {
+      mockPost.mockResolvedValueOnce({ decision: 'allow' }); // guard
+      await handlers.dashclaw_guard({ action_type: 'deploy', declared_goal: 'ship it', risk_score: 30, confidence: 80 });
+
+      mockPost.mockResolvedValueOnce({ action_id: 'act_1' }); // first record
+      await handlers.dashclaw_record({ action_type: 'deploy', declared_goal: 'ship it', status: 'completed' });
+      expect(mockPost.mock.calls[1][1]).toHaveProperty('confidence', 80);
+
+      mockPost.mockResolvedValueOnce({ action_id: 'act_2' }); // second, identical record
+      await handlers.dashclaw_record({ action_type: 'deploy', declared_goal: 'ship it', status: 'completed' });
+      expect(mockPost.mock.calls[2][1]).not.toHaveProperty('confidence');
+    });
+
+    it('an explicit confidence on the record wins over the guard-stated one and still consumes it', async () => {
+      mockPost.mockResolvedValueOnce({ decision: 'allow' }); // guard
+      await handlers.dashclaw_guard({ action_type: 'deploy', declared_goal: 'ship it', risk_score: 30, confidence: 80 });
+
+      mockPost.mockResolvedValueOnce({ action_id: 'act_1' });
+      await handlers.dashclaw_record({ action_type: 'deploy', declared_goal: 'ship it', status: 'completed', confidence: 60 });
+      expect(mockPost.mock.calls[1][1]).toHaveProperty('confidence', 60);
+
+      mockPost.mockResolvedValueOnce({ action_id: 'act_2' });
+      await handlers.dashclaw_record({ action_type: 'deploy', declared_goal: 'ship it', status: 'completed' });
+      expect(mockPost.mock.calls[2][1]).not.toHaveProperty('confidence');
+    });
+
+    it('does not carry a confidence over to a record with a different declared_goal', async () => {
+      mockPost.mockResolvedValueOnce({ decision: 'allow' }); // guard
+      await handlers.dashclaw_guard({ action_type: 'deploy', declared_goal: 'ship it', risk_score: 30, confidence: 80 });
+
+      mockPost.mockResolvedValueOnce({ action_id: 'act_1' });
+      await handlers.dashclaw_record({ action_type: 'deploy', declared_goal: 'ship something else', status: 'completed' });
+      expect(mockPost.mock.calls[1][1]).not.toHaveProperty('confidence');
     });
   });
 

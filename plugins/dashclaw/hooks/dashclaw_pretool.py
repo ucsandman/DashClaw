@@ -1712,6 +1712,9 @@ def _build_guard_context(tool_name, tool_info, enrichment, tool_input):
         # only). Attribution-only server-side, but it is the ONLY way the
         # dashboard can show that an agent's blocks are not actually enforced.
         "enforcement_mode": HOOK_MODE,
+        # No `confidence` here, on purpose: a PreToolUse event carries no
+        # prediction from the model, so any value this hook sent would be a
+        # fabricated one. Leave it unstated (the server's default 50).
     }
     # Governance SCOPE, the sibling blind spot to enforcement_mode. A category
     # this hook is not governing never reaches the server at all — main() exits

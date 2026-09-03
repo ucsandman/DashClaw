@@ -193,6 +193,21 @@ describe('/api/guard idempotency replay is bound to the act', () => {
     expect(mockEvaluateGuard).not.toHaveBeenCalled();
   });
 
+  it('still replays when only the stated confidence changed', async () => {
+    // confidence is stored, never decided on, so it is deliberately absent
+    // from buildReplayBinding. If it leaked into the digest, two honest
+    // retries that happened to state different odds would stop deduping and
+    // each write its own decision row.
+    const request = guardData({ act: LS_ACT, confidence: 20 });
+    mockGetPriorDecision.mockResolvedValue(priorRow(request));
+
+    const res = await post(guardData({ act: LS_ACT, confidence: 90 }));
+    const body = await res.json();
+
+    expect(body.idempotent_replay).toBe(true);
+    expect(mockEvaluateGuard).not.toHaveBeenCalled();
+  });
+
   it('replays across the declared→derived action_type swap evaluate persists', async () => {
     // On a declared/derived mismatch evaluate rewrites context.action_type and
     // parks the declared value in declared_action_type. The binding unwinds it.

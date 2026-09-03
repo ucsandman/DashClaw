@@ -8,7 +8,7 @@ This page documents the minimal runtime contract. For the complete generated rou
 
 A fully governed action usually follows this flow:
 
-1. **Guard** (`POST /api/guard`) -> "Can I do this?"
+1. **Guard** (`POST /api/guard`) -> "Can I do this?" State `confidence` (0-100) here, before acting: it rides onto the action record and is scored against the real outcome on `/decisions`, so it is a prediction rather than a postscript.
 2. **Record** (`POST /api/actions`) -> "I am doing this."
 3. **Assumption** (`POST /api/assumptions`) -> "This belief matters while I act." Optional, but recommended when reasoning integrity matters.
 4. **Outcome** (`POST /api/actions/:actionId/outcome`) -> "This actually completed, partially completed, or failed."
@@ -116,9 +116,12 @@ Prompt-injection scanning runs against `declared_goal` before guard evaluation a
   "agent_id": "deploy-agent-1",
   "agent_name": "Deploy Agent",
   "systems_touched": ["production"],
-  "reversible": false
+  "reversible": false,
+  "confidence": 75
 }
 ```
+
+`confidence` is the agent's own 0-100 odds that the action completes without a human stepping in. It is advisory and storage-only: it never reaches evaluation, `risk_score`, containment, the replay binding or the idempotency key. Accepted as an integer 0-100 (a numeric string is coerced); anything else is dropped rather than rejected, since an optional advisory field must never fail a guard call. Omitted leaves the record's column default of 50, which `/decisions` reads as "unstated" and does not score.
 
 **Response:**
 ```json

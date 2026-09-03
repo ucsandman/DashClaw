@@ -222,8 +222,9 @@ Risk scores are computed server-side from structured fields (`action_type`, `rev
 Check actions against policies and fetch guard audit history:
 
 ```python
-# Check an action against policies
-decision = claw.guard({"action_type": "deploy", "risk_score": 80})
+# Check an action against policies. `confidence` is your 0-100 odds this
+# completes without a human, stated BEFORE acting and scored on /decisions.
+decision = claw.guard({"action_type": "deploy", "risk_score": 80, "confidence": 75})
 print(decision["decision"])  # allow | warn | allow_contained | require_approval | block
 print(decision["risk_score"])  # Server-computed authoritative score
 print(decision["agent_risk_score"])  # Raw agent-supplied value (or None)

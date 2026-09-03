@@ -1,22 +1,26 @@
 {
   "node": {
-    "current_version": "5.29.0",
+    "current_version": "5.30.0",
     "next_bump": "none",
-    "reason": "v5.29.0 is platform-only (Predicted vs actual on /decisions). No Node SDK source change since 5.28.0 (the sdk/ diff is empty). The v5.29.0 tag still fires release.yml, which republishes the unchanged Node SDK at 5.29.0 via OIDC so the registry keeps one version per platform release (the same thing happened for 5.27.8).",
+    "reason": "v5.30.0 (confidence at guard time). Node SDK source changed in docs only: sdk/dashclaw.js gains the guard(context) JSDoc for context.confidence and sdk/README.md shows it; no method added or changed (40 methods). The v5.30.0 tag fires release.yml and republishes the Node SDK at 5.30.0 via OIDC so the published package carries the updated guard() documentation.",
     "domains": [
-      "platform"
+      "platform",
+      "node"
     ]
   },
   "python": {
-    "current_version": "5.29.0",
+    "current_version": "5.30.0",
     "next_bump": "none",
-    "reason": "v5.29.0 is platform-only (Predicted vs actual on /decisions). No Python SDK source change since 5.28.0 (the sdk-python/ diff is empty). The v5.29.0 tag still fires release.yml, which republishes the unchanged Python SDK at 5.29.0 via OIDC (skip-existing) so PyPI keeps one version per platform release.",
+    "reason": "v5.30.0 (confidence at guard time). Python SDK source changed in docs only: the guard docstring in sdk-python/dashclaw/client.py documents context confidence and sdk-python/README.md shows it; no method added or changed (60 methods). The v5.30.0 tag fires release.yml and republishes the Python SDK at 5.30.0 via OIDC (skip-existing).",
     "domains": [
-      "platform"
+      "platform",
+      "python"
     ]
   },
-  "reason": "5.29.0 ships Predicted vs actual: GET /api/actions/stats gains an additive confidence block scoring each agent's stated confidence against observed completion over 30 days, rendered as a panel on /decisions. Zero new API routes, pages, MCP tools, SDK methods or CLI commands (surface budget untouched). Neither SDK source changed; both are republished unchanged at 5.29.0 by the tag-driven release.yml. @dashclaw/cli is unchanged and its job skips.",
+  "reason": "5.30.0 moves stated confidence to guard time: POST /api/guard, MCP dashclaw_guard and both SDK guard() calls accept confidence (0-100) and the guard-created action record stores it, validated server-side and never used in evaluation, replay binding or idempotency. Zero new API routes, pages, MCP tools, SDK methods or CLI commands (surface budget untouched). Both SDKs changed in documentation only and are republished at 5.30.0 by the tag. @dashclaw/mcp-server 3.1.4 ships separately via release:mcp; @dashclaw/cli is unchanged and its job skips.",
   "domains": [
-    "platform"
+    "platform",
+    "node",
+    "python"
   ]
 }

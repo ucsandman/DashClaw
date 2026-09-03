@@ -361,6 +361,13 @@ class DashClaw {
   /**
    * POST /api/guard — "Can I do X?"
    * @param {Object} context
+   * @param {number} [context.confidence] - Your honest 0-100 confidence,
+   *   stated BEFORE acting, that this action completes without a human
+   *   stepping in. Optional integer; stored on the action record the guard
+   *   call creates and scored against the real outcome on /decisions
+   *   (Predicted vs actual). Never affects the decision. Omit it rather than
+   *   guess — exactly 50 is the column default and reads as "unstated", and
+   *   an unusable value is dropped rather than rejected.
    * @param {string} [context.content] - Outbound content to fabrication-check
    *   (e.g. a drafted email/message). Pairs with `sourceOfTruth` and a
    *   `non_fabrication` guard policy: every operational token (amounts, dates,

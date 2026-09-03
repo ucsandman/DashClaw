@@ -14,6 +14,34 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-03 - Confidence moves to guard time
+
+Earlier today the ledger learned to score stated confidence against real
+outcomes. That shipped with a hole in it: the only places an agent could state
+a confidence were `dashclaw_record` and the SDK's `createAction`, both of which
+run at or after the moment of the act. A number written once you already know
+how things are going is not a prediction, it is a postscript, and scoring it
+flatters the agent. The honest place to say "I think this works without a
+human" is the guard call, before anything happens. So `confidence` now rides
+every guard entry point - the REST route, the MCP tool, both SDKs - and lands
+on the action record the guard creates, blocked records included. The agent
+instructions were changed to match: state it at guard time, never restate it
+afterwards.
+
+Two constraints shaped the implementation. The field is stored and never
+decided on, so it stays out of evaluation, risk scoring, containment, the
+replay binding and every idempotency key; the replay binding is a field
+allowlist and the key derivations all hash explicit named field lists, and
+there are now tests pinning both. And validation never gets to fail the call.
+An entry in the guard input schema would have answered 400 on a bad value,
+which would let an optional advisory field refuse a governed action, so the
+route coerces instead: integer 0 to 100, numeric strings accepted, everything
+else quietly dropped to the column default of 50 that the dashboard already
+reads as unstated. The hooks were left alone on purpose. A PreToolUse event
+carries no prediction from the model, and inventing one there would have
+manufactured exactly the fake data the whole feature exists to avoid; there is
+now a comment saying so where the next person would otherwise add it.
+
 ## 2026-09-03 - Predicted vs actual - the ledger scores the agent's own confidence
 
 Every governed action has carried two numbers for a long time: what the agent
