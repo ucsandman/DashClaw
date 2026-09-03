@@ -131,6 +131,11 @@ in Approvals and the Decisions ledger.
   the outcome is known; never backfill it after the fact. The Decisions ledger scores stated
   confidence against actual outcomes per agent (Predicted vs actual). The default of 50 means
   "unstated" and is not scored, so an honest 50 should be 49 or 51.
+- `agent_id` — normally fixed by the server and not yours to choose. If you are one routine among
+  several behind a shared connector, you may name yourself under that identity as
+  `<configured id>/<routine>` (the configured id is the `agent_id` echoed in any guard response, e.g.
+  `claude-desktop/nightly-seo`) so your predictions are scored as your own. Anything else is
+  ignored and the configured id is used.
 
 **For LLM-driven actions, include token usage (cost is auto-derived):**
 - `tokens_in` / `tokens_out` — Total input and output tokens for the LLM call(s) attributed to this action.

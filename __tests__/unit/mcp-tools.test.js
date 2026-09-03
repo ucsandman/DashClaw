@@ -96,6 +96,39 @@ describe('Tool Handlers', () => {
       }), expect.anything());
     });
 
+    it('accepts a sub-agent namespaced under the configured identity', async () => {
+      // Every routine behind one shared connector is otherwise one row on
+      // /decisions. "<configured>/<name>" keeps attribution rooted at the
+      // server-level identity while letting each routine score separately.
+      mockPost.mockResolvedValue({ decision: 'allow' });
+      await handlers.dashclaw_guard({
+        action_type: 'deploy', declared_goal: 'test', risk_score: 30,
+        agent_id: 'default-agent/nightly-seo',
+      });
+      expect(mockPost).toHaveBeenCalledWith('/api/guard', expect.objectContaining({
+        agent_id: 'default-agent/nightly-seo',
+      }), expect.anything());
+    });
+
+    it('rejects sub-agent labels that are not rooted at the configured identity or are malformed', async () => {
+      mockPost.mockResolvedValue({ decision: 'allow' });
+      for (const bad of [
+        'other-agent/nightly-seo',      // different top-level identity
+        'default-agent',                // same id, no sub-label (fine, but resolves to configured anyway)
+        'default-agent/',               // empty label
+        'default-agent//x',             // leading separator in label
+        'default-agent/nightly seo',    // whitespace
+        'default-agent/a/b',            // nested separator
+        `default-agent/${'x'.repeat(65)}`, // over 64 chars
+        'default-agent/-leading-dash',  // must start alphanumeric
+        42,
+      ]) {
+        mockPost.mockClear();
+        await handlers.dashclaw_guard({ action_type: 'deploy', declared_goal: 'test', risk_score: 30, agent_id: bad });
+        expect(mockPost.mock.calls[0][1].agent_id).toBe('default-agent');
+      }
+    });
+
     it('forwards a stated confidence and omits anything that is not an integer', async () => {
       // The prediction belongs at guard time. Forwarding a non-integer would
       // manufacture a confidence the model never stated; the server default

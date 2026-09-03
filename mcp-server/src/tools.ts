@@ -56,7 +56,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         declared_goal: { type: 'string', description: 'What you intend to do, in plain language' },
         risk_score: { type: 'integer', description: 'Estimated risk 0-100. Use 70+ for production systems.' },
         confidence: { type: 'integer', description: 'Your honest 0-100 confidence, stated BEFORE acting, that this action completes without a human stepping in. Stored on the action record and scored against the real outcome on /decisions (Predicted vs actual). Leave it out rather than guess; exactly 50 is treated as unstated.' },
-        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
+        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins). With a configured id you may name a sub-agent under it as "<configured id>/<name>" (e.g. claude-desktop/nightly-seo) so this routine gets its own row on /decisions; anything else falls back to the configured id.' },
         systems_touched: { type: 'array', items: { type: 'string' }, description: 'Systems affected (e.g., production, database, email)' },
         reversible: { type: 'boolean', description: 'Whether the action can be undone' },
         target: { type: 'string', description: 'Primary file path, URL, or resource the action touches (lets protected-path policies match)' },
@@ -83,7 +83,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         declared_goal: { type: 'string', description: 'What was accomplished' },
         status: { type: 'string', enum: ['running', 'completed', 'failed', 'pending_approval'], description: 'Outcome status' },
         risk_score: { type: 'integer', description: 'Risk level 0-100 (default 30)' },
-        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
+        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins). With a configured id you may name a sub-agent under it as "<configured id>/<name>" (e.g. claude-desktop/nightly-seo) so this routine gets its own row on /decisions; anything else falls back to the configured id.' },
         reasoning: { type: 'string', description: 'Why this action was chosen' },
         confidence: { type: 'integer', description: 'Your honest 0-100 confidence, stated BEFORE acting, that this action completes without a human stepping in. Scored against the real outcome on /decisions (Predicted vs actual). State it on dashclaw_guard where possible; here it belongs on the up-front record (status running/pending_approval), never backfilled onto a close. Leave it out rather than guess; exactly 50 is treated as unstated. A value stated on the preceding dashclaw_guard call for the same agent/action_type/declared_goal is carried over automatically — no need to restate it here.' },
         systems_touched: { type: 'array', items: { type: 'string' }, description: 'Systems affected' },
@@ -115,7 +115,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       properties: {
         capability_id: { type: 'string', description: 'The capability ID (e.g., cap_abc123)' },
         declared_goal: { type: 'string', description: 'What you\'re trying to accomplish' },
-        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
+        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins). With a configured id you may name a sub-agent under it as "<configured id>/<name>" (e.g. claude-desktop/nightly-seo) so this routine gets its own row on /decisions; anything else falls back to the configured id.' },
         payload: { type: 'object', description: 'Request payload for the capability' },
       },
       required: ['capability_id', 'declared_goal'],
@@ -317,7 +317,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
+        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins). With a configured id you may name a sub-agent under it as "<configured id>/<name>" (e.g. claude-desktop/nightly-seo) so this routine gets its own row on /decisions; anything else falls back to the configured id.' },
         agent_name: { type: 'string', description: 'Human-readable agent name shown to the approving admin.' },
         wait: { type: 'boolean', description: 'Poll the pairing until approved/expired (default false).' },
       },
@@ -334,7 +334,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
+        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins). With a configured id you may name a sub-agent under it as "<configured id>/<name>" (e.g. claude-desktop/nightly-seo) so this routine gets its own row on /decisions; anything else falls back to the configured id.' },
         declared_goal: { type: 'string', description: 'The mission-level goal of the plan (required)' },
         steps: {
           type: 'array',
@@ -474,7 +474,27 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
   // and lets a single misbehaving prompt impersonate a different agent. The
   // input.agent_id field is preserved only as a last-resort fallback for
   // configurations that intentionally run without a server-level default.
-  const agentId = (input: any) => client.agentId || input.agent_id;
+  //
+  // One sanctioned refinement: a caller may name a SUB-agent under the
+  // configured identity, "<configured>/<name>" (e.g. claude-desktop/nightly-seo).
+  // Every routine behind one shared connector (the hosted claude.ai connector
+  // is always `claude-desktop`) otherwise lands in one row on /decisions, so
+  // per-agent scoring (Predicted vs actual) cannot tell them apart. The prefix
+  // keeps attribution rooted at the server-level identity: a prompt still
+  // cannot impersonate a different top-level agent, only label itself within
+  // its own. Anything not shaped exactly like that falls back to the
+  // configured id, silently — identity is never an error path.
+  const SUB_AGENT_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+  const agentId = (input: any) => {
+    const configured = client.agentId;
+    if (!configured) return input.agent_id;
+    const requested = input?.agent_id;
+    if (typeof requested === 'string' && requested.startsWith(`${configured}/`)) {
+      const sub = requested.slice(configured.length + 1);
+      if (SUB_AGENT_RE.test(sub)) return requested;
+    }
+    return configured;
+  };
 
   // READ filter: the opposite precedence. On query tools agent_id is a filter,
   // not an identity claim — "show me moltfire's loops" must not be silently
