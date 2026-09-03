@@ -14,6 +14,41 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-03 - Predicted vs actual - the ledger scores the agent's own confidence
+
+Every governed action has carried two numbers for a long time: what the agent
+predicted (`confidence`, 0-100) and what happened (`outcome_status`). Nothing
+ever put them side by side. This ships that join. `GET /api/actions/stats`
+grows an additive `confidence` block, and `/decisions` grows a panel under the
+stats rail: per agent, over 30 days, the mean stated confidence, the observed
+completion rate, the gap, and a verdict. Above a gap of +20, over at least 10
+scored actions, the agent is overconfident and now says so on a page rather
+than in a postmortem.
+
+Two design calls are worth recording. The first is that `confidence` defaults
+to 50 in the column and the hooks never send one, so most rows carry a 50 that
+no agent ever chose. Scoring those would manufacture a prediction and hand back
+a confident-looking verdict built on nothing. So rows at exactly 50 are
+excluded from the arithmetic and counted instead: every state of the panel
+leads with how many closed actions actually stated a confidence out of how many
+closed at all. On the hosted org there are roughly 129,000 closed actions and
+not one of them stated a confidence, which is exactly the point - the honest
+answer is that there is nothing to score yet, and the panel says that in one
+sentence instead of drawing an empty chart. The
+second call is that the calibration rides the existing stats endpoint rather
+than getting a route of its own. The surface budget in
+`contracts/surface-budget.json` is a ceiling, not a suggestion, and the only
+caller that wants these numbers already fetches that endpoint. It is wrapped in
+its own try/catch, so a failure in the calibration query degrades to
+`confidence: null` and leaves the throughput stats untouched.
+
+The known limit: an agent that genuinely means 50 is invisible to this. Its
+rows are indistinguishable from rows nobody scored, so a deliberate coin-flip
+prediction gets dropped along with the defaults. Fixing that needs a stated-ness
+marker separate from the value, which is a schema change this feature did not
+justify. Until then the coverage line is the honest disclosure of what the
+verdict did and did not look at.
+
 ## 2026-09-01 - v5.28.0: plan attestation - the run proves its authority before it spends anything
 
 Preflight plans (v5.4.0) let an operator approve a whole plan once instead of

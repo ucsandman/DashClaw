@@ -120,6 +120,10 @@ in Approvals and the Decisions ledger.
 - `reasoning` — Why you chose this action over alternatives.
 - `output_summary` — What was produced or what went wrong.
 - `risk_score` — Your honest assessment. Don't lowball to avoid guards.
+- `confidence` — 0-100 that this action completes without a human stepping in. State it when you record
+  up front (status `running`), before the outcome is known; never backfill it after the fact. The
+  Decisions ledger scores stated confidence against actual outcomes per agent (Predicted vs actual).
+  The default of 50 means "unstated" and is not scored, so an honest 50 should be 49 or 51.
 
 **For LLM-driven actions, include token usage (cost is auto-derived):**
 - `tokens_in` / `tokens_out` — Total input and output tokens for the LLM call(s) attributed to this action.

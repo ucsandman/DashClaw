@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import PageLayout from '../components/PageLayout';
 import ObserveModeBanner from '../components/ObserveModeBanner';
 import GovernanceSignalsPanel from '../components/GovernanceSignalsPanel';
+import ConfidenceCalibrationPanel from '../components/ConfidenceCalibrationPanel';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -564,6 +565,10 @@ function DecisionsLedgerInner() {
           ))}
         </div>
       </div>
+
+      {/* Predicted vs actual — the stated confidence beside what actually
+          completed. Reads the same /api/actions/stats the rail above does. */}
+      <ConfidenceCalibrationPanel />
 
       {/* Filters */}
       <Card hover={false} className="mb-6">

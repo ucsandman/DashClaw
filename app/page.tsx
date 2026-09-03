@@ -12,6 +12,7 @@ import {
   Inbox,
   SlidersHorizontal,
   AppWindow,
+  Target,
 } from 'lucide-react';
 import PublicNavbar from './components/PublicNavbar';
 import PublicFooter from './components/PublicFooter';
@@ -401,20 +402,21 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── 5. Two proof points: calibration + liveness ── */}
+        {/* ── 5. Three proof points: calibration + liveness + predicted vs actual ── */}
         <section className="py-20 px-6 border-t border-border">
           <div className="max-w-4xl mx-auto">
             <div className="max-w-2xl mb-10">
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
-                Two things make the checkpoint livable
+                Three things make the checkpoint livable
               </h2>
               <p className="mt-3 text-text-secondary leading-relaxed">
-                A governor you disable is worse than none. These two keep it
-                earning its interruptions, and prove it is still awake.
+                A governor you disable is worse than none. These three keep it
+                earning its interruptions, prove it is still awake, and score
+                what the agent claimed against what it delivered.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div className="p-6 rounded-xl border border-border bg-surface-secondary">
                 <div className="flex items-center gap-2.5 mb-3">
                   <Crosshair size={18} className="text-brand" aria-hidden="true" />
@@ -441,6 +443,18 @@ export default function LandingPage() {
                   synthetic held action through the real hook seam and verdicts
                   by whether it executed, not by reading the ledger. Stale never
                   renders green.
+                </p>
+              </div>
+              <div className="p-6 rounded-xl border border-border bg-surface-secondary">
+                <div className="flex items-center gap-2.5 mb-3">
+                  <Target size={18} className="text-brand" aria-hidden="true" />
+                  <h3 className="text-base font-semibold text-text-primary">Predicted vs actual</h3>
+                </div>
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  Every action carries the agent&apos;s stated confidence. The
+                  ledger scores it against what actually completed, per agent,
+                  over 30 days. Autonomy stays a number you set with checks, not
+                  a prompt.
                 </p>
               </div>
             </div>

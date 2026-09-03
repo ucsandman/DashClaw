@@ -13,6 +13,13 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Added
+
+- **Predicted vs actual: the ledger now scores the agent's own stated confidence against what actually completed.** Every governed action already carried the prediction (`action_records.confidence`, 0-100) and the actual (`action_records.outcome_status`); nothing joined them. `GET /api/actions/stats` gains an additive `confidence` block — per agent, over a rolling 30 days: scored volume, weighted mean stated confidence, observed completion rate, the gap between them, and a verdict of `overconfident | underconfident | calibrated | insufficient` (overconfident at a gap of +20 or more, and only above 10 scored actions).
+- **A `Predicted vs actual` panel on `/decisions`**, directly under the stats rail. Row per agent plus an All agents row, each agent linking to its own filtered ledger. The verdict is always spelled out in words, never carried by colour alone.
+- **The default confidence of 50 is treated as unstated, and reported as coverage rather than silently scored.** 50 is the column default and hooks never send a confidence — only MCP `dashclaw_record` and SDK callers do — so scoring a defaulted row would invent a prediction no agent made. Rows at exactly 50 are excluded from the verdict and counted instead: every view leads with `N of M closed actions in the last 30 days carried a stated confidence.` Below 10 scored actions the panel gives no verdict at all, just that line and one sentence on how to start stating confidence.
+- **Zero new surface.** No new API route, page, MCP tool, SDK method or CLI command: the calibration rides the stats endpoint `/decisions` already fetches, and is wrapped in its own try/catch so a calibration failure degrades to `confidence: null` instead of taking the throughput stats down.
+
 ## [5.28.0] — 2026-09-01 — Plan Attestation: pinned authority for unattended runs
 
 ### Added

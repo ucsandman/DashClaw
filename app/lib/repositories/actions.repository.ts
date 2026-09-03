@@ -2241,6 +2241,71 @@ export async function getActionStats(
 }
 
 /**
+ * Predicted vs actual: the agent's stated confidence against what actually
+ * completed, per agent, over a rolling window.
+ *
+ * Two queries, one pass each over the same window:
+ *  - `buckets` scores only rows that stated a confidence. `confidence` defaults
+ *    to 50 at the column level and hooks never send one, so a row at exactly 50
+ *    is a row nobody predicted; scoring it would invent a prediction. Excluded
+ *    here, counted below.
+ *  - `coverage` is the honest denominator — every closed action, and how many of
+ *    them carried a stated confidence. A verdict computed from four scored rows
+ *    out of a hundred thousand closed ones has to say so.
+ *
+ * Terminal outcomes only (`completed | partial | failed`): a `pending` row has no
+ * actual to compare the prediction against yet.
+ *
+ * Tagged-template only — no `.query()` mock path. Callers hold the shaping in
+ * app/lib/confidence-calibration.ts so the arithmetic stays testable without a DB.
+ */
+export async function getConfidenceCalibration(
+  sql: SqlClient,
+  orgId: string,
+  agentId: string | null = null,
+  windowDays = 30,
+): Promise<{ buckets: Row[]; coverage: Row[] }> {
+  const agentFilter = sqlFragment(sql, !!agentId, () => sql`AND agent_id = ${agentId}`);
+  const [buckets, coverage] = await Promise.all([
+    sql`
+      SELECT
+        agent_id,
+        MAX(agent_name) AS agent_name,
+        CASE
+          WHEN confidence < 50 THEN 'lt50'
+          WHEN confidence < 70 THEN 'b50_69'
+          WHEN confidence < 90 THEN 'b70_89'
+          ELSE 'b90_plus'
+        END AS bucket,
+        COUNT(*)::int AS n,
+        COUNT(*) FILTER (WHERE outcome_status = 'completed')::int AS completed,
+        AVG(confidence)::float AS avg_confidence
+      FROM action_records
+      WHERE org_id = ${orgId}
+        ${agentFilter}
+        AND created_at > NOW() - make_interval(days => ${windowDays}::int)
+        AND outcome_status IN ('completed', 'partial', 'failed')
+        AND confidence <> 50
+      GROUP BY agent_id, bucket
+    `,
+    sql`
+      SELECT
+        agent_id,
+        MAX(agent_name) AS agent_name,
+        COUNT(*)::int AS closed,
+        COUNT(*) FILTER (WHERE confidence <> 50)::int AS stated
+      FROM action_records
+      WHERE org_id = ${orgId}
+        ${agentFilter}
+        AND created_at > NOW() - make_interval(days => ${windowDays}::int)
+        AND outcome_status IN ('completed', 'partial', 'failed')
+      GROUP BY agent_id
+    `
+  ]);
+  return { buckets, coverage };
+}
+
+/**
  * Fetch historical actions for policy simulation.
  */
 /**
