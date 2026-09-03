@@ -2,7 +2,7 @@
   "node": {
     "current_version": "5.29.0",
     "next_bump": "none",
-    "reason": "v5.29.0 is platform-only (Predicted vs actual on /decisions). No Node SDK source change: the version advances per the unified model but the Node SDK is NOT republished; npm stays at 5.28.0 (release.yml's publish-npm job skips a version already on the registry, and the sdk/ diff since 5.28.0 is empty).",
+    "reason": "v5.29.0 is platform-only (Predicted vs actual on /decisions). No Node SDK source change since 5.28.0 (the sdk/ diff is empty). The v5.29.0 tag still fires release.yml, which republishes the unchanged Node SDK at 5.29.0 via OIDC so the registry keeps one version per platform release (the same thing happened for 5.27.8).",
     "domains": [
       "platform"
     ]
@@ -10,12 +10,12 @@
   "python": {
     "current_version": "5.29.0",
     "next_bump": "none",
-    "reason": "v5.29.0 is platform-only (Predicted vs actual on /decisions). No Python SDK source change: the version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 5.28.0 (the sdk-python/ diff since 5.28.0 is empty).",
+    "reason": "v5.29.0 is platform-only (Predicted vs actual on /decisions). No Python SDK source change since 5.28.0 (the sdk-python/ diff is empty). The v5.29.0 tag still fires release.yml, which republishes the unchanged Python SDK at 5.29.0 via OIDC (skip-existing) so PyPI keeps one version per platform release.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.29.0 ships Predicted vs actual: GET /api/actions/stats gains an additive confidence block scoring each agent's stated confidence against observed completion over 30 days, rendered as a panel on /decisions. Zero new API routes, pages, MCP tools, SDK methods or CLI commands (surface budget untouched). Neither SDK source changed, so neither is republished; @dashclaw/cli is unchanged and its job skips.",
+  "reason": "5.29.0 ships Predicted vs actual: GET /api/actions/stats gains an additive confidence block scoring each agent's stated confidence against observed completion over 30 days, rendered as a panel on /decisions. Zero new API routes, pages, MCP tools, SDK methods or CLI commands (surface budget untouched). Neither SDK source changed; both are republished unchanged at 5.29.0 by the tag-driven release.yml. @dashclaw/cli is unchanged and its job skips.",
   "domains": [
     "platform"
   ]
