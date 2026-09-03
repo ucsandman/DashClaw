@@ -13,6 +13,8 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.29.0] — 2026-09-03 — Predicted vs actual: the ledger scores the agent's stated confidence
+
 ### Added
 
 - **Predicted vs actual: the ledger now scores the agent's own stated confidence against what actually completed.** Every governed action already carried the prediction (`action_records.confidence`, 0-100) and the actual (`action_records.outcome_status`); nothing joined them. `GET /api/actions/stats` gains an additive `confidence` block — per agent, over a rolling 30 days: scored volume, weighted mean stated confidence, observed completion rate, the gap between them, and a verdict of `overconfident | underconfident | calibrated | insufficient` (overconfident at a gap of +20 or more, and only above 10 scored actions).
