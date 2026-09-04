@@ -113,6 +113,31 @@ say so. That is a smaller hole than the one that existed this morning, but it
 is a hole, and the honest framing is that evidence-first guard is only as deep
 as the deepest thing the client hands over.
 
+Postscript, same evening, v5.33.1. The live verification ran against the
+deployed 5.33.0: the incident shape held, and it held for two reasons at once,
+the org's own spend line and the new catastrophe line, which is the late-seed
+into existing orgs doing its job on the first deploy. Five of six checks
+passed. The sixth, the buy-domain capability itself, answered
+`auth_not_configured`, because wiring it had failed one step earlier:
+`POST /api/settings` refused `VERCEL_REGISTRAR_TOKEN` and `REGISTRANT_CONTACT`
+as invalid keys. The settings allowlist names known vendor keys and nothing
+else, and no allowlist can enumerate every credential a capability might
+custody. The rule that replaces it is the one the seam already implies: a
+setting a registered capability declares, its `auth.token_setting` or a
+`$settings.<KEY>` in its request mapping, is writable for that org, and a key
+no capability declares is still refused. The same release recaptures the
+platform guide against the new version and adds `POST /api/capabilities` to
+its dataset, which is the CI-only drift check that failed on the 5.33.0
+commit while every local gate was green. The rest of the wiring, the two
+settings, the retired direct-purchase script in the agent's workspace, and the
+sixth check, lands right after this deploys.
+
+One process note for the record. The release commit was prepared by a
+delegated agent that was killed mid-run by a session re-login; its work was
+all in the tree and none of it was committed. The tell was not silence, it was
+the agent list saying `killed`. Check that before waiting on a long-running
+delegate.
+
 ## 2026-09-04 - The thesis turns sixty days old and picks its next bet
 
 Wes pasted a strategic review of DashClaw written by another model and asked

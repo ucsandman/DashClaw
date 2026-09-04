@@ -13,6 +13,15 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.33.1] — 2026-09-04 — A capability's declared settings are writable
+
+### Fixed
+
+- **Capability custody settings were unwritable.** Wiring the v5.33.0 `buy-domain` capability into a live org failed at the first step: `POST /api/settings` refused `VERCEL_REGISTRAR_TOKEN` and `REGISTRANT_CONTACT` with `Invalid setting key`, because the settings allowlist names known vendor keys and nothing else. The allowlist cannot enumerate every credential a capability might custody, and the seam exists so the credential lives in DashClaw and never with the agent. A setting a registered `http_api` capability declares, its `auth.token_setting` or any `$settings.<KEY>` in its request mapping, is now writable for that org; keys stay `[A-Z0-9_]`, and a key no capability declares is still refused. New unit test.
+- **Platform guide drift.** `POST /api/capabilities` joins the guide dataset and coverage table, and the live examples are recaptured against this version, so the CI-only drift check passes again (it failed on the v5.33.0 commit).
+
+No Node/Python SDK source change: npm and PyPI stay at 5.32.0.
+
 ## [5.33.0] — 2026-09-04 — Real money is evidence: a purchase holds, whatever names it
 
 ### Added

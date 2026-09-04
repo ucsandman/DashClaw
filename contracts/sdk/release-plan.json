@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.33.0",
+    "current_version": "5.33.1",
     "next_bump": "none",
-    "reason": "v5.33.0 (real money is evidence: spend evidence class, act.script grading, fifth catastrophe pack line, capability credential custody, POST /api/capabilities restored). Node SDK source unchanged: no method added or changed (40 methods). sdk/README.md gained one paragraph documenting the optional act.script field, which is prose, not surface. The Node SDK is NOT republished at 5.33.0: npm dashclaw stays at 5.32.0, its last release, and the shared version number advances anyway (non-contiguous published versions are expected for a platform-only release).",
+    "reason": "v5.33.1 (capability custody settings writable; platform guide recaptured). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.33.0",
+    "current_version": "5.33.1",
     "next_bump": "none",
-    "reason": "v5.33.0 (real money is evidence). Python SDK source unchanged: no method added or changed (60 methods). sdk-python/README.md gained one paragraph documenting the optional act.script field, which is prose, not surface. The Python SDK is NOT republished at 5.33.0: PyPI dashclaw stays at 5.32.0, its last release.",
+    "reason": "v5.33.1 (capability custody settings writable; platform guide recaptured). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.33.0 makes real money a graded evidence class after an agent bought two domains under governance and the guard answered allow twice (act_gd_4ff2312b986b4e88, act_gd_1309e9ca56e9457b). Server: evidence class spend (registrar/card/checkout/credit-top-up endpoint writes and purchase CLIs grade 75, irreversible, flag spend; price and availability lookups stay out; a non-GET http act to a purchase endpoint grades the same, sensitive-host bump unchanged); act.script { path, content_excerpt } on a shell act so the body of a locally executed script is graded by the same classifier and folded by the same max rule; a fifth catastrophe pack line (Hold Real-Money Spend for Approval, risk_threshold 70, only_evidence_flags [spend], ungrantable, short_list) seeded at org birth and into existing orgs via seedLateAddedPackLines; spend joins NEVER_PRECEDENTED. Hooks: bash_classifier spend intent, grade_script_content spend floor, dashclaw_pretool attaches act.script. Capability seam: ${input.<field>} path parameters, $settings.<KEY> request-mapping values, encrypted-setting decrypt (the runtime used to send ciphertext as the bearer), act evidence on invoke, and a requires_approval capability now executes on the approved retry. POST /api/capabilities restored admin-only, create only, activity-logged: one new method on an existing path, so the route total stays at 134. No new page, MCP tool, SDK method, CLI command or policy type; no migration. Both SDKs are unchanged and are NOT republished: npm and PyPI stay at 5.32.0. @dashclaw/openclaw-plugin 1.6.3 built and installed locally, publish pending. @dashclaw/cli stays at 0.13.0, @dashclaw/mcp-server stays at 3.1.5.",
+  "reason": "v5.33.1 (capability custody settings writable; platform guide recaptured). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
   "domains": [
     "platform"
   ]

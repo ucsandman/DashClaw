@@ -240,6 +240,56 @@ export async function getSettings(
   return settings;
 }
 
+// Capability custody (v5.33.1). A registered http_api capability declares the
+// settings it needs: `auth.token_setting` and any `$settings.<KEY>` in its
+// request mapping. Those keys are writable for that org even though they are
+// not on the static allowlist above — the allowlist cannot name every vendor
+// credential a capability might custody, and the whole point of the seam is
+// that the credential lives HERE, never with the agent. A key no capability
+// declares is still refused. Keys stay [A-Z0-9_] so a setting name can never
+// carry a path or a template.
+const CUSTODY_KEY_RE = /^[A-Z][A-Z0-9_]{1,63}$/;
+
+export function settingsDeclaredByCapability(invocationSchema: unknown): string[] {
+  const out = new Set<string>();
+  const schema = invocationSchema && typeof invocationSchema === 'object' ? (invocationSchema as Record<string, unknown>) : {};
+  const auth = schema.auth && typeof schema.auth === 'object' ? (schema.auth as Record<string, unknown>) : {};
+  if (typeof auth.token_setting === 'string' && CUSTODY_KEY_RE.test(auth.token_setting)) out.add(auth.token_setting);
+  const walk = (node: unknown): void => {
+    if (typeof node === 'string') {
+      if (node.startsWith('$settings.')) {
+        const k = node.slice('$settings.'.length);
+        if (CUSTODY_KEY_RE.test(k)) out.add(k);
+      }
+      return;
+    }
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (node && typeof node === 'object') Object.values(node as Record<string, unknown>).forEach(walk);
+  };
+  walk(schema.request_mapping);
+  return [...out];
+}
+
+async function isCapabilityDeclaredSetting(sql: SqlTag, orgId: string, key: string): Promise<boolean> {
+  if (!CUSTODY_KEY_RE.test(key)) return false;
+  try {
+    const rows = (await sql`
+      SELECT invocation_schema_json FROM capabilities
+      WHERE org_id = ${orgId} AND source_type = 'http_api'
+    `) as Array<{ invocation_schema_json?: unknown }>;
+    for (const row of rows) {
+      let schema: unknown = row.invocation_schema_json;
+      if (typeof schema === 'string') {
+        try { schema = JSON.parse(schema); } catch { schema = null; }
+      }
+      if (settingsDeclaredByCapability(schema).includes(key)) return true;
+    }
+  } catch (err) {
+    console.warn('[Settings] capability custody lookup failed:', (err as Error).message);
+  }
+  return false;
+}
+
 /**
  * Upsert a setting
  */
@@ -252,7 +302,7 @@ export async function upsertSetting(
   if (!key) {
     throw new Error('Key is required');
   }
-  if (!VALID_SETTING_KEYS.includes(key)) {
+  if (!VALID_SETTING_KEYS.includes(key) && !(await isCapabilityDeclaredSetting(sql, orgId, key))) {
     throw new Error(`Invalid setting key: ${key}`);
   }
   if (!VALID_CATEGORIES.includes(category)) {
