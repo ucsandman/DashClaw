@@ -14,6 +14,7 @@ import {
 } from '../../../../lib/repositories/actions.repository';
 import { redactAny } from '../../../../lib/security';
 import { RISK_SCORE_MAP } from '../../../../lib/capability-invoke';
+import { resolveInputPlaceholders } from '../../../../lib/mapping';
 import {
   executeCapabilityInvocation,
   prepareCapabilityInvocation,
@@ -93,8 +94,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
     // docs/architecture/trust-and-failure-model.md).
     const identity = await resolveAgentIdentity(request, { agentId: body.agent_id || null, agentName: body.agent_name || null });
 
-    // 2. Guard evaluation
+    // 2. Guard evaluation. The HTTP request the capability will make is the
+    // act: attached as evidence so the classifier grades WHAT runs (a POST to
+    // a registrar buy endpoint is `spend`, whatever the capability is called)
+    // and the decision record shows it. Per-call path parameters are resolved
+    // for the evidence URL when the body carries them; otherwise the template
+    // is graded as-is and the execute step reports the missing input.
     const riskScore = (RISK_SCORE_MAP as Record<string, number>)[(capability as Record<string, any>).risk_level] || 50;
+    let evidenceUrl = prepared.endpoint;
+    try {
+      evidenceUrl = resolveInputPlaceholders(prepared.endpoint, body);
+    } catch { /* best-effort: the body lacks the `${input.*}` field; the guard grades the endpoint template and the execute step reports the missing input */ }
     const guardDecision = await evaluateGuard(
       orgId,
       {
@@ -105,6 +115,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
         systems_touched: [`capability:${capability.slug}`],
         reversible: true,
         declared_goal: body.declared_goal || `Invoke capability: ${capability.name}`,
+        act: { kind: 'http', request: { method: String(schema.method || 'POST').toUpperCase(), url: evidenceUrl } },
       },
       sql,
     );
@@ -153,8 +164,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
       );
     }
 
-    // 5. Handle require_approval
-    if (guardDecision.decision === 'require_approval' || capability.requires_approval) {
+    // 5. Handle require_approval. A `requires_approval` capability holds on
+    // the first call; the retry after the operator approves arrives with the
+    // guard's operator-approval grant (builtin:operator_approval, same
+    // declared_goal, act-bound) and must execute — without this the capability
+    // could only ever answer 202 and the approval bought nothing.
+    const grantCovered = Array.isArray(guardDecision.matched_policies)
+      && guardDecision.matched_policies.includes('builtin:operator_approval');
+    if (guardDecision.decision === 'require_approval' || (capability.requires_approval && !grantCovered)) {
       const createdAction = await createActionRecord(sql, {
         orgId,
         action_id,
@@ -260,6 +277,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
       authHeaders: prepared.authHeaders,
       schema,
       body,
+      settings: prepared.settings,
     })) as Record<string, any>;
 
     // 8. Update action outcome

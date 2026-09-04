@@ -96,8 +96,8 @@ describe('import-pack — Short List admission', () => {
   it('the real catastrophe-only pack installs entirely on the Short List', async () => {
     const policies = await loadPackPolicies('catastrophe-only');
     const result = await importPolicies(vi.fn(), 'org_1', policies);
-    expect(result.imported).toHaveLength(4);
-    expect(result.short_listed).toBe(4);
+    expect(result.imported).toHaveLength(5);
+    expect(result.short_listed).toBe(5);
     expect(result.watched).toBe(0);
   });
 

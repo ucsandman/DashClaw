@@ -42,9 +42,12 @@ New optional `act` field on `POST /api/guard` (add to `GUARD_INPUT_SCHEMA`,
     "body_excerpt": "string ≤4096"              // optional
   },
   "statement": "string ≤8192",                  // sql
-  "file": { "path": "string ≤1024", "content_excerpt": "string ≤4096", "bytes": int }
+  "file": { "path": "string ≤1024", "content_excerpt": "string ≤4096", "bytes": int },
+  "script": { "path": "string ≤1024", "content_excerpt": "string ≤6144" }
 }
 ```
+
+`script` is the local script a shell command executes, graded alongside the command (its body is where `node buy.mjs` actually acts).
 
 Total serialized `act` capped at 16KB — reject larger with 400 `ACT_TOO_LARGE`.
 Kind/payload mismatch is a 400. **Verify** whether `validateGuardInput` rejects

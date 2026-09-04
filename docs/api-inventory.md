@@ -50,7 +50,7 @@ doc-type: architecture
 | `/api/billing/portal` | `GET` | `experimental` | `(default)` | `app/api/billing/portal/route.ts` |
 | `/api/calibration/controller` | `GET, POST` | `experimental` | `(default)` | `app/api/calibration/controller/route.ts` |
 | `/api/calibration/proposals` | `GET, POST` | `experimental` | `(default)` | `app/api/calibration/proposals/route.ts` |
-| `/api/capabilities` | `GET` | `experimental` | `(default)` | `app/api/capabilities/route.ts` |
+| `/api/capabilities` | `GET, POST` | `experimental` | `(default)` | `app/api/capabilities/route.ts` |
 | `/api/capabilities/{capabilityId}/access/check` | `GET` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/access/check/route.ts` |
 | `/api/capabilities/{capabilityId}/invoke` | `POST` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/invoke/route.ts` |
 | `/api/coverage` | `GET, POST` | `experimental` | `(default)` | `app/api/coverage/route.ts` |

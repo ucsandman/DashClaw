@@ -287,6 +287,9 @@ export const PRECEDENT_ELIGIBLE: ReadonlySet<string> = new Set([
 export const NEVER_PRECEDENTED: ReadonlySet<string> = new Set([
   'protected_target', 'device_write', 'interpreter_destructive', 'remote_exec',
   'secret_exposure', 'sensitive_path', 'privilege', 'deploy', 'vcs_dangerous',
+  // Real money never earns a standing relaxation: every purchase is its own
+  // exact-amount approval (spend gap 2026-09-04).
+  'spend',
 ]);
 
 /** Precedent grant lifetime. Deliberately shorter than GRANT_DEFAULT_TTL_DAYS:

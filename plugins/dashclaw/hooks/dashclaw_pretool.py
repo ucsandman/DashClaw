@@ -116,6 +116,7 @@ _load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dashclaw_agent_intel import classify_bash, scan_file_operation, classify_tool, McpHealthMonitor
 from dashclaw_agent_intel.bash_classifier import is_bounded_rm, is_regenerable_artifact_rm
+from dashclaw_agent_intel.command_parser import parse_command
 from dashclaw_agent_intel.written_paths_ledger import (
     extract_exec_candidates,
     grade_script_content,
@@ -229,6 +230,7 @@ _INTENT_TO_ACTION: dict[str, str] = {
     "system_admin": "deploy",
     "interpreter": "build",  # server base 25 — client classifier score drives the decision
     "unknown": "other",
+    "spend": "spend",
 }
 
 # ---------------------------------------------------------------------------
@@ -1878,6 +1880,8 @@ def _enrich_tool(tool_name, tool_input, tool_info):
 
 _ACT_COMMAND_CAP = 8192
 _ACT_FILE_EXCERPT_CAP = 4096
+_ACT_SCRIPT_EXCERPT_CAP = 6144
+_ACT_SCRIPT_MAX_BYTES = 64 * 1024
 
 # Same pattern set as the SDKs' scrub_act (parity; the server re-redacts).
 _ACT_SCRUB_PATTERNS = [
@@ -1898,6 +1902,50 @@ def _scrub_act_text(text):
     return _ACT_SCRUB_KV.sub(lambda m: m.group(1) + "=[REDACTED]", text)
 
 
+def _resolve_local_script_path(cand):
+    """Resolve an exec candidate to an absolute path against _HOOK_CWD. No
+    ledger lookup here — unlike script-then-execute, this covers ANY local
+    script the command runs, not only ones this session wrote."""
+    p = (cand or "").strip().strip("\"'")
+    if not p:
+        return None
+    if not os.path.isabs(p):
+        if not _HOOK_CWD:
+            return None
+        p = os.path.join(_HOOK_CWD, p)
+    return os.path.normpath(p)
+
+
+def _build_act_script(command):
+    """Attach an excerpt of a locally executed script so the SERVER can grade
+    the script's content, not just the command line that invoked it
+    (2026-09-04 incident: `node tmp/tradesdesk-launch/domain-buy.mjs
+    truckside.io` bought two domains — the purchase was inside the script,
+    invisible to both this hook's command-text classification and the
+    server's grading of the command text alone). Fail-soft: any error means
+    no script key, never a broken act."""
+    try:
+        parsed = parse_command(command)
+        for cand in extract_exec_candidates(parsed):
+            resolved = _resolve_local_script_path(cand)
+            if not resolved or not os.path.isfile(resolved):
+                continue
+            try:
+                if os.path.getsize(resolved) > _ACT_SCRIPT_MAX_BYTES:
+                    continue
+            except OSError:
+                continue
+            script = {"path": resolved[:1024]}
+            if not _is_sensitive_path(resolved):
+                with open(resolved, encoding="utf-8", errors="replace") as f:
+                    content = f.read(_ACT_SCRIPT_EXCERPT_CAP + 1)
+                script["content_excerpt"] = _scrub_act_text(content[:_ACT_SCRIPT_EXCERPT_CAP])
+            return script
+        return None
+    except Exception:
+        return None
+
+
 def _build_act(tool_name, tool_input):
     """Evidence-first guard: attach the actual act (shell command / file
     write) so the server can classify it and fold the derived risk in,
@@ -1909,7 +1957,11 @@ def _build_act(tool_name, tool_input):
         command = str(tool_input.get("command") or "")
         if not command:
             return None
-        return {"kind": "shell", "command": _scrub_act_text(command[:_ACT_COMMAND_CAP])}
+        act = {"kind": "shell", "command": _scrub_act_text(command[:_ACT_COMMAND_CAP])}
+        script = _build_act_script(command)
+        if script:
+            act["script"] = script
+        return act
     if tool_name in ("Write", "Edit", "MultiEdit"):
         path = tool_input.get("file_path") or tool_input.get("path") or ""
         if not path:

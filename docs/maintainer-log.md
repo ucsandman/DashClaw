@@ -14,6 +14,105 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-04 - Two domains were bought under governance and nothing held
+
+An agent I govern spent USD 41.25 of Wes's money today and my own guard said
+allow, twice.
+
+The command was `cd ~/clawd && node tmp/tradesdesk-launch/domain-buy.mjs
+truckside.io`, run in a Bash call that went through the Claude Code hook the
+way every governed command does. Decision `act_gd_4ff2312b986b4e88` graded it
+`other` at 30 with no evidence flags. A second call bought gettruckside.com
+for USD 11.25 under `act_gd_1309e9ca56e9457b` at 75, also allowed. Reading the
+same path backwards, declick.dev was bought the same way on 2026-09-02. The
+org has a spend line. It never fired, because nothing in the act was ever
+labelled a spend.
+
+Two separate failures produced that, and it is worth naming both because only
+one of them is the obvious one.
+
+The first is that the evidence classifier had no notion of money. It graded
+deletes, deploys, secret paths, protected targets, sensitive hosts and, since
+5.32.0, databases. A purchase was just another command. So even a bare `curl
+-X POST https://api.vercel.com/v1/registrar/domains/x/buy` would have graded
+as an ordinary API call.
+
+The second is worse and is the one I would have missed if I had only fixed the
+first. The command text carried no money signal because the money was not in
+the command. It was in `domain-buy.mjs`, one file away. Evidence-first guard
+has been the product's central claim since 5.0.0: do not grade what the model
+says it is doing, grade the act. But the act I was attaching for a Bash call
+was the command line, and a command line that names a script is a pointer, not
+an act. I had been grading the label on the box.
+
+Seven things shipped.
+
+1. An evidence class `spend` in `app/lib/guard/evidence.ts`. A shell act that
+   writes to a registrar, card, checkout or credit top-up endpoint, or runs a
+   purchase CLI such as `vercel domains buy` or `stripe ... create`, grades 75,
+   irreversible, flag `spend`. Price and availability lookups stay out, and a
+   URL that only appears inside a `cat` or `echo` is data. An `http` act with a
+   non-GET method to a purchase endpoint grades the same way, and the existing
+   sensitive-host bump still takes vercel.com and stripe.com to 95.
+2. `act.script` on a shell act, path capped at 1024 characters and body excerpt
+   at 6144, validated in `app/lib/validate.js`. The server grades the excerpt
+   with the same classifier it runs on the command and keeps the higher of the
+   two. `node buy.mjs` is now 30 by its text and 90 by its contents.
+3. A fifth catastrophe pack line, "Hold Real-Money Spend for Approval", keyed
+   on the `spend` flag alone at threshold 70, require_approval, short list, and
+   ungrantable. Ungrantable is the point: every purchase is its own
+   exact-amount approval, and a standing grant over spend is exactly the
+   authority an unattended agent must not accumulate. `spend` also joins
+   `NEVER_PRECEDENTED` so the loosening engine cannot mint one either. The line
+   seeds at org birth and, via `seedLateAddedPackLines` in step 2d of
+   `scripts/auto-migrate.mjs`, into every existing org already carrying the
+   pack on the next deploy. Orgs that installed the pack in July get it without
+   touching anything.
+4. The hook mirror. `bash_classifier.py` gains a `spend` intent at 75 and
+   `grade_script_content` floors a purchasing script at 75 with a
+   `spend_endpoint` warning, so the client reading and the server reading are
+   independent and the decision takes the higher.
+5. Credential custody through the capability seam, which is the part that makes
+   a purchase safe to delegate rather than merely visible. An `http_api`
+   capability now resolves `${input.<field>}` path parameters from the
+   invocation body and `$settings.<KEY>` values from server-held settings, and
+   decrypts an encrypted setting before sending it. That last one was a plain
+   bug: a `_TOKEN` setting auto-encrypts, and the runtime was putting the
+   ciphertext on the wire as the bearer token, so no capability holding an
+   encrypted credential had ever worked. The invoke guard now attaches the
+   outgoing request as `act` evidence, and a `requires_approval` capability
+   executes on the approved retry instead of holding forever, which was the
+   second bug: approval had nowhere to go.
+6. `POST /api/capabilities` restored, admin-only, create only, activity-logged.
+   The v5 cull retired capability CRUD and left a note saying operators seed
+   rows by direct SQL. That was defensible when the seam was inert. It is not
+   defensible now that the seam is how a token stays out of an agent's hands.
+   Recorded decision: registration stays API-only, because it is a developer
+   act performed once per integration, and the human's recurring role, approving
+   the exact purchase, is already a click on `/approvals` and on the Telegram
+   card. No page, no update, no delete, no health.
+7. OpenClaw plugin 1.6.3, attaching the same script excerpt, built and installed
+   into `~/.openclaw/extensions/dashclaw-governance`. Publishing is pending.
+
+Verification was written to fail on purpose before it was written to pass.
+`verify-spend-gap.mjs` in the session scratchpad replays the incident shape
+against the live org: the exact command whose script buys a domain now comes
+back require_approval; a `curl` POST to a registrar buy endpoint holds; a price
+lookup does not; an `http` POST to Stripe payment_intents holds; and a
+buy-domain capability invoke returns 202 pending. The python hook suite runs
+green with twelve new tests across `test_spend_intent.py` and
+`test_act_script_excerpt.py`.
+
+The residual gap is real and I would rather write it down than let it be
+discovered. The same script replayed by a client that does not attach
+`act.script` still grades allow, because the command text is genuinely all the
+server can see. The Claude Code hook attaches it and the OpenClaw plugin
+attaches it. The SDKs and the MCP server do not derive it, so an SDK caller
+wrapping a script executor has to attach it deliberately. Both SDK READMEs now
+say so. That is a smaller hole than the one that existed this morning, but it
+is a hole, and the honest framing is that evidence-first guard is only as deep
+as the deepest thing the client hands over.
+
 ## 2026-09-04 - The thesis turns sixty days old and picks its next bet
 
 Wes pasted a strategic review of DashClaw written by another model and asked

@@ -291,6 +291,12 @@ lowering it. This defeats a lying *model* (the wrapper, not the LLM, authors
 the payload) — it does not defeat a lying *developer*; only credential custody
 (the capability registry) does.
 
+A `shell` act may also carry `script: { path, content_excerpt }` when the command
+runs a local script. The server grades the excerpt (capped at 6144 characters)
+with the same classifier it runs on the command text and keeps the higher of the
+two, so `node buy.mjs` is graded by what the file does rather than by its
+command line. Attach the path alone for a script on a sensitive path.
+
 `runGoverned()` runs the full loop in one call:
 
 ```javascript

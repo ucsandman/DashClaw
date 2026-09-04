@@ -21,6 +21,8 @@
  */
 import { definePluginEntry, } from 'openclaw/plugin-sdk/plugin-entry';
 import { DashClaw, } from 'dashclaw';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { resolve as resolvePath } from 'node:path';
 import { maybeAutoPair } from './auto-pairing.js';
 import { runLivenessProbe, shouldProbeNow, PROBE_AGENT_ID } from './liveness-probe.js';
 /**
@@ -221,6 +223,75 @@ const PACKAGE_COMMANDS = new Set([
 const DEPLOY_PATTERN = /(?:git\s+push|deploy|vercel|kubectl|terraform|docker\s+push|helm)/i;
 const DESTRUCTIVE_PATTERN = /(?:rm\s+-rf|DROP\s+TABLE|DELETE\s+FROM|TRUNCATE)/i;
 const SENSITIVE_PATH_PATTERN = /(?:\.env|secret|credential|private_key|\.pem|id_rsa|\.key)/i;
+// Interpreters/runners that indicate the next non-flag token is a local
+// script file worth attaching as evidence (see incident: `node
+// tmp/domain-buy.mjs <name>` was graded from self-declared risk alone
+// because the plugin attached no `act`).
+const SCRIPT_RUNNERS = new Set([
+    'node', 'nodejs', 'python', 'python2', 'python3', 'bash', 'sh', 'zsh',
+    'deno', 'bun', 'tsx', 'ts-node', 'ruby', 'perl', 'php', 'npx',
+]);
+const SCRIPT_CONTENT_MAX_BYTES = 64 * 1024;
+const SCRIPT_EXCERPT_MAX_CHARS = 6144;
+/**
+ * Find the first chain segment (split on &&, ||, ;, |) whose command word,
+ * after stripping a leading `cd ...` segment, env assignments, `timeout N`,
+ * and `sudo`, is a known script runner — then return the next non-flag
+ * token as the candidate script path. Returns undefined when no segment
+ * qualifies.
+ */
+function findScriptPathToken(command) {
+    const segments = command.split(/&&|\|\||;|\|/);
+    for (const segment of segments) {
+        const tokens = segment.trim().split(/\s+/).filter(Boolean);
+        if (tokens.length === 0 || tokens[0] === 'cd')
+            continue;
+        while (tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0]))
+            tokens.shift();
+        if (tokens[0] === 'timeout')
+            tokens.splice(0, 2);
+        if (tokens[0] === 'sudo')
+            tokens.shift();
+        if (tokens.length === 0)
+            continue;
+        const cmdWord = tokens[0].replace(/^.*[/\\]/, '');
+        if (!SCRIPT_RUNNERS.has(cmdWord))
+            continue;
+        const pathToken = tokens.slice(1).find((t) => !t.startsWith('-'));
+        if (pathToken)
+            return pathToken;
+    }
+    return undefined;
+}
+/**
+ * Attach the local script's content when a shell command invokes one, so
+ * the server's evidence classifier sees what actually runs instead of
+ * grading only the self-declared risk_score. Fail-soft everywhere: any
+ * resolution, stat, or read error yields no `script` at all. Sensitive
+ * paths (.env, credentials, keys) still attach `path` for policy matching
+ * but never their content.
+ */
+function detectLocalScript(command, workspace) {
+    try {
+        const rawPath = findScriptPathToken(command);
+        if (!rawPath)
+            return undefined;
+        const resolved = resolvePath(workspace || process.cwd(), rawPath);
+        if (SENSITIVE_PATH_PATTERN.test(rawPath)) {
+            return existsSync(resolved) ? { path: rawPath } : undefined;
+        }
+        if (!existsSync(resolved))
+            return undefined;
+        const stat = statSync(resolved);
+        if (!stat.isFile() || stat.size > SCRIPT_CONTENT_MAX_BYTES)
+            return undefined;
+        const content = readFileSync(resolved, 'utf8');
+        return { path: rawPath, content_excerpt: content.slice(0, SCRIPT_EXCERPT_MAX_CHARS) };
+    }
+    catch {
+        return undefined;
+    }
+}
 function classifyBash(command, defaultRisk) {
     if (!command) {
         return { actionType: 'other', riskScore: defaultRisk, reversible: true, systemsTouched: [], declaredGoal: 'Bash: (empty)' };
@@ -277,13 +348,13 @@ function classifyFile(toolName, params, defaultRisk) {
     }
     return { actionType: 'apply', riskScore: defaultRisk, reversible: true, systemsTouched: ['filesystem'], declaredGoal: goal };
 }
-function classifyToolCall(toolName, params, config) {
+function classifyToolCall(toolName, params, config, workspace) {
     const defaultRisk = config.highRiskTools.has(toolName) ? 85 : config.riskScoreDefault;
     const classified = TOOL_CLASSIFIERS
         .map((classify) => classify(toolName, params, defaultRisk))
         .find((result) => result !== null);
     const base = classified ?? classifyDefaultTool(toolName, params, defaultRisk);
-    const act = buildGuardAct(toolName, params);
+    const act = buildGuardAct(toolName, params, workspace);
     return act ? { ...base, act } : base;
 }
 const WRITE_TOOLS = new Set(['write', 'edit', 'apply_patch']);
@@ -297,16 +368,22 @@ const REVIEW_TOOLS = new Set([
 ]);
 /**
  * Translate OpenClaw tool params into the narrow evidence-first guard wire
- * contract. Do not truncate evidence: a lost suffix could hide the risk. If a
- * value exceeds the server contract, omit it and retain the normal classified
- * request. File content is intentionally excluded, since a path is sufficient
- * for protected/sensitive-path policies and content may itself be sensitive.
+ * contract. Do not truncate the command or the file path: a lost suffix
+ * could hide the risk. If a value exceeds the server contract, omit it and
+ * retain the normal classified request. File content is intentionally
+ * excluded, since a path is sufficient for protected/sensitive-path
+ * policies and content may itself be sensitive. Shell commands that
+ * execute a local script (e.g. `node tmp/domain-buy.mjs`) are the
+ * exception: the script's content is what actually runs, so its first
+ * 6144 chars are attached via `script.content_excerpt` (see
+ * detectLocalScript) — bounded per the server contract, not exempt from it.
  */
-function buildGuardAct(toolName, params) {
+function buildGuardAct(toolName, params, workspace) {
     if (toolName === 'bash' || toolName === 'exec') {
         const command = params?.command;
         if (typeof command === 'string' && command.length > 0 && command.length <= 8192) {
-            return { kind: 'shell', command };
+            const script = detectLocalScript(command, workspace);
+            return script ? { kind: 'shell', command, script } : { kind: 'shell', command };
         }
         return undefined;
     }
@@ -417,7 +494,8 @@ function registerLivenessProbe(api, config) {
 async function handleBeforeToolCall(event, config) {
     const { toolName, params, toolCallId, runId } = event;
     const key = callKey(toolName, toolCallId, runId);
-    const classification = classifyToolCall(toolName, params, config);
+    const workspace = typeof event.workspace === 'string' ? event.workspace : undefined;
+    const classification = classifyToolCall(toolName, params, config, workspace);
     const client = getBeforeClient(config);
     if ('result' in client)
         return client.result;

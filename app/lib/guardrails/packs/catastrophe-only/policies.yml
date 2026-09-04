@@ -57,6 +57,50 @@ policies:
         expect:
           decision: allow
 
+  # Real money. Fires ONLY when the evidence classifier tagged the act `spend`:
+  # a write to a registrar / card / checkout / credit top-up endpoint, a
+  # purchase CLI, or a locally executed script whose body does one of those.
+  # Lookups (price, availability) never carry the flag. Ungrantable on
+  # purpose: every purchase is its own exact-amount approval, a standing grant
+  # is exactly what an unattended agent must not hold. Added 2026-09-04 after
+  # two domains were bought from `node domain-buy.mjs` in a governed shell
+  # call that graded other/30 and ran.
+  - id: hold_real_money_spend
+    description: "Catastrophe Pack — Hold Real-Money Spend for Approval"
+    policy_type: risk_threshold
+    rules:
+      threshold: 70
+      action: require_approval
+      ungrantable: true
+      only_evidence_flags:
+        - spend
+      short_list: true
+    tests:
+      - name: holds_registrar_buy
+        input:
+          action_type: spend
+          declared_goal: "Bash: node domain-buy.mjs example.com"
+          risk_score: 75
+          evidence_flags: [spend, script_content]
+        expect:
+          decision: require_approval
+      - name: allows_price_lookup
+        input:
+          action_type: api
+          declared_goal: "Bash: curl https://api.vercel.com/v1/registrar/domains/example.com/price"
+          risk_score: 40
+          evidence_flags: []
+        expect:
+          decision: allow
+      - name: allows_high_risk_without_spend_flag
+        input:
+          action_type: deploy
+          declared_goal: "Bash: vercel --prod"
+          risk_score: 95
+          evidence_flags: [deploy]
+        expect:
+          decision: allow
+
   # The resumable demonstrator: held -> approved -> resumed runs through the
   # REAL hook seam (pretool forwards `target` for file tools; the approval
   # poll releases the paused tool call on approve). Also exactly what the

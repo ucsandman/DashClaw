@@ -107,6 +107,48 @@ export async function holdMassDestructive(sql) {
   return updated;
 }
 
+// A pack line added after an org was seeded never reaches that org: seeding
+// runs at org birth only. The real-money line (2026-09-04) has to land in
+// every org that carries the pack, so it is seeded by name into each org that
+// already holds the pack's mass-destructive line. Idempotent per org (skips
+// when the name exists); an operator who deletes it is not re-seeded... on
+// the same deploy only — the next deploy adds it back, which is the intended
+// posture for a catastrophe line.
+const PACK_ANCHOR_LINE = 'Catastrophe Pack — Hold Mass-Destructive Operations for Approval';
+const LATE_ADDED_LINE_IDS = ['hold_real_money_spend'];
+
+/**
+ * Seed pack lines added after the pack shipped into every org that already
+ * carries the pack. Returns the number of rows inserted.
+ * @param {(strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>} sql postgres.js tag
+ */
+export async function seedLateAddedPackLines(sql) {
+  const policies = loadCatastrophePackPolicies().filter((p) => LATE_ADDED_LINE_IDS.includes(p.id));
+  if (policies.length === 0) return 0;
+  const orgs = await sql`
+    SELECT DISTINCT org_id FROM guard_policies WHERE name = ${PACK_ANCHOR_LINE}
+  `;
+  let inserted = 0;
+  for (const { org_id: orgId } of orgs) {
+    for (const policy of policies) {
+      const name = policy.description || policy.id;
+      const existing = await sql`
+        SELECT id FROM guard_policies WHERE org_id = ${orgId} AND name = ${name} LIMIT 1
+      `;
+      if (existing.length > 0) continue;
+      const id = `gp_${randomUUID().replace(/-/g, '').slice(0, 24)}`;
+      const now = new Date().toISOString();
+      const rules = JSON.stringify(policy.rules);
+      await sql`
+        INSERT INTO guard_policies (id, org_id, name, policy_type, rules, active, created_at, updated_at)
+        VALUES (${id}, ${orgId}, ${name}, ${policy.policy_type}, ${rules}, 1, ${now}, ${now})
+      `;
+      inserted += 1;
+    }
+  }
+  return inserted;
+}
+
 // The mass-destructive line keys on the classifier's `protected_target` flag,
 // not on the score (2026-08-21): risk saturates at 100 for `cat .env.example`
 // or a heredoc line containing `dd `, and the bare threshold held every one of

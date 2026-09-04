@@ -14,6 +14,10 @@ export type ActKind = 'shell' | 'http' | 'sql' | 'file';
 export interface ActInput {
   kind?: unknown;
   command?: unknown;
+  /** Shell only: the local script the command executes, when the caller could
+   *  read it. The command text `node buy.mjs x.com` names nothing; the script
+   *  body is where the act lives (spend gap, 2026-09-04). */
+  script?: { path?: unknown; content_excerpt?: unknown };
   request?: { method?: unknown; url?: unknown; body_excerpt?: unknown };
   statement?: unknown;
   file?: { path?: unknown; content_excerpt?: unknown; bytes?: unknown };
@@ -426,6 +430,112 @@ function databaseHeredocClassification(command: string): EvidenceClassification 
   return body ? databaseActClassification(body) : null;
 }
 
+// ── spend (real money) ──────────────────────────────────────────────────────
+// 2026-09-04: an agent bought two domains from `node domain-buy.mjs <name>`
+// inside a governed Bash call. The command text carried no money signal, so it
+// graded other/30 and ran, and the org's spend line (action_type `spend`)
+// never saw a spend. Money leaving an account unattended is the class the
+// human wants to see, so a purchase endpoint or a purchase CLI grades `spend`
+// and the declared/derived type swap lets the spend policies fire. Reads that
+// merely price or check a domain stay out: a lookup is not a purchase.
+const SPEND_URL_PATH_RE = new RegExp(
+  [
+    // Registrar buys (Vercel, Cloudflare, GoDaddy shapes) — lookups excluded below.
+    String.raw`/registrar/`,
+    String.raw`/domains/[^/\s"'?]+/(buy|transfer-in|renew)\b`,
+    String.raw`/domains/(buy|purchase)\b`,
+    // Card / checkout APIs (Stripe, PayPal shapes).
+    String.raw`/v1/(charges|payment_intents|checkout/sessions|subscriptions|setup_intents)\b`,
+    String.raw`/invoices/[^/\s"'?]+/pay\b`,
+    String.raw`/v[12]/(checkout/orders|payments)\b`,
+  ].join('|'),
+  'i',
+);
+// Generic purchase / credit top-up path segments. On their own these match
+// any host — `git clone .../checkout` and `curl stripe.com/docs/checkout`
+// are not purchases — so a hit only counts when the URL also looks like an
+// API or a payment surface: an /api/ or /v<digits>/ segment ahead of the
+// purchase segment, or a hostname whose first label names one.
+const SPEND_GENERIC_URL_PATH_RE = /\/(purchase|purchases|checkout|top-?up|buy[-_]credits|credits\/(buy|purchase))\b/i;
+const SPEND_GENERIC_API_SHAPE_RE = /\/(api|v\d+)\//i;
+const SPEND_GENERIC_HOST_RE = /^(api|checkout|pay|payments|billing|commerce|shop|store|secure)\./i;
+const SPEND_LOOKUP_PATH_RE = /\/(availability|price|prices|status|quote)\b/i;
+const SPEND_CLI_RE =
+  /\bvercel\s+domains?\s+(buy|transfer-in)\b|\bstripe\s+(charges|payment_intents|subscriptions|checkout\s+sessions)\s+create\b|\bagentcash\s+pay\b|\bgcloud\s+billing\b|\baws\s+\S+\s+purchase-\S+|\bnamecheap\b[^&|;]*domains\.create\b/i;
+const URL_IN_TEXT_RE = /https?:\/\/[^\s"'<>)\]]+/gi;
+
+/** The purchase-endpoint reason for a URL, or null when it is not one. */
+function spendUrlHit(url: string): string | null {
+  let path = url;
+  let hostname = '';
+  try {
+    const parsed = new URL(url);
+    path = parsed.pathname;
+    hostname = parsed.hostname;
+  } catch {
+    path = url.replace(/^[a-z]+:\/\/[^/]*/i, '').split(/[?#]/)[0] ?? '';
+  }
+  const specificHit = SPEND_URL_PATH_RE.test(path);
+  const genericMatch = SPEND_GENERIC_URL_PATH_RE.exec(path);
+  const genericHit =
+    genericMatch !== null &&
+    (SPEND_GENERIC_API_SHAPE_RE.test(path.slice(0, genericMatch.index + 1)) ||
+      SPEND_GENERIC_HOST_RE.test(hostname));
+  if (!specificHit && !genericHit) return null;
+  if (SPEND_LOOKUP_PATH_RE.test(path)) return null;
+  return `purchase endpoint ${path}`;
+}
+
+/** First purchase signal in free text (a shell segment or a script body). */
+function spendHitInText(text: string): string | null {
+  if (SPEND_CLI_RE.test(text)) return 'purchase CLI';
+  for (const url of text.match(URL_IN_TEXT_RE) ?? []) {
+    const hit = spendUrlHit(url);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+// Pure read / print commands: a URL they carry is data being shown, not a
+// request being made (`echo https://…/buy` documents a purchase, `curl` makes
+// one).
+const READ_PRINT_CMD_RE = /^\s*(sudo\s+)?(cat|ls|head|tail|less|more|grep|rg|find|stat|pwd|whoami|echo|printf|which|wc|diff|file|type)\b/i;
+
+// Interpreter-side APIs that delete files / trees — the script-body twin of
+// INTERPRETER_DESTRUCTIVE_RE (that one needs an interpreter in the command).
+const SCRIPT_DESTRUCTIVE_RE = /\b(shutil\.rmtree|os\.(remove|unlink|rmdir)|fs\.(rm|rmdir|unlink)(Sync)?\s*\(|rimraf|rm\s+-\S*r)/i;
+const SCRIPT_SECRET_READ_RE = /(readFileSync|readFile|open|read_text)\s*\([^)]*(secrets?[\\/]|\.env\b|credential|private_key|id_rsa|token)/i;
+
+/**
+ * Grade the body of a locally executed script. The command that runs it names
+ * only a path, so this is the only evidence of what will actually happen.
+ * Null when the body carries nothing the classifier understands.
+ */
+function classifyScriptExcerpt(excerpt: string): EvidenceClassification | null {
+  const flags: string[] = ['script_content'];
+  const modifiers: EvidenceModifier[] = [];
+  let base = 0;
+  let action = 'other';
+  let reversible: boolean | null = null;
+
+  const spend = spendHitInText(excerpt);
+  if (SCRIPT_DESTRUCTIVE_RE.test(excerpt)) {
+    base = 80; action = 'security'; reversible = false; flags.push('destructive', 'interpreter_destructive');
+  } else if (spend) {
+    base = 75; action = 'spend'; reversible = false; flags.push('spend');
+    modifiers.push({ reason: `script body: ${spend}`, delta: 0 });
+  } else if (DB_URL_LITERAL_RE.test(excerpt)) {
+    base = 60; action = 'migrate'; reversible = false; flags.push('database');
+  }
+  if (SCRIPT_SECRET_READ_RE.test(excerpt)) {
+    modifiers.push({ reason: 'script reads a secret / credential file', delta: 15 });
+    flags.push('sensitive_path');
+    if (base === 0) { base = 30; }
+  }
+  if (base === 0) return null;
+  return { derived_action_type: action, base_risk: base, modifiers, reversible_hint: reversible, flags };
+}
+
 function classifyShellSegment(seg: string, rawScan: boolean): EvidenceClassification {
   // `env` as a launcher prefix (`env -u TOKEN cmd`, `env VAR=x cmd`) is
   // transparent — classify the command it runs. A BARE `env` (nothing after
@@ -497,6 +607,12 @@ function classifyShellSegment(seg: string, rawScan: boolean): EvidenceClassifica
         flags.push('protected_target');
       }
     }
+  } else if (SPEND_CLI_RE.test(scan) || (!READ_PRINT_CMD_RE.test(s) && spendHitInText(s))) {
+    // Argument-content check on the raw text: a quoted URL handed to curl is
+    // still the request curl makes. Command-position CLIs read the skeleton.
+    const hit = SPEND_CLI_RE.test(scan) ? 'purchase CLI' : spendHitInText(s);
+    base = 75; action = 'spend'; reversible = false; flags.push('spend');
+    modifiers.push({ reason: `real-money spend: ${hit}`, delta: 0 });
   } else if (/\bgit\s+push\b[^&|;]*(--force\b|--force-with-lease\b|(^|\s)-f\b)|\bgit\s+reset\s+--hard\b|\bgit\s+clean\s+-\S*f/.test(scan)) {
     base = 70; action = 'security'; reversible = false; flags.push('vcs_dangerous');
   } else if (/\bvercel\b[^&|;]*--prod|\bkubectl\s+apply\b|\bterraform\s+(apply|destroy)\b/.test(scan)) {
@@ -541,13 +657,24 @@ function classifyShellSegment(seg: string, rawScan: boolean): EvidenceClassifica
   return { derived_action_type: action, base_risk: base, modifiers, reversible_hint: reversible, flags };
 }
 
-function classifyShell(command: string): EvidenceClassification {
+function classifyShell(command: string, script?: ActInput['script']): EvidenceClassification {
   // Inert git message command (commit/tag/stash/notes): the message is data
   // git never executes, so a dangerous-looking message must not trip the
   // destructive / remote-exec patterns below. Short-circuit before any of them.
   if (isInertGitMessageCommand(command)) {
     return { derived_action_type: 'apply', base_risk: 35, modifiers: [], reversible_hint: true, flags: ['git_message'] };
   }
+  const commandGrade = classifyShellCommand(command);
+  // The executed script's body is graded like the inline command would be and
+  // folded by the same max() rule: `node buy.mjs` is other/30 by its text and
+  // spend/75 by what it runs.
+  const excerpt = script && typeof script.content_excerpt === 'string' ? script.content_excerpt : '';
+  const scriptGrade = excerpt.trim() ? classifyScriptExcerpt(excerpt) : null;
+  if (scriptGrade && evidenceTotal(scriptGrade) > evidenceTotal(commandGrade)) return scriptGrade;
+  return commandGrade;
+}
+
+function classifyShellCommand(command: string): EvidenceClassification {
   // Pipe-to-shell is destroyed by chain-splitting, so detect it on the whole
   // command first: `curl … | sh` / `wget … | bash` executes remote code.
   // Exemption (2026-08-07 false-positive class): piping fetched bytes into an
@@ -638,11 +765,20 @@ function classifyHttp(act: ActInput): EvidenceClassification {
   } else if (host && LOCAL_HOST_RE.test(host)) {
     modifiers.push({ reason: 'localhost target', delta: -10 });
   }
+  const isRead = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+  // A write to a purchase endpoint is real money (a GET to the same path is a
+  // lookup and keeps the api grade).
+  const spend = isRead ? null : spendUrlHit(url);
+  if (spend) {
+    modifiers.push({ reason: `real-money spend: ${spend}`, delta: 0 });
+    flags.push('spend');
+    return { derived_action_type: 'spend', base_risk: 75, modifiers, reversible_hint: false, flags };
+  }
   return {
     derived_action_type: 'api',
     base_risk: base,
     modifiers,
-    reversible_hint: method === 'GET' || method === 'HEAD' || method === 'OPTIONS' ? true : null,
+    reversible_hint: isRead ? true : null,
     flags,
   };
 }
@@ -705,7 +841,9 @@ export function classifyAct(act: unknown): EvidenceClassification | null {
   const a = act as ActInput;
   switch (a.kind) {
     case 'shell':
-      return typeof a.command === 'string' && a.command.trim() ? classifyShell(a.command) : null;
+      return typeof a.command === 'string' && a.command.trim()
+        ? classifyShell(a.command, a.script && typeof a.script === 'object' ? a.script : undefined)
+        : null;
     case 'http':
       return a.request && typeof a.request === 'object' && typeof a.request.url === 'string' && a.request.url
         ? classifyHttp(a)

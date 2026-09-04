@@ -524,11 +524,13 @@ describe('classifyAct — env launcher prefix vs env dump', () => {
 });
 
 describe('classifyAct — http', () => {
-  it('bumps a POST to a payment host', () => {
+  it('grades a POST to a payment endpoint as spend (sensitive-host bump kept)', () => {
     const c = classifyAct({ kind: 'http', request: { method: 'POST', url: 'https://api.stripe.com/v1/charges' } });
-    expect(c.derived_action_type).toBe('api');
+    expect(c.derived_action_type).toBe('spend');
     expect(c.flags).toContain('sensitive_host');
-    expect(evidenceTotal(c)).toBe(65); // 45 + 20
+    expect(c.flags).toContain('spend');
+    expect(c.reversible_hint).toBe(false);
+    expect(evidenceTotal(c)).toBe(95); // 75 + 20
   });
 
   it('reduces a localhost GET (but never below the fold floor)', () => {

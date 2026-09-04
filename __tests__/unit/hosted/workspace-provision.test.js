@@ -68,9 +68,10 @@ describe('hosted-workspace repository', () => {
     const res = await provisionHostedWorkspace(sql, { trialDays: 30, trialActionCap: 10000 });
     expect(res.apiKey).toMatch(/^oc_live_/);
 
-    // The real pack yml defines exactly these four Short List policies.
+    // The real pack yml defines exactly these five Short List policies.
     expect(insertedPolicies.map((p) => p.name)).toEqual([
       'Catastrophe Pack — Hold Mass-Destructive Operations for Approval',
+      'Catastrophe Pack — Hold Real-Money Spend for Approval',
       'Catastrophe Pack — Hold Secret-File Writes for Approval',
       'Catastrophe Pack — Hold Force-Push Over Protected Branches',
       'Catastrophe Pack — Rate-Limit Runaway Agents',

@@ -28,7 +28,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
 import { splitSqlStatements } from '../app/lib/setup/sql-statements.mjs';
-import { seedCatastrophePack, holdMassDestructive, gateMassDestructiveOnEvidence } from '../app/lib/setup/catastrophe-pack.mjs';
+import { seedCatastrophePack, holdMassDestructive, gateMassDestructiveOnEvidence, seedLateAddedPackLines } from '../app/lib/setup/catastrophe-pack.mjs';
 
 // Load .env / .env.local if present (no-op in Vercel where vars are injected).
 import './_load-env.mjs';
@@ -299,6 +299,16 @@ try {
   log(`Mass-destructive line: ${gated} seeded row(s) gated on protected_target evidence`);
 } catch (err) {
   log(`Warning: Could not gate mass-destructive rows on evidence — ${err.message}`);
+}
+
+// Step 2d: pack lines added after an org was seeded (the real-money spend
+// line, 2026-09-04) land in every org that carries the pack. No-op once
+// every such org holds the line.
+try {
+  const added = await seedLateAddedPackLines(sql);
+  log(`Catastrophe pack: ${added} late-added line(s) seeded into existing orgs`);
+} catch (err) {
+  log(`Warning: Could not seed late-added pack lines — ${err.message}`);
 }
 
 // ── Step 3: Optionally seed DASHCLAW_API_KEY ───────────────────────────────

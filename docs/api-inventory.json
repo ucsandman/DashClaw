@@ -319,7 +319,8 @@
     {
       "path": "/api/capabilities",
       "methods": [
-        "GET"
+        "GET",
+        "POST"
       ],
       "maturity": "experimental",
       "matched_prefix": "(default)",

@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { beforeEach, describe, it, vi } from 'vitest';
 
 const mockRuntime = vi.hoisted(() => ({
@@ -223,6 +226,68 @@ describe('@dashclaw/openclaw-plugin', () => {
     assert.deepEqual(findCall(calls, '/api/guard', 'POST').body.act, expectedAct);
     assert.deepEqual(findCall(calls, '/api/actions', 'POST').body.act, expectedAct);
     assert.doesNotMatch(JSON.stringify(findCall(calls, '/api/guard', 'POST').body.act), /do-not-copy/);
+  });
+
+  it('attaches a local script excerpt when bash invokes an existing script', async () => {
+    const calls = installFetchMock();
+    const { api } = await registerPlugin();
+
+    const workspace = mkdtempSync(join(tmpdir(), 'openclaw-plugin-'));
+    try {
+      writeFileSync(
+        join(workspace, 'domain-buy.mjs'),
+        "console.log('buy domain')",
+        'utf8'
+      );
+
+      await api.emit('before_tool_call', {
+        toolName: 'bash',
+        params: { command: 'node domain-buy.mjs example.com' },
+        toolCallId: 'call_script_evidence',
+        runId: 'run_script_evidence',
+        workspace,
+      });
+
+      const guardAct = findCall(calls, '/api/guard', 'POST').body.act;
+      assert.equal(guardAct.kind, 'shell');
+      assert.equal(guardAct.command, 'node domain-buy.mjs example.com');
+      assert.deepEqual(guardAct.script, {
+        path: 'domain-buy.mjs',
+        content_excerpt: "console.log('buy domain')",
+      });
+      assert.deepEqual(
+        findCall(calls, '/api/actions', 'POST').body.act,
+        guardAct
+      );
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('omits script evidence without throwing when the script path does not exist', async () => {
+    const calls = installFetchMock();
+    const { api } = await registerPlugin();
+
+    const workspace = mkdtempSync(join(tmpdir(), 'openclaw-plugin-'));
+    try {
+      const result = await api.emit('before_tool_call', {
+        toolName: 'bash',
+        params: { command: 'node tmp/does-not-exist.mjs example.com' },
+        toolCallId: 'call_script_missing',
+        runId: 'run_script_missing',
+        workspace,
+      });
+
+      assert.equal(result, undefined);
+      const guardAct = findCall(calls, '/api/guard', 'POST').body.act;
+      assert.deepEqual(guardAct, {
+        kind: 'shell',
+        command: 'node tmp/does-not-exist.mjs example.com',
+      });
+      assert.equal(guardAct.script, undefined);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
   });
 
   it('blocks policy-denied tool calls without opening an action record', async () => {

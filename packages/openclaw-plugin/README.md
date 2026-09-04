@@ -174,6 +174,10 @@ The plugin goes beyond tool names — it inspects the **content** of each call:
 
 This classification mirrors what the DashClaw Claude Code hooks do via `dashclaw_agent_intel`, so the same guard policies fire consistently across both platforms.
 
+### Evidence attachment (v1.6.3)
+
+Every `guard()` and `createAction()` call now carries an `act` payload alongside the self-declared `action_type`/`risk_score`, so the server's evidence classifier grades what actually ran instead of only the plugin's own summary. Shell calls (`bash`, `exec`) attach `act.kind: 'shell'` with the full command; write calls (`write`, `edit`, `apply_patch`) attach `act.kind: 'file'` with the file path. When a shell command invokes a local script (for example `node tmp/domain-buy.mjs <name>`), the plugin also resolves that script against the tool call's workspace and attaches its first 6144 characters as `act.script.content_excerpt`, so a wrapper script can't hide its risk behind an innocuous-looking command line. For sensitive paths (`.env`, `credential`, `.pem`, `id_rsa`, `.key`) only `act.script.path` is attached, never content. If the script can't be resolved or read, or exceeds 64KB, `script` is omitted entirely — evidence attachment fails soft and never blocks the call.
+
 ## Outcome recording
 
 The plugin caches the DashClaw `action_id` from `before_tool_call` in a module-level map keyed by the call id, then resolves it in `after_tool_call` to send `updateOutcome`. If `after_tool_call` doesn't fire (process crash, hook misordering), the action stays in `running` state in DashClaw — you'll see it in the open-loops view and can resolve it manually.

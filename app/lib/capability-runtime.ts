@@ -1,8 +1,9 @@
 import { invokeCapability, resolveAuth } from './capability-invoke';
 import { assertPayloadMatchesSchema, validateInvocationSchema } from './capability-contracts';
-import { resolveEndpointUrl } from './mapping';
+import { resolveEndpointUrl, resolveInputPlaceholders, resolveSettingsInMapping } from './mapping';
 import { getCapability } from './repositories/capabilities.repository';
 import { getSettings } from './repositories/settings.repository';
+import { decrypt } from './encryption';
 import type { SqlTag } from './types/db';
 
 interface InvocationSchema {
@@ -29,6 +30,8 @@ interface PreparedInvocation {
   schema: InvocationSchema;
   authHeaders: Record<string, string>;
   endpoint: string;
+  /** Decrypted org settings, for `$settings.<KEY>` request-mapping values. */
+  settings: Record<string, unknown>;
 }
 
 interface CapabilityResult {
@@ -46,6 +49,15 @@ async function loadOrgSettings(sql: SqlTag, orgId: string): Promise<Record<strin
   try {
     const rows = await getSettings(sql, orgId);
     for (const row of rows) {
+      // A token-suffixed setting is stored encrypted (shouldAutoEncrypt), so a
+      // bearer capability read the ciphertext and sent it as its credential.
+      // Decrypt with the same AAD the settings route writes; a row that cannot
+      // be recovered is left out so the auth error names the missing setting.
+      if (row.encrypted) {
+        const plain = decrypt(row.value, `${orgId}:${row.key as string}`);
+        if (plain !== null) orgSettings[row.key as string] = plain;
+        continue;
+      }
       orgSettings[row.key as string] = row.value;
     }
   } catch {
@@ -80,6 +92,7 @@ export async function prepareCapabilityInvocation(
     schema,
     authHeaders,
     endpoint,
+    settings: orgSettings,
   };
 }
 
@@ -88,14 +101,23 @@ export async function executeCapabilityInvocation({
   authHeaders,
   schema,
   body,
+  settings = {},
 }: {
   endpoint: string;
   authHeaders: Record<string, string>;
   schema: InvocationSchema;
   body: unknown;
+  settings?: Record<string, unknown>;
 }): Promise<CapabilityResult> {
+  let resolvedEndpoint: string;
+  let requestMapping: unknown;
   try {
     assertPayloadMatchesSchema(body, schema.input_schema as Record<string, unknown> | null | undefined, 'input');
+    // Per-call path parameters (`${input.domain}`) and server-held request
+    // values (`$settings.REGISTRANT_CONTACT`) resolve here, after the body is
+    // known and before anything leaves the process.
+    resolvedEndpoint = resolveInputPlaceholders(endpoint, body);
+    requestMapping = resolveSettingsInMapping(schema.request_mapping, settings);
   } catch (err) {
     return {
       success: false,
@@ -105,11 +127,11 @@ export async function executeCapabilityInvocation({
   }
 
   const result = await invokeCapability({
-    endpoint,
+    endpoint: resolvedEndpoint,
     method: schema.method || 'POST',
     authHeaders,
     body,
-    requestMapping: schema.request_mapping,
+    requestMapping,
     responseMapping: schema.response_mapping,
     timeoutMs: schema.timeout_ms || 60000,
     retryPolicy: schema.retry_policy as Parameters<typeof invokeCapability>[0]['retryPolicy'],

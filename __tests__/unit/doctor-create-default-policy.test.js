@@ -28,14 +28,14 @@ beforeEach(() => {
 });
 
 describe('doctor fix: create_default_policy', () => {
-  it('empty org — imports all four Short List policies', async () => {
+  it('empty org — imports all five Short List policies', async () => {
     mockGetSql.mockReturnValue(makeSqlStub([]));
     const res = await apply();
     expect(res.applied).toBe(true);
-    expect(res.description).toContain('4 catastrophe-only policies');
+    expect(res.description).toContain('5 catastrophe-only policies');
   });
 
-  it('partially seeded org (2 names present) — imports the missing 2, notes the rest', async () => {
+  it('partially seeded org (2 names present) — imports the missing 3, notes the rest', async () => {
     mockGetSql.mockReturnValue(
       makeSqlStub([
         'Catastrophe Pack — Hold Mass-Destructive Operations for Approval',
@@ -44,14 +44,15 @@ describe('doctor fix: create_default_policy', () => {
     );
     const res = await apply();
     expect(res.applied).toBe(true);
-    expect(res.description).toContain('2 catastrophe-only policies');
+    expect(res.description).toContain('3 catastrophe-only policies');
     expect(res.description).toContain('2 already present');
   });
 
-  it('all four already present — applied false with an honest description', async () => {
+  it('all five already present — applied false with an honest description', async () => {
     mockGetSql.mockReturnValue(
       makeSqlStub([
         'Catastrophe Pack — Hold Mass-Destructive Operations for Approval',
+        'Catastrophe Pack — Hold Real-Money Spend for Approval',
         'Catastrophe Pack — Hold Secret-File Writes for Approval',
         'Catastrophe Pack — Hold Force-Push Over Protected Branches',
         'Catastrophe Pack — Rate-Limit Runaway Agents',

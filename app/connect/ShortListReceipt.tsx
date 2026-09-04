@@ -35,8 +35,10 @@ const TIER_CHIP: Record<ShortListLine['tier'], string> = {
 };
 
 /**
- * The seeded list is 3 HOLD + 1 WATCH (nothing refuses outright — the human
- * decides), and reads best in words. Any other shape — a line switched off, a
+ * The seeded list was 3 HOLD + 1 WATCH (nothing refuses outright — the human
+ * decides), and that shape reads best in words. Since 5.33.0 the seed carries a
+ * fourth HOLD (real-money spend), so a fresh org takes the counted branch below
+ * and reads "4 hold for your approval." Any other shape — a line switched off, a
  * BLOCK line added by hand — has to report itself honestly rather than keep
  * claiming "three".
  */

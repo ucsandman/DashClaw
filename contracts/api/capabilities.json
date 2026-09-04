@@ -5,7 +5,7 @@
     {
       "file": "app/api/capabilities/route.js",
       "path": "/api/capabilities",
-      "methods": ["GET"]
+      "methods": ["GET", "POST"]
     },
     {
       "file": "app/api/capabilities/[capabilityId]/invoke/route.js",

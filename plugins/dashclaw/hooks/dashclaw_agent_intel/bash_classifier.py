@@ -154,6 +154,51 @@ _SHELL_DASH_C_RE = re.compile(
 # the static-assignment match so the value still resolves (round-2 audit).
 _ASSIGNMENT_PREFIX_RE = re.compile(r"^(?:export|declare|local|readonly)\s+")
 
+# Spend detection (2026-09-04 incident): a session bought two domains with
+# `node tmp/tradesdesk-launch/domain-buy.mjs truckside.io`. The classifier
+# graded that "interpreter" (base 35) and the server graded the command TEXT
+# other/30 — neither route ever reached the org's spend policy, because the
+# money moved inside the script, not in the command line. `_SPEND_URL_RE`
+# matches a purchase URL appearing anywhere in the command text (the request
+# a script or a raw curl is about to make); `_SPEND_CLI_RE` matches a
+# purchase-shaped CLI invocation in command position. The `/registrar/`
+# branch excludes lookup-only endpoints (…/availability, …/price, …/status)
+# via a lookahead on the remainder of that URL, not by consuming and
+# backtracking over the whole path — consuming greedily would let the engine
+# find an alternate, shorter parse that dodges the exclusion.
+_SPEND_URL_RE = re.compile(
+    r"https?://[^\s\"']*/registrar/(?![^\s\"']*(?:availability|price|status)(?:[\s\"']|$))"
+    r"|https?://[^\s\"']*/domains?/[^/\s\"']+/(?:buy|transfer-in|renew)\b"
+    r"|https?://[^\s\"']*/v1/(?:charges|payment_intents|checkout/sessions|subscriptions|setup_intents)\b"
+    r"|https?://[^\s\"']*/invoices/[^/\s\"']+/pay\b"
+    r"|https?://(?:[a-z0-9-]+\.)*paypal\.com(?::\d+)?/[^\s\"']*/v[12]/(?:checkout/orders|payments)\b",
+    re.IGNORECASE,
+)
+
+# Generic purchase / credit top-up path segments. On their own these match any
+# host — `git clone .../checkout` or a docs page mentioning `/checkout` is not
+# a purchase — so a hit only counts when the URL also looks like an API or a
+# payment surface: an `/api/` or `/v<digits>/` segment ahead of the purchase
+# segment, or a hostname whose first label names a payment/commerce surface.
+_SPEND_GENERIC_URL_RE = re.compile(
+    r"https?://(?:api|checkout|pay|payments|billing|commerce|shop|store|secure)\.[^\s\"']*"
+    r"/(?:purchase|purchases|checkout|top-up|topup|buy-credits|buy_credits)(?:[/\s\"']|$)"
+    r"|https?://[^\s\"']*/(?:api|v\d+)(?:/[^\s\"'?#/]*)*"
+    r"/(?:purchase|purchases|checkout|top-up|topup|buy-credits|buy_credits)(?:[/\s\"']|$)",
+    re.IGNORECASE,
+)
+
+_SPEND_CLI_RE = re.compile(
+    r"^\s*vercel\s+domains?\s+(?:buy|transfer-in)\b"
+    r"|^\s*stripe\s+(?:charges|payment_intents|subscriptions)\s+create\b"
+    r"|^\s*stripe\s+checkout\s+sessions\s+create\b"
+    r"|^\s*agentcash\s+pay\b"
+    r"|^\s*gcloud\s+billing\b"
+    r"|^\s*aws\s+\S+\s+purchase-\S+"
+    r"|^\s*namecheap\b.*\bdomains\.create\b",
+    re.IGNORECASE,
+)
+
 
 def _is_obfuscated_exec(base_name: str, raw_command: str) -> bool:
     """True when the command runs a program the per-token classifier can't
@@ -284,6 +329,7 @@ _RISK_BASE = {
     "system_admin": 75,
     "interpreter": 35,  # running a script file is routine; inline eval warns on top
     "unknown": 20,
+    "spend": 75,
 }
 
 # A bounded rm (non-recursive, explicit non-glob targets) is irreversible but
@@ -517,6 +563,16 @@ def _classify_intent(parsed: dict, raw_command: str) -> str:
     # find with -delete / -exec rm is a mass delete, not a read-only lookup (F2).
     if base_name == "find" and _FIND_DELETE_RE.search(raw_command):
         return "destructive"
+
+    # Spend: the command TEXT names a purchase endpoint or a purchase-shaped
+    # CLI call (2026-09-04 incident). A read-only inspection of the same URL
+    # (`echo`/`cat`/`grep` of a link) is exempt — only a command whose base is
+    # NOT already a known-safe reader counts as spending money.
+    if _SPEND_CLI_RE.search(raw_command) or (
+        (_SPEND_URL_RE.search(raw_command) or _SPEND_GENERIC_URL_RE.search(raw_command))
+        and base_name not in READONLY_COMMANDS
+    ):
+        return "spend"
 
     # Git has special subcommand-level classification.
     if base_name == "git":
@@ -996,7 +1052,10 @@ def classify_bash(
 
     # --- Compute derived fields ---
     risk_score = _compute_risk(intent, validations, parsed, command)
-    reversible = intent != "destructive"
+    # Spend joins destructive in the irreversible set: money already moved by
+    # the time a review sees the decision — there is no undo (2026-09-04
+    # incident: two domains, both live).
+    reversible = intent not in ("destructive", "spend")
 
     return {
         "intent": intent,

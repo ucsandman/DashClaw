@@ -25,6 +25,9 @@ import time
 from .bash_classifier import (
     _INLINE_ESCAPE_HATCH_RE,
     _RAW_DEVICE_WRITE_RE,
+    _SPEND_CLI_RE,
+    _SPEND_GENERIC_URL_RE,
+    _SPEND_URL_RE,
     classify_bash,
 )
 
@@ -369,5 +372,21 @@ def grade_script_content(path, cap_bytes=_CONTENT_CAP_BYTES):
         risk, validations = _grade_interpreter_content(content)
     else:
         risk, validations = _grade_interpreter_content(content)
+
+    # A script that names a purchase endpoint or CLI (2026-09-04 incident):
+    # a `.mjs`/`.py` script's fetch() call to a registrar/billing endpoint is
+    # invisible to _grade_interpreter_content's escape-hatch/device-write
+    # checks, so check the raw content directly, independent of extension.
+    if (
+        _SPEND_URL_RE.search(content)
+        or _SPEND_GENERIC_URL_RE.search(content)
+        or _SPEND_CLI_RE.search(content)
+    ):
+        risk = max(risk, 75)
+        validations.append({
+            "check": "spend_endpoint",
+            "result": "warn",
+            "reason": "script names a purchase endpoint",
+        })
 
     return {"readable": True, "risk_score": risk, "validations": validations}

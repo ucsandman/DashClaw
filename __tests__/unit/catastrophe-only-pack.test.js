@@ -26,8 +26,20 @@ describe('catastrophe-only pack', () => {
     expect(PACK_PREVIEWS['catastrophe-only'].name).toBe('Catastrophe Only');
   });
 
-  it('declares exactly four policies', () => {
-    expect(pack.policies).toHaveLength(4);
+  it('declares exactly five policies', () => {
+    expect(pack.policies).toHaveLength(5);
+  });
+
+  // Real money is on the Short List (2026-09-04): keyed on the classifier's
+  // `spend` flag, held not blocked, and ungrantable so no standing grant can
+  // ever cover a purchase.
+  it('holds real-money spend on the spend evidence flag, ungrantable', () => {
+    const line = pack.policies.find((p) => p.id === 'hold_real_money_spend');
+    expect(line).toBeDefined();
+    expect(line.policy_type).toBe('risk_threshold');
+    expect(line.rules.action).toBe('require_approval');
+    expect(line.rules.ungrantable).toBe(true);
+    expect(line.rules.only_evidence_flags).toEqual(['spend']);
   });
 
   // The Short List: the pack IS the list of things that stop the agent, so

@@ -384,6 +384,17 @@ function validateActField(act, addError) {
   if (act.kind === 'shell') {
     if (typeof act.command !== 'string' || act.command.length === 0) addError('act.command must be a non-empty string for kind "shell"');
     else if (act.command.length > 8192) addError('act.command exceeds max length of 8192');
+    // The local script the command executes (spend gap 2026-09-04): its body
+    // is graded alongside the command text. Excerpt cap keeps command +
+    // excerpt under the 16KB act ceiling.
+    if (act.script !== undefined) {
+      if (!isPlainObject(act.script)) addError('act.script must be an object for kind "shell"');
+      else {
+        if (typeof act.script.path !== 'string' || act.script.path.length === 0) addError('act.script.path must be a non-empty string');
+        else if (act.script.path.length > 1024) addError('act.script.path exceeds max length of 1024');
+        if (act.script.content_excerpt !== undefined && (typeof act.script.content_excerpt !== 'string' || act.script.content_excerpt.length > 6144)) addError('act.script.content_excerpt must be a string of at most 6144 chars');
+      }
+    }
   } else if (act.kind === 'http') {
     if (!isPlainObject(act.request)) { addError('act.request must be an object for kind "http"'); return; }
     if (typeof act.request.method !== 'string' || !ACT_HTTP_METHODS.includes(act.request.method.toUpperCase())) addError('act.request.method must be a valid HTTP method');

@@ -21,8 +21,14 @@ const m = vi.hoisted(() => ({
   updateCapability: vi.fn(),
 }));
 
+// next/server's after() throws "outside a request scope" in unit tests.
+vi.mock('next/server', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, after: (cb) => { cb(); } };
+});
+
 vi.mock('@/lib/db.js', () => ({ getSql: () => m.sql }));
-vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_1' }));
+vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_1', getUserId: () => null }));
 vi.mock('@/lib/capability-runtime.js', () => ({
   prepareCapabilityInvocation: m.prepare,
   executeCapabilityInvocation: m.execute,
@@ -88,5 +94,79 @@ describe('POST /api/capabilities/[capabilityId]/invoke — identity-gated access
     const body = await res.json();
     expect(body.error).toBe('access_denied');
     expect(body.identity_downgrade).toEqual({ asserted_access: 'allow', reason: 'allow requires verified identity' });
+  });
+});
+
+describe('requires_approval capabilities and evidence', () => {
+  it('holds a requires_approval capability on first call — 202 pending_approval, execute not called', async () => {
+    m.prepare.mockResolvedValue({
+      capability: { capability_id: 'cap_1', name: 'Buy Domain', slug: 'buy-domain', risk_level: 'low', requires_approval: true },
+      schema: { method: 'POST' },
+      endpoint: 'https://api.example.com/run',
+      authHeaders: {},
+      settings: {},
+    });
+    m.evaluateGuard.mockResolvedValue({ decision: 'allow', risk_score: 10, matched_policies: [] });
+
+    const res = await post({ agent_id: 'agt_x' });
+
+    expect(res.status).toBe(202);
+    const body = await res.json();
+    expect(body.error).toBe('pending_approval');
+    expect(m.execute).not.toHaveBeenCalled();
+  });
+
+  it('executes on retry once the guard grant covers builtin:operator_approval', async () => {
+    m.prepare.mockResolvedValue({
+      capability: { capability_id: 'cap_1', name: 'Buy Domain', slug: 'buy-domain', risk_level: 'low', requires_approval: true },
+      schema: { method: 'POST' },
+      endpoint: 'https://api.example.com/run',
+      authHeaders: {},
+      settings: {},
+    });
+    m.evaluateGuard.mockResolvedValue({ decision: 'allow', risk_score: 10, matched_policies: ['builtin:operator_approval'] });
+    m.execute.mockResolvedValue({ success: true, data: {}, elapsed_ms: 5 });
+
+    const res = await post({ agent_id: 'agt_x' });
+
+    expect(m.execute).toHaveBeenCalled();
+    expect(res.status).toBe(200);
+  });
+
+  it('resolves ${input.<field>} placeholders into the guard evidence act', async () => {
+    m.prepare.mockResolvedValue({
+      capability: { capability_id: 'cap_1', name: 'Buy Domain', slug: 'buy-domain', risk_level: 'low' },
+      schema: { method: 'POST' },
+      endpoint: 'https://api.vercel.com/v1/registrar/domains/${input.domain}/buy',
+      authHeaders: {},
+      settings: {},
+    });
+    m.execute.mockResolvedValue({ success: true, data: {}, elapsed_ms: 5 });
+
+    await post({ agent_id: 'agt_x', domain: 'x.com' });
+
+    expect(m.evaluateGuard).toHaveBeenCalledWith(
+      'org_1',
+      expect.objectContaining({
+        act: { kind: 'http', request: { method: 'POST', url: 'https://api.vercel.com/v1/registrar/domains/x.com/buy' } },
+      }),
+      m.sql,
+    );
+  });
+
+  it('passes prepared.settings through to executeCapabilityInvocation', async () => {
+    const settings = { REGISTRAR_TOKEN: 'plain_token' };
+    m.prepare.mockResolvedValue({
+      capability: { capability_id: 'cap_1', name: 'Buy Domain', slug: 'buy-domain', risk_level: 'low' },
+      schema: { method: 'POST' },
+      endpoint: 'https://api.example.com/run',
+      authHeaders: {},
+      settings,
+    });
+    m.execute.mockResolvedValue({ success: true, data: {}, elapsed_ms: 5 });
+
+    await post({ agent_id: 'agt_x' });
+
+    expect(m.execute).toHaveBeenCalledWith(expect.objectContaining({ settings }));
   });
 });
