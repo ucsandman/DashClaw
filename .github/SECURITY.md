@@ -11,7 +11,7 @@ DashClaw is an actively developed open source project.
 
 Please report security issues privately.
 
-- Email: practicalsystems@gmail.com
+- Email: wes@practicalsystems.io
 - Include: steps to reproduce, impacted endpoints/components, and any relevant logs/redacted payloads
 
 We aim to respond within 48 hours.
