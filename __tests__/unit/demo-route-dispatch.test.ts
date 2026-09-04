@@ -153,19 +153,25 @@ describe('demo-mode dispatch — P20 gap handlers', () => {
   // containment_status filter returned EVERY demo action, so the demo
   // /approvals rendered 50 bogus awaiting-promotion cards (live on
   // www.dashclaw.io until 2026-07-29).
-  it('GET /api/actions?containment_status=awaiting_promotion serves exactly the contained demo action', async () => {
+  it('GET /api/actions?containment_status=awaiting_promotion serves exactly the contained demo actions (file + database)', async () => {
     const res = await middleware(req('/api/actions?containment_status=awaiting_promotion&limit=50'));
     expect(res.status).toBe(200);
     const { actions } = await res.json();
-    expect(actions).toHaveLength(1);
-    expect(actions[0]).toMatchObject({
-      containment_status: 'awaiting_promotion',
-      containment_has_evidence: true,
-      containment_evidence_ref: expect.stringMatching(/^dashclaw\/contained-/),
-      containment_ref: expect.any(String),
-      agent_id: expect.any(String),
-      declared_goal: expect.any(String),
-    });
+    // One per staging medium: the file worktree (v5.6.0) and the database
+    // branch (RFC 2026-09-04) — the db ref is what makes the card render its
+    // statement/schema-diff shape on the demo host.
+    expect(actions).toHaveLength(2);
+    for (const action of actions) {
+      expect(action).toMatchObject({
+        containment_status: 'awaiting_promotion',
+        containment_has_evidence: true,
+        containment_evidence_ref: expect.stringMatching(/^dashclaw\/contained-/),
+        containment_ref: expect.any(String),
+        agent_id: expect.any(String),
+        declared_goal: expect.any(String),
+      });
+    }
+    expect(actions.filter((a: { containment_ref: string }) => a.containment_ref.startsWith('dashclaw/contained-db-'))).toHaveLength(1);
 
     // An invalid filter value is ignored (same allowlist semantics as the
     // real route) — the general list still returns the full set.
@@ -174,16 +180,30 @@ describe('demo-mode dispatch — P20 gap handlers', () => {
     expect(allBody.actions.length).toBeGreaterThan(1);
   });
 
-  it('the contained demo action carries a patch artifact; the verdict POST answers a demo 403', async () => {
+  it('the contained demo actions carry patch artifacts; the verdict POST answers a demo 403', async () => {
     const list = await middleware(req('/api/actions?containment_status=awaiting_promotion'));
     const { actions } = await list.json();
-    const id = actions[0].action_id;
+    const fileAction = actions.find((a: { containment_ref: string }) => !a.containment_ref.startsWith('dashclaw/contained-db-'));
+    const dbAction = actions.find((a: { containment_ref: string }) => a.containment_ref.startsWith('dashclaw/contained-db-'));
+    const id = fileAction.action_id;
 
     const art = await middleware(req(`/api/actions/${id}/artifacts`));
     expect(art.status).toBe(200);
     const { artifacts } = await art.json();
     const patch = artifacts.find((a: { artifact_type: string }) => a.artifact_type === 'patch');
-    expect(patch.content).toMatchObject({ ref: actions[0].containment_evidence_ref, diff: expect.stringContaining('diff --git'), truncated: false });
+    expect(patch.content).toMatchObject({ ref: fileAction.containment_evidence_ref, diff: expect.stringContaining('diff --git'), truncated: false });
+
+    // The database fixture posts the SAME artifact_type with the db content
+    // shape (RFC 2026-09-04) — statement + schema diff + output tail.
+    const dbArt = await middleware(req(`/api/actions/${dbAction.action_id}/artifacts`));
+    const dbPatch = (await dbArt.json()).artifacts.find((a: { artifact_type: string }) => a.artifact_type === 'patch');
+    expect(dbPatch.content).toMatchObject({
+      kind: 'db',
+      ref: dbAction.containment_evidence_ref,
+      statement: expect.stringContaining('ALTER TABLE'),
+      branch_id: expect.any(String),
+      stdout_tail: expect.any(String),
+    });
 
     // Other actions have no artifacts, not an error.
     const none = await middleware(req('/api/actions/ar_demo_deploy_block_001/artifacts'));

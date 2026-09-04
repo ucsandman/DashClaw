@@ -19,7 +19,7 @@ import { fireActionAlert } from '../../lib/actionAlerts';
 import { fireApprovalSurfaces } from '../../lib/approvalSurfaces';
 import { EVENTS, publishOrgEvent } from '../../lib/events';
 import { resolveAgentIdentity } from '../../lib/guard-identity';
-import { buildContainmentRef } from '../../lib/guard/containment';
+import { buildContainmentRef, isContainableAct } from '../../lib/guard/containment';
 import { getAssumptionAlerts } from '../../lib/assumption-notify';
 import { digestJson } from '../../lib/integrity/canonicalize';
 
@@ -181,9 +181,19 @@ async function recordRunningAction(
   // server-derived from the payload's harness_session_id (security follow-up,
   // RFC 2026-07-06) — the later awaiting_promotion flip can no longer supply
   // an attacker-controllable ref for a row that carries this stamp.
+  // The basis rides with the ref: a `db_branch` verdict (RFC 2026-09-04)
+  // stamps `dashclaw/contained-db-…` so the route, CLI and card all know the
+  // staging medium was a database branch, not a worktree. The fallback
+  // re-derives the basis from the same act the evaluator graded rather than
+  // silently stamping a file-shaped ref onto a db verdict.
   if (result.decision === 'allow_contained') {
     record.containment_status = 'contained';
-    record.containment_ref = result.containment?.ref ?? buildContainmentRef(data.harness_session_id, data.containment_instance);
+    record.containment_ref = result.containment?.ref
+      ?? buildContainmentRef(
+        data.harness_session_id,
+        data.containment_instance,
+        result.containment?.basis ?? isContainableAct({ act: data.act } as Parameters<typeof isContainableAct>[0]).basis,
+      );
   }
 
   const action_id = `act_${crypto.randomUUID()}`;

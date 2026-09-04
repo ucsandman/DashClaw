@@ -32,7 +32,7 @@ Assumptions attach anywhere between record and outcome. The full HTTP contract f
 
 - **`allow`** — proceed.
 - **`warn`** — proceed, but the decision carries warnings and lands in the ledger flagged.
-- **`allow_contained`** — proceed now, but staged: a provably file-scoped act runs inside an isolated git worktree instead of the working tree, and a human promotes or discards the diff later. Negotiated — only a caller that advertised `client_capabilities: ['allow_contained']` ever receives it; an older or non-cooperating caller gets `require_approval` instead (version skew only tightens). See [Containment Verdicts](./architecture/runtime-api.md#containment-verdicts-allow_contained).
+- **`allow_contained`** — proceed now, but staged: a provably file-scoped act runs inside an isolated git worktree instead of the working tree, or a provably database-scoped act runs against an ephemeral branch of the target database instead of the real one, and a human promotes or discards the result later. Negotiated per staging medium — a caller receives it only if it advertised that medium's capability string (`client_capabilities: ['allow_contained']` for files, `['allow_contained:db']` for a database branch); an older or non-cooperating caller gets `require_approval` instead (version skew only tightens). See [Containment Verdicts](./architecture/runtime-api.md#containment-verdicts-allow_contained).
 - **`require_approval`** — the action is held (`status: pending_approval`) until a human approves or denies it, from any approval surface.
 - **`block`** — do not proceed. **A block is never downgraded** — not by approval, not by grant, not by the maintainer. This is a charter invariant ([MAINTAINER.md](../MAINTAINER.md)).
 

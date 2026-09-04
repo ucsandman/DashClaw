@@ -108,7 +108,7 @@ node scripts/install-hooks.mjs
 node /path/to/DashClaw/scripts/install-hooks.mjs --target=.
 ```
 
-This copies the three hook scripts (`dashclaw_pretool.py`, `dashclaw_posttool.py`, `dashclaw_stop.py`) and the vendored `dashclaw_agent_intel/` Python module into `.claude/hooks/`, then merges the matching `PreToolUse` / `PostToolUse` / `Stop` entries into `.claude/settings.json`. Re-run after `git pull` to refresh.
+This copies the hook scripts (`dashclaw_pretool.py`, `dashclaw_posttool.py`, `dashclaw_stop.py`, `dashclaw_db_containment.py`, `enforcement_liveness_probe.py`) and the vendored `dashclaw_agent_intel/` Python module into `.claude/hooks/`, then merges the matching `PreToolUse` / `PostToolUse` / `Stop` entries into `.claude/settings.json`. Re-run after `git pull` to refresh.
 
 ### Global capture across every project (capture-only)
 
@@ -137,10 +137,11 @@ mkdir -p .claude/hooks
 cp hooks/dashclaw_pretool.py .claude/hooks/
 cp hooks/dashclaw_posttool.py .claude/hooks/
 cp hooks/dashclaw_stop.py    .claude/hooks/
+cp hooks/dashclaw_db_containment.py .claude/hooks/
 cp -r hooks/dashclaw_agent_intel .claude/hooks/
 ```
 
-The intel module is required — `dashclaw_pretool.py` imports `dashclaw_agent_intel` for semantic tool classification, so omitting it causes an `ImportError` on the first governed tool call.
+The intel module is required — `dashclaw_pretool.py` imports `dashclaw_agent_intel` for semantic tool classification, so omitting it causes an `ImportError` on the first governed tool call. `dashclaw_db_containment.py` is optional: both hooks import it defensively, and without it database containment simply never engages.
 
 Then merge the hooks block from `hooks/settings.json` into your `.claude/settings.json`. If you do not have a settings file yet, copy it directly:
 
@@ -224,8 +225,12 @@ Runtimes with no row above are not oversights. MCP, the Node and Python SDKs, an
 | `DASHCLAW_APPROVAL_TIMEOUT` | No | `30` | Timeout in seconds when polling for operator approval |
 | `DASHCLAW_DISABLE_DOTENV` | No | unset | Test isolation escape hatch. When set to any truthy value, the hooks skip the `.env` walk so the subprocess only sees env vars the caller passes in. The hook test suite sets this. **Never set this in production**: it disables the standard `.env.local` and `.env` loading the install flow relies on. |
 | `DASHCLAW_CONTAINMENT` | No | `1` | Full kill switch for Containment Verdicts. `1` (default) redirects an eligible `allow_contained` tool call into a staged worktree. `0` disables containment locally even if the server still emits `allow_contained` (version skew, mixed hook versions) — the hook treats it as an interrupt instead of ever creating a worktree. |
-| `DASHCLAW_CONTAINMENT_REWRITE` | No | `1` | `1` (default) rewrites an eligible `Edit`/`Write`/`MultiEdit` call in place to target the containment worktree, transparent to the agent. `0` falls back to an instructive deny (exit 2) that tells the agent to re-run the call against the worktree path. **Bash is never rewritten either way** — the Bash tool input schema has no `cwd` field, so an eligible Bash call always gets the instructive deny (Locked Decision 6, RFC containment-verdicts). |
+| `DASHCLAW_CONTAINMENT_REWRITE` | No | `1` | `1` (default) rewrites an eligible `Edit`/`Write`/`MultiEdit` call in place to target the containment worktree, transparent to the agent. `0` falls back to an instructive deny (exit 2) that tells the agent to re-run the call against the worktree path. **On the file bases, Bash is never rewritten either way** — the Bash tool input schema has no `cwd` field, so a file-contained Bash call always gets the instructive deny (Locked Decision 6, RFC containment-verdicts). The `db_branch` basis *is* a Bash rewrite: it redirects the `command` field itself (see Database containment below). |
 | `DASHCLAW_CONTAINMENT_DIFF_CAP_BYTES` | No | `1500000` | Byte cap on the staged-diff text uploaded as an artifact after a contained mutation (keeps a single artifact under the `/api/artifacts` request-body cap). |
+| `NEON_API_KEY` | No | unset | Enables database containment (basis `db_branch`). Without it the hook never advertises `allow_contained:db`, so an eligible database act lands on `require_approval` exactly as it does today. |
+| `NEON_PROJECT_ID` | No | unset | Optional: skips the project walk that resolves your `ep-…` endpoint to its project. |
+| `DASHCLAW_DB_CONTAINMENT` | No | `1` | DB-only kill switch. `0` disables database containment while leaving file containment on; `DASHCLAW_CONTAINMENT=0` still disables both. |
+| `DASHCLAW_DB_CONTAINMENT_TTL_HOURS` | No | `72` | Expiry stamped on the contained Neon branch. Neon deletes the branch itself when it lapses — that expiry *is* the cleanup story, so an abandoned session leaves nothing behind. |
 
 ## Behavior
 
@@ -234,12 +239,26 @@ The PreToolUse hook calls `POST /api/guard` before each governed tool executes. 
 - **allow**: The tool proceeds. An action record is created for the evidence trail.
 - **warn**: The tool proceeds. A warning is printed to the Claude Code terminal. An action record is created.
 - **block**: In enforce mode, the tool is blocked and Claude Code sees the policy reason. In observe mode, the warning is logged but the tool proceeds — and because the tool ran despite a gating verdict, PostToolUse stamps `executed_despite: block` on the blocked row (F0): the ledger shows the block did not stop execution.
-- **allow_contained** (Containment Verdicts): only ever returned to a caller that advertised `client_capabilities: ['allow_contained']` in the guard call — this hook does so by default (`DASHCLAW_CONTAINMENT=1`). In enforce mode, an eligible `Edit`/`Write`/`MultiEdit`/`Bash` call is redirected into a per-session git worktree (`.dashclaw/contained/<session_id>`) instead of the working tree; the tool proceeds against the staged copy. For `Edit`/`Write`/`MultiEdit` this is transparent (`updatedInput` rewrite) when `DASHCLAW_CONTAINMENT_REWRITE=1`, or via an instructive deny otherwise. **`Bash` always gets the instructive deny regardless of `DASHCLAW_CONTAINMENT_REWRITE`** — the Bash tool input schema has no `cwd` field, so its command text is never rewritten in place (Locked Decision 6). After execution, PostToolUse posts the resulting `git diff` as a capped artifact on the action. An operator later promotes (governed merge) or discards the staged change from `/approvals` or `dashclaw contained apply`. If the working directory is not a git repo, or containment is disabled locally (`DASHCLAW_CONTAINMENT=0`), the hook fails toward interruption and treats the call as `require_approval` instead of ever creating a worktree. In observe mode, the action is recorded but the tool proceeds unstaged.
+- **allow_contained** (Containment Verdicts): only ever returned to a caller that advertised `client_capabilities: ['allow_contained']` in the guard call — this hook does so by default (`DASHCLAW_CONTAINMENT=1`). In enforce mode, an eligible `Edit`/`Write`/`MultiEdit`/`Bash` call is redirected into a per-session git worktree (`.dashclaw/contained/<session_id>`) instead of the working tree; the tool proceeds against the staged copy. For `Edit`/`Write`/`MultiEdit` this is transparent (`updatedInput` rewrite) when `DASHCLAW_CONTAINMENT_REWRITE=1`, or via an instructive deny otherwise. **On the file bases, `Bash` always gets the instructive deny regardless of `DASHCLAW_CONTAINMENT_REWRITE`** — the Bash tool input schema has no `cwd` field, so its command text is never rewritten in place (Locked Decision 6). The `db_branch` basis is the exception and rewrites the command itself (see Database containment below). After execution, PostToolUse posts the resulting `git diff` as a capped artifact on the action. An operator later promotes (governed merge) or discards the staged change from `/approvals` or `dashclaw contained apply`. If the working directory is not a git repo, or containment is disabled locally (`DASHCLAW_CONTAINMENT=0`), the hook fails toward interruption and treats the call as `require_approval` instead of ever creating a worktree. In observe mode, the action is recorded but the tool proceeds unstaged.
 
   **Second-person-gate caveat:** the `operator` identity is exempt from the separation-of-duties check on the containment resolve route (mirrors the accepted approvals precedent). If this hook authenticates with the bootstrap `DASHCLAW_API_KEY`, its actions are attributed to `operator`, and `operator` can promote its own contained work — `SELF_APPROVAL_FORBIDDEN` never fires. For containment to have a real second-person gate, install the hook with a database-backed `api_keys` credential rather than the bootstrap operator key.
 - **require_approval**: In enforce mode, an action record is created in `pending_approval` status. The hook prints the action ID and a replay link, then polls for up to 30 seconds waiting for an operator to approve or deny. If approved, the tool proceeds. If denied or timed out, the tool is blocked. In observe mode, the action is recorded but the tool proceeds immediately, and PostToolUse stamps `executed_despite: require_approval` on the pending row so the ledger shows the gate did not hold.
 
 The PostToolUse hook runs after execution completes. It updates the action record with the outcome (completed or failed) and a summary of the output (up to 500 characters). The hook sends structured `outcome_metadata` including `exit_code` and `error_type` when applicable. Errors are classified into four types: `timeout`, `permission`, `not_found`, and `runtime`. The posttool hook never blocks.
+
+### Database containment (Neon)
+
+The same containment shape for a Postgres mutation (`docs/rfcs/2026-09-04-database-containment.md`): when the guard answers `allow_contained` with `containment.basis = "db_branch"`, the hook creates one ephemeral Neon branch per session, rewrites the `Bash` command to point at that branch (`updatedInput` — the production URL literal is swapped, or a `DATABASE_URL='…' PGHOST='…'` prefix is added), and PostToolUse posts the statement, the Neon schema diff and the last 4 KB of output as the `patch` artifact the operator reviews. Promote replays the **original** command against the real database; nothing is ever copied back.
+
+Rollout safety, in the order it matters:
+
+- **No `NEON_API_KEY`, no change.** The capability `allow_contained:db` is never advertised, so the server can never send the verdict and an eligible database act stays on `require_approval` — today's behavior, bit for bit.
+- **Non-Neon databases are never contained.** The target must resolve to an `ep-….neon.tech` host, from `DATABASE_URL` in the environment or `DATABASE_URL` in `<workspace>/.env.local` or `.env` (that one key, never logged, never uploaded).
+- **A command with an inline connection string stays on the approval rail.** The ledger's sensitive-data scan redacts a `postgres(ql)://user:pass@host` literal inside the recorded act, and Promote replays that act byte-for-byte — so such a command could be staged and then never replayed, and the hook declines the capability for it rather than offering an unpromotable card.
+- **Two kill switches.** `DASHCLAW_DB_CONTAINMENT=0` disables the database medium only; `DASHCLAW_CONTAINMENT=0` disables both media and treats any `allow_contained` verdict as an interrupt.
+- **Failure interrupts, never leaks.** A missing server ref, an unresolvable target or a failed Neon call exits 2 with the command unrun, so a contained effect never reaches production unstaged. Log lines name the branch host; a connection URL with its password is never printed, never written to hook state and never uploaded.
+- **Cleanup is expiry.** The branch carries an `expires_at` (`DASHCLAW_DB_CONTAINMENT_TTL_HOURS`, default 72) and Neon deletes it; Promote and Discard need no Neon key.
+- **Version skew only tightens.** An older hook never advertises `allow_contained:db`, so a newer server downgrades to `require_approval`; an older server never sends the basis, so a newer hook stays on the worktree path.
 
 If DashClaw is unconfigured (`DASHCLAW_BASE_URL` or `DASHCLAW_API_KEY` missing), the hooks exit silently and Claude Code operates normally. If DashClaw is configured but unreachable, behavior is governed by `DASHCLAW_GUARD_UNAVAILABLE_POLICY` (default `block`). See the Failure safety section below for the full policy table. The hooks never crash your session.
 

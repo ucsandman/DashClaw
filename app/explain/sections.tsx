@@ -214,14 +214,18 @@ export function LoopWalkthrough() {
 const BAND_WARN = 40; // real band: >= 40 is elevated
 const BAND_HIGH = 70; // real band: >= 70 is high risk
 // Illustrative contain_above: on a require_approval policy, risk in
-// [CONTAIN_AT, BAND_HIGH) stages file-scoped work in a worktree instead of
+// [CONTAIN_AT, BAND_HIGH) stages the work in an isolated medium instead of
 // interrupting (real rule: rules.contain_above < threshold, RFC containment-verdicts).
 const CONTAIN_AT = 55;
 
-// `containable` mirrors server-side eligibility (isContainableAct): only a
-// provably file-scoped act can be staged in a worktree. Deletes, payments,
-// deploys, and messages have effects outside the working tree, so they are
-// never containable — in the band they interrupt instead (skew tightens).
+// `containable` mirrors server-side eligibility (isContainableAct): an act is
+// staged only when its effects land in a medium DashClaw can stage and a human
+// can review — a git worktree for file-scoped work, or an ephemeral database
+// branch for a database act (RFC 2026-09-04-database-containment). Deletes,
+// payments, deploys and messages have effects outside both, so they are never
+// containable — in the band they interrupt instead (skew tightens). The
+// simulator's action types are all file-scoped or ineligible; the database
+// basis reaches hook callers only, so it has no toggle here.
 const SIM_ACTION_TYPES: Record<string, { base: number; label: string; containable?: boolean }> = {
   'data.read': { base: 10, label: 'Read data' },
   'message.send': { base: 25, label: 'Send a message' },
@@ -282,7 +286,7 @@ function decideFromScore(
     if (containable) return { decision: 'allow_contained', containNote: null };
     return {
       decision: 'require_approval',
-      containNote: `Risk ${score} is in the containment band [${CONTAIN_AT}, ${BAND_HIGH}), but this action isn't file-scoped — containment only ever loosens for work a worktree can stage, so it interrupts instead.`,
+      containNote: `Risk ${score} is in the containment band [${CONTAIN_AT}, ${BAND_HIGH}), but this action's effects escape both staging media — containment only ever loosens for work a worktree or a database branch can stage, so it interrupts instead.`,
     };
   }
   if (score >= BAND_WARN) return { decision: 'warn', containNote: null };
@@ -293,7 +297,7 @@ const DECISION_EXPLAIN: Record<Decision, string> = {
   allow: 'Below the elevated band. The action proceeds and is recorded.',
   warn: 'Elevated. The action proceeds, but the decision and its signals go to the ledger and the risk feed.',
   allow_contained:
-    'Between warn and require_approval, and only for a caller that negotiates support. A file-scoped action runs in an isolated worktree instead of the working tree; a human promotes (governed merge) or discards the staged diff from /approvals.',
+    'Between warn and require_approval, and only for a caller that negotiates support for the staging medium. A file-scoped action runs in an isolated worktree instead of the working tree; a database action runs against an ephemeral branch instead of the real database. A human promotes (governed merge, or governed replay) or discards the staged result from /approvals.',
   block: 'High risk with no approval path configured. The action is refused and recorded as blocked. Blocks are absolute.',
   require_approval:
     'High risk. Execution pauses until a human approves: dashboard, CLI, or chat. An approval covers the identical action for 15 minutes.',
@@ -364,7 +368,7 @@ export function GuardSimulator() {
             disabled={!approvalPolicy}
             onChange={(e) => setContainPolicy(e.target.checked)}
           />{' '}
-          Policy: contain file-scoped work above {CONTAIN_AT} (worktree staging)
+          Policy: contain stageable work above {CONTAIN_AT} (worktree or database-branch staging)
         </label>
       </form>
       <div className={`${card} p-5`} aria-live="polite">

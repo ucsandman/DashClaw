@@ -125,6 +125,16 @@ from dashclaw_agent_intel.file_scanner import is_placeholder_path
 from dashclaw_agent_intel.tool_recognizer import ungoverned_default_categories
 from dashclaw_agent_intel.http_client import request_with_retry, env_retries
 
+# Database containment (basis db_branch, RFC 2026-09-04). Optional import: an
+# installation whose hook files predate this module (a partial copy, an older
+# `dashclaw install claude`) must keep governing every tool call, not fail
+# closed on all of them — a missing module simply means the db capability is
+# never advertised, which is exactly today's behavior.
+try:
+    import dashclaw_db_containment
+except Exception:  # pragma: no cover - only reachable on a partial install
+    dashclaw_db_containment = None
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -971,6 +981,16 @@ def _server_containment_ref(guard_resp):
     return None
 
 
+def _containment_basis(guard_resp):
+    """The staging medium the server picked: 'file'/'shell_file_ops' (git
+    worktree) or 'db_branch' (Neon branch). Absent/garbled reads as "" and
+    falls through to the worktree path, which is what every server that
+    predates RFC 2026-09-04 means."""
+    containment = guard_resp.get("containment") if isinstance(guard_resp, dict) else None
+    basis = containment.get("basis") if isinstance(containment, dict) else None
+    return basis if isinstance(basis, str) else ""
+
+
 def _ensure_containment_worktree(session_id, server_ref=None):
     """Lazily create (once per session) or reuse the containment worktree.
 
@@ -1027,22 +1047,152 @@ def _ensure_containment_worktree(session_id, server_ref=None):
     return worktree_path, ref, base_sha
 
 
-def _attach_client_capabilities(context, tool_name):
+# ---------------------------------------------------------------------------
+# Database containment (basis db_branch): the second staging medium. A Bash
+# command that mutates a Neon Postgres database runs against an ephemeral
+# branch of it instead of the real database, and the operator promotes by
+# replaying the ORIGINAL command. See docs/rfcs/2026-09-04-database-
+# containment.md and hooks/dashclaw_db_containment.py (detector, Neon client,
+# rewrite, scrub -- and the only place a connection URL is ever read).
+# ---------------------------------------------------------------------------
+
+def _bash_command(tool_input):
+    """The Bash tool's command string, or "" for any other shape."""
+    if not isinstance(tool_input, dict):
+        return ""
+    command = tool_input.get("command")
+    return command if isinstance(command, str) else ""
+
+
+def _db_containment_available(tool_name, tool_input):
+    """True when this call could actually be staged on a Neon branch, which is
+    the honest precondition for advertising `allow_contained:db`.
+
+    Ordered cheapest-first: the dotenv read inside detect_db_target only
+    happens for a command that already looks like a database act on an
+    installation that has a Neon key at all.
+
+    A command carrying an INLINE connection string is deliberately excluded,
+    even though the detector could resolve it: the ledger's sensitive-data
+    scan redacts a postgres(ql)://user:pass@host literal inside the recorded
+    act, and promotion replays that recorded act byte-for-byte, so such an
+    action could be staged and then never replayed. Those stay on the
+    approval rail, which is today's behavior for them."""
+    if dashclaw_db_containment is None:
+        return False
+    if tool_name != "Bash":
+        return False
+    if not dashclaw_db_containment.db_containment_enabled():
+        return False
+    if not dashclaw_db_containment.neon_api_key():
+        return False
+    command = _bash_command(tool_input)
+    if not command or not dashclaw_db_containment.is_db_command(command):
+        return False
+    if dashclaw_db_containment.has_pg_url_literal(command):
+        return False
+    return dashclaw_db_containment.detect_db_target(command, WORKSPACE) is not None
+
+
+def _ensure_containment_branch(session_id, ref, prod_url):
+    """Lazily create (once per session) or reuse this session's Neon branch,
+    mirroring _ensure_containment_worktree's lifecycle.
+
+    Returns (state, error): the session-state dict ({ref, project_id,
+    parent_branch_id, branch_id, host, db_name, endpoint_id, created_at,
+    expires_at}) with error None, or (None, reason) -- callers MUST fail
+    toward interruption on a reason (invariant 5). Nothing is ever logged but
+    the endpoint id and the host: prod_url is a live credential.
+
+    A session stages against ONE database. The cached branch is reused only
+    when this command resolves to the SAME endpoint and database; a second
+    command pointed at a different one is a containment failure, not a reuse
+    -- staging it on the first database's branch would show the operator a
+    diff from database A while Promote replays the statement against database
+    B."""
+    endpoint = dashclaw_db_containment.endpoint_id(prod_url)
+    if not endpoint:
+        return None, "the target is not a Neon endpoint"
+    db_name = dashclaw_db_containment.database_name(prod_url)
+
+    cached = dashclaw_db_containment.read_session_state(session_id, _INSTANCE_STATE_SUFFIX)
+    if cached:
+        cached_endpoint = cached.get("endpoint_id")
+        cached_db = cached.get("db_name")
+        if (cached_endpoint and cached_endpoint != endpoint) or cached_db != db_name:
+            return None, (
+                "this session already stages database containment against endpoint %s "
+                "(database %s) and this command targets %s (database %s) — a session "
+                "stages against ONE database, so the staged diff and the promoted "
+                "replay always describe the same target. Start a new session for the "
+                "second database"
+                % (cached_endpoint or "unknown", cached_db or "unknown",
+                   endpoint, db_name or "unknown")
+            )
+        if ref and cached.get("ref") != ref:
+            log("[DashClaw] Containment ref skew: server stamped %s but this session's "
+                "database branch was created for %s -- reusing the existing branch."
+                % (ref, cached.get("ref")))
+        return cached, None
+
+    client = dashclaw_db_containment.NeonClient()
+    project_id = client.resolve_project(endpoint)
+    if not project_id:
+        return None, "no Neon project could be resolved for endpoint " + endpoint
+    parent_branch_id = client.endpoint_branch_id(project_id, endpoint)
+    if not parent_branch_id:
+        return None, "endpoint " + endpoint + " has no resolvable parent branch"
+    expires_at = dashclaw_db_containment.expires_at_iso()
+    created = client.create_branch(
+        project_id, parent_branch_id, ref.replace("/", "-"), expires_at
+    )
+    if not created:
+        return None, "the Neon branch could not be created for endpoint " + endpoint
+    branch_id, host = created
+    state = {
+        "ref": ref,
+        "project_id": project_id,
+        "parent_branch_id": parent_branch_id,
+        "branch_id": branch_id,
+        "host": host,
+        "db_name": db_name,
+        # The discriminator for the reuse check above: which database this
+        # session is staging against.
+        "endpoint_id": endpoint,
+        "created_at": dashclaw_db_containment.utc_now_iso(),
+        "expires_at": expires_at,
+    }
+    dashclaw_db_containment.write_session_state(session_id, _INSTANCE_STATE_SUFFIX, state)
+    return state, None
+
+
+def _attach_client_capabilities(context, tool_name, tool_input=None):
     """Advertise containment support to the guard so an eligible allow_contained
     verdict is not skewed down to require_approval (server-side negotiation --
     see app/lib/guard/containment.ts, clientAdvertisesContainment). Gated so a
     non-enforcing or non-git caller never claims a capability it cannot stage:
     observe mode cannot redirect anything, and there is no worktree to redirect
-    into outside a git repo."""
+    into outside a git repo.
+
+    Two capabilities, two staging media (RFC 2026-09-04): `allow_contained`
+    covers the file bases and needs a git repo; `allow_contained:db` covers
+    basis db_branch and needs a Neon target instead -- git is irrelevant to
+    it, so the two gates are independent and a `psql` call inside a repo can
+    advertise both."""
     if not CONTAINMENT_ENABLED:
         return
     if HOOK_MODE != "enforce":
         return
     if tool_name not in _CONTAINABLE_TOOLS:
         return
-    if not _is_git_repo():
+    capabilities = []
+    if _is_git_repo():
+        capabilities.append("allow_contained")
+    if _db_containment_available(tool_name, tool_input):
+        capabilities.append("allow_contained:db")
+    if not capabilities:
         return
-    context["client_capabilities"] = ["allow_contained"]
+    context["client_capabilities"] = capabilities
     # Instance discriminator: the server folds this into the containment ref it
     # stamps (buildContainmentRef), so two co-installed hook instances firing
     # for the SAME harness session get DISTINCT branches/worktrees instead of
@@ -1100,14 +1250,20 @@ def _emit_contained_allow(updated_input, worktree_path, ref):
     sys.stdout.flush()
 
 
-def _write_containment_action_state(tool_use_id, action_id, containment_ref, worktree_path, base_sha=None):
+def _write_containment_action_state(tool_use_id, action_id, containment_ref, worktree_path,
+                                    base_sha=None, db=None):
     """Extend the pretool->posttool temp file (see write_action_id) with
     containment fields. PostToolUse (Task 10) parses this JSON shape to
     resolve a contained action's staged effect; ordinary allow/warn decisions
     still write the bare action_id string PostToolUse reads today. base_sha
     (F1) is the worktree's HEAD at creation time, so PostToolUse can diff the
     cumulative range instead of missing new/untracked files with `git diff
-    HEAD` on an uncommitted worktree."""
+    HEAD` on an uncommitted worktree.
+
+    db (RFC 2026-09-04) carries the Neon branch's ids/host/statement for a
+    db_branch verdict and is absent for every other decision -- that presence
+    is how PostToolUse tells the two staging media apart before it reaches for
+    a worktree that a db-contained action never had."""
     path = _action_state_path(tool_use_id)
     payload = {
         "action_id": action_id or "",
@@ -1115,6 +1271,8 @@ def _write_containment_action_state(tool_use_id, action_id, containment_ref, wor
         "containment_worktree": worktree_path,
         "containment_base_sha": base_sha,
     }
+    if db:
+        payload["containment_db"] = db
     try:
         with open(path, "w", encoding="utf-8") as f:
             f.write(json.dumps(payload))
@@ -1339,10 +1497,103 @@ def _record_observed_containment(guard_resp, context, tool_use_id):
         _record_running_action("handle_allow_contained", context, tool_use_id)
 
 
+def _fail_db_containment(tool_use_id, action_id, reason):
+    """Fail toward interruption on a db_branch verdict we cannot stage
+    (invariant 5): the command never runs, so it never touches production.
+
+    `reason` is written by the caller and must NEVER interpolate the
+    connection URL -- only the branch host is ever safe to print."""
+    log("[DashClaw] Database containment failed: " + reason
+        + ". Failing toward interruption — a contained effect must never proceed unstaged.")
+    _write_containment_action_state(tool_use_id, action_id, None, None)
+    sys.exit(2)
+
+
+def _handle_contained_db(guard_resp, tool_name, tool_input, tool_use_id, action_id):
+    """Contained execution on the db_branch basis: run the command against an
+    ephemeral Neon branch of the target database instead of the database
+    itself. Always exits.
+
+    The branch is created once per session and reused, exactly like the
+    worktree. Unlike the worktree's ref there is NO local fallback name: the
+    branch is a real cloud resource, and RFC 2026-09-04 makes the ref
+    server-derived and never client-supplied, so a missing/malformed server
+    ref is a containment failure rather than something to guess at."""
+    ref = _server_containment_ref(guard_resp)
+    command = _bash_command(tool_input)
+
+    if dashclaw_db_containment is None:
+        _fail_db_containment(tool_use_id, action_id,
+                             "hooks/dashclaw_db_containment.py is not installed next to this hook")
+    if not dashclaw_db_containment.db_containment_enabled():
+        _fail_db_containment(tool_use_id, action_id, "DASHCLAW_DB_CONTAINMENT=0")
+    if tool_name != "Bash" or not command:
+        _fail_db_containment(tool_use_id, action_id,
+                             "the verdict named a database basis for a " + str(tool_name)
+                             + " call, which this hook cannot stage")
+    if dashclaw_db_containment is not None and dashclaw_db_containment.has_pg_url_literal(command):
+        # Defense in depth for version skew: this hook never advertises the db
+        # capability for a literal-carrying command (see
+        # _db_containment_available), so a conformant server cannot send this.
+        # Staging it anyway would produce a card the operator can never
+        # promote — the recorded act is redacted, and the replay must be
+        # byte-exact.
+        _fail_db_containment(tool_use_id, action_id,
+                             "the command carries an inline connection string, which the "
+                             "ledger redacts — it could be staged but never replayed "
+                             "byte-exact, so it belongs on the approval rail")
+    if not ref:
+        _fail_db_containment(tool_use_id, action_id,
+                             "the server stamped no usable containment ref")
+
+    prod_url = dashclaw_db_containment.detect_db_target(command, WORKSPACE)
+    if not prod_url:
+        _fail_db_containment(tool_use_id, action_id,
+                             "no Neon DATABASE_URL could be resolved for this command")
+
+    state, error = _ensure_containment_branch(_SESSION_ID, ref, prod_url)
+    if not state:
+        _fail_db_containment(tool_use_id, action_id,
+                             error or "the Neon branch could not be created or reused "
+                             "(check NEON_API_KEY, NEON_PROJECT_ID and network reachability)")
+
+    host = state.get("host") or ""
+    contained_url = dashclaw_db_containment.branch_url(prod_url, host)
+    rewritten = dashclaw_db_containment.rewrite_command(command, prod_url, contained_url, host)
+
+    # The statement is scrubbed HERE, before it is written anywhere: the
+    # pretool->posttool state file lives in the tempdir and must never hold a
+    # live password, and this is the exact text the operator reviews.
+    _write_containment_action_state(tool_use_id, action_id, ref, None, None, db={
+        "ref": ref,
+        "project_id": state.get("project_id"),
+        "parent_branch_id": state.get("parent_branch_id"),
+        "branch_id": state.get("branch_id"),
+        "host": host,
+        "db_name": state.get("db_name"),
+        "statement": dashclaw_db_containment.scrub_db_credentials(rewritten),
+    })
+
+    if CONTAINMENT_REWRITE:
+        # Unlike the file bases, Bash IS rewritable here: the redirect rides
+        # the `command` field the tool already has (Locked Decision 6 was
+        # about the missing `cwd` field, which only the file bases needed).
+        updated_input = dict(tool_input)
+        updated_input["command"] = rewritten
+        _emit_contained_allow(updated_input, "Neon branch " + host, ref)
+        sys.exit(0)
+
+    log("Contained: re-run this command against the Neon branch " + host
+        + " (containment ref " + ref + "). Effects will be staged for operator promotion.")
+    sys.exit(2)
+
+
 def handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_id):
     """Contained execution: a negotiated allow_contained verdict. Redirect the
-    effect into a per-session git worktree instead of the working tree, and
-    persist the containment_ref for PostToolUse (Task 10) to resolve.
+    effect into a per-session git worktree instead of the working tree (or, on
+    the db_branch basis, onto a per-session Neon branch -- see
+    _handle_contained_db), and persist the containment_ref for PostToolUse
+    (Task 10) to resolve.
 
     Worktree creation failure (or not being in a git repo at all) is fail-
     toward-interruption (invariant 5): governance never lets a contained
@@ -1375,6 +1626,12 @@ def handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_
     action_id = _persist_guard_recorded_action(guard_resp, tool_use_id)
     if not action_id:
         action_id = _record_running_action("handle_allow_contained", context, tool_use_id)
+
+    # Basis first: a db_branch verdict stages on a Neon branch and has nothing
+    # to do with git, so it must never reach _ensure_containment_worktree
+    # (which fails -- correctly, for the file bases -- outside a repo).
+    if _containment_basis(guard_resp) == "db_branch":
+        _handle_contained_db(guard_resp, tool_name, tool_input, tool_use_id, action_id)
 
     ensured = _ensure_containment_worktree(_SESSION_ID, _server_containment_ref(guard_resp))
     if not ensured:
@@ -1924,7 +2181,7 @@ def main():
     _attach_harness_session(context)
     _attach_autoscan_content(context, tool_name, tool_input)
     _attach_subagent_provenance(context, data, tool_name)
-    _attach_client_capabilities(context, tool_name)
+    _attach_client_capabilities(context, tool_name, tool_input)
 
     # Idempotency: tool_use_id is unique per tool call, so a blind retry of
     # the SAME call derives the same key (server dedupes the guard decision

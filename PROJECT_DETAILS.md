@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-09-01
+last-verified: 2026-09-04
 doc-type: architecture
 ---
 
@@ -76,7 +76,7 @@ These routes define the minimum DashClaw category. They are stable or runtime-cr
 | `/api/actions/:actionId/outcome` | Durable terminal outcome | One-shot `pending -> completed/partial/failed`; `lost_confirmation` is system-owned. |
 | `/api/actions/:actionId/trace` | Action trace | Read-only evidence path. |
 | `/api/actions/:actionId/graph` | Execution graph | Nodes and edges around an action, assumptions, and trace data. |
-| `/api/actions/:actionId/containment` | Operator promote/discard verdict on a contained action | `POST { verdict: 'promote' \| 'discard' }` (operator-authenticated, mirrors approvals auth). Promote creates a governed `containment_promote` action that merges the staged worktree diff. Backs the `allow_contained` guard verdict — see `docs/architecture/runtime-api.md`. |
+| `/api/actions/:actionId/containment` | Operator promote/discard verdict on a contained action | `POST { verdict: 'promote' \| 'discard' }` (operator-authenticated, mirrors approvals auth). Promote creates a governed `containment_promote` action that merges the staged worktree diff (file basis) or replays the original statement on production (database basis, Neon branch). Backs the `allow_contained` guard verdict — see `docs/architecture/runtime-api.md` and `docs/rfcs/2026-09-04-database-containment.md`. |
 | `/api/approvals/:actionId` | Human approval decision | Also reachable via legacy rewrite `/api/actions/:id/approve`. |
 | `/api/approvals/:actionId/grant` | Mint a scoped `allow_grant` from an approval card | `POST { ttl_hours: 1 \| 24 \| 168 \| 720 }`. Derives the shape server-side, enforces the risk-70 ceiling, the unscoped-grant rejection and the `ungrantable` gate, then returns `release_ids` — the pending approvals the grant covers. Approves nothing itself; the caller releases those ids over `/api/approvals/:actionId` so there is one approval path. |
 | `/api/assumptions` | Reasoning integrity records | Assumption tracking linked to actions. |

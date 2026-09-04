@@ -74,6 +74,7 @@ describe('install-hooks isManagedHookCommand', () => {
       'dashclaw_pretool.py',
       'dashclaw_posttool.py',
       'dashclaw_stop.py',
+      'dashclaw_db_containment.py',
       'dashclaw_session_digest.py',
       'enforcement_liveness_probe.py',
     ]);

@@ -4,11 +4,12 @@ import { useState, useEffect, useCallback, useMemo, useRef, type ElementType } f
 import { useParams } from 'next/navigation';
 import {
   Clock, HelpCircle, Search, ShieldCheck, ShieldAlert, Info,
-  LayoutPanelLeft, ExternalLink, Package, IdCard,
+  LayoutPanelLeft, ExternalLink, Package, IdCard, Database,
   CheckCircle2, Ban, AlertTriangle, RefreshCw,
 } from 'lucide-react';
 import PageLayout from '../../components/PageLayout';
-import { Card, CardContent } from '../../components/ui/Card';
+import { Card, CardContent, CardHeader } from '../../components/ui/Card';
+import ContainmentDbEvidence, { type PatchArtifactContent } from '../../components/ContainmentDbEvidence';
 import AssumptionGraph from '../../components/AssumptionGraph';
 import ExecutionGraph from '../../components/ExecutionGraph';
 import ArtifactsTab from '../../components/ArtifactsTab';
@@ -44,6 +45,7 @@ export default function DecisionReplayPage() {
   const [trace, setTrace] = useState<any>(null);
   const [graph, setGraph] = useState<any>(null);
   const [guardDecision, setGuardDecision] = useState<any>(null);
+  const [containmentPatch, setContainmentPatch] = useState<PatchArtifactContent | null>(null);
   const [defense, setDefense] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +85,20 @@ export default function DecisionReplayPage() {
             setTrace(traceData.trace);
           }
         } catch { /* trace is optional */ }
+      }
+
+      // Containment evidence: the newest 'patch' artifact for a contained
+      // action. Only fetched when the row actually carries a containment
+      // status — every other decision pays nothing.
+      if (data.action.containment_status) {
+        try {
+          const artifactsRes = await fetch(`/api/actions/${actionId}/artifacts`);
+          if (artifactsRes.ok) {
+            const artifactsData = await artifactsRes.json();
+            const patch = (artifactsData.artifacts || []).find((a: any) => a && a.artifact_type === 'patch');
+            setContainmentPatch(patch?.content ?? null);
+          }
+        } catch { /* containment evidence is optional */ }
       }
 
       // Fetch execution graph (nodes + edges) for any action
@@ -413,6 +429,19 @@ export default function DecisionReplayPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {/* Database containment evidence (RFC 2026-09-04): the same artifact
+              the /approvals card renders, shown here on every tab because it is
+              the record of WHAT was staged — the Artifacts tab only has its
+              raw JSON. File containments keep rendering their diff on
+              /approvals (and as an artifact here) — unchanged. */}
+          {containmentPatch && containmentPatch.kind === 'db' && (
+            <Card hover={false}>
+              <CardHeader title="Contained on a database branch" icon={Database} />
+              <CardContent>
+                <ContainmentDbEvidence content={containmentPatch} />
+              </CardContent>
+            </Card>
+          )}
           {activeTab === 'graph' && (
             <ExecutionGraph graph={graph} />
           )}

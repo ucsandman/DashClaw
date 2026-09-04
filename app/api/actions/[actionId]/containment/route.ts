@@ -20,8 +20,21 @@ import {
   findUnconsumedPromotionGrant,
 } from '../../../../lib/repositories/actions.repository';
 import { listArtifacts } from '../../../../lib/repositories/artifacts.repository';
-import { buildPromotionGoal, buildPromotionAct } from '../../../../lib/guard/containment';
+import { getGuardDecisionById } from '../../../../lib/repositories/guardrails.repository';
+import { buildPromotionGoal, buildPromotionAct, isDbContainmentRef } from '../../../../lib/guard/containment';
 import { computeActContentHash } from '../../../../lib/act-content-hash';
+
+/** guard_decisions.context is a TEXT column (JSON) — object on some drivers. */
+function parseDecisionContext(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === 'object') return value as Record<string, unknown>;
+  if (typeof value !== 'string' || !value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * POST /api/actions/[actionId]/containment
@@ -31,9 +44,12 @@ import { computeActContentHash } from '../../../../lib/act-content-hash';
  *
  * promote: flips containment_status -> promoted, then raises a synthetic
  * `containment_promote` grant row (born 'running', pre-approved by this
- * verdict) whose act is the canonical `git merge --no-ff <containment_ref>` —
- * the same act shape the agent's retry must present for the act-content-hash
- * grant match to bind it (see docs/rfcs/2026-07-06-containment-verdicts.md).
+ * verdict) whose act is the canonical `git merge --no-ff <containment_ref>`
+ * for a file ref, or the action's ORIGINAL recorded act for a
+ * `dashclaw/contained-db-` ref (RFC 2026-09-04-database-containment: the
+ * replay against production IS the promotion) — the same act shape the
+ * agent's retry must present for the act-content-hash grant match to bind it
+ * (see docs/rfcs/2026-07-06-containment-verdicts.md).
  * discard: flips containment_status -> discarded. No grant row is created.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ actionId: string }> }) {
@@ -148,6 +164,48 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
       }
     }
 
+    // Database containment (RFC 2026-09-04): a db ref promotes by REPLAYING
+    // the action's original recorded act against production, not by merging a
+    // branch. `action_records` stores only the act's content hash, so the act
+    // itself comes from the guard decision the row was created from
+    // (guard_decision_id -> guard_decisions.context.act) — the same field
+    // `dashclaw contained apply` reads, so both sides hash identically and the
+    // single-use grant binds. Resolved BEFORE any mutation, same
+    // unpromotable-state class as CONTAINMENT_REF_MISSING: a db ref whose act
+    // cannot be recovered must never fall through to `git merge --no-ff` on a
+    // branch that does not exist. Discard is exempt.
+    let promotionAct: unknown;
+    // The file path's constant: merging a reviewed diff is a 20. A db replay
+    // IS the risky act, so it carries the original action's score.
+    let promotionRiskScore = 20;
+    // Merging a reviewed diff is reversible (git revert). Replaying a database
+    // statement on production is not — recording it as reversible would be a
+    // ledger lie about the one act this feature exists to make deliberate.
+    let promotionReversible = true;
+    if (verdict === 'promote' && isDbContainmentRef(containmentRef)) {
+      promotionReversible = false;
+      const fullRow = await getActionRecord(sql, orgId, actionId);
+      const decisionId = fullRow?.guard_decision_id;
+      const decision = typeof decisionId === 'string' && decisionId
+        ? await getGuardDecisionById(sql, orgId, decisionId)
+        : null;
+      const recordedAct = parseDecisionContext(decision?.context)?.act;
+      if (!recordedAct || typeof recordedAct !== 'object' || Array.isArray(recordedAct)) {
+        return NextResponse.json(
+          {
+            error: 'CONTAINMENT_ACT_MISSING',
+            message: 'This database containment has no recorded act to replay — the guard decision that staged it is gone or carried no act.',
+          },
+          { status: 409 }
+        );
+      }
+      promotionAct = recordedAct;
+      // `!= null` on purpose: Number(null) is 0, which would silently record a
+      // high-risk replay as a zero-risk one.
+      const recordedRisk = fullRow?.risk_score != null ? Number(fullRow.risk_score) : NaN;
+      if (Number.isFinite(recordedRisk)) promotionRiskScore = Math.max(0, Math.min(Math.round(recordedRisk), 100));
+    }
+
     // Shared by the first-promote path and the re-issue-after-consumed path:
     // raise the synthetic grant row — same insert shape as POST
     // /api/actions / guard's ?record=true. Born 'running' (never
@@ -163,9 +221,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
           agent_id: action.agent_id as string | null | undefined,
           action_type: 'containment_promote',
           declared_goal: buildPromotionGoal(actionId),
-          act: buildPromotionAct(containmentRef as string),
-          risk_score: 20,
-          reversible: true,
+          act: buildPromotionAct(containmentRef as string, promotionAct),
+          risk_score: promotionRiskScore,
+          reversible: promotionReversible,
           reasoning,
         },
         actionStatus: 'running',
@@ -193,7 +251,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
         orgId,
         actionId,
         action.agent_id as string | null | undefined,
-        computeActContentHash(buildPromotionAct(containmentRef as string)),
+        computeActContentHash(buildPromotionAct(containmentRef as string, promotionAct)),
       );
       if (existingGrant) {
         // Grant was never consumed (merge never ran, or a prior merge is

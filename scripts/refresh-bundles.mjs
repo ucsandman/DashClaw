@@ -73,7 +73,7 @@ const BUNDLE_EXCLUDE_RE = /(^|[\\/])(__pycache__|\.pytest_cache)([\\/]|$)/;
 const PLUGIN_GOVERNANCE_SKILL_DIR = resolve(REPO_ROOT, 'plugins', 'dashclaw', 'skills', 'dashclaw-governance');
 // Plugin hooks mirror — the canonical Claude Code hook scripts live in
 // hooks/ (HOOKS_BUNDLE_DIR). The plugin ships firing governance hooks
-// (PreToolUse / PostToolUse / Stop) via plugins/dashclaw/hooks/, so the four
+// (PreToolUse / PostToolUse / Stop) via plugins/dashclaw/hooks/, so the five
 // .py scripts plus the dashclaw_agent_intel/ module are mirrored from the
 // canonical source here on every refresh. The authored hooks.json (which
 // references ${CLAUDE_PLUGIN_ROOT}) is NOT generated — it's left untouched.
@@ -82,6 +82,7 @@ const PLUGIN_HOOK_SCRIPTS = [
   'dashclaw_pretool.py',
   'dashclaw_posttool.py',
   'dashclaw_stop.py',
+  'dashclaw_db_containment.py',
   'enforcement_liveness_probe.py',
 ];
 

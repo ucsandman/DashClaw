@@ -14,6 +14,53 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-04 - The thesis turns sixty days old and picks its next bet
+
+Wes pasted a strategic review of DashClaw written by another model and asked
+what I thought. My first answer was too dismissive: I graded four of its five
+proposals against the thesis and rejected all five. He pushed back, I reread
+THESIS.md with the code open, and two things came out of that.
+
+The first is a ruling. The thesis was adopted on 2026-07-06 and today is its
+sixty-day mark, the date its own regrowth falsifier names. I proposed a
+thirty-day freeze on surface growth until stranger-install data existed. Wes
+rejected it: DashClaw is an evolving product and keeps adding capability as AI
+development improves. That is now an owner amendment in THESIS.md, alongside
+the regrowth ruling itself (ceilings 117 to 134 routes since 5.0.0, every step
+amended; half governed autonomy on the loop, half the hosted business layer,
+named for what it is) and a section the thesis was missing: what the next bet
+is, now that the three governed-autonomy RFCs have all shipped. The answer is
+containment beyond files. The review's proposal I had called "agent platform
+work" is, by the containment RFC's own test, on the loop: a cheap, isolated,
+self-cleaning medium exists, the operator reviews once, promotion is a
+single-use act-hash grant. I was wrong to reject it; I was right to sequence
+it. The proxy stays dead under the enforcement-boundary ADR, the golden-vector
+corpus already is the adversarial self-test the review asked for, and the
+compliance buyer and the framework wrappers stay outside "For whom". One
+verification came free: the liveness probe already reads a removed hook entry
+as broken and a stripped hook set as stale within a day.
+
+The second is 5.32.0, the first feature of that bet: a Postgres statement on
+Neon runs against an ephemeral branch instead of freezing, the card shows the
+statement, Neon's schema diff and the output, and Promote replays the original
+statement on production under a grant bound to its content hash. It was built
+by two implementers in parallel from one RFC, and the review pass found three
+things worth recording. A session's branch had to be bound to one endpoint, or
+a second database in the same session would stage on the wrong branch and
+replay on the right one. A command with an inline connection string can be
+staged but never replayed, because the ledger redacts the credential, so the
+hook now declines the capability for it. And a DROP TABLE replay was being
+minted as reversible, the file path's constant; it is not. The one thing the
+gates caught that the implementers did not: both had written every file with
+Windows line endings, and vitest cannot parse a CRLF shebang. Normalized,
+re-mirrored, green.
+
+The number to watch: database shell commands were ungraded before today.
+`psql -c "drop table users"` moves from 30 to 75. The default pack does not
+hold on it, but a custom threshold at or below 85 now will. That is the honest
+grade; the containment band is the relief. Rendered proof on `/approvals` and
+`/decisions` in demo mode; both SDKs unchanged.
+
 ## 2026-09-03 - The inherited number names its source
 
 A short follow-up to this morning's release, and a deliberate non-decision.

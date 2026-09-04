@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: SDK Lead
-last-verified: 2026-09-01
+last-verified: 2026-09-04
 doc-type: architecture
 ---
 
@@ -50,7 +50,10 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
   `client_capabilities: ['allow_contained']` by default, so a bare SDK caller
   never receives the verdict itself; these methods manage rows that reached
   `awaiting_promotion` some other way (a capability-aware hook, or the
-  dashboard).
+  dashboard). Database containment (RFC 2026-09-04) adds **no SDK method and no
+  SDK change**: its second capability string, `allow_contained:db`, exists for
+  hook callers that can stage a database branch, and both SDKs stay silent on
+  it for the same reason they stay silent on `allow_contained`.
 - **Pairing (enrollment)**: `createPairing`, `waitForPairing`.
 - **Security**: `scanPromptInjection`.
 - **Policies**: `createDelegationConstraint` / `create_delegation_constraint` — convenience
@@ -80,7 +83,7 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
 | Action outcome (durable execution finality) | Yes | Yes | `POST/GET /api/actions/:id/outcome` + cron sweep + `lost_confirmation` signal + SDK wrappers. Full parity. |
 | Sessions / action graph | Yes | Yes | Canonical. |
 | Plans (preflight authorization) | Yes | Yes | `submitPlan`/`submit_plan`, `getPlan`/`get_plan`, `listPlans`/`list_plans`, `resolvePlan`/`resolve_plan`, `waitForPlanReview`/`wait_for_plan_review`, `attestPlan`/`attest_plan`. Full parity (6 Node + 6 Python). |
-| Containment (`allow_contained` verdicts) | Yes | Yes | `resolveContainment`/`resolve_containment`, `listContained`/`list_contained`. Full parity (2 Node + 2 Python). Neither SDK sets `client_capabilities: ['allow_contained']` in v1 — only hook-cooperating harnesses opt in. |
+| Containment (`allow_contained` verdicts) | Yes | Yes | `resolveContainment`/`resolve_containment`, `listContained`/`list_contained`. Full parity (2 Node + 2 Python). Neither SDK sets `client_capabilities: ['allow_contained']` (nor the database basis's `allow_contained:db`, RFC 2026-09-04 — no SDK change) in v1 — only hook-cooperating harnesses opt in. |
 | Assumptions | Record | Record + read/validate | `recordAssumption` at parity; `get_assumption` / `validate_assumption` are Python-only. Invalidated assumptions surface as the `assumption_drift` signal. |
 | Signals | Yes | Yes | Canonical. |
 | Security (prompt injection) | Yes | Yes | `POST /api/security/prompt-injection`. |

@@ -76,7 +76,7 @@ const LOOP_STEPS = [
   },
   {
     stage: 'Approve',
-    text: 'require_approval freezes the action and pages a human, who approves or denies with one click, from the Approvals inbox or a phone. Grants are single-use and bound to the exact action. Long runs can submit their whole plan upfront: one review card, per-step verdicts, and each approved step becomes a single-use grant the run draws down without waking you again. An unattended run re-attests that pinned plan at start-up, before its first model call, so drift, expiry, or revocation is caught before it spends anything. Mid-band risk on a file edit can skip the freeze entirely: allow_contained lets the agent keep moving, staged in an isolated worktree, and you promote or discard the diff whenever you get to it.',
+    text: 'require_approval freezes the action and pages a human, who approves or denies with one click, from the Approvals inbox or a phone. Grants are single-use and bound to the exact action. Long runs can submit their whole plan upfront: one review card, per-step verdicts, and each approved step becomes a single-use grant the run draws down without waking you again. An unattended run re-attests that pinned plan at start-up, before its first model call, so drift, expiry, or revocation is caught before it spends anything. Mid-band risk on a file edit or a database statement can skip the freeze entirely: allow_contained lets the agent keep moving, staged in an isolated git worktree or an ephemeral Neon branch, and you promote or discard the evidence whenever you get to it.',
   },
   {
     stage: 'Prove',

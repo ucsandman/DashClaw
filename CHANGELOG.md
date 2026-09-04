@@ -13,6 +13,26 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.32.0] — 2026-09-04 — Containment reaches the database: a Postgres statement stages on a Neon branch
+
+### Added
+
+- **A database statement can now run contained instead of freezing.** The containment verdict has applied only to file mutations since 5.0.0: the act ran in a git worktree, the operator reviewed the diff once, and Promote raised a single-use grant for the merge. The same shape now covers Postgres on Neon. When a `Bash` act targets a Neon database through `psql`, `pg_restore`, `prisma` or `drizzle-kit` and the guard answers `allow_contained` with basis `db_branch`, the Claude Code / Codex / Hermes hook creates one ephemeral Neon branch for the session (parent = the branch the target endpoint belongs to, self-deleting after `DASHCLAW_DB_CONTAINMENT_TTL_HOURS`, default 72), rewrites the command to run against it, and after the run posts the statement, Neon's schema diff and the output tail as the evidence artifact. The card on `/approvals` reads "Database branch", and its button reads "Promote — replay on production": Promote mints a single-use, act-hash-bound `containment_promote` grant for the **original** statement, which `dashclaw contained apply` then runs against the real database. Discard leaves the branch to expire. RFC: `docs/rfcs/2026-09-04-database-containment.md`; THESIS.md carries the 2026-09-04 owner amendment that names containment beyond files as the next bet.
+- **Inert unless you opt in.** The hook advertises the new capability string `allow_contained:db` only when `NEON_API_KEY` is in its environment, `DASHCLAW_DB_CONTAINMENT` is not `0`, the command is a database command and the target host is `*.neon.tech`. Without that, and for every non-Neon database, the verdict lands as `require_approval` exactly as before. Version skew only tightens: an old hook never receives a `db_branch` verdict, and an old server never emits one. A session stages against one database; a second endpoint in the same session interrupts instead of staging on the wrong branch.
+- **Database shell commands are now graded.** The evidence classifier used to see `psql -c "DROP TABLE users"` as an unflagged `other` at 30. It now tags database commands with the `database` flag and grades inline SQL with the SQL classifier (`psql -c "drop table users"` scores 75 with `database` + `ddl`; `npx prisma migrate deploy` scores 60; `psql -c "select 1"` stays at 10). The default catastrophe pack keys on `protected_target`, which this never sets, so a fresh install's behavior on `psql` does not change. **An org with a custom `risk_threshold` hold at or below 85 will start holding destructive `psql` calls that previously ran unheld.** That is the honest grade, and the containment band is the relief valve.
+- **CLI.** `dashclaw contained diff` prints database evidence; `dashclaw contained apply` on a database ref guards the original statement and runs it from the repo root with the operator's own environment. `@dashclaw/cli` 0.13.0.
+
+### Changed
+
+- A command that carries an inline `postgres://user:pass@host` literal stays on the approval rail: the ledger's sensitive-data scan redacts the credential inside the recorded act, so a replay could never be byte-exact, and the hook declines the capability rather than offering a card nobody can promote.
+- The minted database promotion grant records the original action's `risk_score` and `reversible: false`; the file path keeps its constant 20 / reversible.
+- Every artifact and log line the hooks write now has the password component of any Postgres URL redacted (file containment included).
+
+### Notes
+
+- Zero new API routes, pages, MCP tools, SDK methods, CLI commands or policy types; surface budget untouched; no migration. Node and Python SDK source unchanged (republished at 5.32.0 by the tag with identical source). Plugin bundle 3.2.0 carries the new `dashclaw_db_containment.py` hook module; `scripts/install-hooks.mjs` copies it.
+- Not in v1, recorded in the RFC: SDK/MCP callers staging their own branch, data diffs (Neon has none; statement + schema diff + output are the evidence), non-Neon providers, early branch deletion on Discard.
+
 ## [5.31.1] — 2026-09-03 — An inherited confidence names the decision it came from
 
 ### Fixed

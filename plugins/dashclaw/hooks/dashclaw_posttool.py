@@ -31,6 +31,15 @@ from dashclaw_agent_intel.stop_state import contained_turn_path as _contained_tu
 from dashclaw_agent_intel.command_parser import parse_command as _parse_command
 from dashclaw_agent_intel.written_paths_ledger import record_written_paths as _ledger_record
 
+# Database containment (basis db_branch, RFC 2026-09-04): schema diff + the
+# connection-URL scrub. Optional import for the same reason as in
+# dashclaw_pretool.py -- an installation whose hook files predate this module
+# must keep reporting outcomes, not crash on every tool call.
+try:
+    import dashclaw_db_containment
+except Exception:  # pragma: no cover - only reachable on a partial install
+    dashclaw_db_containment = None
+
 # ---------------------------------------------------------------------------
 # Load .env file (C:/Projects/DashClaw/.env) before reading config.
 # Values already in the environment take precedence.
@@ -551,12 +560,22 @@ _ACT_SCRUB_KV = re.compile(r"(password|token|secret)\s*=\s*[^\s&\"']+", re.IGNOR
 
 
 def _scrub_act_text(text):
-    """Mask secret-looking substrings before the text leaves the machine."""
+    """Mask secret-looking substrings before the text leaves the machine.
+
+    One INTENTIONAL divergence from pretool's mirror (the comment above
+    predates it): the postgres(ql)://user:pass@host password is redacted here
+    and NOT in pretool. Promotion replays the action's original recorded act
+    byte-for-byte (RFC 2026-09-04), so a password redacted at record time
+    would be replayed as "[REDACTED]" against production. Redaction belongs
+    only on the copy a human reads."""
     if not text:
         return text
     for pattern, replacement in _ACT_SCRUB_PATTERNS:
         text = pattern.sub(replacement, text)
-    return _ACT_SCRUB_KV.sub(lambda m: m.group(1) + "=[REDACTED]", text)
+    text = _ACT_SCRUB_KV.sub(lambda m: m.group(1) + "=[REDACTED]", text)
+    if dashclaw_db_containment is not None:
+        text = dashclaw_db_containment.scrub_db_credentials(text)
+    return text
 
 
 def _maybe_post_containment_diff(action_id, ref, worktree, base_sha=None):
@@ -652,6 +671,138 @@ def _maybe_post_containment_diff(action_id, ref, worktree, base_sha=None):
         return False
 
 
+_STDOUT_TAIL_BYTES = 4096
+
+
+def _tool_output_tail(tool_response, cap_bytes=_STDOUT_TAIL_BYTES):
+    """The last cap_bytes of what the tool printed, credentials scrubbed.
+
+    The output IS the evidence for a data-only change (Neon has no data-diff
+    API), so this is not decoration -- it is half of what the operator reviews
+    before replaying the statement on production. Sliced on BYTES, not
+    characters, to match the artifact-size contract; a split multi-byte
+    sequence decodes to a replacement char rather than raising.
+
+    Scrubbed BEFORE the slice, never after: tail-slicing cuts the FRONT, so a
+    connection URL straddling the cut would lose its `postgres://` prefix and
+    with it the only anchor the password regex matches on -- the credential
+    would then survive verbatim into the artifact."""
+    if isinstance(tool_response, list):
+        tool_response = {"content": tool_response}
+    if not isinstance(tool_response, dict):
+        tool_response = {"output": str(tool_response)}
+    text = str(tool_response.get("output") or tool_response.get("stdout") or "")
+    if not text and isinstance(tool_response.get("content"), list):
+        text = "\n".join(
+            block.get("text", "")
+            for block in tool_response["content"]
+            if isinstance(block, dict) and block.get("text")
+        )
+    if not text and tool_response.get("error"):
+        text = str(tool_response["error"])
+    if not text:
+        return ""
+    raw = _scrub_act_text(text).encode("utf-8")[-cap_bytes:]
+    return raw.decode("utf-8", "replace")
+
+
+def _capped_schema_diff(diff):
+    """Scrub, then cap the Neon schema diff at the same byte budget the file
+    path uses for its git diff -- an uncapped diff from a wide-schema migration
+    would blow the /api/artifacts body cap, and a failed POST strands the
+    action at 'contained' with no way to recapture it.
+
+    The truncation marker rides INSIDE the diff string rather than in `note`:
+    the card renders `note` only when the diff is empty, so a note here would
+    never reach the operator."""
+    if not diff:
+        return ""
+    scrubbed = _scrub_act_text(diff)
+    cap = _containment_diff_cap_bytes()
+    raw = scrubbed.encode("utf-8")
+    if len(raw) <= cap:
+        return scrubbed
+    return (raw[:cap].decode("utf-8", "replace")
+            + "\n-- truncated by DashClaw at " + str(cap) + " bytes --\n")
+
+
+def _maybe_post_containment_db_evidence(action_id, ref, db_state, tool_response):
+    """The db_branch sibling of _maybe_post_containment_diff: fetch the Neon
+    schema diff, post ONE `patch` artifact carrying the reviewed evidence, and
+    flip the action to awaiting_promotion.
+
+    Same artifact_type and name pattern as the file path on purpose -- the
+    route's evidence binding (content.ref === containment_ref) and the card's
+    fetch stay unchanged, and `kind: 'db'` tells the renderer which shape it
+    is.
+
+    Unlike the file path, a FAILED schema fetch does not abort the capture. The
+    statement and the output tail are already the primary evidence here (a
+    data-only change produces no schema diff at all), and the Stop hook's
+    sweep can only re-PATCH, never re-capture -- so aborting on a Neon API
+    hiccup would strand an action that has ALREADY run on the branch with no
+    path to review. The artifact says so in `note` instead. A failed artifact
+    POST still aborts, exactly as for files: no evidence, no promotable card.
+
+    Returns True only when the artifact was posted. Fail-silent end to end."""
+    if not ref or not isinstance(db_state, dict):
+        return False
+    try:
+        project_id = db_state.get("project_id")
+        branch_id = db_state.get("branch_id")
+        parent_branch_id = db_state.get("parent_branch_id")
+        db_name = db_state.get("db_name")
+        diff = None
+        if dashclaw_db_containment is not None and project_id and branch_id:
+            diff = dashclaw_db_containment.NeonClient().compare_schema(
+                project_id, branch_id, parent_branch_id, db_name
+            )
+        content_json = {
+            "kind": "db",
+            "ref": ref,
+            "diff": _capped_schema_diff(diff),
+            "statement": _scrub_act_text(db_state.get("statement") or ""),
+            "stdout_tail": _tool_output_tail(tool_response),
+            "project_id": project_id,
+            "branch_id": branch_id,
+            "parent_branch_id": parent_branch_id,
+            "db_name": db_name,
+        }
+        if diff is None:
+            content_json["note"] = (
+                "schema comparison unavailable (Neon API unreachable or the branch "
+                "was already removed) — review the statement and its output"
+            )
+        elif not diff.strip():
+            content_json["note"] = (
+                "schema unchanged — data changes are not diffable; review the "
+                "statement and its output"
+            )
+        posted = _post_artifact({
+            "artifact_type": "patch",
+            "name": "containment-diff-" + action_id,
+            "source_action_id": action_id,
+            "content_json": content_json,
+        })
+        if not posted:
+            _log_always(
+                "containment_artifact_post_failed",
+                "db artifact POST failed for " + action_id
+                + " — leaving contained for stop-hook retry",
+            )
+            return False
+        _patch_action(action_id, {
+            "containment_status": "awaiting_promotion",
+            "containment_ref": ref,
+            "agent_id": AGENT_ID,
+        })
+        return True
+    except Exception as e:
+        _log_always("containment_db_evidence_failed",
+                    "action_id=" + action_id + " " + type(e).__name__ + ": " + str(e))
+        return False
+
+
 def _append_contained_turn_action(session_id, action_id, ref):
     """Append "<action_id>\\t<ref>" to the per-session contained-turn log so
     the Stop hook's awaiting-promotion sweep can flip this action even if the
@@ -706,15 +857,21 @@ def _read_action_state(tool_use_id):
     older hook version that predates F1). Observe-mode block /
     require_approval decisions (_write_unenforced_action_state, F0) write
     {"action_id": ..., "unenforced_verdict": "block"|"require_approval"}.
+    A db_branch contained decision (RFC 2026-09-04) writes the same shape with
+    a "containment_db" object instead of a worktree/base_sha ({ref, project_id,
+    parent_branch_id, branch_id, host, db_name, statement}) -- its presence is
+    how this hook tells the two staging media apart.
     Returns {"action_id": str|None, "containment_ref": str|None,
     "containment_worktree": str|None, "containment_base_sha": str|None,
-    "unenforced_verdict": str|None} -- never raises.
+    "containment_db": dict|None, "unenforced_verdict": str|None} -- never
+    raises.
     """
     empty = {
         "action_id": None,
         "containment_ref": None,
         "containment_worktree": None,
         "containment_base_sha": None,
+        "containment_db": None,
         "unenforced_verdict": None,
     }
     path = _action_state_path(tool_use_id)
@@ -735,6 +892,7 @@ def _read_action_state(tool_use_id):
             "containment_ref": parsed.get("containment_ref"),
             "containment_worktree": parsed.get("containment_worktree"),
             "containment_base_sha": parsed.get("containment_base_sha"),
+            "containment_db": parsed.get("containment_db"),
             "unenforced_verdict": parsed.get("unenforced_verdict"),
         }
     return {
@@ -742,6 +900,7 @@ def _read_action_state(tool_use_id):
         "containment_ref": None,
         "containment_worktree": None,
         "containment_base_sha": None,
+        "containment_db": None,
         "unenforced_verdict": None,
     }
 
@@ -934,9 +1093,17 @@ def main():
     # No-op for ordinary (non-contained) actions.
     containment_ref = state.get("containment_ref")
     if containment_ref:
-        captured = _maybe_post_containment_diff(
-            action_id, containment_ref, state.get("containment_worktree"), state.get("containment_base_sha")
-        )
+        # Two staging media, one lifecycle: the db_branch state has no
+        # worktree to commit or diff, so it takes the Neon evidence path.
+        db_state = state.get("containment_db")
+        if db_state:
+            captured = _maybe_post_containment_db_evidence(
+                action_id, containment_ref, db_state, tool_response
+            )
+        else:
+            captured = _maybe_post_containment_diff(
+                action_id, containment_ref, state.get("containment_worktree"), state.get("containment_base_sha")
+            )
         # IMPORTANT 3 (final fix wave, 2026-07-27): only feed the Stop hook's
         # awaiting-promotion backstop sweep when capture actually succeeded —
         # see _append_contained_turn_action's caller contract above. A failed

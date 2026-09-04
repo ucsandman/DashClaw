@@ -205,6 +205,55 @@ surfaces raise the ceilings below in the same commit that adds them, per the
 brake's own rule. Full reasoning and non-reversals:
 [`docs/decisions/2026-07-09-fleets-and-teams.md`](docs/decisions/2026-07-09-fleets-and-teams.md).
 
+## Owner amendment — 2026-09-04: an evolving product, and the next bet
+
+**Adopted by Wes (owner), full authority.** Three rulings, recorded on the
+60-day mark of this thesis.
+
+**1. No surface freeze.** The maintainer proposed a 30-day freeze on surface
+growth pending stranger-install data. The owner rejected it: DashClaw is an
+evolving product and must keep adding capability as AI development improves.
+The anti-regrowth brake stays exactly as written — every ceiling raise is a
+recorded, reasoned amendment — but a raise is not a failure of identity when
+the surface sits on the loop. Falsifier #3 (Regrowth) is re-read accordingly:
+it watches for *un-amended* growth and for growth *off the loop*, not for
+growth itself.
+
+**2. The 60-day regrowth ruling.** Between v5.0.0 and today the ceilings moved
+117 → 134 routes, 45 → 53 pages, 12 → 17 MCP tools, 28 → 40 Node SDK methods,
+14 → 17 policy types. Every step is in the amendment log with a reason, so the
+brake held mechanically. Read by substance: roughly half of the growth is the
+governed-autonomy program (plans, delegation, containment, deviation,
+attestation, role constraints, the approval pause and per-card grants) and is
+on the loop; the other half is the hosted business layer (usage, claim, team
+invites, checkout, portal, pricing, Pulse) adopted under
+`docs/decisions/2026-08-09-hosted-paid-tier.md`. That layer is named here for
+what it is — the commercial operation of the control plane, not a governance
+surface — so that the next reader does not mistake it for the agent-platform
+regrowth this thesis was written to prevent. Identity held.
+
+**3. The next bet: containment beyond files.** The forward bet named in
+"Explicitly out of scope" (the three 2026-07-06 governed-autonomy RFCs) has
+fully shipped. The thesis now names its successor so the product is not
+steering by a finished roadmap: **extend the containment verdict from the file
+system to the other effect classes the loop can make reversible**, starting
+with Postgres on Neon (`docs/rfcs/2026-09-04-database-containment.md`, zero
+ceiling change). The test for each extension is the same one the original
+containment RFC set: a cheap, isolated, self-cleaning medium exists for the
+effect, the operator reviews evidence once, and promotion is a single-use,
+act-hash-bound grant. Effects with no such medium (payments, message sends,
+deploys) stay on the `require_approval` rail.
+
+The 2026-09 outsider review that prompted this amendment also proposed an
+infrastructure proxy, adversarial self-testing of policy changes, a compliance
+export, and enterprise-framework wrappers. The proxy stays dead under the
+enforcement-boundary ADR; the golden-vector corpus already is the self-test;
+the compliance buyer and the framework wrappers stay outside "For whom".
+One verification came out of it: the liveness probe already reads a removed
+PreToolUse entry as `unprovable` → `broken`, and a fully stripped hook set
+as `stale` within 24h, surfaced as a posture finding — so falsifier #6 holds
+for the tamper case the review raised.
+
 ## Falsification — what would prove this thesis wrong
 
 Criteria that fire **without** strangers (the last eight eras prove stranger

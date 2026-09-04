@@ -1,23 +1,23 @@
 {
   "node": {
-    "current_version": "5.31.1",
+    "current_version": "5.32.0",
     "next_bump": "none",
-    "reason": "v5.31.1 (inherited confidence stamps guard_decision_id on the record). Node SDK source unchanged: no method added or changed (40 methods), no docs touched. Platform-only patch; the v5.31.1 tag fires release.yml and republishes the Node SDK at 5.31.1 via OIDC with identical source (5.27.8 precedent: platform-only versions still advance the shared number).",
+    "reason": "v5.32.0 (database containment: allow_contained basis db_branch on Neon ephemeral branches). Node SDK source unchanged: no method added or changed (40 methods); the new capability string allow_contained:db is advertised by the hook seam only. Platform + hooks + CLI release; the v5.32.0 tag fires release.yml and republishes the Node SDK at 5.32.0 via OIDC with identical source (5.27.8 precedent: platform-only versions still advance the shared number).",
     "domains": [
       "platform",
       "node"
     ]
   },
   "python": {
-    "current_version": "5.31.1",
+    "current_version": "5.32.0",
     "next_bump": "none",
-    "reason": "v5.31.1 (inherited confidence stamps guard_decision_id on the record). Python SDK source unchanged: no method added or changed (60 methods), no docs touched. Platform-only patch; the v5.31.1 tag fires release.yml and republishes the Python SDK at 5.31.1 via OIDC (skip-existing) with identical source.",
+    "reason": "v5.32.0 (database containment). Python SDK source unchanged: no method added or changed (60 methods), no SDK docs touched. The v5.32.0 tag fires release.yml and republishes the Python SDK at 5.32.0 via OIDC (skip-existing) with identical source.",
     "domains": [
       "platform",
       "python"
     ]
   },
-  "reason": "5.31.1 makes the 5.31.0 confidence inheritance auditable: findInheritedConfidence returns the matched guard decision's id with its confidence, and POST /api/actions stamps it as guard_decision_id when the client sent none, so the scored row links explicitly to the decision that stated the prediction. Client-supplied ids are kept; the same-org gate on client ids is unchanged. Zero new API routes, pages, MCP tools, SDK methods or CLI commands (surface budget untouched); no migration. Both SDKs unchanged and republished at 5.31.1 by the tag. @dashclaw/mcp-server stays at 3.1.5 (already on npm); @dashclaw/cli is unchanged and its job skips.",
+  "reason": "5.32.0 extends the containment verdict from the file system to Postgres on Neon: a shell act that targets a database (psql, pg_restore, prisma, drizzle-kit) can run against an ephemeral Neon branch of the target, the operator reviews the statement, the schema diff and the output once on /approvals, and Promote raises a single-use act-hash-bound grant that replays the original statement on production (dashclaw contained apply). Server: db_branch eligibility, per-basis capability negotiation (allow_contained:db), dashclaw/contained-db-<seg> refs, db promote mints the ORIGINAL act at the original risk score, reversible:false; the evidence classifier now grades database shell commands (database flag, inline SQL via classifySql). Hooks: dashclaw_db_containment.py (Neon client, target detection, rewrite, credential scrub), one branch per session bound to one endpoint, inline connection-string commands never advertised. Zero new API routes, pages, MCP tools, SDK methods, CLI commands or policy types (surface budget untouched); no migration. Both SDKs unchanged and republished at 5.32.0 by the tag. @dashclaw/cli 0.13.0 (contained diff/apply learn db refs). Plugin bundle 3.2.0 (new hook module). @dashclaw/mcp-server stays at 3.1.5.",
   "domains": [
     "platform",
     "node",

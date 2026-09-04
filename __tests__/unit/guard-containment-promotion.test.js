@@ -277,4 +277,61 @@ describe('containment_promote is excluded from allow_grant and plan-step grants'
     expect(res.decision).toBe('allow');
     expect(res.matched_policies).toContain('builtin:operator_approval');
   });
+
+  // Database containment (RFC 2026-09-04): the promotion act for a db ref is
+  // the action's ORIGINAL recorded act, so the same act-hash binding now
+  // covers a REPLAY on production instead of a merge. Same single-use grant,
+  // same builtins — only the act differs.
+  describe('db ref promotion', () => {
+    const DB_REF = 'dashclaw/contained-db-1';
+    const ORIGINAL_ACT = { kind: 'shell', command: 'psql -c "alter table users add column tier text"' };
+
+    it('the grant minted from the original act is consumed by a retry presenting that same act', async () => {
+      const act = buildPromotionAct(DB_REF, ORIGINAL_ACT);
+      expect(act).toEqual(ORIGINAL_ACT);
+      const grantRow = {
+        action_id: 'act_promo_db_1',
+        approved_by: 'user_admin_1',
+        act_content_hash: computeActContentHash(act),
+      };
+      const sql = makeSql({ grantRows: [grantRow] });
+
+      const res = await evaluateGuard('org_1', guardCall(act), sql);
+
+      expect(res.decision).toBe('allow');
+      expect(res.matched_policies).toContain('builtin:containment_promote');
+      expect(res.matched_policies).toContain('builtin:operator_approval');
+      const lookup = sql.taggedCalls.find((c) => c.text.includes('approved_by IS NOT NULL'));
+      expect(lookup.values).toContain(computeActContentHash(ORIGINAL_ACT));
+      expect(lookup.values).toContain('containment_promote');
+    });
+
+    it('a merge-shaped act does NOT satisfy a db grant (different hash, no row)', async () => {
+      const approvedHash = computeActContentHash(ORIGINAL_ACT);
+      const mergeAct = { kind: 'shell', command: `git merge --no-ff ${DB_REF}` };
+      expect(computeActContentHash(mergeAct)).not.toBe(approvedHash);
+
+      const taggedCalls = [];
+      const sql = (strings, ...values) => {
+        const text = String.raw({ raw: strings }, ...Array(values.length).fill('?'));
+        taggedCalls.push({ text, values });
+        if (/FROM guard_policies/i.test(text)) return Promise.resolve([]);
+        if (text.includes('FROM action_records')) {
+          // Emulate the real predicate: the stamped row only matches when the
+          // retry's hash equals the approved one.
+          return Promise.resolve(values.includes(approvedHash)
+            ? [{ action_id: 'act_promo_db_1', approved_by: 'user_admin_1', act_content_hash: approvedHash }]
+            : []);
+        }
+        return Promise.resolve([]);
+      };
+      sql.query = async () => [];
+      sql.taggedCalls = taggedCalls;
+
+      const res = await evaluateGuard('org_1', guardCall(mergeAct), sql);
+
+      expect(res.decision).toBe('require_approval');
+      expect(res.matched_policies).toContain('builtin:containment_promote');
+    });
+  });
 });

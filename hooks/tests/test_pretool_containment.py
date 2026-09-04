@@ -100,6 +100,11 @@ def _run_hook(stdin_data, env_overrides=None, timeout=15):
     for key in list(env.keys()):
         if key.startswith("DASHCLAW_"):
             del env[key]
+    # A developer with a real Neon setup exported would otherwise have the db
+    # capability appended here (RFC 2026-09-04) and see these exact-equality
+    # assertions fail where CI passes.
+    for key in ("DATABASE_URL", "NEON_API_KEY", "NEON_PROJECT_ID", "PGHOST"):
+        env.pop(key, None)
     env["DASHCLAW_DISABLE_DOTENV"] = "1"
     if env_overrides:
         env.update(env_overrides)

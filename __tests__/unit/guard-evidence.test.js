@@ -562,6 +562,85 @@ describe('classifyAct — sql', () => {
   });
 });
 
+// Database acts (RFC 2026-09-04-database-containment). Before this branch,
+// `psql -c "DROP TABLE users"` graded other/30 with no flags — the shell
+// classifier had no notion of an effect that lands in Postgres. It is honest
+// grading, not a new hold: the branch never sets `protected_target`, which is
+// what the default packs' mass-destructive line keys on (2026-08-21).
+describe('classifyAct — shell acts that target a database', () => {
+  it('grades a benign inline SELECT as review, flagged database', () => {
+    const c = classifyAct({ kind: 'shell', command: 'psql -c "select 1"' });
+    expect(c.derived_action_type).toBe('review');
+    expect(evidenceTotal(c)).toBeLessThanOrEqual(20);
+    expect(c.flags).toContain('database');
+    expect(c.flags).not.toContain('protected_target');
+  });
+
+  it('grades inline DDL by the SQL it runs (database + ddl, no protected_target)', () => {
+    const c = classifyAct({ kind: 'shell', command: 'psql -c "drop table users"' });
+    expect(evidenceTotal(c)).toBeGreaterThanOrEqual(70);
+    expect(c.derived_action_type).toBe('migrate');
+    expect(c.reversible_hint).toBe(false);
+    expect(c.flags).toContain('database');
+    expect(c.flags).toContain('ddl');
+    expect(c.flags).not.toContain('protected_target');
+    expect(c.flags).not.toContain('destructive');
+  });
+
+  it('carries the SQL classifier MODIFIERS too, not just its base (whereless UPDATE)', () => {
+    const c = classifyAct({ kind: 'shell', command: 'psql -c "update users set admin = true"' });
+    expect(c.flags).toEqual(expect.arrayContaining(['database', 'whereless']));
+    expect(evidenceTotal(c)).toBe(65); // 45 + 20, the same grade the sql act gets
+  });
+
+  it('grades migration tools (no visible statements) as migrate/60, npx-style prefixes included', () => {
+    for (const command of [
+      'npx prisma migrate deploy',
+      'pnpm dlx drizzle-kit push',
+      'yarn drizzle-kit migrate',
+      'psql -f migrations/0001.sql',
+      'pg_restore -d app dump.sql',
+      'prisma db push',
+    ]) {
+      const c = classifyAct({ kind: 'shell', command });
+      expect(c.derived_action_type, command).toBe('migrate');
+      expect(evidenceTotal(c), command).toBeGreaterThanOrEqual(55);
+      expect(c.flags, command).toContain('database');
+    }
+  });
+
+  it('grades a heredoc body — the chain-splitter severs it from its client', () => {
+    const c = classifyAct({ kind: 'shell', command: "psql <<'SQL'\ndrop table users;\nSQL" });
+    expect(c.flags).toEqual(expect.arrayContaining(['database', 'ddl']));
+    expect(evidenceTotal(c)).toBeGreaterThanOrEqual(70);
+  });
+
+  it('treats an unquoted connection-string literal as a database act', () => {
+    const c = classifyAct({ kind: 'shell', command: 'pgbouncer-reload postgres://user@host:5432/app' });
+    expect(c.flags).toContain('database');
+  });
+
+  it('does NOT fire on a git commit MESSAGE that merely mentions psql (inert data, ordering)', () => {
+    const c = classifyAct({ kind: 'shell', command: 'git commit -m "fix the psql -c drop table users grading"' });
+    expect(c.flags).toContain('git_message');
+    expect(c.flags).not.toContain('database');
+    expect(c.base_risk).toBe(35);
+  });
+
+  it('does NOT fire on quoted prose, or on a non-writing tool subcommand', () => {
+    const quoted = classifyAct({ kind: 'shell', command: 'echo "postgres://user:pass@host/db"' });
+    expect(quoted.flags).not.toContain('database');
+    const generate = classifyAct({ kind: 'shell', command: 'prisma generate' });
+    expect(generate.flags).not.toContain('database');
+  });
+
+  it('never de-escalates a chained destructive command', () => {
+    const c = classifyAct({ kind: 'shell', command: 'psql -c "select 1" && rm -rf /' });
+    expect(c.flags).toContain('destructive');
+    expect(evidenceTotal(c)).toBeGreaterThanOrEqual(80);
+  });
+});
+
 describe('classifyAct — file', () => {
   it('bumps a write to a secret file', () => {
     const c = classifyAct({ kind: 'file', file: { path: 'config/.env', content_excerpt: 'X=1' } });

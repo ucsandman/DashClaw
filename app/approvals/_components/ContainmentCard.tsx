@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, X, GitMerge, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Check, X, GitMerge, Database, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import ContainmentDbEvidence, { isDbPatchContent, type PatchArtifactContent } from '../../components/ContainmentDbEvidence';
 
 interface ContainmentAction {
   action_id: string;
@@ -20,13 +21,11 @@ interface ContainmentAction {
   containment_evidence_ref?: string | null;
 }
 
-interface PatchArtifactContent {
-  diff?: string;
-  stat?: string;
-  ref?: string;
-  truncated?: boolean;
-  untracked?: string[];
-}
+// Database containment (RFC 2026-09-04): the staging medium is readable from
+// the server-derived ref alone, BEFORE the evidence artifact loads — which is
+// what lets the Promote button name the consequence ("replay on production")
+// on first paint instead of after a fetch.
+const DB_REF_PREFIX = 'dashclaw/contained-db-';
 
 // Diffs are session-branch state, not per-action — a diff artifact is
 // CUMULATIVE for every action sharing the same containment_ref (Task 10
@@ -133,6 +132,7 @@ export default function ContainmentCard({
   };
 
   const diffLines = patchContent?.diff ? patchContent.diff.split('\n') : [];
+  const isDb = Boolean(action.containment_ref?.startsWith(DB_REF_PREFIX));
 
   // Evidence state: prefer the freshly fetched artifact once loaded; before
   // that, the batched list enrichment answers both questions with no request.
@@ -152,7 +152,7 @@ export default function ContainmentCard({
     <Card data-entity-type="decision" data-entity-id={action.action_id} data-entity-status="awaiting_promotion" data-entity-action-type={action.action_type} hover={false}>
       <CardContent className="pt-5">
         <div className="mb-1 flex flex-wrap items-center gap-2">
-          <GitMerge size={16} className="text-brand" />
+          {isDb ? <Database size={16} className="text-brand" /> : <GitMerge size={16} className="text-brand" />}
           <Badge variant="brand">Awaiting promotion</Badge>
           <span className="text-xs text-tertiary">{action.agent_name || action.agent_id}</span>
           <span className="text-xs text-tertiary">· {action.action_type}</span>
@@ -170,7 +170,7 @@ export default function ContainmentCard({
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <span>
               {siblingCount} other contained action{siblingCount > 1 ? 's' : ''} share{siblingCount > 1 ? '' : 's'} this ref
-              {hasLaterSibling ? ', including one that postdates this action' : ''} — the diff below shows the full staged branch state, not just this action&apos;s change.
+              {hasLaterSibling ? ', including one that postdates this action' : ''} — the {isDb ? 'evidence' : 'diff'} below shows the full staged branch state, not just this action&apos;s change.
             </span>
           </div>
         )}
@@ -182,17 +182,21 @@ export default function ContainmentCard({
           className="mb-2 inline-flex items-center gap-1 text-xs font-medium text-tertiary transition-colors hover:text-secondary"
         >
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          {expanded ? 'Hide diff' : 'View diff'}
+          {isDb
+            ? (expanded ? 'Hide database evidence' : 'View database evidence')
+            : (expanded ? 'Hide diff' : 'View diff')}
         </button>
 
         {expanded && (
           <div className="mb-4">
             {diffLoading ? (
-              <div className="text-xs text-tertiary">Loading diff…</div>
+              <div className="text-xs text-tertiary">Loading {isDb ? 'evidence' : 'diff'}…</div>
             ) : !patchContent ? (
               <div className="rounded-lg border border-border bg-surface-tertiary px-3 py-2.5 text-xs text-tertiary">
-                No diff artifact captured — review via <code className="font-mono text-secondary">dashclaw contained diff</code>.
+                No {isDb ? 'evidence' : 'diff'} artifact captured — review via <code className="font-mono text-secondary">dashclaw contained diff</code>.
               </div>
+            ) : isDbPatchContent(patchContent) ? (
+              <ContainmentDbEvidence content={patchContent} />
             ) : (
               <div className="space-y-2">
                 {patchContent.stat && (
@@ -218,13 +222,15 @@ export default function ContainmentCard({
 
         {evidenceKnown && !hasEvidence && (
           <p className="mb-3 text-xs text-warning">
-            No diff artifact captured for this action — Promote is disabled to avoid merging nothing.
+            No {isDb ? 'evidence' : 'diff'} artifact captured for this action — Promote is disabled to avoid
+            {isDb ? ' replaying unreviewed work' : ' merging nothing'}.
           </p>
         )}
 
         {refMismatch && (
           <p className="mb-3 text-xs text-warning">
-            Reviewed diff targets a different branch than this action&apos;s merge target — Promote is disabled.
+            Reviewed {isDb ? 'evidence describes' : 'diff targets'} a different branch than this action&apos;s
+            {isDb ? ' staged branch' : ' merge target'} — Promote is disabled.
           </p>
         )}
 
@@ -234,14 +240,16 @@ export default function ContainmentCard({
             disabled={busy || !canDecide || (evidenceKnown && !hasEvidence) || refMismatch}
             title={
               evidenceKnown && !hasEvidence
-                ? 'No diff artifact captured — nothing to merge'
+                ? `No ${isDb ? 'evidence' : 'diff'} artifact captured — nothing to ${isDb ? 'replay' : 'merge'}`
                 : refMismatch
-                  ? 'Reviewed diff targets a different branch than this action\'s merge target'
+                  ? `Reviewed ${isDb ? 'evidence describes' : 'diff targets'} a different branch than this action's ${isDb ? 'staged branch' : 'merge target'}`
                   : undefined
             }
             className="inline-flex items-center gap-1.5 rounded-lg border border-success/20 bg-success-subtle px-3 py-1.5 text-sm font-medium text-success transition-colors hover:bg-success/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Check size={16} /> Promote
+            {/* The consequence lives on the button for a db card: Promote does
+                not merge a branch, it re-runs the statement on production. */}
+            <Check size={16} /> {isDb ? 'Promote — replay on production' : 'Promote'}
           </button>
           <button
             onClick={() => submit('discard')}

@@ -199,7 +199,7 @@ dashclaw doctor`}</pre>
                   'Plan deviation events -- every governed action is diffed against the live approved plan; departures (substituted payloads, scope escapes, off-plan actions) are always recorded, and consequence is your explicit per-kind policy choice',
                   'Scoped delegation constraints -- cap a spawned subagent\'s risk, action types, paths, and depth; attenuation only tightens',
                   'Role constraints -- a named authority bundle per agent role (allowed action types, risk ceiling, path scope); anything outside the role escalates to your inbox',
-                  'Containment verdicts -- a file-scoped edit can proceed reversibly instead of freezing: staged in an isolated worktree, you promote or discard the diff on your own time',
+                  'Containment verdicts -- a file-scoped edit or a Postgres statement can proceed reversibly instead of freezing: staged in an isolated worktree or an ephemeral Neon branch, you promote or discard the evidence on your own time',
                   'Approval flood guard with bulk resolution',
                   'Plain-English approvals -- every pending item leads with one sentence for what the command actually does, flags what cannot be undone, and shows the exact command underneath',
                   'One judgment queue on /policies -- tuning, tightening, loosening, and calibration proposals with ratify/dismiss/undo in one click',

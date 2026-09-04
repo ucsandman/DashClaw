@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execFileSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +24,10 @@ import { loadInstance } from '../lib/up/instance.js';
 import { runCodexNotify } from '../lib/codex/notify.js';
 import { apiRequest } from '../lib/api.js';
 import { runBackfill } from '../lib/backfill.js';
+import {
+  CONTAINMENT_REF_PATTERN, isDbContainmentRef, buildPromotionGoal, buildPromotionAct,
+  containmentWorktreePath, originalActOf, actCommandOf, hasRedactionMarker, formatDbEvidence,
+} from '../lib/contained.js';
 
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
@@ -732,31 +736,8 @@ async function cmdImport() {
 // `diff` are read-only; `apply` runs the governed merge once an operator has
 // promoted the action from the dashboard.
 
-// Pinned to app/lib/guard/containment.ts buildPromotionGoal/buildPromotionAct
-// — the CLI never imports app/** code, so these two tiny string builders are
-// duplicated here byte-for-byte. If those change, mirror the change here too;
-// a mismatch means the guard call's act/goal no longer matches the operator's
-// pre-approved grant and `apply` never resolves to allow.
-function buildPromotionGoal(containedActionId) {
-  return `containment promote ${containedActionId}`;
-}
-function buildPromotionAct(containmentRef) {
-  return { kind: 'shell', command: `git merge --no-ff ${containmentRef}` };
-}
-
-// Mirrors hooks/dashclaw_pretool.py _safe_branch_segment: branch_seg is
-// alnum+dash, max 64 chars. Used as a defensive assertion before `git merge`
-// / `git worktree remove` in cmdContainedApply below.
-const CONTAINMENT_REF_PATTERN = /^dashclaw\/contained-[A-Za-z0-9-]{1,64}$/;
-
-// Mirrors hooks/dashclaw_pretool.py _ensure_containment_worktree: ref is
-// "dashclaw/contained-<branch_seg>"; the worktree lives at
-// .dashclaw/contained/<branch_seg> relative to the repo root. Returned as a
-// path relative to the repo root (git resolves it against cwd).
-function containmentWorktreePath(ref) {
-  const branchSeg = ref.replace(/^dashclaw\/contained-/, '');
-  return `.dashclaw/contained/${branchSeg}`;
-}
+// The ref/act/evidence helpers live in ../lib/contained.js (pinned mirrors of
+// app/lib/guard/containment.ts, unit-tested in cli/test/contained.test.js).
 
 function gitRepoRoot(cwd) {
   try {
@@ -833,6 +814,11 @@ async function cmdContainedDiff() {
     const patch = (artifacts || []).find((a) => a && a.artifact_type === 'patch');
     if (!patch) {
       const ref = action.containment_ref;
+      if (isDbContainmentRef(ref)) {
+        console.error(`No evidence artifact captured for database containment ${ref}; the branch expires on its own.`);
+        process.exitCode = 1;
+        return;
+      }
       const hint = ref ? ` at ${containmentWorktreePath(ref)} (ref ${ref})` : '';
       console.error(`No diff artifact captured; the containment worktree may still exist${hint}.`);
       process.exitCode = 1;
@@ -842,6 +828,13 @@ async function cmdContainedDiff() {
     // which already JSON.parses the stored content_json column into `content` —
     // there is no content_json key on the wire, only `content`.
     const content = patch.content;
+    // Database containment (RFC 2026-09-04): the evidence is the statement,
+    // the schema diff (or the "schema unchanged" note) and the output tail —
+    // there is no worktree diff to stream.
+    if (content && content.kind === 'db') {
+      process.stdout.write(formatDbEvidence(content));
+      return;
+    }
     if (content && content.truncated) {
       console.error('Note: diff was truncated at capture time (large changeset) — this may not be the full diff.');
     }
@@ -861,9 +854,11 @@ async function cmdContainedApply() {
   }
 
   const claw = createClient();
+  let detail;
   let action;
   try {
-    ({ action } = await claw.getAction(actionId));
+    detail = await claw.getAction(actionId);
+    action = detail && detail.action;
   } catch (err) {
     console.error(`Error: ${err.message}`);
     process.exitCode = 1;
@@ -909,14 +904,53 @@ async function cmdContainedApply() {
     return;
   }
 
+  // Database containment (RFC 2026-09-04): promotion replays the action's
+  // ORIGINAL recorded act against production. The act comes from the guard
+  // decision the row was created from — the same field the containment route
+  // hashed into the grant, so the two agree or nothing is allowed.
+  const isDbRef = isDbContainmentRef(ref);
+  let originalAct = null;
+  let replayCommand = null;
+  if (isDbRef) {
+    originalAct = originalActOf(detail);
+    if (!originalAct) {
+      console.error(
+        `Error: ${actionId} is a database containment but its original act is not recoverable ` +
+        '(the guard decision that staged it is gone, or carried no act) — nothing to replay.'
+      );
+      process.exitCode = 1;
+      return;
+    }
+    replayCommand = actCommandOf(originalAct);
+    if (!replayCommand) {
+      console.error(
+        `Error: ${actionId}'s recorded act is not a shell command — replay it against your database by hand.`
+      );
+      process.exitCode = 1;
+      return;
+    }
+    // The recorded act is DLP-redacted before it is persisted, so a command
+    // that embedded a connection string comes back with the URL replaced by a
+    // marker. Running that is not the reviewed command — refuse and say so.
+    if (hasRedactionMarker(replayCommand)) {
+      console.error(
+        `Refusing: the recorded command has redacted content (${replayCommand}).\n` +
+        'Its connection string was scrubbed before storage, so this is not the command that was reviewed.\n' +
+        'Replay it by hand against the production database.'
+      );
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   let decision;
   try {
     decision = await claw.guard({
       agent_id: action.agent_id,
       action_type: 'containment_promote',
       declared_goal: buildPromotionGoal(actionId),
-      act: buildPromotionAct(ref),
-      risk_score: 20,
+      act: buildPromotionAct(ref, originalAct),
+      risk_score: isDbRef ? (Number(action.risk_score) || 20) : 20,
     });
   } catch (err) {
     console.error(`Error: guard evaluation failed: ${err.message}`);
@@ -927,7 +961,7 @@ async function cmdContainedApply() {
   if (decision.decision === 'require_approval') {
     console.error(
       'Promote in the dashboard first (or the 15-minute approval window expired).\n' +
-      `Re-issue the merge grant at ${baseUrl}/decisions/${actionId}`
+      `Re-issue the ${isDbRef ? 'replay' : 'merge'} grant at ${baseUrl}/decisions/${actionId}`
     );
     process.exitCode = 1;
     return;
@@ -935,6 +969,30 @@ async function cmdContainedApply() {
   if (decision.decision !== 'allow') {
     console.error(`${decision.decision}: ${decision.reason || '(no reason given)'}`);
     process.exitCode = 1;
+    return;
+  }
+
+  // Database replay: run the reviewed command through the operator's own shell
+  // and environment, from the repo root (its DATABASE_URL is the production
+  // one — the branch URL only ever existed inside the agent's session). The
+  // branch itself needs no cleanup: Neon expires it.
+  if (isDbRef) {
+    console.log(dim(`\n  Replaying on production: ${replayCommand}\n`));
+    const replay = spawnSync(replayCommand, {
+      cwd: repoRoot,
+      env: process.env,
+      shell: true,
+      stdio: 'inherit',
+    });
+    if (replay.error || replay.status !== 0) {
+      console.error(
+        `\nReplay failed${replay.error ? `: ${replay.error.message}` : ` (exit ${replay.status})`}. Grant consumed.\n` +
+        `Re-issue the replay grant at ${baseUrl}/decisions/${actionId}`
+      );
+      process.exitCode = 1;
+      return;
+    }
+    console.log(green(`\nReplayed on production. The staged database branch expires on its own (${ref}).\n`));
     return;
   }
 

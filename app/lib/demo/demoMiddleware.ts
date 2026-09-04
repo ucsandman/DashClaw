@@ -87,9 +87,69 @@ const demoContainedAction: AnyRecord = {
   containment_evidence_ref: DEMO_CONTAINED_REF,
 };
 
-/** GET /api/actions/:id/artifacts — the contained demo action carries one
+// Database containment (RFC 2026-09-04) demo: the second staging medium. Same // version-hardcode-allowed
+// card, same lifecycle, same buttons — the evidence is the statement, the
+// schema diff Neon reports, and the output tail instead of a worktree diff,
+// and Promote reads "replay on production". Present so /approvals renders the
+// db card on the demo host with no Neon account.
+const DEMO_CONTAINED_DB_ACTION_ID = 'ar_demo_contained_db_001';
+const DEMO_CONTAINED_DB_REF = 'dashclaw/contained-db-demo9f31-a1b2c3';
+const demoContainedDbAction: AnyRecord = {
+  action_id: DEMO_CONTAINED_DB_ACTION_ID,
+  org_id: 'org_demo',
+  agent_id: 'migration-agent-1',
+  agent_name: 'Migration Agent',
+  action_type: 'code_change',
+  declared_goal: 'Add the billing tier column to users and backfill it',
+  status: 'completed',
+  risk_score: 75,
+  confidence: 88,
+  timestamp_start: new Date(Date.now() - 22 * 60_000).toISOString(),
+  timestamp_end: new Date(Date.now() - 19 * 60_000).toISOString(),
+  verified: true,
+  containment_status: 'awaiting_promotion',
+  containment_ref: DEMO_CONTAINED_DB_REF,
+  containment_has_evidence: true,
+  containment_evidence_ref: DEMO_CONTAINED_DB_REF,
+};
+
+/** GET /api/actions/:id/artifacts — the contained demo actions each carry one
  *  patch artifact (the evidence the operator reviews before Promote). */
 export function demoActionArtifacts(actionId: string) {
+  if (actionId === DEMO_CONTAINED_DB_ACTION_ID) {
+    return {
+      artifacts: [
+        {
+          artifact_id: 'art_demo_patch_db_001',
+          action_id: DEMO_CONTAINED_DB_ACTION_ID,
+          artifact_type: 'patch',
+          created_at: new Date(Date.now() - 20 * 60_000).toISOString(),
+          content: {
+            kind: 'db',
+            ref: DEMO_CONTAINED_DB_REF,
+            project_id: 'demo-project-9f31',
+            branch_id: 'br-demo-contained-9f31',
+            parent_branch_id: 'br-demo-main-0001',
+            db_name: 'appdb',
+            statement: 'psql -c "ALTER TABLE users ADD COLUMN billing_tier text NOT NULL DEFAULT \'free\'"',
+            diff: [
+              '--- a/public.users',
+              '+++ b/public.users',
+              '@@',
+              ' CREATE TABLE public.users (',
+              '   id uuid NOT NULL,',
+              '   email text NOT NULL,',
+              "+  billing_tier text DEFAULT 'free'::text NOT NULL,",
+              '   created_at timestamptz DEFAULT now()',
+              ' );',
+            ].join('\n'),
+            stdout_tail: 'ALTER TABLE\nTime: 41.882 ms',
+            note: 'schema unchanged — data changes are not diffable; review the statement and its output',
+          },
+        },
+      ],
+    };
+  }
   if (actionId !== DEMO_CONTAINED_ACTION_ID) return { artifacts: [] };
   return {
     artifacts: [
@@ -166,7 +226,7 @@ export function demoListActions(fixtures: DemoFixtures, url: URL) {
   const offset = parseInt(sp.get('offset') || '0', 10);
 
   // Combine deterministic demo actions with fixtures
-  let items = [demoTestAction, demoContainedAction, ...fixtures.actions];
+  let items = [demoTestAction, demoContainedAction, demoContainedDbAction, ...fixtures.actions];
 
   if (agentId) items = items.filter(a => a.agent_id === agentId);
   if (status) items = items.filter(a => a.status === status);
@@ -316,6 +376,16 @@ export function demoActionDetail(fixtures: DemoFixtures, actionId: string): AnyR
       assumptions: [],
       decision: 'allow_contained',
       decision_reason: '[Demo fixture] Risk 58 with a containment-eligible act: the work ran on an isolated branch; results merge only after an operator promotes the reviewed diff.',
+    };
+  }
+
+  if (actionId === DEMO_CONTAINED_DB_ACTION_ID) {
+    return {
+      action: demoContainedDbAction,
+      open_loops: [],
+      assumptions: [],
+      decision: 'allow_contained',
+      decision_reason: '[Demo fixture] Risk 75 on a database act: the statement ran against an ephemeral branch of the database; it reaches production only after an operator promotes the reviewed statement.',
     };
   }
 

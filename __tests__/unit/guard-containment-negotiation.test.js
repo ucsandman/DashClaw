@@ -103,6 +103,58 @@ describe('containment negotiation (via evaluateGuard)', () => {
     expect(findInsertedDecision(sql)).toBe('require_approval');
   });
 
+  // Database containment (RFC 2026-09-04): a second basis with a second
+  // capability string. The matrix below is the whole negotiation contract —
+  // an old hook advertising only `allow_contained` can never be handed a
+  // db_branch verdict, and the db string does not unlock the file bases.
+  // A mid-band database act: an UPDATE with a WHERE clause grades inside
+  // [contain_above, threshold), where containment is the point. (A bare
+  // `drop table` grades 85 and is interrupted by the threshold itself.)
+  const dbAct = { kind: 'shell', command: 'psql -c "update users set tier = 2 where id = 1"' };
+
+  it('db basis + only allow_contained advertised → require_approval', async () => {
+    const sql = makeSql({ policies: [makePolicy('risk_threshold', CONTAIN_RULES)] });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a',
+      act: dbAct,
+      risk_score: 60,
+      client_capabilities: ['allow_contained'],
+    }, sql);
+
+    expect(result.decision).toBe('require_approval');
+    expect(result.containment).toBeUndefined();
+    expect(result.risk_breakdown._containment.downgraded_to_interrupt).toBe(true);
+    expect(findInsertedDecision(sql)).toBe('require_approval');
+  });
+
+  it('db basis + allow_contained:db advertised → contained on a db-prefixed ref', async () => {
+    const sql = makeSql({ policies: [makePolicy('risk_threshold', CONTAIN_RULES)] });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a',
+      act: dbAct,
+      risk_score: 60,
+      client_capabilities: ['allow_contained:db'],
+      harness_session_id: 'sess-db-1',
+    }, sql);
+
+    expect(result.decision).toBe('allow_contained');
+    expect(result.containment).toEqual({ status: 'contained', basis: 'db_branch', ref: 'dashclaw/contained-db-sess-db-1' });
+    expect(findInsertedDecision(sql)).toBe('allow_contained');
+  });
+
+  it('file basis is not unlocked by allow_contained:db', async () => {
+    const sql = makeSql({ policies: [makePolicy('risk_threshold', CONTAIN_RULES)] });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a',
+      act: fileAct,
+      risk_score: 60,
+      client_capabilities: ['allow_contained:db'],
+    }, sql);
+
+    expect(result.decision).toBe('require_approval');
+    expect(findInsertedDecision(sql)).toBe('require_approval');
+  });
+
   it('negotiates simulate previews too — a plan preview must not promise containment the caller cannot do', async () => {
     const sql = makeSql({ policies: [makePolicy('risk_threshold', CONTAIN_RULES)] });
     const result = await evaluateGuard('org_1', {

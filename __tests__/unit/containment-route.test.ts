@@ -29,6 +29,7 @@ const {
   mockStampPromotionApproval,
   mockFindUnconsumedPromotionGrant,
   mockListArtifacts,
+  mockGetGuardDecisionById,
 } = vi.hoisted(() => ({
   mockGetSql: vi.fn(),
   mockGetOrgId: vi.fn(() => 'org_test'),
@@ -41,6 +42,7 @@ const {
   mockStampPromotionApproval: vi.fn(),
   mockFindUnconsumedPromotionGrant: vi.fn(),
   mockListArtifacts: vi.fn(),
+  mockGetGuardDecisionById: vi.fn(),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockGetSql }));
@@ -59,6 +61,11 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
 }));
 vi.mock('@/lib/repositories/artifacts.repository.js', () => ({
   listArtifacts: mockListArtifacts,
+}));
+// Database containment (RFC 2026-09-04): the original act the db promotion
+// replays lives on the linked guard decision, not on action_records.
+vi.mock('@/lib/repositories/guardrails.repository.js', () => ({
+  getGuardDecisionById: mockGetGuardDecisionById,
 }));
 
 const { POST } = await import('@/api/actions/[actionId]/containment/route.js');
@@ -85,6 +92,7 @@ describe('POST /api/actions/[actionId]/containment', () => {
     // Default: the re-issue path's full-row re-fetch finds nothing, so it
     // falls back to the getActionStatus subset; re-issue shape tests override.
     mockGetActionRecord.mockResolvedValue(null);
+    mockGetGuardDecisionById.mockResolvedValue(null);
   });
 
   function mockPatchArtifact(ref: string | undefined) {
@@ -444,6 +452,124 @@ describe('POST /api/actions/[actionId]/containment', () => {
     expect(res.status).toBe(200);
     expect(data.action).toEqual(updated);
     expect(mockListArtifacts).not.toHaveBeenCalled();
+  });
+
+  // ── Database containment (RFC 2026-09-04) ────────────────────────────────
+  // A `dashclaw/contained-db-` ref promotes by REPLAYING the action's original
+  // recorded act on production, not by merging a branch. The act comes from
+  // the linked guard decision (action_records stores only its hash), and the
+  // grant carries the ORIGINAL action's risk score, because the replay IS the
+  // risky act.
+  describe('db ref promotion', () => {
+    const DB_REF = 'dashclaw/contained-db-act_123';
+    const ORIGINAL_ACT = { kind: 'shell', command: 'psql -c "alter table users add column tier text"' };
+
+    function mockDbAction(overrides: Record<string, unknown> = {}) {
+      mockGetActionStatus.mockResolvedValueOnce({
+        agent_id: 'agent_1', created_by: 'user_2', containment_status: 'awaiting_promotion',
+        containment_ref: DB_REF, ...overrides,
+      });
+      mockPatchArtifact(DB_REF);
+    }
+
+    it('mints the grant with the original recorded act and the original risk score', async () => {
+      mockDbAction();
+      mockGetActionRecord.mockResolvedValueOnce({ action_id: 'act_123', risk_score: 75, guard_decision_id: 'gd_1' });
+      mockGetGuardDecisionById.mockResolvedValueOnce({ id: 'gd_1', context: JSON.stringify({ agent_id: 'agent_1', act: ORIGINAL_ACT }) });
+      const updated = { action_id: 'act_123', containment_status: 'promoted' };
+      mockResolveContainment.mockResolvedValueOnce(updated);
+      mockCreateActionRecord.mockResolvedValueOnce({ action_id: 'act_promo_db' });
+
+      const res = await POST(postReq({ verdict: 'promote' }), { params });
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(mockGetGuardDecisionById).toHaveBeenCalledWith(mockGetSql, 'org_test', 'gd_1');
+      const [, payload] = mockCreateActionRecord.mock.calls[0]!;
+      expect(payload.data.act).toEqual(ORIGINAL_ACT);
+      expect(payload.data.act).toEqual(buildPromotionAct(DB_REF, ORIGINAL_ACT));
+      expect(payload.data.risk_score).toBe(75);
+      expect(payload.data.declared_goal).toBe(buildPromotionGoal('act_123'));
+      expect(payload.data.action_type).toBe('containment_promote');
+      expect(mockStampPromotionApproval).toHaveBeenCalledWith(mockGetSql, 'org_test', data.promotion_action_id, 'user_1');
+    });
+
+    it('accepts an already-parsed context object (driver difference) and falls back to risk 20 with no score', async () => {
+      mockDbAction();
+      mockGetActionRecord.mockResolvedValueOnce({ action_id: 'act_123', risk_score: null, guard_decision_id: 'gd_1' });
+      mockGetGuardDecisionById.mockResolvedValueOnce({ id: 'gd_1', context: { act: ORIGINAL_ACT } });
+      mockResolveContainment.mockResolvedValueOnce({ action_id: 'act_123', containment_status: 'promoted' });
+      mockCreateActionRecord.mockResolvedValueOnce({ action_id: 'act_promo_db' });
+
+      const res = await POST(postReq({ verdict: 'promote' }), { params });
+
+      expect(res.status).toBe(200);
+      const [, payload] = mockCreateActionRecord.mock.calls[0]!;
+      expect(payload.data.act).toEqual(ORIGINAL_ACT);
+      expect(payload.data.risk_score).toBe(20);
+    });
+
+    it('refuses with 409 CONTAINMENT_ACT_MISSING when the act cannot be recovered — never a merge act', async () => {
+      // No guard_decision_id on the row at all.
+      mockDbAction();
+      mockGetActionRecord.mockResolvedValueOnce({ action_id: 'act_123', risk_score: 75, guard_decision_id: null });
+
+      const res = await POST(postReq({ verdict: 'promote' }), { params });
+      const data = await res.json();
+
+      expect(res.status).toBe(409);
+      expect(data.error).toBe('CONTAINMENT_ACT_MISSING');
+      expect(mockResolveContainment).not.toHaveBeenCalled();
+      expect(mockCreateActionRecord).not.toHaveBeenCalled();
+    });
+
+    it('refuses with 409 CONTAINMENT_ACT_MISSING when the linked decision carries no act', async () => {
+      mockDbAction();
+      mockGetActionRecord.mockResolvedValueOnce({ action_id: 'act_123', guard_decision_id: 'gd_1' });
+      mockGetGuardDecisionById.mockResolvedValueOnce({ id: 'gd_1', context: JSON.stringify({ agent_id: 'agent_1' }) });
+
+      const res = await POST(postReq({ verdict: 'promote' }), { params });
+
+      expect((await res.json()).error).toBe('CONTAINMENT_ACT_MISSING');
+      expect(res.status).toBe(409);
+      expect(mockCreateActionRecord).not.toHaveBeenCalled();
+    });
+
+    it('re-issue looks up the prior grant by the ORIGINAL act hash, not a merge-act hash', async () => {
+      mockDbAction({ containment_status: 'promoted' });
+      mockGetActionRecord.mockResolvedValueOnce({ action_id: 'act_123', risk_score: 75, guard_decision_id: 'gd_1' });
+      mockGetGuardDecisionById.mockResolvedValueOnce({ id: 'gd_1', context: JSON.stringify({ act: ORIGINAL_ACT }) });
+      mockGetActionRecord.mockResolvedValueOnce({ action_id: 'act_123', containment_status: 'promoted' });
+      mockFindUnconsumedPromotionGrant.mockResolvedValueOnce({ action_id: 'act_promo_old' });
+
+      const res = await POST(postReq({ verdict: 'promote' }), { params });
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.reissued).toBe(true);
+      expect(mockFindUnconsumedPromotionGrant).toHaveBeenCalledWith(
+        mockGetSql,
+        'org_test',
+        'act_123',
+        'agent_1',
+        computeActContentHash(ORIGINAL_ACT),
+      );
+    });
+
+    it('discard needs no act at all', async () => {
+      mockGetActionStatus.mockResolvedValueOnce({
+        agent_id: 'agent_1', created_by: 'user_2', containment_status: 'awaiting_promotion',
+        containment_ref: DB_REF,
+      });
+      const updated = { action_id: 'act_123', containment_status: 'discarded' };
+      mockResolveContainment.mockResolvedValueOnce(updated);
+
+      const res = await POST(postReq({ verdict: 'discard' }), { params });
+
+      expect(res.status).toBe(200);
+      expect((await res.json()).action).toEqual(updated);
+      expect(mockGetGuardDecisionById).not.toHaveBeenCalled();
+    });
   });
 
   it('returns 500 on unexpected error', async () => {

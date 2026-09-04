@@ -193,7 +193,7 @@ export function hookBlocks(python = 'python') {
 // silently removed on re-install. `dashclaw_session_digest.py` is retired (the
 // SessionStart hook is now enforcement_liveness_probe.py) but stays listed so a
 // re-install over a digest-era settings.json cleanly strips the stale entry.
-export const MANAGED_HOOK_FILES = ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_session_digest.py', 'enforcement_liveness_probe.py'];
+export const MANAGED_HOOK_FILES = ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_db_containment.py', 'dashclaw_session_digest.py', 'enforcement_liveness_probe.py'];
 // Full regex-escape (every metacharacter incl. backslash), not just '.', so the
 // alternation is always well-formed regardless of the filename contents.
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -457,7 +457,10 @@ function main() {
   // Copy the Python hook scripts. enforcement_liveness_probe.py is the
   // SessionStart hook (v8.2): wired with `--source session-start`, it throttles
   // to once/12h and runs detached so session start is never delayed.
-  for (const name of ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'enforcement_liveness_probe.py']) {
+  // dashclaw_db_containment.py is imported by pre/posttool for the db_branch
+  // containment basis (RFC 2026-09-04); both import it defensively, so a stale
+  // install degrades to no db containment rather than breaking.
+  for (const name of ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_db_containment.py', 'enforcement_liveness_probe.py']) {
     const src = join(HOOKS_SRC, name);
     if (!existsSync(src)) {
       console.error(`✗ Missing hook script: ${src}`);

@@ -335,6 +335,97 @@ function hasExecSink(skeleton: string): boolean {
 
 const ENV_LAUNCHER_PREFIX_RE = /^\s*env((\s+-u\s+\S+)|(\s+-[i0]\b)|(\s+\w+=\S*))*\s+(?=\S)/;
 
+// ── database acts (RFC 2026-09-04-database-containment) ─────────────────────
+// A shell act whose command slot is a Postgres client, or whose executable
+// text carries a connection-string literal, mutates a DATABASE — an effect
+// class the shell families above never named. Today `psql -c "DROP TABLE
+// users"` grades other/30 with no flags; this branch grades the SQL it
+// actually runs. It NEVER sets `protected_target` (the default packs'
+// mass-destructive line keys on that flag, 2026-08-21), so honest grading here
+// does not change a fresh install's hold behavior — it only makes the act
+// legible, which is what `db_branch` containment eligibility reads.
+const DB_URL_LITERAL_RE = /\bpostgres(?:ql)?:\/\//i;
+// Package runners that are transparent to the real command word.
+const PKG_RUNNER_RE = /^(npx|bunx|pnpm|yarn|npm)$/i;
+const PKG_RUNNER_NOISE_RE = /^(dlx|exec|run|-y|--yes|--silent|-s)$/i;
+// Clients whose every invocation talks to a database.
+const DB_CLIENT_RE = /^(?:\S*[/\\])?(psql|pg_restore)(?:\.exe)?$/i;
+// Migration toolchains: only the subcommands that WRITE (RFC list).
+const DB_MIGRATION_TOOLS: Record<string, RegExp> = {
+  prisma: /^(db\s+(push|execute)|migrate\s+(deploy|dev|reset))\b/i,
+  'drizzle-kit': /^(push|migrate|drop)\b/i,
+};
+
+/** Tokens of a segment from its command slot on (env assignments and launcher
+ *  wrappers skipped — mirrors TRANSPARENT_PREFIX_RE / isCommandWordPosition). */
+function commandSlotTokens(segment: string): string[] {
+  const tokens = segment.trim().split(/\s+/).map((t) => t.replace(/^["']|["']$/g, '')).filter(Boolean);
+  let i = 0;
+  while (i < tokens.length && TRANSPARENT_PREFIX_RE.test(tokens[i] as string)) i++;
+  // `npx prisma migrate deploy` / `pnpm dlx drizzle-kit push`: the runner and
+  // its own flags are transparent to the tool being run.
+  while (i < tokens.length && PKG_RUNNER_RE.test(tokens[i] as string)) {
+    i++;
+    while (i < tokens.length && PKG_RUNNER_NOISE_RE.test(tokens[i] as string)) i++;
+  }
+  return tokens.slice(i);
+}
+
+/** True when this segment's command slot targets a database. Reads the scan
+ *  text (the executable skeleton when the command is sink-free), so a quoted
+ *  connection string in prose is data, exactly like every other family here. */
+function isDatabaseSegment(scanText: string): boolean {
+  if (DB_URL_LITERAL_RE.test(scanText)) return true;
+  const tokens = commandSlotTokens(scanText);
+  const cmd = tokens[0];
+  if (!cmd) return false;
+  if (DB_CLIENT_RE.test(cmd)) return true;
+  const tool = cmd.replace(/^\S*[/\\]/, '').replace(/\.exe$/i, '').toLowerCase();
+  const subcommands = DB_MIGRATION_TOOLS[tool];
+  return subcommands ? subcommands.test(tokens.slice(1).join(' ')) : false;
+}
+
+/** Inline SQL a database client carries: `-c "…"` / `--command=…`. `-f file`
+ *  is NOT inline (the statements live in a file the server never sees). Read
+ *  from the RAW segment — an argument's quoted content names what runs. */
+function inlineSqlOf(segment: string): string | null {
+  const m = /(?:^|\s)(?:-c|--command)(?:\s+|=)(?:"([^"]*)"|'([^']*)'|(\S+))/i.exec(segment);
+  if (!m) return null;
+  const sql = (m[1] ?? m[2] ?? m[3] ?? '').trim();
+  return sql || null;
+}
+
+/** The grade for a database act: its inline SQL when there is one (graded by
+ *  the existing SQL classifier, flags and modifiers included), otherwise the
+ *  migrate default the RFC fixes for `-f file.sql`, pg_restore and migration
+ *  tools whose statements the server never sees. */
+function databaseActClassification(inlineSql: string | null): EvidenceClassification {
+  if (inlineSql) {
+    const sqlCls = classifySql({ statement: inlineSql });
+    return {
+      derived_action_type: sqlCls.derived_action_type,
+      base_risk: sqlCls.base_risk,
+      modifiers: sqlCls.modifiers,
+      reversible_hint: sqlCls.reversible_hint,
+      flags: ['database', ...sqlCls.flags],
+    };
+  }
+  return { derived_action_type: 'migrate', base_risk: 60, modifiers: [], reversible_hint: false, flags: ['database'] };
+}
+
+// A heredoc-fed client (`psql … <<'SQL' … SQL`) loses its body to the
+// chain-splitter below (it splits on newlines), so the body is graded
+// pre-split and folded into the segment result by the same max() rule.
+const DB_HEREDOC_RE = /<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1[^\n]*\n([\s\S]*?)\n[ \t]*\2\b/;
+
+function databaseHeredocClassification(command: string): EvidenceClassification | null {
+  const m = DB_HEREDOC_RE.exec(command);
+  if (!m) return null;
+  if (!isDatabaseSegment(command.slice(0, m.index))) return null;
+  const body = (m[3] ?? '').trim();
+  return body ? databaseActClassification(body) : null;
+}
+
 function classifyShellSegment(seg: string, rawScan: boolean): EvidenceClassification {
   // `env` as a launcher prefix (`env -u TOKEN cmd`, `env VAR=x cmd`) is
   // transparent — classify the command it runs. A BARE `env` (nothing after
@@ -421,6 +512,13 @@ function classifyShellSegment(seg: string, rawScan: boolean): EvidenceClassifica
     // push` security/40, the mismatch swap lifted the heuristic to
     // security/80, and the first post-flip tag push hard-blocked at 100).
     base = 40; action = 'security'; flags.push('secret_exposure');
+  } else if (isDatabaseSegment(scan)) {
+    // Database act (RFC 2026-09-04): graded by the SQL it carries, or as a
+    // migration when the statements live in a file the server never sees.
+    const db = databaseActClassification(inlineSqlOf(seg));
+    base = db.base_risk; action = db.derived_action_type; reversible = db.reversible_hint;
+    modifiers.push(...db.modifiers);
+    flags.push(...db.flags);
   } else if (/^\s*(cat|ls|head|tail|grep|rg|find|stat|pwd|whoami|echo|which|wc|diff|file)\b|^\s*git\s+(status|log|diff|show|branch|remote)\b/.test(s)) {
     base = 5; action = 'review'; reversible = true;
   } else if (/^\s*(cp|mv|mkdir|touch|chmod|chown|ln|tee|write)\b|\bsed\s+-i|^\s*git\s+(add|commit|checkout|switch|restore|merge|pull|fetch)\b/.test(s)) {
@@ -499,7 +597,12 @@ function classifyShell(command: string): EvidenceClassification {
   // round-2 evasion audit; `\r` covers CRLF.
   const segments = command.split(/&&|\|\||;|\||[\n\r]/).map((p) => p.trim()).filter(Boolean);
   const parts = segments.length ? segments : [command];
-  return parts.map((p) => classifyShellSegment(p, rawScan)).reduce((a, b) => (evidenceTotal(b) >= evidenceTotal(a) ? b : a));
+  const folded = parts.map((p) => classifyShellSegment(p, rawScan)).reduce((a, b) => (evidenceTotal(b) >= evidenceTotal(a) ? b : a));
+  // A heredoc body fed to a database client was severed from its command word
+  // by the split above — grade it here and fold it in the same way.
+  const heredoc = databaseHeredocClassification(command);
+  if (heredoc && evidenceTotal(heredoc) > evidenceTotal(folded)) return heredoc;
+  return folded;
 }
 
 // ── http ───────────────────────────────────────────────────────────────────
