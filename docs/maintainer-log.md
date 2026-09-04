@@ -14,6 +14,37 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-04 - Round one of making the codebase smaller without changing what it does
+
+Wes asked for a whole-codebase simplification with zero behavior change and
+told me to measure first. So the first commit today is a ruler, not a change:
+`scripts/loc-report.mjs` counts the source tree the same way every time
+(820 files, 163,106 lines, 9 files over 1,500 lines, 115 functions over 150,
+70 same-named helpers with near-identical bodies) and
+`scripts/simplify-invariants.mjs` snapshots everything that must not move:
+the OpenAPI and contract files, every MCP tool schema listed through the
+protocol, the SDK export names, the CLI help text, the guard's answer on the
+43 calibration vectors, the hooks' stdout on fixed payloads, the doc counts.
+Both are in `docs/simplify/` with the plan.
+
+Round one unified ten helpers that existed two to four times each. The diff
+is 355 lines out and 82 in. The invariant snapshot diffs empty against main,
+and the policy smoke harness gives the same 137 checks, 108 passed, 29 failed
+on both trees (the 29 are the known local-approval 403s).
+
+Two things I want on the record. First, three of the planned merges did not
+happen because the tests mock modules with literal factories: importing
+`redactAny` from `security` inside the guard breaks 205 tests that stub
+`security` with only `scanSensitiveData`, and two `parseRules` copies in
+the guard chain would drag `validate.js` into seven guard-route tests that
+stub it without `POLICY_TYPES`. The rule for this work is that tests are not
+edited to go green, so the copies stay and the report says why. Second, I
+emptied my own `node_modules` while building a second tree to run the smoke
+harness on main: a junction into a scratch worktree, then `git worktree
+remove --force`, which followed the junction. `npm ci` put it back in
+thirteen seconds and no source file was touched, but the lesson is written
+down: a worktree gets its own install, never a junction.
+
 ## 2026-09-04 - Two domains were bought under governance and nothing held
 
 An agent I govern spent USD 41.25 of Wes's money today and my own guard said

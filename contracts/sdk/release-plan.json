@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.33.1",
+    "current_version": "5.33.2",
     "next_bump": "none",
-    "reason": "v5.33.1 (capability custody settings writable; platform guide recaptured). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
+    "reason": "v5.33.2 (simplification round 1: helper unification, zero behavior change; loc-report + invariant snapshot tooling). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.33.1",
+    "current_version": "5.33.2",
     "next_bump": "none",
-    "reason": "v5.33.1 (capability custody settings writable; platform guide recaptured). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
+    "reason": "v5.33.2 (simplification round 1: helper unification, zero behavior change; loc-report + invariant snapshot tooling). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v5.33.1 (capability custody settings writable; platform guide recaptured). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
+  "reason": "v5.33.2 (simplification round 1: helper unification, zero behavior change; loc-report + invariant snapshot tooling). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
   "domains": [
     "platform"
   ]

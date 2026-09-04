@@ -240,7 +240,7 @@ export async function getSettings(
   return settings;
 }
 
-// Capability custody (v5.33.1). A registered http_api capability declares the
+// Capability custody (v5.33.1+). A registered http_api capability declares the
 // settings it needs: `auth.token_setting` and any `$settings.<KEY>` in its
 // request mapping. Those keys are writable for that org even though they are
 // not on the static allowlist above — the allowlist cannot name every vendor

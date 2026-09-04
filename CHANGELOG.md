@@ -13,6 +13,13 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.33.2] — 2026-09-04
+
+### Changed
+
+- **Simplification round 1 (zero behavior change).** One implementation per behavior for ten duplicated helpers: api-key mint/hash (`app/lib/api-keys.ts`), `parseRules` outside the guard chain, `errorFrom` for the policy clients, the redundant memoized `getSql` wrapper in two routes, the Redis command-timeout trio (`app/lib/redis-command.ts`), the outcome-timeout resolver (`app/lib/outcome-timeout.ts`), the stale-Stripe-customer check, `buildPinnedDispatcher` (canonical in `url-safety`, re-exported by `webhooks`), the Python interpreter candidates and the inventory path helpers. 27 files, +82/-355 lines, five new modules. Public routes, OpenAPI, MCP tool schemas, SDK exports, CLI help, guard calibration and hook output are byte-identical to 5.33.1 (`docs/simplify/round-1.md`).
+- **Measurement tooling.** `scripts/loc-report.mjs` (LOC, god files, long functions, fan-in, duplicate clusters) and `scripts/simplify-invariants.mjs` (contract, MCP, SDK, CLI, guard, hook and doc-count snapshot for byte-for-byte diffs). Baseline and plan under `docs/simplify/`.
+
 ## [5.33.1] — 2026-09-04 — A capability's declared settings are writable
 
 ### Fixed
