@@ -14,24 +14,13 @@
 //                            interruption was RIGHT, and a report that is
 //                            right must come back when it happens again.
 
+import { parseRules } from '../../lib/guardrails/short-list';
+
 export type { Misfire } from '../../lib/posture/loosening';
 
 interface PolicyRow {
   id?: unknown;
   rules?: unknown;
-}
-
-function parseRules(raw: unknown): Record<string, unknown> {
-  if (raw && typeof raw === 'object') return raw as Record<string, unknown>;
-  if (typeof raw === 'string') {
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') return parsed as Record<string, unknown>;
-    } catch {
-      /* fall through — an unreadable rules blob is not a reason to widen it */
-    }
-  }
-  return {};
 }
 
 /** The stored rules for one policy. The list route has no id filter, so read

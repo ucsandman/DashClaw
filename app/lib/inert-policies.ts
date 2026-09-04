@@ -16,6 +16,7 @@
  */
 
 import { grantIsExpired, prefixMatches } from './policy-shapes';
+import { parseRules } from './guardrails/short-list';
 
 export interface PolicyRowLike {
   id: string;
@@ -40,17 +41,6 @@ export interface InertPolicy {
   /** Action types whose gate this policy loses to a grant. */
   action_types: string[];
   suppressed_by: Suppressor[];
-}
-
-function parseRules(raw: unknown): Record<string, unknown> {
-  if (raw && typeof raw === 'object') return raw as Record<string, unknown>;
-  if (typeof raw !== 'string') return {};
-  try {
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : {};
-  } catch {
-    return {};
-  }
 }
 
 const isActive = (p: PolicyRowLike): boolean => p.active == null || p.active === 1 || p.active === true;

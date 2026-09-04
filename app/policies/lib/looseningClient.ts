@@ -6,6 +6,7 @@
 // keeps a ratified relaxation (change_kept — the tightening precedent).
 
 import type { Misfire } from '../../lib/posture/loosening';
+import { errorFrom } from './errorFrom';
 
 export interface LooseningDecisionSummary {
   decision: 'ratified' | 'dismissed';
@@ -143,11 +144,6 @@ export interface LooseningProposalsPayload {
   inputs: { outcome_rows: number };
   proposals: AnyLooseningProposal[];
   counts: { pending: number; ratified: number; dismissed: number };
-}
-
-async function errorFrom(res: Response, fallback: string): Promise<Error> {
-  const body = await res.json().catch(() => ({}));
-  return new Error(body.error || fallback);
 }
 
 export async function fetchLooseningProposals(days?: number): Promise<LooseningProposalsPayload> {

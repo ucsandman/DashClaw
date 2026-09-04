@@ -13,15 +13,7 @@ import {
 } from '../../../../lib/repositories/orgs.repository';
 import crypto from 'crypto';
 import { API_KEY_ROLES, isValidApiKeyRole } from '../../../../lib/apiKeyRoles';
-
-function hashKey(key: string): string {
-  return crypto.createHash('sha256').update(key).digest('hex');
-}
-
-function generateApiKey(): string {
-  const random = crypto.randomBytes(16).toString('hex');
-  return `oc_live_${random}`;
-}
+import { hashKey, generateApiKey } from '../../../../lib/api-keys';
 
 // GET /api/orgs/[orgId]/keys - List API keys (prefix only, admin only)
 export async function GET(request: Request, { params }: { params: Promise<{ orgId: string }> }) {

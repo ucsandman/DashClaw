@@ -8,15 +8,7 @@ import { getSql } from '../../lib/db';
 import crypto from 'crypto';
 import { isSelfHostModeEnabled } from '../../lib/selfHost';
 import { isValidApiKeyRole, API_KEY_ROLES } from '../../lib/apiKeyRoles';
-
-function hashKey(key: string): string {
-  return crypto.createHash('sha256').update(key).digest('hex');
-}
-
-function generateApiKey(): string {
-  const random = crypto.randomBytes(16).toString('hex');
-  return `oc_live_${random}`;
-}
+import { hashKey, generateApiKey } from '../../lib/api-keys';
 
 // Store enough of the key to visually distinguish it in the dashboard.
 // "oc_live_" is 8 chars and identical for every key, so we need at least

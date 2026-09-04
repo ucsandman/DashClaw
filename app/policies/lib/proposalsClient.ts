@@ -8,6 +8,7 @@ import type {
   PolicyApprovalCounts,
   ApprovedRiskScores,
 } from '../../lib/policy-tuning/engine';
+import { errorFrom } from './errorFrom';
 
 export type { TuningProposal, PolicyFiredCounts, PolicyApprovalCounts, ApprovedRiskScores };
 
@@ -42,11 +43,6 @@ export interface ProposalsPayload {
   proposals: TuningProposal[];
   dismissed_count: number;
   degradation?: DegradationSummary;
-}
-
-async function errorFrom(res: Response, fallback: string): Promise<Error> {
-  const body = await res.json().catch(() => ({}));
-  return new Error(body.error || fallback);
 }
 
 export async function fetchProposals(days?: number): Promise<ProposalsPayload> {

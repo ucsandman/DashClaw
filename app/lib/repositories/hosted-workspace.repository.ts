@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { generateApiKey as mintApiKey, hashKey } from '../api-keys';
 import { seedCatastrophePack } from '../setup/catastrophe-pack.mjs';
 import {
   SYNTHETIC_AGENT_LIKE_PATTERNS,
@@ -18,9 +19,8 @@ function generateId(prefix: string): string {
 }
 
 function generateApiKey(): { plaintext: string; keyHash: string; keyPrefix: string } {
-  const raw = crypto.randomBytes(16).toString('hex');
-  const plaintext = `oc_live_${raw}`;
-  const keyHash = crypto.createHash('sha256').update(plaintext).digest('hex');
+  const plaintext = mintApiKey();
+  const keyHash = hashKey(plaintext);
   const keyPrefix = plaintext.slice(0, 8);
   return { plaintext, keyHash, keyPrefix };
 }

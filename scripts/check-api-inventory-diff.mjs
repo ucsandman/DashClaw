@@ -6,15 +6,9 @@ import {
   generateApiInventory,
   serializeApiInventoryJson,
   serializeApiInventoryMarkdown,
+  getInventoryJsonPath,
+  getInventoryMarkdownPath,
 } from './generate-api-inventory.mjs';
-
-function getInventoryJsonPath(rootDir = process.cwd()) {
-  return path.join(rootDir, 'docs', 'api-inventory.json');
-}
-
-function getInventoryMarkdownPath(rootDir = process.cwd()) {
-  return path.join(rootDir, 'docs', 'api-inventory.md');
-}
 
 async function readOrNull(filePath) {
   try {

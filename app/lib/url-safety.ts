@@ -127,19 +127,20 @@ export async function assertSafeFetchUrl(
 
 /**
  * Build an undici dispatcher that pins DNS resolution to the pre-validated
- * IPs from resolveSafeAddresses. Local equivalent of buildPinnedDispatcher
- * in app/lib/webhooks.ts (that module owns webhook dispatch, not generic
- * URL safety, so this stays a self-contained copy rather than a cross-import).
- * Closes the DNS-rebinding window between our lookup and fetch's own
- * connect-time resolution — a short-TTL attacker-controlled DNS record
- * can't flip to a private address between the two calls because fetch
- * never re-resolves once the dispatcher is pinned.
+ * IPs returned by assertSafeWebhookUrl. Closes the DNS-rebinding window
+ * between our lookup and fetch's own connect-time resolution — a
+ * short-TTL attacker-controlled DNS record cannot flip to a private
+ * address between the two calls because fetch never re-resolves.
+ * Falls back to identity lookup when no pinned IP is known.
  */
-function buildPinnedDispatcher(validatedIps: string[]): UndiciAgent | undefined {
-  if (validatedIps.length === 0) return undefined;
-  // The undici `connect.lookup` override expects a net.LookupFunction; cast
-  // through unknown to bridge our simpler implementation to that overloaded
-  // signature without altering runtime behavior.
+export function buildPinnedDispatcher(validatedIps: string[]): UndiciAgent | undefined {
+  if (!Array.isArray(validatedIps) || validatedIps.length === 0) {
+    return undefined;
+  }
+  // The undici `connect.lookup` override expects a net.LookupFunction. Our
+  // implementation honors both the single-address and `all` callback contracts,
+  // but TS can't unify the overloaded LookupFunction signature with this inline
+  // body — cast the function (only) to bridge it without altering behavior.
   const lookup = ((
     _hostname: string,
     options: { all?: boolean; family?: number } | undefined,
@@ -149,16 +150,28 @@ function buildPinnedDispatcher(validatedIps: string[]): UndiciAgent | undefined 
       family?: number,
     ) => void,
   ): void => {
+    // Every entry in validatedIps was already proven public by
+    // safeUrlWithIps, so connecting to ANY of them is safe. Honor the
+    // dns.lookup `all` contract and return every validated address so
+    // undici can fail over (multi-IP CDN hosts otherwise dead-end on a
+    // single unreachable address).
     if (options?.all) {
       callback(null, validatedIps.map((ip) => ({ address: ip, family: net.isIP(ip) || 4 })));
       return;
     }
+    // validatedIps.length > 0 is guaranteed by the early return above, so
+    // index 0 is always present; the cast satisfies noUncheckedIndexedAccess
+    // without changing runtime behavior (matches the original validatedIps[0]).
     const first = validatedIps[0] as string;
     const family = net.isIP(first);
     callback(null, first, family || (options?.family ?? 4));
   }) as unknown as net.LookupFunction;
 
-  return new UndiciAgent({ connect: { lookup } });
+  return new UndiciAgent({
+    connect: {
+      lookup,
+    },
+  });
 }
 
 /**

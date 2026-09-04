@@ -1785,21 +1785,10 @@ export function __resetLostOutcomeSweepThrottle(): void {
   lostOutcomeSweepLastRun.clear();
 }
 
-const OUTCOME_TIMEOUT_DEFAULT_MINUTES = 15;
-
-// Same clamp as the cron route's resolveTimeoutMinutes (floor 1, ceiling 24h).
+// Dynamic import to avoid an import cycle (outcome-timeout -> settings.repository).
 async function resolveOutcomeTimeoutMinutes(sql: SqlClient, orgId: string): Promise<number> {
-  try {
-    const { getSettings } = await import('./settings.repository');
-    const rows = await getSettings(sql, orgId, { key: 'DASHCLAW_OUTCOME_TIMEOUT_MINUTES' });
-    const raw = (rows?.[0] as Row | undefined)?.value;
-    if (raw == null || raw === '') return OUTCOME_TIMEOUT_DEFAULT_MINUTES;
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return OUTCOME_TIMEOUT_DEFAULT_MINUTES;
-    return Math.min(24 * 60, Math.max(1, Math.floor(n)));
-  } catch {
-    return OUTCOME_TIMEOUT_DEFAULT_MINUTES;
-  }
+  const { getOutcomeTimeoutMinutes } = await import('../outcome-timeout');
+  return getOutcomeTimeoutMinutes(sql, orgId);
 }
 
 /**

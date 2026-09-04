@@ -3,6 +3,8 @@
 // (/api/calibration/proposals, owner roadmap v2.6b). Proposals are computed
 // on read server-side; POSTs record the human's judgment.
 
+import { errorFrom } from './errorFrom';
+
 export interface CalibrationRepresentative {
   id?: string;
   origin?: string;
@@ -67,11 +69,6 @@ export interface CalibrationProposalsPayload {
   };
   proposals: CalibrationProposal[];
   counts: { pending: number; ratified: number; dismissed: number; forged: number };
-}
-
-async function errorFrom(res: Response, fallback: string): Promise<Error> {
-  const body = await res.json().catch(() => ({}));
-  return new Error(body.error || fallback);
 }
 
 export async function fetchCalibrationProposals(days?: number): Promise<CalibrationProposalsPayload> {

@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql as getDbSql } from '../../lib/db';
+import { getSql } from '../../lib/db';
 import { getOrgId, getOrgRole, getUserId } from '../../lib/org';
 import { computeSignals } from '../../lib/signals';
 import { addDismissals, removeDismissals } from '../../lib/repositories/signal-dismissals.repository';
@@ -10,13 +10,6 @@ import { isWellFormedDismissKey, signalDismissKey } from '../../lib/signal-hash'
 
 const MAX_DISMISS_KEYS = 1000;
 const MAX_KEY_LENGTH = 600;
-
-let _sql: ReturnType<typeof getDbSql> | undefined;
-function getSql() {
-  if (_sql) return _sql;
-  _sql = getDbSql();
-  return _sql;
-}
 
 export async function GET(request: Request) {
   try {

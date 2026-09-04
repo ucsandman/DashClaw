@@ -29,3 +29,16 @@ export function planForPriceId(priceId: string | null | undefined): string | nul
 export function appUrl(): string {
   return (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/$/, '');
 }
+
+/**
+ * A stale/deleted Stripe customer id (proven in prod 2026-08-09: live-mode
+ * cutover left orgs pointing at test-mode ids) throws a resource_missing
+ * error naming the customer param. Anything else is a real Stripe failure.
+ */
+export function isStaleCustomerError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { code?: unknown; param?: unknown; message?: unknown };
+  if (e.code !== 'resource_missing') return false;
+  if (e.param === 'customer') return true;
+  return typeof e.message === 'string' && e.message.toLowerCase().includes('customer');
+}

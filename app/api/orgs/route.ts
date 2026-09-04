@@ -11,17 +11,7 @@ import {
   insertApiKey,
 } from '../../lib/repositories/orgs.repository';
 import crypto from 'crypto';
-
-// Hash API key using Node crypto (server-side)
-function hashKey(key: string): string {
-  return crypto.createHash('sha256').update(key).digest('hex');
-}
-
-// Generate a new API key: oc_live_{32 hex chars}
-function generateApiKey(): string {
-  const random = crypto.randomBytes(16).toString('hex');
-  return `oc_live_${random}`;
-}
+import { hashKey, generateApiKey } from '../../lib/api-keys';
 
 // GET /api/orgs - List organizations (admin only)
 export async function GET(request: Request) {

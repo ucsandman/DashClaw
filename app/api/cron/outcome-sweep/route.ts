@@ -11,25 +11,13 @@ import {
   listOrgsWithStaleOutcomes,
   sweepLostOutcomesForOrg,
 } from '../../../lib/repositories/actions.repository';
-import { getSettings } from '../../../lib/repositories/settings.repository';
+import { getOutcomeTimeoutMinutes } from '../../../lib/outcome-timeout';
 import { sweepAbandonedSessions } from '../../../lib/sessions';
 
-const DEFAULT_TIMEOUT_MINUTES = 15;
+// listOrgsWithStaleOutcomes below still needs the floor: it scans for orgs
+// with ANY pending outcome older than the shortest possible timeout, before
+// getOutcomeTimeoutMinutes resolves each org's actual (possibly higher) value.
 const FLOOR_TIMEOUT_MINUTES = 1;
-const CEILING_TIMEOUT_MINUTES = 24 * 60;
-
-async function resolveTimeoutMinutes(sql: ReturnType<typeof getSql>, orgId: string): Promise<number> {
-  try {
-    const rows = await getSettings(sql, orgId, { key: 'DASHCLAW_OUTCOME_TIMEOUT_MINUTES' });
-    const raw = rows?.[0]?.value;
-    if (raw == null || raw === '') return DEFAULT_TIMEOUT_MINUTES;
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return DEFAULT_TIMEOUT_MINUTES;
-    return Math.min(CEILING_TIMEOUT_MINUTES, Math.max(FLOOR_TIMEOUT_MINUTES, Math.floor(n)));
-  } catch {
-    return DEFAULT_TIMEOUT_MINUTES;
-  }
-}
 
 function buildSignal(row: {
   agent_id?: string | null;
@@ -81,7 +69,7 @@ export async function GET(request: Request) {
 
     for (const rawOrgId of orgIds) {
       const orgId = rawOrgId as string;
-      const timeoutMinutes = await resolveTimeoutMinutes(sql, orgId);
+      const timeoutMinutes = await getOutcomeTimeoutMinutes(sql, orgId);
       const swept = await sweepLostOutcomesForOrg(sql, orgId, timeoutMinutes);
       summary.orgs_scanned++;
       if (swept.length === 0) continue;

@@ -3,22 +3,9 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { getOrgId } from '../../../lib/org';
-import { getStripe, appUrl } from '../../../lib/billing-stripe';
+import { getStripe, appUrl, isStaleCustomerError } from '../../../lib/billing-stripe';
 import { getOrgBillingState, clearStripeCustomerId } from '../../../lib/repositories/billing.repository';
 import { getSql } from '../../../lib/db';
-
-/**
- * A stale/deleted Stripe customer id (proven in prod 2026-08-09: live-mode
- * cutover left orgs pointing at test-mode ids) throws a resource_missing
- * error naming the customer param. Anything else is a real Stripe failure.
- */
-function isStaleCustomerError(err: unknown): boolean {
-  if (!err || typeof err !== 'object') return false;
-  const e = err as { code?: unknown; param?: unknown; message?: unknown };
-  if (e.code !== 'resource_missing') return false;
-  if (e.param === 'customer') return true;
-  return typeof e.message === 'string' && e.message.toLowerCase().includes('customer');
-}
 
 /** Stripe customer portal for the caller's org (v5.14). Human admins only. */
 export async function GET(request: Request) {

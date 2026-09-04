@@ -6,24 +6,7 @@ import { NextResponse } from 'next/server';
 import { getSql } from '../../../lib/db';
 import { getOrgId, getOrgRole } from '../../../lib/org';
 import { sweepLostOutcomesForOrg } from '../../../lib/repositories/actions.repository';
-import { getSettings } from '../../../lib/repositories/settings.repository';
-
-const DEFAULT_TIMEOUT_MINUTES = 15;
-const FLOOR_TIMEOUT_MINUTES = 1;
-const CEILING_TIMEOUT_MINUTES = 24 * 60;
-
-async function resolveTimeoutMinutes(sql: ReturnType<typeof getSql>, orgId: string): Promise<number> {
-  try {
-    const rows = await getSettings(sql, orgId, { key: 'DASHCLAW_OUTCOME_TIMEOUT_MINUTES' });
-    const raw = rows?.[0]?.value;
-    if (raw == null || raw === '') return DEFAULT_TIMEOUT_MINUTES;
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return DEFAULT_TIMEOUT_MINUTES;
-    return Math.min(CEILING_TIMEOUT_MINUTES, Math.max(FLOOR_TIMEOUT_MINUTES, Math.floor(n)));
-  } catch {
-    return DEFAULT_TIMEOUT_MINUTES;
-  }
-}
+import { getOutcomeTimeoutMinutes } from '../../../lib/outcome-timeout';
 
 /**
  * POST /api/admin/trigger-outcome-sweep
@@ -42,7 +25,7 @@ export async function POST(request: Request) {
 
     const sql = getSql();
     const orgId = getOrgId(request);
-    const timeoutMinutes = await resolveTimeoutMinutes(sql, orgId);
+    const timeoutMinutes = await getOutcomeTimeoutMinutes(sql, orgId);
     const swept = await sweepLostOutcomesForOrg(sql, orgId, timeoutMinutes);
 
     return NextResponse.json({

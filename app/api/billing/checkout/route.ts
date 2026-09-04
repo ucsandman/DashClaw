@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { getOrgId } from '../../../lib/org';
-import { getStripe, priceIdForPlan, appUrl } from '../../../lib/billing-stripe';
+import { getStripe, priceIdForPlan, appUrl, isStaleCustomerError } from '../../../lib/billing-stripe';
 import {
   getOrgBillingState,
   saveStripeCustomerId,
@@ -19,18 +19,6 @@ import { getSql } from '../../../lib/db';
  * self-host instances answer honestly instead of erroring.
  */
 
-/**
- * A stale/deleted Stripe customer id (proven in prod 2026-08-09: live-mode
- * cutover left orgs pointing at test-mode ids) throws a resource_missing
- * error naming the customer param. Anything else is a real Stripe failure.
- */
-function isStaleCustomerError(err: unknown): boolean {
-  if (!err || typeof err !== 'object') return false;
-  const e = err as { code?: unknown; param?: unknown; message?: unknown };
-  if (e.code !== 'resource_missing') return false;
-  if (e.param === 'customer') return true;
-  return typeof e.message === 'string' && e.message.toLowerCase().includes('customer');
-}
 export async function POST(request: Request) {
   const userId = request.headers.get('x-user-id') || '';
   const role = request.headers.get('x-org-role') || '';

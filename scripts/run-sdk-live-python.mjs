@@ -9,9 +9,9 @@
  * are passed through from the current environment.
  */
 
-import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { getCandidates } from './lib/python-candidates.mjs';
 
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
@@ -19,31 +19,6 @@ process.on('unhandledRejection', (reason) => {
 });
 
 const scriptPath = path.join('scripts', 'test-sdk-live-python.py');
-
-function isWindows() {
-  return process.platform === 'win32';
-}
-
-function getCandidates() {
-  const out = [];
-  if (process.env.PYTHON && process.env.PYTHON.trim()) {
-    out.push({ cmd: process.env.PYTHON.trim(), args: [] });
-  }
-
-  if (isWindows()) {
-    const miniconda = 'C:\\ProgramData\\miniconda3\\python.exe';
-    if (fs.existsSync(miniconda)) {
-      out.push({ cmd: miniconda, args: [] });
-    }
-    out.push({ cmd: 'py', args: ['-3'] });
-    out.push({ cmd: 'python', args: [] });
-  } else {
-    out.push({ cmd: 'python3', args: [] });
-    out.push({ cmd: 'python', args: [] });
-  }
-
-  return out;
-}
 
 function tryRun(cmd, args) {
   const pythonPathEntries = [path.join(process.cwd(), 'sdk-python')];

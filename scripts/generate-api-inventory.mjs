@@ -8,11 +8,11 @@ import {
   discoverApiRoutes,
 } from './lib/api-route-inventory.mjs';
 
-function getInventoryJsonPath(rootDir = process.cwd()) {
+export function getInventoryJsonPath(rootDir = process.cwd()) {
   return path.join(rootDir, 'docs', 'api-inventory.json');
 }
 
-function getInventoryMarkdownPath(rootDir = process.cwd()) {
+export function getInventoryMarkdownPath(rootDir = process.cwd()) {
   return path.join(rootDir, 'docs', 'api-inventory.md');
 }
 

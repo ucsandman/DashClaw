@@ -55,7 +55,7 @@ const OUT_JSON = opt('--json');
 
 function git(...a) { return execFileSync('git', a, { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28 }); }
 function listFiles() {
-  const raw = REF ? git('ls-tree', '-r', '--name-only', REF) : git('ls-files');
+  const raw = REF ? git('ls-tree', '-r', '--name-only', REF) : git('ls-files', '--cached', '--others', '--exclude-standard');
   return raw.split('\n').map((s) => s.trim()).filter(Boolean).filter((f) => SRC_EXT.has(path.extname(f)));
 }
 function readFile(rel) {

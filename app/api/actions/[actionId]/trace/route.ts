@@ -2,16 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql as getDbSql } from '../../../../lib/db';
+import { getSql } from '../../../../lib/db';
 import { getOrgId } from '../../../../lib/org';
 import { getActionTraceData } from '../../../../lib/repositories/actions.repository';
-
-let _sql: ReturnType<typeof getDbSql> | undefined;
-function getSql() {
-  if (_sql) return _sql;
-  _sql = getDbSql();
-  return _sql;
-}
 
 export async function GET(request: Request, { params }: { params: Promise<{ actionId: string }> }) {
   try {

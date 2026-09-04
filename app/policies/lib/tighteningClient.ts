@@ -4,6 +4,8 @@
 // read server-side from the org's ungoverned-allow evidence; POST ratify
 // creates the governing policy in the same request, dismiss records why.
 
+import { errorFrom } from './errorFrom';
+
 export interface TighteningDecisionSummary {
   decision: 'ratified' | 'dismissed';
   reason: string | null;
@@ -43,11 +45,6 @@ export interface TighteningProposalsPayload {
   inputs: { decisions: number };
   proposals: TighteningProposal[];
   counts: { pending: number; ratified: number; dismissed: number };
-}
-
-async function errorFrom(res: Response, fallback: string): Promise<Error> {
-  const body = await res.json().catch(() => ({}));
-  return new Error(body.error || fallback);
 }
 
 export async function fetchTighteningProposals(days?: number): Promise<TighteningProposalsPayload> {

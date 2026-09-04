@@ -10,6 +10,8 @@
 // Node runtime only (node-redis is a TCP client): call from route handlers,
 // never from Edge middleware.
 
+import { RedisCommandTimeout, withCommandTimeout, safeDisconnect } from './redis-command';
+
 interface MemoryEntry {
   count: number;
   resetAt: number;
@@ -44,21 +46,6 @@ const REDIS_CONNECT_TIMEOUT_MS = 3000;
 // then pend forever — the connect-time hang one layer later.
 const REDIS_COMMAND_TIMEOUT_MS = 2000;
 
-class RedisCommandTimeout extends Error {}
-
-/** Race a Redis command against a timer so it can never pend unbounded. */
-function withCommandTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  return Promise.race([
-    promise,
-    new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => reject(new RedisCommandTimeout(`Redis command exceeded ${ms}ms`)), ms);
-    }),
-  ]).finally(() => {
-    if (timer) clearTimeout(timer);
-  });
-}
-
 let memoryCounters = new Map<string, MemoryEntry>();
 let redisClientPromise: Promise<RedisLike | null> | null = null;
 let redisFailedAt = 0;
@@ -77,21 +64,6 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
 
 function redisUrl(): string {
   return process.env.REDIS_URL || process.env.REALTIME_REDIS_URL || '';
-}
-
-// Forcibly release a client whose connect() failed or timed out so a half-open
-// socket can't leak across cold starts. Best-effort: never throws, never blocks
-// the fallback (node-redis v4 exposes disconnect(); v5 adds destroy()).
-function safeDisconnect(client: CleanableClient): void {
-  try {
-    if (typeof client.destroy === 'function') {
-      client.destroy();
-    } else if (typeof client.disconnect === 'function') {
-      void Promise.resolve(client.disconnect()).catch(() => {});
-    }
-  } catch {
-    // teardown is best-effort
-  }
 }
 
 async function getRedisClient(): Promise<RedisLike | null> {

@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import crypto from 'crypto';
+import { RedisCommandTimeout, withCommandTimeout, safeDisconnect } from './redis-command';
 
 export const EVENTS = {
   ACTION_CREATED: 'action.created',
@@ -49,35 +50,6 @@ const REDIS_CONNECT_TIMEOUT_MS = 3000;
 const REDIS_COMMAND_TIMEOUT_MS = 2000;
 const REDIS_RETRY_COOLDOWN_MS = 30000;
 
-class RedisCommandTimeout extends Error {}
-
-/** Race a Redis command against a timer so it can never pend unbounded. */
-function withCommandTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  return Promise.race([
-    promise,
-    new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => reject(new RedisCommandTimeout(`Redis command exceeded ${ms}ms`)), ms);
-    }),
-  ]).finally(() => {
-    if (timer) clearTimeout(timer);
-  });
-}
-
-// Forcibly release a client whose connect failed/timed out or whose socket is
-// half-open. Best-effort: never throws, never blocks the fallback (node-redis
-// v4 exposes disconnect(); v5 adds destroy()).
-function safeDisconnect(client: { destroy?: () => void; disconnect?: () => Promise<unknown> }): void {
-  try {
-    if (typeof client.destroy === 'function') {
-      client.destroy();
-    } else if (typeof client.disconnect === 'function') {
-      void Promise.resolve(client.disconnect()).catch(() => {});
-    }
-  } catch {
-    // teardown is best-effort
-  }
-}
 const requestedBackend = (process.env.REALTIME_BACKEND || 'memory').toLowerCase();
 const redisUrl = process.env.REDIS_URL || process.env.REALTIME_REDIS_URL || '';
 const enforceRedisCutover = ['1', 'true', 'yes', 'on'].includes(
