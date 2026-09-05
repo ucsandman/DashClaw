@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeRequest } from '../helpers.js';
 
 const { mockSql, mockIsValidWebhookUrl, mockLogActivity } = vi.hoisted(() => ({
@@ -16,11 +16,14 @@ import { GET, POST, DELETE } from '@/api/webhooks/route.js';
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.DATABASE_URL = 'postgres://unit-test';
+  vi.stubEnv('ENCRYPTION_KEY', 'unit-test-custody-key-32-bytes!!');
   mockSql.mockImplementation(async () => []);
   mockSql.query.mockImplementation(async () => []);
   mockIsValidWebhookUrl.mockReturnValue(null); // null = valid
   mockLogActivity.mockResolvedValue(undefined);
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe('/api/webhooks GET', () => {
   it('returns masked webhooks for the org', async () => {

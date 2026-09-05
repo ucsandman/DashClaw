@@ -45,11 +45,12 @@ describe('SystemStatusBar ticker', () => {
     expect(amber.textContent).toContain('Elevated');
   });
 
-  it('shows the All clear state with no severity links when there are no signals', async () => {
+  it('scopes the zero state to signals instead of claiming the whole system is clear', async () => {
     mockSignals([]);
     const { container } = render(<SystemStatusBar />);
 
-    await waitFor(() => expect(screen.getByText('All clear')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('No active signals')).toBeTruthy());
+    expect(screen.queryByText('All clear')).toBeNull();
     const links = Array.from(container.querySelectorAll('a[href="/decisions"]'));
     expect(links.some((a) => a.textContent.includes('Critical'))).toBe(false);
     expect(links.some((a) => a.textContent.includes('Elevated'))).toBe(false);
@@ -101,7 +102,7 @@ describe('SystemStatusBar ticker', () => {
   it('does not POST a migration when there is no legacy local set', async () => {
     mockSignals([]);
     render(<SystemStatusBar />);
-    await waitFor(() => expect(screen.getByText('All clear')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('No active signals')).toBeTruthy());
     expect(global.fetch.mock.calls.some(([, opts]) => opts?.method === 'POST')).toBe(false);
   });
 });

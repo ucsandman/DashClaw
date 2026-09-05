@@ -116,17 +116,32 @@ auto-derivation.
   returned with `idempotent_replay: true`.
 - `POST /api/guard?record=true`: the record branch short-circuits on an
   existing `(org_id, idempotency_key)` action row and heals a missing one.
-- `POST /api/guard` (any): a duplicate key inside a **10-minute replay
-  window** returns the *prior decision* (`idempotent_replay: true`, prior
-  `decision_id`) and writes **no new `guard_decisions` row** — flood/signal/
-  digest counts stay honest by construction. The window is short on purpose:
-  replay absorbs retries, never policy changes.
+- `POST /api/guard` (any): a restrictive prior decision can be replayed inside
+  the bounded window, but a prior permissive decision is evaluated again under
+  current policy. Claim-aware callers receive the protocol fields needed to bind
+  release to a fresh execution claim. Ledger deduplication does not authorize a
+  repeated external effect.
 
 **Retries** are transient-only in the hook HTTP client: non-transient 4xx
 fail immediately (auth and validation errors don't change on retry); 408,
 429, 5xx, and connectivity errors keep the retry+backoff behavior.
 
-## 5. Org kill switch
+## 5. Execution claim boundary
+
+For callers advertising `client_capabilities: ['execution_claims']`, operator
+and plan approvals are selected read-only during guard evaluation. Selection
+does not consume authority. Immediately before execution, protocol 1 binds the
+authenticated principal, agent, action, exact act, fresh policy state, and a
+UUID attempt in one atomic claim. A claim can authorize one recorded attempt;
+it cannot make an arbitrary external system exactly once.
+
+The Node `runGoverned` and Python `run_governed` helpers require claim
+confirmation and fail before the callback against a legacy server. Hooks and
+OpenClaw keep their previous enforcement behavior only when a server advertises
+no claim fields, unless `DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1`; malformed or
+unknown advertised claim protocols always fail closed.
+
+## 6. Org kill switch
 
 One audited switch halts every governed surface for an org.
 

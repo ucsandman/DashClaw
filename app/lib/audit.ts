@@ -5,6 +5,7 @@
 
 import crypto from 'crypto';
 import type { SqlTag } from './types/db';
+import { redactAny } from './security';
 
 export interface LogActivityOptions {
   orgId: string;
@@ -27,7 +28,10 @@ function insertActivityRow(
   const ip = request?.headers?.get?.('x-client-ip') ||
     request?.headers?.get?.('x-forwarded-for')?.split(',')[0]?.trim() ||
     null;
-  const detailsStr = details ? JSON.stringify(details) : null;
+  // Activity rows are broadly readable inside an organization. Redact every
+  // structured string here so callers cannot accidentally create a second,
+  // unfiltered copy of a credential after protecting the primary record.
+  const detailsStr = details ? JSON.stringify(redactAny(details, [])) : null;
 
   return sql`
     INSERT INTO activity_logs (id, org_id, actor_id, actor_type, action, resource_type, resource_id, details, ip_address, created_at)

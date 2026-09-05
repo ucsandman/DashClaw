@@ -13,6 +13,30 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.33.9] - 2026-09-05
+
+### Security and enforcement
+
+- Added atomic protocol-1 execution claims bound to the organization, credential principal, agent, exact act, and a fresh policy decision. Operator and plan authority is consumed at execution claim time rather than during guard evaluation. Concurrent or repeated attempts cannot reuse the same claim.
+- Hardened operator authorization, tenant isolation, OAuth scopes and lifecycle, approval expiry and separation of duties, capability invocation, and server-held secret handling. Capability credentials are masked before policy-provider and audit egress while digests bind the actual request.
+- Hardened hook and OpenClaw failure handling, timeouts, replay negotiation, and exact action binding. Older servers with no claim advertisement retain the earlier hook flow; malformed or unsupported advertisements fail closed. Strict claim enforcement can be enabled after the server upgrade.
+- Added authenticated encryption for newly stored signing keys and webhook secrets, signing-key lifecycle controls, structured redaction, and explicit legacy-custody migration guidance. Existing secret rows are not silently rewritten.
+
+### Reliability and tooling
+
+- Governed Node and Python helpers require confirmed execution claims and distinguish callback failure from lost outcome acknowledgement. They do not automatically retry external effects. Fixed SDK exports, declarations, onboarding, and error consistency.
+- Added migration checksums, transaction-scoped locking, conflict preflight, required-schema verification, and a disposable recovery drill. Migration adoption and rollback limits are documented.
+- Corrected liveness JSONB persistence and legacy reads. Setup reports measured runtime and hook metadata without inventing missing evidence. Approval previews, partial release failures, zero confidence, and unavailable evidence remain visible in the UI.
+- Hardened CLI process ownership and runtime installation; expanded CI to cover package tests, typechecking, PostgreSQL claim concurrency, liveness persistence, and hosted behavior.
+
+### Documentation and upgrade order
+
+- Aligned the README, thesis, architecture and operations references, SDK/runtime guides, marketing pages, search metadata, and package descriptions with the actual enforcement boundaries. Replaced obsolete workflow guidance and retired misleading launch-film promotion.
+- Deploy the matching server and schema before upgrading the Node/Python governed helpers. A claimed attempt is not exactly-once external execution; uncertain effects require reconciliation.
+- Release includes both SDKs, CLI 0.13.1, MCP server 3.1.6, OpenClaw plugin 1.6.4, and the Claude/Codex/Hermes bundle 3.2.1. Publication and deployment are verified separately from local tests.
+
+The [remediation record](docs/audit-remediation-2026-09-05.md) records the findings, fixes, executable evidence, and remaining deployment-specific checks.
+
 ## [5.33.8] - 2026-09-05
 
 ### Fixed

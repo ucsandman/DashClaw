@@ -66,7 +66,16 @@ function baseRun(overrides = {}) {
     runtime: 'claude-code',
     verdict: 'held',
     detail: 'Held as expected.',
-    hook: { installed: true, mode: 'block', timeout_seconds: 5, effective_timer_ms: 5000, overflowed: false, cancelled: false },
+    hook: {
+      installed: true,
+      mode: 'block',
+      timeout_seconds: 5,
+      effective_timer_ms: 5000,
+      overflowed: false,
+      cancelled: false,
+      runtime_version: 'codex-cli 0.153.4',
+      hook_fingerprint: `sha256:${'c'.repeat(64)}`,
+    },
     witness: { path: '/tmp/liveness-witness', executed: false },
     decision: 'held',
     checks: [{ id: 'probe', title: 'Probe action did not execute', status: 'pass' }],
@@ -103,6 +112,11 @@ describe('/setup enforcement-liveness card (v8.2)', () => {
     expect(screen.getByText(/enforcement liveness/i)).toBeTruthy();
     expect(screen.getByText(/enforcement held the probe action/i)).toBeTruthy();
     expect(fleetBadgeText()).toBe('pass');
+    expect(screen.getByText('Protection state')).toBeTruthy();
+    expect(screen.getByText('mechanical')).toBeTruthy();
+    expect(screen.getByText('verified')).toBeTruthy();
+    expect(screen.getByText('codex-cli 0.153.4')).toBeTruthy();
+    expect(screen.getByText(`sha256:${'c'.repeat(64)}`)).toBeTruthy();
   });
 
   it('renders stale: warn style + the exact probe command', async () => {
@@ -115,6 +129,7 @@ describe('/setup enforcement-liveness card (v8.2)', () => {
 
     expect(screen.getByText(/no probe run in the last 24h/i)).toBeTruthy();
     expect(screen.getByText('npm run liveness:probe')).toBeTruthy();
+    expect(screen.getByText('degraded')).toBeTruthy();
   });
 
   it('renders broken: fail style + the run detail as the headline', async () => {
@@ -194,5 +209,19 @@ describe('/setup enforcement-liveness card (v8.2)', () => {
     render(ui);
 
     expect(screen.getByText(/no probe run yet/i)).toBeTruthy();
+    expect(screen.getByText('Protection state').parentElement.textContent).toContain('unknown');
+  });
+
+  it('renders unavailable for metadata missing from a legacy report', async () => {
+    const legacy = baseRun({ hook: { installed: true, mode: 'block' } });
+    mockGetLatestRun.mockResolvedValue(legacy);
+    mockListPerRuntime.mockResolvedValue([legacy]);
+
+    const ui = await SetupPage();
+    render(ui);
+
+    const card = screen.getByText('Protection state').parentElement;
+    expect(card.textContent).toContain('Probe-reported runtime versionunavailable');
+    expect(card.textContent).toContain('Probe-reported hook fingerprintunavailable');
   });
 });

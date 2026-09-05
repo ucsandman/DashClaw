@@ -8,7 +8,7 @@ import { GovernanceFeed, GuardSimulator, IntegrationTabs, LoopWalkthrough, Polic
 
 export const metadata: Metadata = marketingPageMetadata({
   title: 'DashClaw, explained: the approval layer for unattended agents',
-  description: 'An interactive explainer: how DashClaw intercepts a destructive tool call before it runs, freezes it for one-click human approval, and writes a replayable audit row.',
+  description: 'An interactive explainer for policy decisions, human approval, protocol-1 execution claims, and replayable audit evidence across enforcing and cooperative integrations.',
   path: '/explain',
 });
 
@@ -39,14 +39,13 @@ export default function ExplainPage() {
           <div className={metaLabel}>Interactive explainer</div>
           <h1 className="mb-4 mt-2 text-4xl font-bold leading-tight tracking-tight">The approval layer for unattended&nbsp;agents.</h1>
           <p className="max-w-[62ch] text-lg text-text-secondary">
-            When your AI coding agent tries something destructive, DashClaw catches it before it runs and asks you first, even when you
-            are not at the keyboard. It sits between an agent <em>deciding</em> to call a tool and the tool <em>actually running</em>.
-            This page explains the model, then lets you play with it.
+            Installed hooks, OpenClaw, and bounded capability invocation can put DashClaw between a supported tool call and execution.
+            Bare SDK, MCP, and HTTP clients submit decisions and honor them cooperatively. This page explains both boundaries.
           </p>
           <p className="mt-4 max-w-[62ch] text-lg text-text-secondary">
             The whole product is one loop: <strong className="text-text-primary">intercept</strong>,{' '}
             <strong className="text-text-primary">decide</strong>, <strong className="text-text-primary">approve</strong>,{' '}
-            <strong className="text-text-primary">prove</strong>. It does not give agents tools to achieve goals. It governs the goals
+            <strong className="text-text-primary">record</strong>. It does not give agents tools to achieve goals. It governs the goals
             they already have.
           </p>
           <p className="mt-6">
@@ -77,7 +76,7 @@ export default function ExplainPage() {
           <div className={metaLabel}>How it works</div>
           <h2 className="mb-2 mt-1 text-2xl font-semibold tracking-tight">The governance loop</h2>
           <p className="max-w-[62ch] text-lg text-text-secondary">
-            A fully governed action makes four calls. Click each step, or use the arrow keys, to see what actually goes over the wire.
+            The walkthrough shows four logical stages. Click each step, or use the arrow keys, to see the records that move through the loop.
           </p>
           <LoopWalkthrough />
         </div>
@@ -89,9 +88,9 @@ export default function ExplainPage() {
           <h2 className="mb-2 mt-1 text-2xl font-semibold tracking-tight">The agent&apos;s advocate</h2>
           <p className="max-w-[62ch] text-lg text-text-secondary">
             Governance is usually framed as protecting the world from agents. The same ledger protects the agent: from unfair blame,
-            from being weaponized, and from runaway mistakes. Every governed action carries an{' '}
-            <code className="font-mono text-[13px]">agent_defense</code> rollup on its detail record: what the agent declared, what it
-            assumed, and which shields stood in front of it.
+            from being weaponized, and from runaway mistakes. Recorded action details can carry an{' '}
+            <code className="font-mono text-[13px]">agent_defense</code> rollup when supporting evidence is available: what the agent declared,
+            what it assumed, and which shields stood in front of it.
           </p>
           <div className="mt-4 grid gap-2">
             <div className={`${card} p-5`}>
@@ -109,9 +108,10 @@ export default function ExplainPage() {
               <h3 className="mb-2 mt-1.5 text-lg font-semibold">Shields, with receipts</h3>
               <p className="text-text-secondary">
                 Declared goals are scanned for prompt-injection patterns on every guard call, and the scan&apos;s outcome is persisted
-                with the decision, so a manipulated agent has evidence, not just a denial. Content policies can verify claims against a
-                source of truth (<span className="font-mono text-[12.5px]">non_fabrication</span>) and issue signed receipts, failing
-                closed when the source can&apos;t be checked. Where a shield didn&apos;t run, the record says <em>not recorded</em>.
+                with the decision, so a manipulated agent has evidence, not just a denial. Content policies can compare claims with a
+                supplied source (<span className="font-mono text-[12.5px]">non_fabrication</span>) and issue signed receipts, failing
+                closed when that source cannot be checked. A valid receipt proves the recorded inputs and verdict were not altered;
+                it does not prove the source described external reality. Where a shield did not run, the record says <em>not recorded</em>.
                 The advocate never fabricates its client&apos;s alibi.
               </p>
             </div>
@@ -121,8 +121,8 @@ export default function ExplainPage() {
               <p className="text-text-secondary">
                 An agent stuck in a retry loop does not get to dig its own hole. A <span className="font-mono text-[12.5px]">rate_limit</span>{' '}
                 policy counts actions in a rolling window and pauses the run for a human before the four-hundredth identical call,
-                recorded like any other decision. The interruption is the agent&apos;s proof of restraint: it was stopped, and the stop
-                is on the record.
+                recorded like any other decision. The interruption is evidence of restraint inside DashClaw: it was stopped at the
+                enforcing seam, and the stop is on the record.
               </p>
             </div>
           </div>
@@ -155,8 +155,8 @@ export default function ExplainPage() {
               <h3 className="mb-2 mt-1.5 text-lg font-semibold">A receipt of restraint</h3>
               <p className="text-text-secondary">
                 The retro is the advocate section above, concluded: the assumptions the agent recorded, the shields that stood in
-                front of it, and the approvals it waited for become its exhibit list. A clean retro is proof the agent operated inside
-                its contract; a flagged one points at the exact evidence, not at the agent&apos;s reputation.
+                front of it, and the approvals it waited for become its exhibit list. A clean retro means the recorded evidence fits
+                its contract; it is not proof of unobserved external behavior. A flagged one points at the exact stored evidence.
               </p>
             </div>
             <div className={`${card} p-5`}>
@@ -234,8 +234,8 @@ export default function ExplainPage() {
           <div className={metaLabel}>The shape of it</div>
           <h2 className="mb-2 mt-1 text-2xl font-semibold tracking-tight">Architecture at a glance</h2>
           <p className="max-w-[62ch] text-lg text-text-secondary">
-            Agents speak to the runtime through an SDK, MCP server, or plain HTTP. The runtime enforces policy and writes the ledger.
-            Humans watch and decide through the dashboard.
+            Agents speak to the runtime through an SDK, MCP server, or plain HTTP. The runtime evaluates policy and writes the ledger.
+            Installed hooks, OpenClaw, and bounded invocation own enforcing seams; bare clients must honor the decision cooperatively.
           </p>
           <div className={`${card} mt-4 overflow-x-auto p-6`}>
             <ArchitectureDiagram />
@@ -263,7 +263,7 @@ export default function ExplainPage() {
             </Link>
             <Link href="/decisions" className={`${card} block px-5 py-4`}>
               <div className="font-semibold text-text-primary">Read a real ledger</div>
-              <div className="mt-1 text-[13px] text-text-tertiary">/decisions: the causal chain of every governed action</div>
+              <div className="mt-1 text-[13px] text-text-tertiary">/decisions: the causal chain of recorded governed actions</div>
             </Link>
             <a
               href="https://github.com/ucsandman/DashClaw#readme"
@@ -290,7 +290,7 @@ const PRACTICES = [
   },
   {
     t: 'Record everything, idempotently',
-    d: 'Every consequential action goes in the ledger before it executes, with an idempotency key derived from agent, type, and goal. Retries then return the existing record instead of double-recording, and double-executing paths get caught.',
+    d: 'Send the exact act before consequential work. On protocol 1, DashClaw binds organization, principal, agent, action, current policy, exact act, and a fresh attempt while consuming approval authority atomically. That grants one attempt; external idempotency and reconciliation still belong to the target system.',
   },
   {
     t: 'Never self-approve',
@@ -298,11 +298,11 @@ const PRACTICES = [
   },
   {
     t: 'Declare goals honestly and specifically',
-    d: '"Deploy build #402 to production" is governable; "run task" is not. Risk is computed from what you declare: vague declarations produce useless ledgers and let real risk hide. Approvals also match on the exact declared goal.',
+    d: '"Deploy build #402 to production" is more useful than "run task," but the declared goal is context, not the authorization boundary. Current execution claims bind the redacted act content hash and principal as well as the action and policy decision.',
   },
   {
     t: 'Report outcomes, including failures',
-    d: 'The loop is not done at execution. Report completed, partial, or failed; the first terminal outcome wins. A ledger of intents without outcomes cannot tell you what actually happened.',
+    d: 'The loop is not done at execution. Report completed, partial, or failed; the first terminal outcome wins. Outcomes are caller assertions for reconciliation, not independent proof that an external effect happened exactly once.',
   },
   {
     t: 'Track the assumptions that carry weight',

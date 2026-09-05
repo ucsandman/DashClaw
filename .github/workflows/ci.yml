@@ -49,8 +49,17 @@ jobs:
       - name: Install CLI dependencies
         run: npm ci --no-audit --no-fund --prefer-offline --prefix cli
 
+      - name: Install MCP server dependencies
+        run: npm ci --no-audit --no-fund --prefer-offline --prefix mcp-server
+
       - name: Run lint
         run: npm run lint
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+      - name: Check script syntax
+        run: npm run scripts:check-syntax
 
       - name: Validate docs
         run: npm run docs:check
@@ -87,6 +96,15 @@ jobs:
 
       - name: Run tests
         run: npm run test -- --run
+
+      - name: Run CLI tests
+        run: npm test --prefix cli
+
+      - name: Run MCP server tests
+        run: npm test --prefix mcp-server
+
+      - name: Run MCP server typecheck
+        run: npm run typecheck --prefix mcp-server
 
       - name: Run cross-SDK integration suite
         run: npm run sdk:integration
@@ -184,4 +202,76 @@ jobs:
         run: |
           if [ -f .live-smoke-server.pid ]; then
             kill "$(cat .live-smoke-server.pid)" 2>/dev/null || true
+          fi
+
+  hosted-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dashclaw
+          POSTGRES_PASSWORD: dashclaw
+          POSTGRES_DB: dashclaw_hosted_integration
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dashclaw -d dashclaw_hosted_integration"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://dashclaw:dashclaw@127.0.0.1:5432/dashclaw_hosted_integration
+      INTEGRATION_DATABASE_URL: postgresql://dashclaw:dashclaw@127.0.0.1:5432/dashclaw_hosted_integration
+      TEST_BASE_URL: http://127.0.0.1:3101
+      PORT: 3101
+      NEXTAUTH_SECRET: hosted-integration-nextauth-secret-1234567890
+      NEXTAUTH_URL: http://127.0.0.1:3101
+      DASHCLAW_API_KEY: oc_live_hosted_integration_admin_1234567890
+      INTEGRATION_ADMIN_API_KEY: oc_live_hosted_integration_admin_1234567890
+      ENCRYPTION_KEY: startupsmokeencryptionkey1234567
+      CRON_SECRET: hosted-integration-cron-secret
+      ALLOWED_ORIGIN: http://127.0.0.1:3101
+      DASHCLAW_HOSTED: 'true'
+      HOSTED_DRILL_TOKEN: hosted-integration-drill-token-1234567890
+      HOSTED_PROVISION_MAX_PER_IP_PER_DAY: 20
+      HOSTED_MAX_ACTIVE_TRIALS: 50
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund --prefer-offline
+
+      - name: Run hosted schema migration
+        run: node scripts/auto-migrate.mjs
+
+      - name: Build hosted integration target
+        run: npm run build
+
+      - name: Start hosted integration server
+        run: |
+          npm run start > hosted-integration-server.log 2>&1 &
+          echo $! > .hosted-integration-server.pid
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3101/api/health > /dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          cat hosted-integration-server.log
+          echo "hosted integration server never became healthy"; exit 1
+
+      - name: Run hosted happy-path integration
+        run: npx vitest run __tests__/integration/hosted/end-to-end.test.js __tests__/integration/execution-claims.test.ts __tests__/integration/enforcement-liveness.test.ts
+
+      - name: Stop hosted integration server
+        if: always()
+        run: |
+          if [ -f .hosted-integration-server.pid ]; then
+            kill "$(cat .hosted-integration-server.pid)" 2>/dev/null || true
           fi

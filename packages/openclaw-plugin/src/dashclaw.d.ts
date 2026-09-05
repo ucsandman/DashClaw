@@ -17,6 +17,8 @@ declare module 'dashclaw' {
     action_id: string;
     reason?: string;
     signals?: string[];
+    execution_claim_required?: boolean;
+    claim_protocol?: number;
   }
 
   export interface ActionRecord {

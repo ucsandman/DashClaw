@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createSqlMock } from '../helpers.js';
 import {
   getServerSigningKey,
@@ -23,7 +23,10 @@ function signAndVerify(key) {
 
 beforeEach(() => {
   _resetSigningKeyCacheForTesting();
+  vi.stubEnv('ENCRYPTION_KEY', 'unit-test-custody-key-32-bytes!!');
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe('getServerSigningKey — hybrid env/DB', () => {
   it('loads an existing key from the DB and it signs a re-verifiable receipt', async () => {

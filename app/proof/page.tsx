@@ -14,9 +14,9 @@ import { marketingPageMetadata } from '../lib/marketingSeo';
 export const revalidate = 300;
 
 export const metadata: Metadata = marketingPageMetadata({
-  title: 'Proof: DashClaw governs its own maintainer',
+  title: 'Self-governance evidence: DashClaw',
   description:
-    'Live, aggregate evidence that DashClaw is maintained under its own governance: every change guarded, recorded, and auditable on a real DashClaw instance.',
+    'Live aggregates and public records from the DashClaw instance used during repository maintenance. Evidence of recorded governance activity, with explicit limits.',
   path: '/proof',
 });
 
@@ -85,7 +85,7 @@ const TRAIL_LINKS = [
     external: true,
     icon: ScrollText,
     title: 'Maintainer log',
-    desc: 'The running, human-readable record of every maintainer session: what shipped, what was decided, what was declined.',
+    desc: 'The running, human-readable record of documented maintainer sessions: what shipped, what was decided, and what was declined.',
   },
   {
     href: 'https://github.com/ucsandman/DashClaw/blob/main/MAINTAINER.md',
@@ -99,7 +99,7 @@ const TRAIL_LINKS = [
     external: true,
     icon: GitBranch,
     title: 'GitHub releases',
-    desc: 'Every governed ship, versioned and published; the CHANGELOG entry rides each release.',
+    desc: 'Published releases and their versioned change records.',
   },
 ];
 
@@ -127,12 +127,13 @@ export default async function ProofPage() {
               <ShieldCheck size={20} className="text-brand" />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-tertiary font-mono">Self-governance proof</p>
-              <h1 className="mt-1 text-3xl sm:text-4xl font-bold tracking-tight">DashClaw is maintained under its own governance</h1>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-tertiary font-mono">Self-governance evidence</p>
+              <h1 className="mt-1 text-3xl sm:text-4xl font-bold tracking-tight">Recorded maintenance activity, exposed directly</h1>
               <p className="mt-2 text-text-secondary max-w-2xl leading-relaxed">
-                This project&apos;s maintainer is an AI agent, and every change it makes runs through a live
-                DashClaw instance: intent declared, risk evaluated, the action recorded, risky acts held for
-                human approval. The numbers below are live aggregates from that instance, not marketing copy.
+                DashClaw is used while agents maintain this repository. The numbers below are live aggregates
+                of actions and decisions recorded by that instance. They show what reached DashClaw; they do
+                not independently prove that every external action was observed or that its reported outcome
+                matches external reality.
               </p>
             </div>
           </div>
@@ -161,7 +162,7 @@ export default async function ProofPage() {
                   <p className="mt-1 text-xs text-text-tertiary">active governed days · {num(live.actions.last7d)} actions this week</p>
                 </div>
                 <div className="rounded-xl bg-surface-secondary border border-border p-5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">Latest governed ship</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">Reported runtime version</p>
                   <p className="mt-2 text-3xl font-bold tabular-nums">{live.version ? `v${live.version}` : '—'}</p>
                   {latestAction && <p className="mt-1 text-xs text-text-tertiary">latest governed action {latestAction}</p>}
                 </div>
@@ -201,7 +202,7 @@ export default async function ProofPage() {
               <p className="mt-2 text-sm text-text-secondary leading-relaxed max-w-2xl">
                 This page renders live aggregates from the DashClaw instance that governs this repo&apos;s
                 maintenance. That feed isn&apos;t reachable right now, and we don&apos;t show cached or made-up
-                numbers in its place. The written trail below is permanent and doesn&apos;t depend on it.
+                numbers in its place. The written trail below remains available independently.
               </p>
             </div>
           )}
@@ -211,9 +212,9 @@ export default async function ProofPage() {
       {/* The written trail */}
       <section className="pb-12 px-6">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-xl font-bold tracking-tight">Verify it yourself</h2>
+          <h2 className="text-xl font-bold tracking-tight">Inspect the public record</h2>
           <p className="mt-2 text-sm text-text-secondary max-w-2xl leading-relaxed">
-            The aggregate numbers are one layer. The full human-readable trail is public and permanent:
+            The aggregate numbers are one layer. The public human-readable trail provides another:
           </p>
           <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             {TRAIL_LINKS.map(({ href, external, icon: Icon, title, desc }) => {

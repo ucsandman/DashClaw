@@ -141,7 +141,9 @@ DASHCLAW_API_KEY=oc_live_...
 DASHCLAW_AGENT_ID=hermes
 DASHCLAW_HOOK_MODE=enforce
 DASHCLAW_GUARD_UNAVAILABLE_POLICY=block
-DASHCLAW_GUARD_TIMEOUT=5`,
+DASHCLAW_GUARD_TIMEOUT=5
+# Set after your server advertises execution-claim protocol 1:
+DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1`,
     },
     {
       number: 4,
@@ -177,10 +179,10 @@ hooks_auto_accept: true`,
       number: 7,
       title: 'Run Hermes and trigger a tool call',
       summary:
-        'Ask Hermes to do anything that uses Bash, terminal, str_replace_editor, Edit, Write, or MultiEdit. The pre_tool_call hook fires automatically. For policies that require approval, your phone DMs you and Hermes pauses on the dashclaw_wait_for_approval MCP tool until you resolve.',
+        'Ask Hermes to do anything that uses Bash, terminal, str_replace_editor, Edit, Write, or MultiEdit. The pre_tool_call hook evaluates current policy, records one action, waits when approval is required, then claims the exact action and principal before releasing the host tool. Approval is consumed at the claim.',
       codeTitle: 'Example prompt',
       codeBody: 'Create a file called hello.txt with the contents "Hello from a governed agent"',
-      note: 'Watch the terminal: you should see [DashClaw] messages as each hook evaluates the action. The pre_llm_call hook also injects pending approvals and active policies into every turn.',
+      note: 'Watch the terminal: you should see [DashClaw] messages as each hook evaluates the action. During a server-first upgrade, an absent claim advertisement keeps the legacy flow; a partial or invalid advertisement blocks. The strict flag rejects servers that omit protocol 1. The pre_llm_call hook also injects pending approvals and active policies into every turn.',
     },
     {
       number: 8,

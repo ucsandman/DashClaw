@@ -21,14 +21,14 @@
       "source": "mcp-server/src/resources.ts (uri entries)"
     },
     "sdkNodeMethods": {
-      "ceiling": 40,
+      "ceiling": 41,
       "source": "sdk/dashclaw.js via scripts/count-sdk-methods.mjs",
-      "reason": "2026-09-01: +1 attestPlan — the run-start seam for unattended agents: a runner proves the plan hash it is about to act under is still approved, unexpired, and unrevoked, and fails closed before its first model call. Pins authority by content hash rather than by plan id; journals every attestation. Adapted from memcode's autonomous-agent wake design. (Prior: 2026-07-27: +2 (resolveContainment, listContained) — Containment Verdicts (governed-autonomy RFC 2026-07-06, feature 3): operator promote/discard on a contained action, and listing by containment_status.)"
+      "reason": "2026-09-05: +1 claimExecution — public typed method added by the F04 one-approval/one-attempt repair and called by runGoverned immediately before its callback. It exposes the existing protocol-1 claim endpoint without adding a new product capability; ambiguous claims stop and require reconciliation. (Prior: 2026-09-01: +1 attestPlan — the run-start seam for unattended agents: a runner proves the plan hash it is about to act under is still approved, unexpired, and unrevoked, and fails closed before its first model call. Pins authority by content hash rather than by plan id; journals every attestation. Adapted from memcode's autonomous-agent wake design. Prior: 2026-07-27: +2 (resolveContainment, listContained) — Containment Verdicts (governed-autonomy RFC 2026-07-06, feature 3): operator promote/discard on a contained action, and listing by containment_status.)"
     },
     "sdkPythonMethods": {
-      "ceiling": 60,
+      "ceiling": 61,
       "source": "sdk-python/dashclaw/client.py via scripts/count-sdk-methods.mjs",
-      "reason": "2026-09-01: +1 attest_plan — the run-start seam for unattended agents: a runner proves the plan hash it is about to act under is still approved, unexpired, and unrevoked, and fails closed before its first model call. Pins authority by content hash rather than by plan id; journals every attestation. Adapted from memcode's autonomous-agent wake design. (Prior: 2026-07-27: +2 (resolve_containment, list_contained) — snake_case parity for the containment-verdicts convenience wrappers.)"
+      "reason": "2026-09-05: +1 claim_execution — public method added for Python parity by the F04 one-approval/one-attempt repair and called by run_governed immediately before its callback. It exposes the existing protocol-1 claim endpoint without adding a new product capability; ambiguous claims stop and require reconciliation. (Prior: 2026-09-01: +1 attest_plan — the run-start seam for unattended agents: a runner proves the plan hash it is about to act under is still approved, unexpired, and unrevoked, and fails closed before its first model call. Pins authority by content hash rather than by plan id; journals every attestation. Adapted from memcode's autonomous-agent wake design. Prior: 2026-07-27: +2 (resolve_containment, list_contained) — snake_case parity for the containment-verdicts convenience wrappers.)"
     },
     "cliCommands": {
       "ceiling": 15,

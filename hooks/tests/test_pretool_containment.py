@@ -61,13 +61,34 @@ def _make_handler(log: _RequestLog):
             log.add("POST", self.path, body)
 
             if self.path.partition("?")[0] == "/api/guard":
-                resp = json.dumps(log.guard_response).encode()
+                payload = dict(log.guard_response)
+                if payload.get("decision") != "block":
+                    payload.setdefault("execution_claim_required", True)
+                    payload.setdefault("claim_protocol", 1)
+                resp = json.dumps(payload).encode()
             elif self.path == "/api/actions":
                 resp = json.dumps({"action_id": "test-action-fallback"}).encode()
             else:
                 self.send_response(404)
                 self.end_headers()
                 return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp)))
+            self.end_headers()
+            self.wfile.write(resp)
+
+        def do_PATCH(self):
+            length = int(self.headers.get("Content-Length", 0))
+            raw = self.rfile.read(length) if length else b""
+            body = json.loads(raw) if raw else {}
+            log.add("PATCH", self.path, body)
+            action_id = self.path.rstrip("/").split("/")[-1]
+            resp = json.dumps({
+                "claimed": True,
+                "action_id": action_id,
+                "attempt_id": body.get("attempt_id"),
+            }).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(resp)))
@@ -172,6 +193,7 @@ class TestPretoolContainment(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown()
         cls.server_thread.join(timeout=5)
+        cls.server.server_close()
 
     def setUp(self):
         self.log.clear()
@@ -450,7 +472,7 @@ class TestPretoolContainment(unittest.TestCase):
         )
         self.assertEqual(code, 0)
         body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][-1]["body"]
-        self.assertEqual(body.get("client_capabilities"), ["allow_contained"])
+        self.assertEqual(body.get("client_capabilities"), ["execution_claims", "allow_contained"])
         # Instance discriminator rides alongside the capability so the server
         # can namespace the containment ref per co-installed hook instance.
         self.assertEqual(body.get("containment_instance"), self._instance_suffix())
@@ -471,7 +493,7 @@ class TestPretoolContainment(unittest.TestCase):
         )
         self.assertEqual(code, 0)
         body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][-1]["body"]
-        self.assertEqual(body.get("client_capabilities"), ["allow_contained"])
+        self.assertEqual(body.get("client_capabilities"), ["execution_claims", "allow_contained"])
 
     def test_capability_absent_when_containment_disabled(self):
         repo = self._new_repo()
@@ -488,7 +510,7 @@ class TestPretoolContainment(unittest.TestCase):
         )
         self.assertEqual(code, 0)
         body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][-1]["body"]
-        self.assertNotIn("client_capabilities", body)
+        self.assertEqual(body.get("client_capabilities"), ["execution_claims"])
 
     def test_capability_absent_in_observe_mode(self):
         repo = self._new_repo()
@@ -523,7 +545,7 @@ class TestPretoolContainment(unittest.TestCase):
         )
         self.assertEqual(code, 0)
         body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][-1]["body"]
-        self.assertNotIn("client_capabilities", body)
+        self.assertEqual(body.get("client_capabilities"), ["execution_claims"])
 
     # -----------------------------------------------------------------------
     # 4b. Observe mode never blocks, even if the server sends allow_contained

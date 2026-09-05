@@ -4,12 +4,31 @@ Governance for your AI agents, packaged for one step install. It adds guard chec
 
 This is a multi-target plugin: the same source installs into Claude Code, Codex CLI, and Hermes Agent, keeping the recorded agent identity separate per ecosystem.
 
+## Enforcement boundary
+
+The bundled host hooks can stop a supported host tool before it runs. When the
+server advertises execution-claim protocol 1, a hook carries the same scrubbed
+action through current policy evaluation, action recording, approval, and one
+atomic claim for the exact action and principal before releasing the host tool.
+Approval and plan grants are consumed at that claim, not during guard evaluation.
+
+`dashclaw_guard`, `dashclaw_record`, and approval waiting are cooperative MCP
+tools. They add policy and evidence but cannot mechanically stop another client
+from performing an effect. `dashclaw_invoke` is the bounded server-side effect
+seam for a registered capability: DashClaw claims before the external call and
+records its outcome. If the result is unknown, reconcile it before retrying.
+
+For server-first upgrades, a hook preserves the legacy flow only when both claim
+advertisement fields are absent. A partial or invalid advertisement fails closed.
+Set `DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1` in the host environment to reject a
+server that does not advertise protocol 1.
+
 ## What you get
 
 - **dashclaw-governance** skill: the governance protocol. When to call guard, how to read allow / warn / block / require_approval decisions, when to record actions, how to wait on approvals, and session lifecycle. Loads your org policies and capabilities from MCP at session start.
 - **MCP server** (`@dashclaw/mcp-server`): the tool surface for guard checks, governed capability invocation, action recording, approval waits, policy discovery, and session start / end.
 
-- **Governance hooks** (PreToolUse / PostToolUse / Stop guards over Bash, Edit, Write, MultiEdit, sub-agent spawns (Agent/Task), and MCP tool calls (mcp__*) — so Gmail/Stripe/Calendar MCP sends are governed too). The plugin now ships these and they fire automatically once the plugin is enabled. They require Python on PATH (see Prerequisites). A standalone installer remains available as an alternative (see below).
+- **Governance hooks** (PreToolUse / PostToolUse / Stop guards over Bash, Edit, Write, MultiEdit, sub-agent spawns (Agent/Task), and MCP tool calls (mcp__*)). The plugin ships these and they fire automatically once the plugin is enabled. Their enforcement ends at the supported host interception seam; ordinary MCP tools remain cooperative unless the effect uses a registered `dashclaw_invoke` capability. They require Python on PATH (see Prerequisites). A standalone installer remains available as an alternative (see below).
 
 ## Prerequisites
 

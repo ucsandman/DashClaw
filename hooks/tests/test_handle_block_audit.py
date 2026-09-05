@@ -173,6 +173,7 @@ class TestHandleBlockAuditTrail(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown()
         cls.server_thread.join(timeout=5)
+        cls.server.server_close()
 
     def setUp(self):
         self.log.clear()
@@ -446,6 +447,7 @@ class TestHandleBlockAuditTrail(unittest.TestCase):
         finally:
             fail_server.shutdown()
             fail_thread.join(timeout=5)
+            fail_server.server_close()
 
 
 if __name__ == "__main__":

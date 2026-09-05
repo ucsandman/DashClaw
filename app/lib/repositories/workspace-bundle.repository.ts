@@ -70,7 +70,12 @@ export const BUNDLE_TABLES: BundleTableSpec[] = [
   // containment_resolved_by/containment_resolved_at are durable governance
   // facts (same class as outcome_status/created_by, already exported) and
   // travel with the row.
-  { name: 'action_records', table: actionRecords, dedupeKey: 'action_id', conflictTarget: '(action_id)', deny: ['id', 'signature', 'verified', 'containment_ref'] },
+  { name: 'action_records', table: actionRecords, dedupeKey: 'action_id', conflictTarget: '(action_id)', deny: [
+    'id', 'signature', 'verified', 'containment_ref',
+    // Imported history is never new execution authority or local attestation.
+    'execution_claimed_at', 'execution_protocol', 'execution_guard_decision_id', 'execution_attempt_id',
+    'identity_verified', 'payload_signature_status',
+  ] },
   { name: 'open_loops', table: openLoops, dedupeKey: 'loop_id', deny: ['id'] },
   { name: 'assumptions', table: assumptions, dedupeKey: 'assumption_id', deny: ['id'] },
   { name: 'agent_identities', table: agentIdentities, dedupeKey: 'agent_id', conflictTarget: '(org_id, agent_id)', deny: [] },

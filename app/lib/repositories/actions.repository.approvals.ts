@@ -1,4 +1,5 @@
 import { buildPromotionGoal } from '../guard/containment';
+import { invalidateGuardPolicyCache } from '../guard';
 import type { Row, SqlClient } from './actions.repository.shared';
 
 // ── Approvals lifecycle hygiene (roadmap v2.3, drizzle/0039) ────────────────
@@ -198,6 +199,9 @@ Reason: ' || ${safeReasoning} ELSE '' END
     WHERE action_id = ${actionId}
       AND org_id = ${orgId}
       AND status = 'pending_approval'
+      AND (approval_expires_at >= NOW()
+           OR (approval_expires_at IS NULL AND created_at >= NOW() - interval '24 hours'))
+      AND (${userId} = 'operator' OR created_by IS DISTINCT FROM ${userId})
     RETURNING *
   `;
   return result[0] || null;
@@ -441,6 +445,8 @@ export async function recordBulkApprovals(
      WHERE org_id = $6
        AND action_id = ANY($7)
        AND status = 'pending_approval'
+       AND (approval_expires_at >= NOW()
+            OR (approval_expires_at IS NULL AND created_at >= NOW() - interval '24 hours'))
        AND ($8 = 'operator' OR created_by IS DISTINCT FROM $8)
      RETURNING action_id`,
     [newStatus, errorMessage, approvedBy, decisionUpper === 'ALLOW', reasoningAppend, orgId, actionIds, userId],
@@ -521,6 +527,13 @@ export interface PendingApprovalForGrant {
   action_type: string;
   risk_score: number;
   context: string | null;
+  created_by: string | null;
+  approval_expires_at: string | null;
+}
+
+function serializedContext(value: unknown): string | null {
+  if (value == null) return null;
+  return typeof value === 'string' ? value : JSON.stringify(value);
 }
 
 /**
@@ -533,11 +546,14 @@ export async function getActionForGrant(
   sql: SqlClient,
   orgId: string,
   actionId: string,
-): Promise<{ action_id: string; action_type: string; status: string; risk_score: number; context: string | null; guard_decision_id: string | null } | null> {
+): Promise<{ action_id: string; action_type: string; status: string; risk_score: number; context: string | null; guard_decision_id: string | null; created_by: string | null; approval_expires_at: string | null; created_at: string | null } | null> {
   const rows = await sql`
-    SELECT action_id, action_type, status, risk_score, context, guard_decision_id
-    FROM action_records
-    WHERE action_id = ${actionId} AND org_id = ${orgId}
+    SELECT ar.action_id, ar.action_type, ar.status, ar.risk_score, gd.context,
+           ar.guard_decision_id, ar.created_by, ar.approval_expires_at, ar.created_at
+    FROM action_records ar
+    LEFT JOIN guard_decisions gd
+      ON gd.id = ar.guard_decision_id AND gd.org_id = ar.org_id
+    WHERE ar.action_id = ${actionId} AND ar.org_id = ${orgId}
     LIMIT 1
   `;
   const r = rows[0] as Record<string, unknown> | undefined;
@@ -547,8 +563,11 @@ export async function getActionForGrant(
     action_type: String(r.action_type ?? ''),
     status: String(r.status ?? ''),
     risk_score: Number(r.risk_score) || 0,
-    context: r.context == null ? null : String(r.context),
+    context: serializedContext(r.context),
     guard_decision_id: r.guard_decision_id == null ? null : String(r.guard_decision_id),
+    created_by: r.created_by == null ? null : String(r.created_by),
+    approval_expires_at: r.approval_expires_at == null ? null : String(r.approval_expires_at),
+    created_at: r.created_at == null ? null : String(r.created_at),
   };
 }
 
@@ -571,23 +590,63 @@ export async function listPendingApprovalsForGrant(
   orgId: string,
   actionType: string,
   limit = 200,
-): Promise<PendingApprovalForGrant[]> {
-  if (!actionType) return [];
+): Promise<{ rows: PendingApprovalForGrant[]; truncated: boolean }> {
+  if (!actionType) return { rows: [], truncated: false };
+  const cap = Math.min(Math.max(1, limit), 200);
   const rows = await sql.query(
-    `SELECT action_id, action_type, risk_score, context
-     FROM action_records
-     WHERE org_id = $1 AND status = 'pending_approval'
-       AND action_type = $2
-       AND (approval_expires_at >= NOW()
-            OR (approval_expires_at IS NULL AND created_at >= NOW() - interval '24 hours'))
-     ORDER BY created_at ASC
+    `SELECT ar.action_id, ar.action_type, ar.risk_score, gd.context,
+            ar.created_by, ar.approval_expires_at, COUNT(*) OVER() AS total_candidates
+     FROM action_records ar
+     LEFT JOIN guard_decisions gd
+       ON gd.id = ar.guard_decision_id AND gd.org_id = ar.org_id
+     WHERE ar.org_id = $1 AND ar.status = 'pending_approval'
+       AND ar.action_type = $2
+       AND (ar.approval_expires_at >= NOW()
+            OR (ar.approval_expires_at IS NULL AND ar.created_at >= NOW() - interval '24 hours'))
+     ORDER BY ar.created_at ASC
      LIMIT $3`,
-    [orgId, actionType, Math.min(Math.max(1, limit), 200)],
+    [orgId, actionType, cap],
   );
-  return (rows as Array<Record<string, unknown>>).map((r) => ({
+  const mapped = (rows as Array<Record<string, unknown>>).map((r) => ({
     action_id: String(r.action_id),
     action_type: String(r.action_type),
     risk_score: Number(r.risk_score) || 0,
-    context: r.context == null ? null : String(r.context),
+    context: serializedContext(r.context),
+    created_by: r.created_by == null ? null : String(r.created_by),
+    approval_expires_at: r.approval_expires_at == null ? null : String(r.approval_expires_at),
   }));
+  const totalCandidates = Number((rows[0] as Record<string, unknown> | undefined)?.total_candidates);
+  return { rows: mapped, truncated: Number.isFinite(totalCandidates) && totalCandidates > cap };
+}
+
+/** Atomically re-check source eligibility while persisting its standing grant. */
+export async function createApprovalGrant(
+  sql: SqlClient,
+  orgId: string,
+  actionId: string,
+  actorId: string,
+  data: { id: string; name: string; rules: string },
+): Promise<Row | null> {
+  const rows = await sql`
+    WITH eligible AS (
+      SELECT 1 FROM action_records
+      WHERE action_id = ${actionId}
+        AND org_id = ${orgId}
+        AND status = 'pending_approval'
+        AND (approval_expires_at >= NOW()
+             OR (approval_expires_at IS NULL AND created_at >= NOW() - interval '24 hours'))
+        AND (${actorId} = 'operator' OR created_by IS DISTINCT FROM ${actorId})
+    )
+    INSERT INTO guard_policies
+      (id, org_id, name, policy_type, rules, active, created_by, created_at, updated_at)
+    SELECT ${data.id}, ${orgId}, ${data.name}, 'allow_grant', ${data.rules}, 1,
+           ${actorId}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+    FROM eligible
+    ON CONFLICT (org_id, name) DO UPDATE
+      SET rules = EXCLUDED.rules, active = 1, created_by = EXCLUDED.created_by,
+          updated_at = CURRENT_TIMESTAMP
+    RETURNING *
+  `;
+  if (rows[0]) invalidateGuardPolicyCache(orgId);
+  return rows[0] || null;
 }

@@ -139,7 +139,9 @@ cp -r hooks/dashclaw_agent_intel .claude/hooks/`,
 DASHCLAW_API_KEY=oc_live_...
 DASHCLAW_HOOK_MODE=enforce
 DASHCLAW_GUARD_UNAVAILABLE_POLICY=block
-DASHCLAW_GUARD_TIMEOUT=5`,
+DASHCLAW_GUARD_TIMEOUT=5
+# Set after your server advertises execution-claim protocol 1:
+DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1`,
     },
     {
       number: 4,
@@ -165,10 +167,10 @@ DASHCLAW_GUARD_TIMEOUT=5`,
       number: 6,
       title: 'Run Claude Code and trigger a tool call',
       summary:
-        'Ask Claude Code to do anything that uses Bash, Edit, Write, or MultiEdit, or an MCP tool (e.g. a connected Gmail/Stripe send). The hook fires automatically. For policies that require approval, your phone will DM you.',
+        'Ask Claude Code to do anything that uses Bash, Edit, Write, or MultiEdit, or an MCP tool. The hook evaluates current policy, records one action, waits when approval is required, then claims the exact action and principal before releasing the host tool. Approval is consumed at the claim. Ordinary dashclaw_guard and dashclaw_record MCP calls remain cooperative.',
       codeTitle: 'Example prompt',
       codeBody: 'Create a file called hello.txt with the contents "Hello from a governed agent"',
-      note: 'Watch the terminal: you should see [DashClaw] messages as the hook evaluates the action.',
+      note: 'Watch the terminal: you should see [DashClaw] messages as the hook evaluates the action. During a server-first upgrade, an absent claim advertisement keeps the legacy flow; a partial or invalid advertisement blocks. The strict flag rejects servers that omit protocol 1.',
     },
     {
       number: 7,

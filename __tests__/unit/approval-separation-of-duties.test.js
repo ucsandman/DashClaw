@@ -3,15 +3,14 @@
  * 2026-07-05): the principal that created an action may not approve it.
  *
  * - createActionRecord persists the trusted middleware principal (created_by).
- *   Position pin: the insert binds created_by directly BEFORE the v4.3 lineage
- *   pair. Since v5.7.0 (enforcement_mode at .at(-3), F0): .at(-6) = created_by
- *   (fleet-attribution pins -5/-4, close-source pins -2, approvals-lifecycle
- *   pins -1).
+ *   The insert assertion resolves the value by column name so unrelated schema
+ *   additions cannot silently retarget this security check.
  * - recordBulkApprovals excludes rows the approver's own principal created
  *   ('operator' root principal exempt) inside the same atomic UPDATE.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createActionRecord, recordBulkApprovals } from '../../app/lib/repositories/actions.repository.js';
+import { actionInsertValuesByColumn } from './helpers/action-insert-values.js';
 
 function makeCapturingSqlMock(responses) {
   const queue = [...responses];
@@ -47,15 +46,15 @@ describe('createActionRecord — created_by principal stamp', () => {
   it('persists the payload createdBy (trusted middleware principal)', async () => {
     const sql = makeCapturingSqlMock([[{ action_id: 'act_1' }]]);
     await createActionRecord(sql, payload({ createdBy: 'key_abc123' }));
-    const { text, values } = sql.calls[0];
+    const { text } = sql.calls[0];
     expect(text).toContain('created_by');
-    expect(values.at(-6)).toBe('key_abc123');
+    expect(actionInsertValuesByColumn(sql.calls[0]).created_by).toBe('key_abc123');
   });
 
   it('binds NULL when no principal was passed (system/legacy writers)', async () => {
     const sql = makeCapturingSqlMock([[{ action_id: 'act_1' }]]);
     await createActionRecord(sql, payload());
-    expect(sql.calls[0].values.at(-6)).toBeNull();
+    expect(actionInsertValuesByColumn(sql.calls[0]).created_by).toBeNull();
   });
 
   it('never reads created_by from the client data body', async () => {
@@ -63,7 +62,7 @@ describe('createActionRecord — created_by principal stamp', () => {
     await createActionRecord(sql, payload({
       data: { agent_id: 'a1', action_type: 'deploy', created_by: 'key_spoofed' },
     }));
-    expect(sql.calls[0].values.at(-6)).toBeNull();
+    expect(actionInsertValuesByColumn(sql.calls[0]).created_by).toBeNull();
   });
 });
 

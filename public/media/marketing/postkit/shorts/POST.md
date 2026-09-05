@@ -1,11 +1,5 @@
-# DashClaw — YouTube Shorts post kit
+# Archived DashClaw post kit
 
-## Files
-- Video: social-9x16-captioned.mp4
-- Thumbnail: thumb.jpg
-- Caption: caption.txt (paste as the post copy)
-- Alt text: alt.txt (one-sentence video description)
+This kit is retained for source reference. Its video and copy predate the current enforcement contract and are not approved for publication.
 
-
-## Notes
-Upload via YouTube Studio > Create > Upload video. Keep it vertical and under 60s so YouTube routes it to the Shorts shelf; paste caption.txt as the description.
+Regenerate the video, audio, captions, and post copy together before reuse. See the [asset archive notes](../../README.md) and the [current interactive demo](https://www.dashclaw.io/demo).

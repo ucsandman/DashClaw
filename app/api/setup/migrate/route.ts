@@ -12,7 +12,7 @@ import {
   ACTION_RECORDS_RUNTIME_INDEX_DEFINITIONS,
   ACTION_RECORDS_RUNTIME_CONSTRAINT_DEFINITIONS,
 } from '../../../lib/setup/action-records-runtime-schema.mjs';
-import { splitSqlStatements } from '../../../lib/setup/sql-statements.mjs';
+import { runSchemaMigrations } from '../../../lib/setup/migration-runner.mjs';
 
 export {
   ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS,
@@ -25,17 +25,13 @@ export {
 
 async function reconcileActionRecordsRuntimeSchema(sql: any) {
   for (const column of ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS) {
-    try {
-      await sql.unsafe(
-        `ALTER TABLE "action_records" ADD COLUMN IF NOT EXISTS "${column.name}" ${column.sql}`,
-      );
-    } catch { /* best-effort: older installs may already have equivalent columns with slight type differences */ }
+    await sql.unsafe(
+      `ALTER TABLE "action_records" ADD COLUMN IF NOT EXISTS "${column.name}" ${column.sql}`,
+    );
   }
 
   for (const index of ACTION_RECORDS_RUNTIME_INDEX_DEFINITIONS) {
-    try {
-      await sql.unsafe(index.sql);
-    } catch { /* best-effort: index drift is caught by the setup validator */ }
+    await sql.unsafe(index.sql);
   }
 
   // SECURITY LOW (2026-07-27 pre-ship sweep): the drizzle migration path
@@ -43,10 +39,8 @@ async function reconcileActionRecordsRuntimeSchema(sql: any) {
   // provisioned the column without it. Same idempotent drop-then-add idiom
   // as drizzle/0064_containment_verdicts.sql.
   for (const constraint of ACTION_RECORDS_RUNTIME_CONSTRAINT_DEFINITIONS) {
-    try {
-      await sql.unsafe(constraint.dropSql);
-      await sql.unsafe(constraint.addSql);
-    } catch { /* best-effort: constraint reconciliation should never block setup */ }
+    await sql.unsafe(constraint.dropSql);
+    await sql.unsafe(constraint.addSql);
   }
 }
 
@@ -74,6 +68,7 @@ export async function POST(request: Request) {
 
   try {
     if (await isAlreadyInitialized(sql) && !(await isAuthorizedSetupWriter(sql, request))) {
+      await sql.end({ timeout: 2 });
       return NextResponse.json(
         { error: 'Instance already initialized. Admin API key required to re-run migrations.' },
         { status: 401 }
@@ -81,64 +76,34 @@ export async function POST(request: Request) {
     }
     // Read all Drizzle migration SQL files in order
     const drizzleDir = resolve(process.cwd(), 'drizzle');
-    let ddl: string;
+    let migrations: Array<{ filename: string; content: string }>;
+    let recordMigrations = true;
+    let sqlFiles: string[] | null = null;
     try {
-      const sqlFiles = readdirSync(drizzleDir)
+      sqlFiles = readdirSync(drizzleDir)
         .filter((f) => f.endsWith('.sql'))
         .sort();
-      ddl = sqlFiles
-        .map((f) => readFileSync(resolve(drizzleDir, f), 'utf8'))
-        .join('\n--> statement-breakpoint\n');
-    } catch {
-      // Fallback: create only the critical tables needed for governance loop
-      ddl = CRITICAL_TABLES_DDL;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    if (sqlFiles === null) {
+      // The serverless bundle can omit the drizzle directory entirely.
+      // Other directory/read failures are real migration failures and must
+      // never be converted into a successful critical-schema fallback.
+      migrations = [{ filename: 'runtime-critical-fallback.sql', content: CRITICAL_TABLES_DDL }];
+      recordMigrations = false;
+    } else {
+      if (sqlFiles.length === 0) throw new Error('No Drizzle migrations found');
+      migrations = sqlFiles.map((filename) => ({
+        filename,
+        content: readFileSync(resolve(drizzleDir, filename), 'utf8'),
+      }));
     }
 
-    // Strips full-line comments too — non-ASCII comment characters hard-fail
-    // statement encoding conversion on non-UTF8 databases (see sql-statements.mjs).
-    const statements = splitSqlStatements(ddl);
-
-    // Postgres error codes safe to skip on re-run
-    const SAFE_CODES = new Set([
-      '42P07', '42P16', '42701', '42710', '42P10', '23505',
-    ]);
-
-    let created = 0;
-    let skipped = 0;
-
-    for (const stmt of statements) {
-      try {
-        if (stmt.includes('vector(') && !stmt.startsWith('CREATE EXTENSION')) {
-          try { await sql.unsafe('CREATE EXTENSION IF NOT EXISTS vector'); } catch { /* best-effort: pgvector not available — vector statements skipped */ }
-        }
-        await sql.unsafe(stmt);
-        created++;
-      } catch (err) {
-        if (SAFE_CODES.has((err as { code?: string }).code as string) || (err as Error).message?.includes('already exists')) {
-          skipped++;
-        } else {
-          skipped++;
-        }
-      }
-    }
-
-    // Ensure columns on existing tables (handles schema drift from older deploys)
-    for (const stmt of statements) {
-      const tableMatch = stmt.match(/^CREATE TABLE\s+"(\w+)"\s*\(/i);
-      if (!tableMatch) continue;
-      const table = tableMatch[1];
-      const body = stmt.slice(stmt.indexOf('(') + 1, stmt.lastIndexOf(')'));
-      const lines = body.split('\n').map((l) => l.trim().replace(/,\s*$/, ''));
-      for (const line of lines) {
-        if (!line.startsWith('"')) continue;
-        const colMatch = line.match(/^"(\w+)"\s+(.+)/);
-        if (!colMatch) continue;
-        let rest = colMatch[2]!.replace(/\s*PRIMARY KEY.*/i, '').replace(/,\s*$/, '');
-        try { await sql.unsafe(`ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS "${colMatch[1]}" ${rest}`); } catch { /* best-effort: column already exists with an equivalent shape */ }
-      }
-    }
-
-    await reconcileActionRecordsRuntimeSchema(sql);
+    const migrationResult = await runSchemaMigrations(sql, migrations, { recordMigrations });
+    await sql.begin(async (transaction) => {
+      await reconcileActionRecordsRuntimeSchema(transaction);
+    });
 
     // Seed org_default
     let orgSeeded = false;
@@ -189,7 +154,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      schema: { applied: created, skipped },
+      schema: {
+        applied: migrationResult.appliedStatements,
+        skipped: migrationResult.alreadyAppliedStatements,
+        migrations_applied: migrationResult.migrationsApplied,
+        migrations_already_applied: migrationResult.migrationsAlreadyApplied,
+      },
       org_seeded: orgSeeded,
       key_seeded: keySeeded,
     });
@@ -338,6 +308,12 @@ CREATE TABLE IF NOT EXISTS "action_records" (
   "approved_at" timestamp,
   "created_by" text,
   "approval_grant_used_at" timestamp,
+  "execution_claimed_at" timestamp with time zone,
+  "execution_attempt_id" text,
+  "execution_protocol" integer,
+  "execution_guard_decision_id" text,
+  "identity_verified" boolean,
+  "payload_signature_status" text,
   "act_content_hash" text,
   "approval_expires_at" timestamp with time zone,
   "outcome_status" text NOT NULL DEFAULT 'pending',
@@ -361,6 +337,10 @@ CREATE TABLE IF NOT EXISTS "action_records" (
   "updated_at" timestamp DEFAULT now(),
   CONSTRAINT "action_records_action_id_unique" UNIQUE("action_id")
 )
+--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "action_records_idempotency_idx"
+  ON "action_records" ("org_id", "idempotency_key")
+  WHERE "idempotency_key" IS NOT NULL
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "api_keys" (
   "id" text PRIMARY KEY NOT NULL,

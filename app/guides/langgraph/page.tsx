@@ -59,8 +59,6 @@ from typing import TypedDict
 class AgentState(TypedDict):
     topic: str
     research_result: str
-    governance_decision: str
-    action_id: str
 
 claw = DashClaw(
     base_url=os.environ["DASHCLAW_BASE_URL"],
@@ -68,41 +66,31 @@ claw = DashClaw(
     agent_id="langgraph-research-agent",
 )
 
-def governance_node(state: AgentState) -> AgentState:
-    """Check DashClaw guard before proceeding."""
-    result = claw.guard({
-        "action_type": "research",
-        "declared_goal": f"Research topic: {state['topic']}",
-        "risk_score": 30,
-    })
-    decision = result.get("decision", "allow")
-    if decision == "block":
-        return {**state, "governance_decision": "blocked"}
-    action = claw.create_action(
-        "research",
-        f"Research topic: {state['topic']}",
-        risk_score=30,
-    )
-    return {**state, "governance_decision": decision, "action_id": action["action_id"]}
-
-def research_node(state: AgentState) -> AgentState:
-    """Do the governed work, then report the outcome."""
-    if state["governance_decision"] == "blocked":
-        return {**state, "research_result": "skipped: blocked by policy"}
-    result = f"Research findings for {state['topic']}"  # replace with real work
-    claw.update_outcome(
-        state["action_id"],
-        status="completed",
-        output_summary=result,
+def governed_research_node(state: AgentState) -> AgentState:
+    """Keep the research effect inside DashClaw's claimed callback."""
+    topic = state["topic"]
+    result = claw.run_governed(
+        {
+            "kind": "http",
+            "request": {
+                "method": "GET",
+                "url": "https://research.example.test/search",
+                "body_excerpt": topic,
+            },
+        },
+        {
+            "action_type": "research",
+            "declared_goal": f"Research topic: {topic}",
+            "risk_score": 30,
+        },
+        lambda: f"Research findings for {topic}",  # replace with real work
     )
     return {**state, "research_result": result}
 
 # Wire the graph
 graph = StateGraph(AgentState)
-graph.add_node("governance", governance_node)
-graph.add_node("research", research_node)
-graph.set_entry_point("governance")
-graph.add_edge("governance", "research")
+graph.add_node("research", governed_research_node)
+graph.set_entry_point("research")
 graph.add_edge("research", END)
 app = graph.compile()`;
 
@@ -133,12 +121,12 @@ DASHCLAW_API_KEY=oc_live_...`,
     },
     {
       number: 4,
-      title: 'Add a governance node to your LangGraph graph',
+      title: 'Keep the effect inside a governed LangGraph node',
       summary:
-        'The governance node calls DashClaw guard before the research node runs. If the guard blocks, the research node skips execution.',
+        'The node passes the exact research act and callback to run_governed. DashClaw handles current policy, recording, approval, one execution claim, and outcome reporting.',
       codeTitle: 'main.py',
       codeBody: governanceNodeCode,
-      note: "The governance node runs before your tool node. If the guard decision is 'block', the research node returns early. If 'allow', it proceeds and calls update_outcome when done.",
+      note: 'Do not split guard and effect across graph nodes. The effect callback must stay behind the execution claim.',
     },
     {
       number: 5,
@@ -163,7 +151,7 @@ DASHCLAW_API_KEY=oc_live_...`,
 cd DashClaw/examples/langgraph-governed
 pip install -r requirements.txt
 python main.py`,
-      note: 'The example governs the graph with the core SDK methods (guard, create_action, wait_for_approval, update_outcome): the same intercept → decide → approve → prove loop shown above.',
+      note: 'The repository example is an older cooperative guard-and-record graph. It records policy and approval state, but it does not claim execution authority. Use the run_governed node pattern above for real effects.',
     },
   ];
 

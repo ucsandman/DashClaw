@@ -38,13 +38,19 @@ function getValidatorFns(contracts) {
   return validators;
 }
 
-function printFindings(findings) {
+function countContracts(contracts) {
+  return ['api', 'schema', 'setup', 'sdk']
+    .reduce((count, domain) => count + Object.keys(contracts[domain] || {}).length, 0);
+}
+
+function printFindings(findings, { validatorsRun, contractsProcessed }) {
+  const counts = `validators_run=${validatorsRun} contracts_processed=${contractsProcessed}`;
   if (findings.length === 0) {
-    console.log('contracts check passed');
+    console.log(`contracts check passed (${counts})`);
     return;
   }
 
-  console.error('Contract violation(s) found:');
+  console.error(`Contract violation(s) found (${counts}):`);
   for (const finding of findings) {
     console.error(`- [${finding.code}] ${finding.message}`);
   }
@@ -53,15 +59,25 @@ function printFindings(findings) {
 export async function runContractsCheck({ mode = 'ci', contracts = null, validatorFns = null } = {}) {
   const loadedContracts = contracts || await loadContracts(process.cwd());
   const validators = validatorFns || getValidatorFns(loadedContracts);
+  const validatorsRun = validators.length;
+  const contractsProcessed = countContracts(loadedContracts);
 
   const results = await Promise.all(validators.map((validator) => validator(loadedContracts)));
   const findings = results.flatMap((result) => result.findings || []);
+  if (validatorsRun === 0) {
+    findings.push({
+      code: 'no_validators',
+      message: 'No contract validators executed; refusing a false-green contract check.',
+    });
+  }
 
-  printFindings(findings);
+  printFindings(findings, { validatorsRun, contractsProcessed });
 
   return {
     exitCode: findings.length > 0 && mode !== 'warn' ? 1 : 0,
     findings,
+    validatorsRun,
+    contractsProcessed,
   };
 }
 

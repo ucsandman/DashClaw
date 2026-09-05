@@ -15,11 +15,11 @@ describe('collectTrackedMarkdownFiles', () => {
       ].join('\n'),
     });
 
-    const files = await collectTrackedMarkdownFiles({ root, execFile });
+    const files = await collectTrackedMarkdownFiles({ root, execFile, fileExists: async () => true });
 
     expect(execFile).toHaveBeenCalledWith(
       'git',
-      ['ls-files', '--', '*.md'],
+      ['ls-files', '--cached', '--others', '--exclude-standard', '--', '*.md'],
       expect.objectContaining({ cwd: root }),
     );
     expect(files).toEqual([
@@ -40,10 +40,34 @@ describe('collectTrackedMarkdownFiles', () => {
       ].join('\n'),
     });
 
-    const files = await collectTrackedMarkdownFiles({ root, execFile });
+    const files = await collectTrackedMarkdownFiles({ root, execFile, fileExists: async () => true });
 
     expect(files).toEqual([
       path.join(root, 'docs/real.md'),
+    ]);
+  });
+
+  it('includes nonignored untracked markdown and excludes tracked files deleted from disk', async () => {
+    const root = path.resolve('/repo');
+    const execFile = vi.fn().mockResolvedValue({
+      stdout: [
+        'README.md',
+        '.claude/skills/old/SKILL.md',
+        'docs/new-untracked.md',
+      ].join('\n'),
+    });
+    const fileExists = vi.fn(async (file) => !file.endsWith(path.join('old', 'SKILL.md')));
+
+    const files = await collectTrackedMarkdownFiles({ root, execFile, fileExists });
+
+    expect(execFile).toHaveBeenCalledWith(
+      'git',
+      ['ls-files', '--cached', '--others', '--exclude-standard', '--', '*.md'],
+      expect.objectContaining({ cwd: root }),
+    );
+    expect(files).toEqual([
+      path.join(root, 'README.md'),
+      path.join(root, 'docs/new-untracked.md'),
     ]);
   });
 });

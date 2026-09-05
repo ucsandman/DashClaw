@@ -58,6 +58,7 @@ function installFetchMock(handler = defaultFetchHandler) {
         path: new URL(String(url)).pathname,
         method: init.method ?? 'GET',
         body: parseBody(init),
+        signal: init.signal,
       };
       calls.push(request);
       const response = await handler(request, calls);
@@ -70,7 +71,12 @@ function installFetchMock(handler = defaultFetchHandler) {
 
 function defaultFetchHandler(request) {
   if (request.path === '/api/guard') {
-    return { decision: 'allow', action_id: 'gd_1' };
+    return {
+      decision: 'allow',
+      action_id: 'gd_1',
+      execution_claim_required: true,
+      claim_protocol: 1,
+    };
   }
   if (request.path === '/api/sessions' && request.method === 'POST') {
     return { session: { id: 'sess_1' } };
@@ -85,6 +91,13 @@ function defaultFetchHandler(request) {
     return jsonResponse({}, 404);
   }
   if (request.path === '/api/actions/act_approval') {
+    if (request.method === 'PATCH' && request.body?.claim_execution) {
+      return {
+        claimed: true,
+        action_id: 'act_approval',
+        attempt_id: request.body.attempt_id,
+      };
+    }
     return {
       action: {
         action_id: 'act_approval',
@@ -94,6 +107,13 @@ function defaultFetchHandler(request) {
     };
   }
   if (request.path.startsWith('/api/actions/') && request.method === 'PATCH') {
+    if (request.body?.claim_execution) {
+      return {
+        claimed: true,
+        action_id: request.path.split('/').pop(),
+        attempt_id: request.body.attempt_id,
+      };
+    }
     return { action: { action_id: request.path.split('/').pop() } };
   }
   if (request.path.startsWith('/api/sessions/') && request.method === 'PATCH') {
@@ -113,7 +133,11 @@ function findCall(calls, path, method) {
 }
 
 function actionPatch(calls, actionId) {
-  return findCall(calls, `/api/actions/${actionId}`, 'PATCH');
+  return calls.find((call) =>
+    call.path === `/api/actions/${actionId}` &&
+    call.method === 'PATCH' &&
+    !call.body?.claim_execution
+  );
 }
 
 async function registerPlugin({ pluginConfig = {} } = {}) {
@@ -187,6 +211,7 @@ describe('@dashclaw/openclaw-plugin', () => {
       declared_goal: 'Bash: git status --short',
       reversible: true,
       systems_touched: [],
+      client_capabilities: ['execution_claims'],
       act: { kind: 'shell', command: 'git status --short' },
       agent_id: 'openclaw-test',
       // dashclaw >=4.6x declares its approval polling window on the guard call
@@ -202,6 +227,7 @@ describe('@dashclaw/openclaw-plugin', () => {
       risk_score: 10,
       reversible: true,
       systems_touched: [],
+      client_capabilities: ['execution_claims'],
       act: { kind: 'shell', command: 'git status --short' },
       metadata: { openclaw_tool_name: 'bash' },
       agent_id: 'openclaw-test',
@@ -209,6 +235,58 @@ describe('@dashclaw/openclaw-plugin', () => {
     });
     assert.equal(actionPatch(calls, 'act_1').body.status, 'completed');
     assert.match(actionPatch(calls, 'act_1').body.timestamp_end, /^\d{4}-/);
+  });
+
+  it('makes the execution claim abortable before waiting for its acknowledgement', async () => {
+    const calls = installFetchMock();
+    const { api } = await registerPlugin();
+
+    const result = await api.emit('before_tool_call', {
+      toolName: 'bash',
+      params: { command: 'git status --short' },
+      toolCallId: 'call_claim_signal',
+      runId: 'run_claim_signal',
+    });
+
+    const claim = calls.find((call) => call.body?.claim_execution === true);
+    assert.equal(result, undefined);
+    assert.ok(claim.signal instanceof AbortSignal);
+    assert.equal(claim.signal.aborted, false);
+  });
+
+  it('aborts a claim whose response body never acknowledges and blocks without retrying', async () => {
+    vi.useFakeTimers();
+    try {
+      const calls = installFetchMock((request) => {
+        if (request.body?.claim_execution === true) {
+          return {
+            ok: true,
+            status: 200,
+            json: () => new Promise(() => {}),
+          };
+        }
+        return defaultFetchHandler(request);
+      });
+      const { api } = await registerPlugin();
+
+      const pending = api.emit('before_tool_call', {
+        toolName: 'bash',
+        params: { command: 'git status --short' },
+        toolCallId: 'call_claim_timeout',
+        runId: 'run_claim_timeout',
+      });
+      await vi.advanceTimersByTimeAsync(30_001);
+      const result = await pending;
+
+      const claims = calls.filter((call) => call.body?.claim_execution === true);
+      assert.equal(claims.length, 1);
+      assert.equal(claims[0].signal.aborted, true);
+      assert.equal(result?.block, true);
+      assert.match(result.blockReason, /timed out after 30000ms/);
+      assert.match(result.blockReason, /reconcile action act_1 before retrying/);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('carries file-path evidence through both calls without copying file content', async () => {
@@ -293,7 +371,13 @@ describe('@dashclaw/openclaw-plugin', () => {
   it('blocks policy-denied tool calls without opening an action record', async () => {
     const calls = installFetchMock((request) => {
       if (request.path === '/api/guard') {
-        return { decision: 'block', action_id: 'gd_blocked', reason: 'no deploys' };
+        return {
+          decision: 'block',
+          action_id: 'gd_blocked',
+          reason: 'no deploys',
+          execution_claim_required: true,
+          claim_protocol: 1,
+        };
       }
       return defaultFetchHandler(request);
     });
@@ -316,7 +400,12 @@ describe('@dashclaw/openclaw-plugin', () => {
   it('waits for approval when guard or the created action requires it', async () => {
     const calls = installFetchMock((request) => {
       if (request.path === '/api/guard') {
-        return { decision: 'require_approval', action_id: 'gd_approval' };
+        return {
+          decision: 'require_approval',
+          action_id: 'gd_approval',
+          execution_claim_required: true,
+          claim_protocol: 1,
+        };
       }
       if (request.path === '/api/actions' && request.method === 'POST') {
         return {
@@ -352,7 +441,12 @@ describe('@dashclaw/openclaw-plugin', () => {
     // who never answers must produce a clean block, not a killed RPC.
     installFetchMock((request) => {
       if (request.path === '/api/guard') {
-        return { decision: 'require_approval', action_id: 'gd_parked' };
+        return {
+          decision: 'require_approval',
+          action_id: 'gd_parked',
+          execution_claim_required: true,
+          claim_protocol: 1,
+        };
       }
       if (request.path === '/api/actions' && request.method === 'POST') {
         return {
@@ -520,7 +614,7 @@ describe('@dashclaw/openclaw-plugin — codex absent-usage recovery', () => {
     await api.emit('agent_end', {}, { runId: 'run_dbl' });
 
     const act1Patches = calls.filter(
-      (c) => c.path === '/api/actions/act_1' && c.method === 'PATCH'
+      (c) => c.path === '/api/actions/act_1' && c.method === 'PATCH' && !c.body?.claim_execution
     );
     assert.equal(act1Patches.length, 1);
     assert.equal(act1Patches[0].body.tokens_in, 40);

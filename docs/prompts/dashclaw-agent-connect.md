@@ -32,7 +32,7 @@ npm install dashclaw
 Create a quick test script:
 
 ```js
-import { DashClaw, GuardBlockedError, ApprovalDeniedError } from 'dashclaw';
+import { DashClaw } from 'dashclaw';
 
 const claw = new DashClaw({
   baseUrl: process.env.DASHCLAW_BASE_URL,
@@ -40,52 +40,21 @@ const claw = new DashClaw({
   agentId: process.env.DASHCLAW_AGENT_ID || 'my-agent',
 });
 
-// 1. Check policy before acting — abort on hard block
-const decision = await claw.guard({
+const act = { kind: 'http', request: { method: 'GET', url: `${process.env.DASHCLAW_BASE_URL}/api/health` } };
+await claw.runGoverned(act, {
   action_type: 'test',
   declared_goal: 'Verify DashClaw connection',
   risk_score: 5,
-});
-if (decision.decision === 'block') {
-  throw new GuardBlockedError(decision);
-}
-
-// 2. Record the action. The server re-evaluates policy here and is
-//    the authoritative source for whether human review is required.
-const { action, action_id } = await claw.createAction({
-  action_type: 'test',
-  declared_goal: 'Verify DashClaw connection',
-  risk_score: 5,
+}, async () => {
+  const response = await fetch(act.request.url);
+  if (!response.ok) throw new Error(`Health check failed: ${response.status}`);
 });
 
-// 3. If the server gated this, wait for a human operator.
-//    Use createAction's action_id — NOT decision.action_id from guard().
-if (action?.status === 'pending_approval') {
-  try {
-    await claw.waitForApproval(action_id);
-  } catch (err) {
-    if (err instanceof ApprovalDeniedError) {
-      console.log('Operator denied the smoke test.');
-      return;
-    }
-    throw err;
-  }
-}
-
-// 4. Record what you assumed
-await claw.recordAssumption({
-  action_id,
-  assumption: 'DashClaw instance is reachable',
-});
-
-// 5. Close the loop with the v2 finality endpoint
-await claw.reportActionSuccess(action_id, 'Smoke test passed');
-
-console.log('DashClaw action recorded:', action_id);
+console.log('Governed DashClaw smoke test completed.');
 ```
 
-> **Canonical HITL flow:** For the full explanation of why the `action_id`
-> distinction matters and how `waitForApproval` interacts with the server,
+> **Canonical execution flow:** For the full explanation of approval waiting,
+> execution claims, and uncertain outcome confirmation,
 > see [`sdk/README.md` → Human-in-the-Loop (HITL) Approval Flow](../../sdk/README.md#human-in-the-loop-hitl-approval-flow).
 
 Run it and confirm you can see the action in the dashboard (`/decisions`).

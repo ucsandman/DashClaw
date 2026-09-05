@@ -1,6 +1,6 @@
 # DashClaw Documentation
 
-DashClaw is a governance runtime for AI agents. It sits between an agent's intent and the real world: it evaluates policy before risky actions run, routes human approval where required, records every decision as replayable evidence, and tracks terminal outcomes so a retried agent never silently double-executes.
+DashClaw is a governance runtime for AI agents. Supported enforcement integrations evaluate policy before risky actions run, request human approval where required, and record decisions and reported outcomes. Execution claims limit a recorded action to one authorized attempt; uncertain external effects still require reconciliation and target-system idempotency. Ordinary API and MCP callers must cooperate with the returned decision.
 
 This page is the index for everything in `docs/` and the doc files at the repo root. It is ordered the way people actually adopt a governance tool: **understand it, try it, connect an agent, operate the fleet, then look things up.**
 
@@ -15,6 +15,7 @@ This page is the index for everything in `docs/` and the doc files at the repo r
 | [Concepts: how DashClaw works](./concepts.md) | The mental model in one page — the four primitives, the governance loop, decision types, risk scoring, and what "block" really means on each surface. Start here. |
 | [Enforcement boundary (ADR)](./architecture/enforcement-boundary.md) | The honest per-surface table of where blocks are **mechanical** (hooks, gateway plugins, server-executed capabilities) vs **cooperative** (SDK/MCP/chat callers honor the decision). Every enforcement claim in this repo defers to this file. |
 | [Trust and failure model (ADR)](./architecture/trust-and-failure-model.md) | What DashClaw trusts, what it verifies, and what happens during an outage. Read this before you rely on DashClaw for anything consequential. |
+| [September 5 audit remediation](./audit-remediation-2026-09-05.md) | Repairs, verification boundaries, and the staged execution-claim rollout. |
 | [Governance core theory](./architecture/governance-core-theory.md) | The mathematical foundation under the runtime: the calibrated interruption controller (distribution-free error bound + anytime-valid alarms, with proof sketches), the decision lattice, the charter invariants as temporal properties, and honest verdicts on what machinery does and doesn't pay for itself. |
 | [PROJECT_DETAILS.md](../PROJECT_DETAILS.md) | The full system map: every UI surface, route tier, and SDK domain. The best-maintained single reference in the repo. |
 
@@ -67,6 +68,8 @@ You connected an agent. Now you are the operator.
 | [Security guide](./SECURITY.md) | Operator-facing security model, ASVS mapping, hardening changelog, coordinated disclosure. |
 | [Guard enforcement contract](./guard-enforcement-contract.md) | Fail-closed degradation, evaluation deadlines, unavailable-instance policy, idempotency, org kill switch. |
 | [Hosted deployment runbook](./hosted-deployment-runbook.md) | Operator-only: running a public trial-minting instance (Turnstile, cleanup crons). Most self-hosters never need this. |
+| [Key custody and rotation](./key-custody-and-rotation.md) | Encryption boundary and active, retired, and compromised signing-key semantics. |
+| [Recovery and retention contract](./recovery-and-retention-contract.md) | RPO/RTO ownership, disposable restore drill, reconciliation, and actual retention behavior. |
 
 ## 6. Reference
 

@@ -1,6 +1,8 @@
-# DashClaw marketing assets
+# DashClaw marketing asset archive
 
-Generated 2026-07-10 (evening full re-run) by the animation engine (`C:\Projects\animations`, brand `dashclaw`). Every asset passed a stills-gate render check, four mechanical judges (AV sync, demo pacing, palette, size budgets), and an adversarially verified brand-compliance sweep (orange as signal only, no em dashes, no hype). Audio masters are normalized to ~-16 LUFS integrated / under -1.5 dBTP true peak.
+These assets were generated on 2026-07-10. The launch film and social clips predate the current enforcement contract. Their voiceover and captions include universal interception and verification claims that the implementation does not support. They are retained as historical source material, not approved copy for the current release. The original audio caption sidecars remain unchanged so they still transcribe the archived recordings.
+
+Use the [current interactive demo](https://www.dashclaw.io/demo), [README](../../../README.md), and [enforcement boundary](../../../docs/architecture/enforcement-boundary.md) for current product behavior. The README GIF is an illustration of the approval UI, not evidence of installed enforcement. The uses in the table below describe the original asset brief. Do not republish the archived post kits without regenerating the video, audio, captions, and copy together against the current contract.
 
 | File | What it is | Intended use |
 |---|---|---|
@@ -20,4 +22,4 @@ Generated 2026-07-10 (evening full re-run) by the animation engine (`C:\Projects
 
 Static link-preview cards live in `public/social/` (`og-image.png` 1200x630, `twitter-card.png` 1200x600, `github-social-preview.png` 1280x640) and were regenerated in the same run without the video-scrubber motif (statics only; the animated loop keeps it).
 
-Source of truth for copy and props lives in the engine repo (`out/dashclaw/marketing/brief.json` + `props/dashclaw-*.json`); regenerate there, never edit these binaries in place. Responsive matrix originals (16:9 / 1:1 / 4:5 / 9:16) live in the engine at `out/dashclaw/matrix/`.
+Editable source and responsive originals live in the separate animation project. Regenerate binaries there. Current product claims come from this repository's THESIS and enforcement documentation; archived generation briefs do not override them.

@@ -25,14 +25,13 @@ function makePolicy(type, rules, overrides = {}) {
   };
 }
 
-// applyPlanStepGrant runs two plans-repository queries: findDeniedStepMatch
-// (a SELECT against plan_authorization_steps) and consumePlanStepGrant (an
-// UPDATE against plan_authorization_steps). Content-matching (rather than
+// applyPlanStepGrant runs two read-only repository queries:
+// findDeniedStepMatch and findPlanExecutionAuthority. Content-matching (rather than
 // call-position) scripting is used so the mock stays correct regardless of
 // how many other tagged calls (risk_templates, operator-approval grant,
 // guard_decisions insert) happen to run before/after — those are internal
 // implementation detail this test file shouldn't have to track positionally.
-function makeSql({ policies = [], deniedRows = [], consumeRows = [], throwOnPlansLookup = false } = {}) {
+function makeSql({ policies = [], deniedRows = [], authorityRows = [], throwOnPlansLookup = false } = {}) {
   const taggedCalls = [];
   const queryCalls = [];
   const sql = (strings, ...values) => {
@@ -41,7 +40,9 @@ function makeSql({ policies = [], deniedRows = [], consumeRows = [], throwOnPlan
     if (/FROM guard_policies/i.test(text)) return Promise.resolve(policies);
     if (/plan_authorization_steps/i.test(text)) {
       if (throwOnPlansLookup) return Promise.reject(new Error('plans lookup failed'));
-      if (/^\s*UPDATE plan_authorization_steps/i.test(text)) return Promise.resolve(consumeRows);
+      if (/FROM plan_authorization_steps s JOIN plan_authorizations p/i.test(text)) {
+        return Promise.resolve(authorityRows);
+      }
       return Promise.resolve(deniedRows); // the findDeniedStepMatch SELECT
     }
     return Promise.resolve([]);
@@ -54,6 +55,8 @@ function makeSql({ policies = [], deniedRows = [], consumeRows = [], throwOnPlan
   sql.queryCalls = queryCalls;
   return sql;
 }
+
+const EXECUTION_CLAIMS = { client_capabilities: ['execution_claims'] };
 
 describe('applyPlanStepGrant (via evaluateGuard)', () => {
   const originalGuardLlmKey = process.env.GUARD_LLM_KEY;
@@ -76,7 +79,7 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
   it('downgrades require_approval to allow when an approved step matches', async () => {
     const sql = makeSql({
       policies: [makePolicy('require_approval', { action_types: ['deploy'] })],
-      consumeRows: [{
+      authorityRows: [{
         step_id: 'ps_step1',
         plan_id: 'pa_plan1',
         seq: 1,
@@ -86,6 +89,7 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
       }],
     });
     const result = await evaluateGuard('org_1', {
+      ...EXECUTION_CLAIMS,
       agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'ship the release',
     }, sql);
 
@@ -93,9 +97,12 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
     expect(result.matched_policies).toContain('builtin:plan_grant');
     expect(result.warnings.some((w) => w.includes('pa_plan1') && w.includes('step 1/2'))).toBe(true);
 
-    // The consumption UPDATE really was issued.
-    const consumeUpdates = sql.taggedCalls.filter((c) => /^\s*UPDATE plan_authorization_steps/i.test(c.text));
-    expect(consumeUpdates).toHaveLength(1);
+    const authorityLookups = sql.taggedCalls.filter(
+      (c) => /FROM plan_authorization_steps s JOIN plan_authorizations p/i.test(c.text),
+    );
+    expect(authorityLookups).toHaveLength(1);
+    expect(authorityLookups[0].text).toContain('grant_used_at IS NULL');
+    expect(sql.taggedCalls.some((c) => /^\s*UPDATE plan_authorization_steps/i.test(c.text))).toBe(false);
   });
 
   // T6: parity with applyOperatorApprovalGrant — the gating reasons (why the
@@ -104,12 +111,13 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
   it('T6: moves the gating reasons into warnings (prefixed) instead of discarding them on downgrade', async () => {
     const sql = makeSql({
       policies: [makePolicy('require_approval', { action_types: ['deploy'] }, { name: 'Needs review' })],
-      consumeRows: [{
+      authorityRows: [{
         step_id: 'ps_step1', plan_id: 'pa_plan1', seq: 1,
         reviewed_by: 'wes@example.com', act_content_hash: null, total_steps: 2,
       }],
     });
     const result = await evaluateGuard('org_1', {
+      ...EXECUTION_CLAIMS,
       agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'ship the release',
     }, sql);
 
@@ -118,11 +126,30 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
     expect(result.warnings.some((w) => w.startsWith('superseded by grant: ') && w.includes('Needs review'))).toBe(true);
   });
 
+  it('does not expose plan authority to a client that cannot claim execution', async () => {
+    const sql = makeSql({
+      policies: [makePolicy('require_approval', { action_types: ['deploy'] })],
+      authorityRows: [{
+        step_id: 'ps_step1', plan_id: 'pa_plan1', seq: 1,
+        reviewed_by: 'wes', act_content_hash: null, total_steps: 1,
+      }],
+    });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'ship the release',
+      client_capabilities: [],
+    }, sql);
+
+    expect(result.decision).toBe('require_approval');
+    expect(sql.taggedCalls.some(
+      (c) => /FROM plan_authorization_steps s JOIN plan_authorizations p/i.test(c.text),
+    )).toBe(false);
+  });
+
   it('never downgrades block', async () => {
     const sql = makeSql({
       policies: [makePolicy('block_action_type', { action_types: ['deploy'] })],
-      // Even if a grant existed, block must never consume it.
-      consumeRows: [{
+      // Even if authority existed, block must never select it.
+      authorityRows: [{
         step_id: 'ps_step2', plan_id: 'pa_plan2', seq: 1,
         reviewed_by: 'wes', act_content_hash: null, total_steps: 1,
       }],
@@ -135,7 +162,7 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
     const consumeUpdates = sql.taggedCalls.filter((c) => /^\s*UPDATE plan_authorization_steps/i.test(c.text));
     expect(consumeUpdates).toHaveLength(0);
     // Pin the early-return-before-any-query guarantee: block short-circuits
-    // before findDeniedStepMatch's SELECT or consumePlanStepGrant's UPDATE.
+    // before either read-only grant lookup.
     const planStepQueries = sql.taggedCalls.filter((c) => /plan_authorization_steps/i.test(c.text));
     expect(planStepQueries).toHaveLength(0);
   });
@@ -155,15 +182,16 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
     expect(result.reasons.some((r) => r.includes('ps_denied1'))).toBe(true);
   });
 
-  it('does not consume in simulate mode', async () => {
+  it('does not select grant authority in simulate mode', async () => {
     const sql = makeSql({
       policies: [makePolicy('require_approval', { action_types: ['deploy'] })],
-      consumeRows: [{
+      authorityRows: [{
         step_id: 'ps_step3', plan_id: 'pa_plan4', seq: 1,
         reviewed_by: 'wes', act_content_hash: null, total_steps: 1,
       }],
     });
     const result = await evaluateGuard('org_1', {
+      ...EXECUTION_CLAIMS,
       agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'ship the release',
     }, sql, { simulate: true });
 
@@ -171,13 +199,10 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
     // — simulate skips BOTH grant passes, so nothing downgraded it.
     expect(result.decision).toBe('require_approval');
 
-    const operatorGrantUpdates = sql.taggedCalls.filter(
-      (c) => /UPDATE action_records/i.test(c.text) && /approval_grant_used_at/i.test(c.text),
-    );
-    expect(operatorGrantUpdates).toHaveLength(0);
-
-    const planStepUpdates = sql.taggedCalls.filter((c) => /UPDATE plan_authorization_steps/i.test(c.text));
-    expect(planStepUpdates).toHaveLength(0);
+    expect(sql.taggedCalls.some((c) => c.text.includes('approved_by IS NOT NULL'))).toBe(false);
+    expect(sql.taggedCalls.some(
+      (c) => /FROM plan_authorization_steps s JOIN plan_authorizations p/i.test(c.text),
+    )).toBe(false);
   });
 
   it('fails soft: a throwing plans lookup leaves require_approval intact', async () => {
@@ -220,6 +245,7 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
       deniedRows: [{ step_id: 'ps_denied_noagent', plan_id: 'pa_plan5', reviewed_by: 'wes' }],
     });
     const result = await evaluateGuard('org_1', {
+      ...EXECUTION_CLAIMS,
       action_type: 'deploy', declared_goal: 'ship the release',
     }, sql);
 
@@ -260,13 +286,13 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
     expect(result.reasons.some((r) => r.includes('ps_denied_hash_noaction'))).toBe(true);
   });
 
-  // U1(c): consumption keeps the strict full-triple requirement — a matching
-  // goal alone (no agent_id) must never consume a grant, even though the
+  // U1(c): authority selection keeps the strict full-triple requirement — a matching
+  // goal alone (no agent_id) must never select a grant, even though the
   // deny half no longer requires agent_id.
-  it('U1c: consumption still requires the full triple — no grant when agent_id is missing', async () => {
+  it('U1c: authority selection still requires the full triple — no grant when agent_id is missing', async () => {
     const sql = makeSql({
       policies: [makePolicy('require_approval', { action_types: ['deploy'] })],
-      consumeRows: [{
+      authorityRows: [{
         step_id: 'ps_step_noagent', plan_id: 'pa_plan7', seq: 1,
         reviewed_by: 'wes', act_content_hash: null, preview_decision: 'require_approval', total_steps: 1,
       }],
@@ -280,12 +306,9 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
     expect(consumeUpdates).toHaveLength(0);
   });
 
-  // W2: an evaluation abandoned by the deadline must not consume a plan-step
-  // grant when it eventually reaches the grants phase in the background —
-  // its result is discarded (the deadline branch returns the degraded
-  // snapshot), so burning the single-use grant only strands the operator's
-  // approval for a result nobody will see.
-  it('W2: an evaluation abandoned by the deadline does not consume a plan-step grant in the background', async () => {
+  // W2: even an evaluation continuing after the deadline may only select
+  // authority. The atomic claim is the sole consumption point.
+  it('W2: an evaluation abandoned by the deadline never mutates a plan-step grant', async () => {
     const originalDeadline = process.env.DASHCLAW_GUARD_DEADLINE_MS;
     process.env.DASHCLAW_GUARD_DEADLINE_MS = '10';
     try {
@@ -302,20 +325,21 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
           makePolicy('require_approval', { action_types: ['deploy'] }),
           makePolicy('webhook_check', { url: 'https://example.com' }, { id: 'gp_hook' }),
         ],
-        consumeRows: [{
+        authorityRows: [{
           step_id: 'ps_step1', plan_id: 'pa_plan1', seq: 1,
           reviewed_by: 'wes', act_content_hash: null, total_steps: 1,
         }],
       });
 
       const result = await evaluateGuard('org_1', {
+        ...EXECUTION_CLAIMS,
         agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'ship the release',
       }, sql);
 
       expect(result.degraded).toBe(true);
 
-      // Give the abandoned evaluation time to reach (and, pre-fix, consume)
-      // the grant phase in the background before asserting on it.
+      // Give the abandoned evaluation time to reach the read-only grant phase
+      // in the background before asserting that it performed no mutation.
       await new Promise((resolve) => setTimeout(resolve, 150));
 
       const consumeUpdates = sql.taggedCalls.filter((c) => /^\s*UPDATE plan_authorization_steps/i.test(c.text));
@@ -326,41 +350,42 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
     }
   });
 
-  // W4: matched_action_id is written as an honest NULL, not '', when the
-  // evaluation context carries no action_id — '' previously read as "matched
-  // but blank" instead of "nothing to match".
-  it('W4: consumePlanStepGrant is called with matchedActionId: null when context.action_id is absent', async () => {
+  it('W4: authority selection is read-only when context.action_id is absent', async () => {
     const sql = makeSql({
       policies: [makePolicy('require_approval', { action_types: ['deploy'] })],
-      consumeRows: [{
+      authorityRows: [{
         step_id: 'ps_step1', plan_id: 'pa_plan1', seq: 1,
         reviewed_by: 'wes', act_content_hash: null, total_steps: 1,
       }],
     });
     await evaluateGuard('org_1', {
+      ...EXECUTION_CLAIMS,
       agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'ship the release',
     }, sql);
 
-    const consumeUpdate = sql.taggedCalls.find((c) => /^\s*UPDATE plan_authorization_steps/i.test(c.text));
-    expect(consumeUpdate).toBeTruthy();
-    // matched_action_id is the SET clause's only interpolation — first value.
-    expect(consumeUpdate.values[0]).toBeNull();
+    const lookup = sql.taggedCalls.find((c) => /FROM plan_authorization_steps s JOIN plan_authorizations p/i.test(c.text));
+    expect(lookup).toBeTruthy();
+    expect(lookup.text).not.toContain('matched_action_id');
+    expect(sql.taggedCalls.some((c) => /^\s*UPDATE plan_authorization_steps/i.test(c.text))).toBe(false);
   });
 
-  it('W4: consumePlanStepGrant is called with the stringified action_id when context.action_id is present', async () => {
+  it('W4: authority selection never binds or consumes a context action_id', async () => {
     const sql = makeSql({
       policies: [makePolicy('require_approval', { action_types: ['deploy'] })],
-      consumeRows: [{
+      authorityRows: [{
         step_id: 'ps_step1', plan_id: 'pa_plan1', seq: 1,
         reviewed_by: 'wes', act_content_hash: null, total_steps: 1,
       }],
     });
     await evaluateGuard('org_1', {
+      ...EXECUTION_CLAIMS,
       agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'ship the release', action_id: 'act_gd_abc123',
     }, sql);
 
-    const consumeUpdate = sql.taggedCalls.find((c) => /^\s*UPDATE plan_authorization_steps/i.test(c.text));
-    expect(consumeUpdate.values[0]).toBe('act_gd_abc123');
+    const lookup = sql.taggedCalls.find((c) => /FROM plan_authorization_steps s JOIN plan_authorizations p/i.test(c.text));
+    expect(lookup).toBeTruthy();
+    expect(lookup.values).not.toContain('act_gd_abc123');
+    expect(sql.taggedCalls.some((c) => /^\s*UPDATE plan_authorization_steps/i.test(c.text))).toBe(false);
   });
 
   // U3: the provenance object persisted with the decision (_plan_grant)
@@ -370,12 +395,13 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
   it('U3: plan-grant provenance includes preview_decision and live_reasons_count', async () => {
     const sql = makeSql({
       policies: [makePolicy('require_approval', { action_types: ['deploy'] }, { name: 'Needs review' })],
-      consumeRows: [{
+      authorityRows: [{
         step_id: 'ps_step1', plan_id: 'pa_plan1', seq: 1,
         reviewed_by: 'wes@example.com', act_content_hash: null, preview_decision: 'allow', total_steps: 2,
       }],
     });
     const result = await evaluateGuard('org_1', {
+      ...EXECUTION_CLAIMS,
       agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'ship the release',
     }, sql);
 

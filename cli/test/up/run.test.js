@@ -82,4 +82,41 @@ describe('waitForHealth', () => {
 
     assert.strictEqual(callCount, 2);
   });
+
+  test('waits until the health endpoint serves the expected rebuilt version', async () => {
+    let callCount = 0;
+    const fetchImpl = async () => {
+      callCount++;
+      const version = callCount === 1 ? '9.9.8' : '9.9.9';
+      return { status: 200, json: async () => ({ status: 'healthy', version }) };
+    };
+
+    await waitForHealth({
+      baseUrl: 'http://localhost:3999',
+      expectedVersion: '9.9.9',
+      fetchImpl,
+      timeoutMs: 5000,
+      intervalMs: 1,
+    });
+
+    assert.strictEqual(callCount, 2);
+  });
+
+  test('reports a served-version mismatch instead of accepting HTTP 200', async () => {
+    const fetchImpl = async () => ({
+      status: 200,
+      json: async () => ({ status: 'healthy', version: '9.9.8' }),
+    });
+
+    await assert.rejects(
+      () => waitForHealth({
+        baseUrl: 'http://localhost:3999',
+        expectedVersion: '9.9.9',
+        fetchImpl,
+        timeoutMs: 20,
+        intervalMs: 5,
+      }),
+      /served version 9\.9\.8; expected 9\.9\.9/i,
+    );
+  });
 });

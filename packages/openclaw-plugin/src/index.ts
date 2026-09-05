@@ -30,6 +30,7 @@ import {
   type GuardDecision,
 } from 'dashclaw';
 import { existsSync, readFileSync, statSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { resolve as resolvePath } from 'node:path';
 import { maybeAutoPair } from './auto-pairing.js';
 import { runLivenessProbe, shouldProbeNow, PROBE_AGENT_ID } from './liveness-probe.js';
@@ -48,6 +49,7 @@ interface PluginConfig {
   // but no cost" failure mode. Empty string disables the fallback.
   defaultModel: string;
   failClosed: boolean;
+  requireExecutionClaims: boolean;
   autoPairing: boolean;
   riskScoreDefault: number;
   highRiskTools: ReadonlySet<string>;
@@ -95,11 +97,16 @@ function numberFromConfig(
   return value;
 }
 
+function enabledEnvFlag(value: unknown): boolean {
+  return typeof value === 'string' && ['1', 'true'].includes(value.toLowerCase());
+}
+
 function resolveConfig(raw: Record<string, unknown> | undefined): PluginConfig {
   const cfg = raw ?? {};
   const env = typeof process !== 'undefined' && process?.env ? process.env : {};
 
   const failClosed = cfg.failClosed !== false; // default true
+  const requireExecutionClaims = enabledEnvFlag(env.DASHCLAW_REQUIRE_EXECUTION_CLAIMS);
   const autoPairing = cfg.autoPairing !== false; // default true
   const riskScoreDefault = numberFromConfig(cfg.riskScoreDefault, 50);
   const highRiskTools = stringSetFromConfig(cfg.highRiskTools);
@@ -128,6 +135,7 @@ function resolveConfig(raw: Record<string, unknown> | undefined): PluginConfig {
     agentId,
     defaultModel,
     failClosed,
+    requireExecutionClaims,
     autoPairing,
     riskScoreDefault,
     highRiskTools,
@@ -666,7 +674,7 @@ interface AgentEndContext {
 }
 
 interface CreatedAction {
-  actionId?: string;
+  actionId: string;
   status?: string;
 }
 
@@ -732,6 +740,14 @@ async function handleBeforeToolCall(
 ): Promise<HookResult> {
   const { toolName, params, toolCallId, runId } = event;
   const key = callKey(toolName, toolCallId, runId);
+  if (!toolCallId && pendingActions.has(key)) {
+    return {
+      block: true,
+      blockReason:
+        'OpenClaw did not provide a stable tool call ID and another matching call is still open. ' +
+        'Execution was interrupted because its outcome could not be correlated safely.',
+    };
+  }
   const workspace = typeof event.workspace === 'string' ? event.workspace : undefined;
   const classification = classifyToolCall(toolName, params, config, workspace);
 
@@ -805,18 +821,27 @@ async function guardClassifiedAction(
   client: DashClaw,
   classification: ActionClassification,
   config: PluginConfig,
-): Promise<{ value: GuardDecision } | { result: HookResult }> {
+): Promise<{ value: ClaimAwareGuardDecision } | { result: HookResult }> {
   try {
-    return {
-      value: await client.guard({
+    const raw = await client.guard({
         action_type: classification.actionType,
         risk_score: classification.riskScore,
         declared_goal: classification.declaredGoal,
         reversible: classification.reversible,
         systems_touched: classification.systemsTouched,
+        client_capabilities: ['execution_claims'],
         ...(classification.act ? { act: classification.act } : {}),
-      }),
-    };
+      });
+    const validated = validateGuardDecision(raw, config.requireExecutionClaims);
+    if ('reason' in validated) {
+      return {
+        result: {
+          block: true,
+          blockReason: validated.reason,
+        },
+      };
+    }
+    return { value: validated.value };
   } catch (err) {
     const msg = errorMessage(err) || 'unknown error';
     if (config.failClosed) {
@@ -830,6 +855,38 @@ async function guardClassifiedAction(
     console.warn(`[dashclaw-governance] guard call failed (fail-open): ${msg}`);
     return { result: undefined };
   }
+}
+
+type ClaimAwareGuardDecision = GuardDecision & {
+  execution_claim_required?: boolean;
+  claim_protocol?: number;
+};
+
+const GUARD_DECISIONS = new Set(['allow', 'block', 'warn', 'require_approval']);
+const EXECUTION_CLAIM_TIMEOUT_MS = 30_000;
+
+function validateGuardDecision(value: unknown, requireExecutionClaims: boolean):
+  | { value: ClaimAwareGuardDecision }
+  | { reason: string } {
+  if (!value || typeof value !== 'object') {
+    return { reason: 'DashClaw returned a malformed guard response; tool execution was interrupted.' };
+  }
+  const response = value as Record<string, unknown>;
+  if (typeof response.decision !== 'string' || !GUARD_DECISIONS.has(response.decision)) {
+    return { reason: 'DashClaw returned a malformed or unknown guard decision; tool execution was interrupted.' };
+  }
+  if (response.decision === 'block') {
+    return { value: value as ClaimAwareGuardDecision };
+  }
+  const advertised = 'execution_claim_required' in response || 'claim_protocol' in response;
+  const validClaims = response.execution_claim_required === true && response.claim_protocol === 1;
+  if ((requireExecutionClaims || advertised) && !validClaims) {
+    return {
+      reason:
+        'DashClaw server upgrade required: execution-claim protocol 1 was not advertised, so this tool call cannot run safely.',
+    };
+  }
+  return { value: value as ClaimAwareGuardDecision };
 }
 
 function blockResultForDecision(
@@ -853,7 +910,7 @@ function blockResultForDecision(
 interface OpenActionContext {
   client: DashClaw;
   classification: ActionClassification;
-  decision: GuardDecision;
+  decision: ClaimAwareGuardDecision;
   toolName: string;
   key: string;
   runId?: string;
@@ -866,6 +923,10 @@ async function openActionRecord(ctx: OpenActionContext): Promise<HookResult> {
 
   const approval = await waitForRequiredApproval(ctx, created.value);
   if (approval) return approval;
+  if (ctx.decision.execution_claim_required === true && ctx.decision.claim_protocol === 1) {
+    const claim = await claimExecution(ctx, created.value.actionId);
+    if (claim) return claim;
+  }
   rememberPendingAction(ctx.key, created.value.actionId, ctx.runId);
   return;
 }
@@ -882,15 +943,21 @@ async function createGovernanceAction(
       risk_score: riskScore,
       reversible,
       systems_touched: systemsTouched,
+      client_capabilities: ['execution_claims'],
       ...(ctx.classification.act ? { act: ctx.classification.act } : {}),
       metadata: { openclaw_tool_name: ctx.toolName },
     });
-    return {
-      value: {
-        actionId: created.action_id ?? created.action?.action_id ?? created.action?.id,
-        status: created.action?.status,
-      },
-    };
+    const ids = [created.action_id, created.action?.action_id, created.action?.id]
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    if (ids.length === 0 || new Set(ids).size !== 1) {
+      return {
+        result: {
+          block: true,
+          blockReason: 'DashClaw action response did not contain one exact action ID; tool execution was interrupted.',
+        },
+      };
+    }
+    return { value: { actionId: ids[0], status: created.action?.status } };
   } catch (err) {
     const msg = errorMessage(err) || 'unknown';
     console.warn(`[dashclaw-governance] createAction failed: ${msg}`);
@@ -906,6 +973,82 @@ async function createGovernanceAction(
   }
 }
 
+async function claimExecution(
+  ctx: OpenActionContext,
+  actionId: string,
+): Promise<HookBlockResult | undefined> {
+  const attemptId = randomUUID();
+  const body = {
+    claim_execution: true,
+    attempt_id: attemptId,
+    agent_id: ctx.config.agentId,
+    ...(ctx.classification.act ? { act: ctx.classification.act } : {}),
+  };
+  let response: Response;
+  let payload: unknown;
+  const controller = new AbortController();
+  const timeoutError = new Error(
+    `execution claim timed out after ${EXECUTION_CLAIM_TIMEOUT_MS}ms`
+  );
+  const timer = setTimeout(
+    () => controller.abort(timeoutError),
+    EXECUTION_CLAIM_TIMEOUT_MS
+  );
+  const aborted = new Promise<never>((_resolve, reject) => {
+    controller.signal.addEventListener(
+      'abort',
+      () => reject(controller.signal.reason instanceof Error ? controller.signal.reason : timeoutError),
+      { once: true }
+    );
+  });
+  try {
+    response = await Promise.race([
+      fetch(
+        `${ctx.config.dashclawUrl}/api/actions/${encodeURIComponent(actionId)}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': ctx.config.dashclawApiKey,
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        },
+      ),
+      aborted,
+    ]);
+    if (!response.ok) {
+      return {
+        block: true,
+        blockReason: `DashClaw execution claim failed (HTTP ${response.status}); reconcile action ${actionId} before retrying.`,
+      };
+    }
+    payload = await Promise.race([response.json(), aborted]);
+  } catch (err) {
+    return {
+      block: true,
+      blockReason:
+        `DashClaw execution claim failed (${errorMessage(err) || 'response lost'}); ` +
+        `reconcile action ${actionId} before retrying.`,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+  const claimed = payload as Record<string, unknown> | null;
+  if (!claimed
+      || claimed.claimed !== true
+      || claimed.action_id !== actionId
+      || claimed.attempt_id !== attemptId) {
+    return {
+      block: true,
+      blockReason:
+        `DashClaw execution claim returned a malformed acknowledgement; ` +
+        `reconcile action ${actionId} before retrying.`,
+    };
+  }
+  return undefined;
+}
+
 async function waitForRequiredApproval(
   ctx: OpenActionContext,
   created: CreatedAction,
@@ -913,7 +1056,7 @@ async function waitForRequiredApproval(
   const needsApproval =
     ctx.decision.decision === 'require_approval' ||
     created.status === 'pending_approval';
-  if (!needsApproval || !created.actionId) return undefined;
+  if (!needsApproval) return undefined;
 
   const timeout = ctx.config.approvalWaitMs;
   try {

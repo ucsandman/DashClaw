@@ -8,7 +8,7 @@ import { marketingPageMetadata } from '../lib/marketingSeo';
 export const metadata: Metadata = marketingPageMetadata({
   title: 'DashClaw pricing',
   description:
-    'Self-hosted DashClaw is free, complete, and MIT licensed, forever. Hosted plans start at $49/mo for teams who would rather we run it for them.',
+    'Self-hosted DashClaw is MIT licensed and free to run. Hosted plans start at $49/mo for teams who would rather we run it for them.',
   path: '/pricing',
 });
 
@@ -16,10 +16,10 @@ export const metadata: Metadata = marketingPageMetadata({
  * /pricing — reinstated per docs/decisions/2026-08-09-hosted-paid-tier.md,
  * which supersedes the 2026-05-14 "no pricing page" retraction (ef8bb678).
  * The rule that record sets and this page must never weaken: self-hosted
- * DashClaw stays free, complete, and MIT forever. What changed is that
+ * DashClaw stays MIT licensed and free to run. What changed is that
  * hosted.dashclaw.io, the control plane we operate, now charges for running
- * that plane on someone else's behalf. No tier, free or paid, ever gates a
- * governance capability — only capacity and operations do.
+ * that plane on someone else's behalf. The core guard, policy, approval,
+ * and ledger implementation is shared; hosted capacity and configuration vary.
  */
 
 // Marketing build points this at the hosted-trial instance's own /connect
@@ -42,11 +42,11 @@ const TIERS: Tier[] = [
   {
     eyebrow: 'Run it yourself',
     name: 'Self-hosted',
-    price: 'Free forever',
+    price: 'Free',
     description:
-      'The complete governance plane. MIT licensed. Your infrastructure, your database, your call on how long you keep anything.',
+      'The core governance runtime. MIT licensed. Your infrastructure, your database, your retention policy.',
     features: [
-      'Every governance capability DashClaw ships, no exceptions',
+      'Core guard, policy, approval, and decision-ledger capabilities',
       'No account with us, no telemetry, no calling home',
       'No seat limit and no action ceiling',
       'You own the data',
@@ -65,7 +65,7 @@ const TIERS: Tier[] = [
       'A monthly governed-action ceiling, sized generously',
       '30-day retention',
       'Email support',
-      'Every governance capability the self-hosted plane has',
+      'The same core guard, policy, approval, and decision-ledger implementation',
     ],
     cta: { label: 'Start with the free trial', href: TRIAL_URL },
   },
@@ -81,7 +81,7 @@ const TIERS: Tier[] = [
       '90-day retention',
       'Org-scoped rate limits',
       'Priority support',
-      'Every governance capability the self-hosted plane has',
+      'The same core guard, policy, approval, and decision-ledger implementation',
     ],
     cta: { label: 'Start with the free trial', href: TRIAL_URL },
   },
@@ -102,16 +102,15 @@ export default function PricingPage() {
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-            Self-hosting is free. All of it. Forever.
+            Self-host DashClaw under the MIT license.
           </h1>
           <p className="mt-3 text-text-secondary max-w-2xl leading-relaxed">
-            The self-hosted plane is the complete governance runtime we ship: every policy,
-            every approval surface, every audit primitive. MIT licensed, on your own
-            infrastructure. <Link href="/self-host" className="text-brand hover:underline">Read the self-host guide</Link>.
+            The self-hosted plane includes the current core guard, policy, approval, and
+            decision-ledger implementation on your own infrastructure. Optional integrations
+            still need their own configuration. <Link href="/self-host" className="text-brand hover:underline">Read the self-host guide</Link>.
           </p>
           <p className="mt-3 text-text-secondary max-w-2xl leading-relaxed">
-            Paying only buys infrastructure we run on your behalf. It never buys a
-            governance capability the free plane is missing, because there isn&apos;t one.
+            Paying buys infrastructure, retention, and support that we run on your behalf.
           </p>
         </div>
       </section>
@@ -184,9 +183,9 @@ export default function PricingPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-tertiary">What paying buys</p>
           <h2 className="mt-3 text-2xl font-bold tracking-tight text-text-primary">We run it for you</h2>
           <p className="mt-3 text-text-secondary leading-relaxed max-w-3xl">
-            No tier, free or paid, ever lacks a governance capability. Every plan runs the
-            same guard, the same policy engine, the same approvals, the same audit ledger.
-            What the hosted fee actually buys is us running that stack on your behalf:
+            All plans use the same core guard, policy engine, approvals, and audit ledger.
+            Available capacity, retention, and optional integrations depend on hosting and
+            configuration. The hosted fee buys us running that stack on your behalf:
             managed, Redis-backed realtime instead of you standing one up, platform
             upgrades that just show up, the retention window, and someone to call when
             something breaks.

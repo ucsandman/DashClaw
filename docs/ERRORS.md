@@ -4,6 +4,39 @@ Newest first. Full entries for multi-attempt debugging or reusable lessons; one-
 
 ---
 
+## 2026-09-05 — release probes need isolated inputs and redacted failures
+
+A documentation-gate negative probe briefly changed the shared guide dataset
+while the release build was running. Restoring the bytes afterward did not prove
+which version the build read. The release build was repeated after source freeze.
+Future negative probes must mutate an isolated copy, or finish before the shared
+source is declared ready for verification.
+
+A credential-bearing provider probe also exposed request configuration through
+an uncaught SDK error. Subsequent probes reported only allowlisted status and
+error-code fields. Never serialize a provider exception or its request object;
+temporary credential files must be removed after their scoped operation and
+publication scans rerun after cleanup. A passing repository scan does not resolve
+a credential already disclosed in a private diagnostic log.
+
+## 2026-09-05 — a working-tree hook upgrade interrupted live harness sessions
+
+The audit remediation made execution claim protocol 1 mandatory in the canonical
+pretool hook before the deployed server supported it. Other live harness sessions
+executed this checkout directly, so a source edit changed their next tool call and
+blocked them. Local claim-capable fixtures missed the old-server boundary.
+
+The fix preserves ordinary guard and approval enforcement when a legacy server
+omits claim negotiation. `DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1` pins the stronger
+contract after a server upgrade; any advertised claim protocol still requires a
+valid version and acknowledgement. Observe mode is not needed for this rollout.
+
+The new old-server regression failed before the fix and passed afterward. The
+preventive change is a client-first/server-first compatibility matrix for every
+new enforcement protocol, exercised before editing hooks used by live harnesses.
+Live installations should point to stable release copies rather than an editable
+development checkout.
+
 ## 2026-09-05 — the 2026-09-04 backslash guard was a false green on Windows
 
 Follow-up to the entry below. The packer fix (bsdtar instead of `Compress-Archive`)

@@ -1,10 +1,17 @@
 # Claude Managed Agent + DashClaw Governance
 
-Run a Claude Managed Agent with DashClaw as the governance and observability layer. Every significant action is guarded, recorded, and visible in Approvals.
+Run a Claude Managed Agent with DashClaw policy, audit, and registered-capability
+tools.
+
+> **Trust boundary:** `dashclaw_guard`, `dashclaw_record`, and approval waiting
+> are cooperative for the managed agent's built-in bash, file, and web tools.
+> `dashclaw_invoke` is the bounded server-side effect seam for registered
+> capabilities: it evaluates current policy, claims one attempt, executes, and
+> records the outcome.
 
 ## How It Works
 
-The managed agent runs autonomously in Anthropic's cloud infrastructure with full access to bash, file I/O, and web search. But for governed actions (external APIs, deploys, data modifications), it goes through DashClaw:
+The managed agent runs autonomously in Anthropic's cloud infrastructure with full access to bash, file I/O, and web search. For registered external capabilities, it can use DashClaw as the server-side effect boundary:
 
 ```
 Agent wants to call external API
@@ -62,7 +69,7 @@ While the agent runs, open your DashClaw instance:
 Evaluates DashClaw policies before a risky action. The agent calls this before any action with risk > 50 or that modifies external systems.
 
 ### `dashclaw_invoke`
-Invokes a DashClaw-governed capability (external API). The full governance loop runs automatically: guard evaluation, execution, outcome recording.
+Invokes a registered capability. DashClaw evaluates current policy, records the action, handles approval when required, atomically claims one attempt for the exact action and principal, performs the external call, and records the outcome. An unknown result is not safe to retry until it is reconciled.
 
 ### `dashclaw_record`
 Logs a significant action to DashClaw's audit trail. Used for decisions, completed research, analysis outcomes.

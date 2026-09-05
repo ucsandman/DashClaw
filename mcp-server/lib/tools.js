@@ -52,7 +52,7 @@ export const TOOL_DEFINITIONS = [
         inputSchema: {
             type: 'object',
             properties: {
-                action_id: { type: 'string', description: 'Close an EXISTING record instead of creating one: the action_id returned by an earlier dashclaw_record (status running) or dashclaw_guard. Only status, output_summary and error_message are applied; the server stamps the outcome from status. Omit to create a new record.' },
+                action_id: { type: 'string', description: 'Close an EXISTING record instead of creating one: the action_id returned by an earlier dashclaw_record (status running). A dashclaw_guard decision_id is not an action record and cannot be closed here. Only status, output_summary and error_message are applied; the server stamps the outcome from status. Omit to create a new record.' },
                 action_type: { type: 'string', description: 'Category (e.g., research, analysis, code_change, deploy)' },
                 declared_goal: { type: 'string', description: 'What was accomplished' },
                 status: { type: 'string', enum: ['running', 'completed', 'failed', 'pending_approval'], description: 'Outcome status' },
@@ -70,7 +70,7 @@ export const TOOL_DEFINITIONS = [
                 cost_estimate: { type: 'number', description: 'Estimated cost in USD' },
                 session_id: { type: 'string', description: 'Session to attribute this action to. Defaults to the session started via dashclaw_session_start in this connection.' },
                 approval_wait_seconds: { type: 'integer', description: 'For status pending_approval: how long you will poll for the decision (default 300; the approval expires after this window + a retry grace)' },
-                act: { type: 'object', description: 'The actual act this record covers — pass the SAME act object you sent to dashclaw_guard. For status pending_approval the server stamps a content hash from it, binding the operator\'s approval to this exact act: the approval then only covers a dashclaw_guard retry presenting the same act. Shape matches dashclaw_guard\'s act ({ kind: "shell"|"http"|"sql"|"file", ... }). Optional — omit when no concrete act exists.' },
+                act: { type: 'object', description: 'The actual act this record covers — pass the SAME act object you sent to dashclaw_guard. For status pending_approval the server stamps a content hash from it, binding the operator\'s approval to this exact act. Claim-aware execution paths (dashclaw_invoke, governed SDK callbacks, and supported hooks) must present the same act when claiming that authority. The bare dashclaw_guard/record/wait flow remains cooperative policy and audit; it does not consume or reuse approval authority. Shape matches dashclaw_guard\'s act ({ kind: "shell"|"http"|"sql"|"file", ... }). Optional — omit when no concrete act exists.' },
                 plan_step_id: { type: 'string', description: 'Optional deviation self-report: the plan step (ps_...) this action was supposed to fulfil, when you knowingly departed from it.' },
                 deviation_note: { type: 'string', description: 'Optional deviation self-report: how and why this action departed from the approved plan. Recorded as an agent-reported claim (never suppresses or downgrades the server\'s own deviation detection).' },
             },
@@ -288,9 +288,11 @@ export const TOOL_DEFINITIONS = [
         name: 'dashclaw_plan_submit',
         description: 'Submit a preflight plan — an ordered list of intended steps — for one-card operator ' +
             'review BEFORE executing. Each step is dry-run through the guard pipeline server-side; ' +
-            'approved steps become single-use grants that auto-cover the matching guarded actions, ' +
-            'so a reviewed plan runs without mid-run approval interruptions. Off-plan actions fall ' +
-            'back to normal per-action governance.',
+            'approved steps become single-use execution authorities. Claim-aware paths such as ' +
+            'dashclaw_invoke, governed SDK callbacks, and supported hooks can claim a matching step ' +
+            'and consume it with one attempt. Bare dashclaw_guard/record/wait calls remain cooperative ' +
+            'policy and audit and do not consume plan authority. Off-plan actions fall back to normal ' +
+            'per-action governance.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -352,16 +354,39 @@ function guardUnavailable(result) {
 function transportDetail(result) {
     if (!result || typeof result !== 'object')
         return 'no response';
+    if (result._status != null && result._status !== 0) {
+        const detail = result.error ?? result.reason;
+        return `HTTP ${result._status}${detail ? ` — ${String(detail)}` : ''}`;
+    }
     if (result.error)
         return String(result.error);
-    if (result._status != null && result._status !== 0)
-        return `HTTP ${result._status}`;
     return 'no decision in response';
 }
+function isPolicyDenial(result) {
+    return result?._status === 403
+        && (result?.error === 'blocked_by_policy'
+            || result?.decision === 'block'
+            || result?.guard?.decision === 'block'
+            || result?.guard_decision?.decision === 'block');
+}
+function policyDenialDetail(result) {
+    if (result?.reason)
+        return String(result.reason);
+    if (Array.isArray(result?.guard_decision?.reasons) && result.guard_decision.reasons.length > 0) {
+        return result.guard_decision.reasons.map(String).join('; ');
+    }
+    return String(result?.error ?? 'request blocked');
+}
 function throwOnTransportFailure(toolName, result) {
+    if (!transportFailed(result))
+        return;
     if (result && typeof result === 'object' && result._status === 0) {
         throw new Error(`${toolName} failed: DashClaw API unreachable — ${transportDetail(result)}`);
     }
+    if (toolName === 'dashclaw_invoke' && isPolicyDenial(result)) {
+        throw new Error(`${toolName} denied by policy: ${policyDenialDetail(result)}`);
+    }
+    throw new Error(`${toolName} failed: ${transportDetail(result)}`);
 }
 function readLimit(input) {
     if (input.limit === undefined || input.limit === null || input.limit === '')
@@ -621,11 +646,11 @@ export function createToolHandlers(client) {
                 tokens_out: input.tokens_out,
                 model: input.model,
                 cost_estimate: input.cost_estimate,
-                // Act-content grant binding (drizzle/0056): forward the act so the
-                // server stamps act_content_hash on the row — a pending_approval
-                // record then binds the operator's approval to this exact act, and
-                // the grant only covers a dashclaw_guard retry presenting the same
-                // act. Same forwarding rule as dashclaw_guard.
+                // Act-content authority binding (drizzle/0056): forward the act so the
+                // server stamps act_content_hash on the row. A pending_approval record
+                // then binds the operator's approval to this exact act; a claim-aware
+                // execution path must present the same act to claim and consume that
+                // authority. Bare guard/record/wait remains cooperative policy/audit.
                 ...(input.act && typeof input.act === 'object' ? { act: input.act } : {}),
                 // Deviation self-report (RFC 2026-08-11 §6): additive claim fields —
                 // the server records them agent_reported/low and they can never
@@ -769,6 +794,10 @@ export function createToolHandlers(client) {
             });
         },
         async dashclaw_session_start(input) {
+            // A new start declares a new attribution boundary. Invalidate the old
+            // ambient id before the request so a failed transition cannot stamp the
+            // previous workspace onto subsequent actions.
+            activeSessionId = null;
             const result = await client.post('/api/sessions', {
                 // Same WRITE-identity precedence as guard/record/invoke: the
                 // server-configured agent_id wins. This was the one write path that
@@ -778,8 +807,13 @@ export function createToolHandlers(client) {
                 workspace: input.workspace,
                 branch: input.branch,
             }, { timeout: 10000 });
+            throwOnTransportFailure('dashclaw_session_start', result);
+            const sessionId = result?.session?.id;
+            if (typeof sessionId !== 'string' || sessionId.length === 0) {
+                throw new Error('dashclaw_session_start failed: response did not contain a valid session id.');
+            }
             // Adopt the new session as the ambient default for subsequent records.
-            activeSessionId = result?.session?.id ?? activeSessionId;
+            activeSessionId = sessionId;
             return JSON.stringify(result);
         },
         async dashclaw_session_end(input) {
@@ -787,6 +821,10 @@ export function createToolHandlers(client) {
                 status: input.status,
                 summary: input.summary,
             }, { timeout: 10000 });
+            throwOnTransportFailure('dashclaw_session_end', result);
+            if (result?.session?.id !== input.session_id || result?.session?.status !== input.status) {
+                throw new Error('dashclaw_session_end failed: response did not confirm the requested session transition.');
+            }
             // Only clear when ending the session we're actively stamping, so ending an
             // unrelated session doesn't silently unset the active one.
             if (activeSessionId === input.session_id)

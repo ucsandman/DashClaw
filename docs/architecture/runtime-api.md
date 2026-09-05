@@ -1,6 +1,6 @@
-# Minimal Runtime API (v2.13.3)
+# Minimal Runtime API
 
-DashClaw is a focused governance runtime. These endpoints are the smallest useful contract for agents and agent frameworks that want DashClaw governance without adopting DashClaw's higher-level UI, workflow, scoring, knowledge, or capability surfaces.
+These endpoints define the minimal governance contract for custom agent integrations: policy, approval, execution claim, and recorded outcome. The operator dashboard and registered capability executor build on this contract. SDK callers remain responsible for routing their actual effect through the governed callback.
 
 This page documents the minimal runtime contract. For the complete generated route inventory, see [`../api-inventory.md`](../api-inventory.md). For durable outcome semantics, see [`durable-execution-finality.md`](./durable-execution-finality.md).
 
@@ -23,13 +23,16 @@ Long-horizon runs amortize approvals: `POST /api/plans` submits an ordered
 step list; every step is dry-run through the full guard pipeline
 (side-effect-free) and stored with its preview verdict; the operator reviews
 one card on /approvals (per-step overrides included). Approved steps become
-single-use, act-or-goal-bound, TTL-bound grants: when the agent later
-performs a matching action that evaluates to `require_approval`, the grant
-is consumed atomically and the decision downgrades to `allow` with
-`builtin:plan_grant` provenance. Explicitly denied steps are raised to
+single-use, act-or-goal-bound, TTL-bound authority: when a protocol-1 caller
+later presents a matching action that evaluates to `require_approval`, the
+guard selects the step read-only and returns `allow` with
+`builtin:plan_grant` provenance. Immediately before execution, the claim
+rechecks current policy, principal, and exact act, then atomically consumes
+the selected step with one attempt. Explicitly denied steps are raised to
 `block` on match for the plan's TTL. A plan grant never downgrades `block`,
 nothing auto-approves, and revocation (`POST /api/plans/:id` verdict
-`revoke`) is instant — the consumption path is uncached.
+`revoke`) takes effect before any unclaimed attempt — authority selection and
+claim validation read current state rather than a cached grant.
 
 **Read authorization.** `GET /api/plans` and `GET /api/plans/:id` are
 readable by any credential in the org — matching the approvals and
@@ -140,9 +143,9 @@ Prompt-injection scanning runs against `declared_goal` before guard evaluation a
 }
 ```
 
-`decision_id` is the canonical id of this guard evaluation (`act_gd_…`). `action_id` is a **deprecated alias** of the same value, kept for back-compat. Do not pass either to `waitForApproval` / `GET /api/actions/:id` — use the `action_id` returned by `POST /api/actions` (an `act_…` id) for follow-up calls.
+`decision_id` is the canonical id of this guard evaluation (`act_gd_…`). Without successful inline recording, `action_id` is a deprecated alias of that decision id. Do not pass a decision id to approval or action endpoints. With `POST /api/guard?record=true`, require `recorded: true` and use the returned action-record `action_id`; a separate `POST /api/actions` can also create that record. Approval polling, execution claims, and outcome updates all require the action-record id.
 
-**Granted operator approvals are honored on re-evaluation.** When a decision would be `require_approval`, the guard first checks the action ledger for a recent human approval of the identical action — same `agent_id`, same exact `declared_goal`, approved within the last 15 minutes. A match downgrades the decision to `allow`, adds `builtin:operator_approval` to `matched_policies`, and names the covering approval in `warnings`. This closes the loop where an operator approves after the client's approval wait timed out and the retried call would otherwise re-queue for approval. A `block` decision is never downgraded — blocks are absolute at the decision layer, on every surface. Whether the blocked action is mechanically halted (hooks, server-executed capabilities) or cooperatively honored (SDK/MCP/chat callers) depends on the surface — the per-surface table is [`docs/architecture/enforcement-boundary.md`](./enforcement-boundary.md).
+**Granted operator approvals are honored at a bound execution checkpoint.** A client advertising `execution_claims` can select a recent, unused protocol-1 approval for the same organization, agent, action type, exact goal, and null-safe act hash. It must have been approved within 15 minutes and remain eligible for execution. Selection adds `builtin:operator_approval` and can change `require_approval` to `allow`; it does not consume the approval. The execution claim rechecks current policy, binds the authenticated principal and identity assurance, and atomically consumes the selected authority with one recorded attempt. A `block` decision is never downgraded. Older clients cannot obtain this new approval-reuse authority. See the [execution contract](./durable-execution-finality.md) and [per-surface enforcement boundary](./enforcement-boundary.md).
 
 **Assumption-invalidation alerts ride the guard response.** When an operator invalidated an assumption this agent (or its identity family) recorded and the alert has not been acknowledged, the response carries an `assumption_alerts` array (newest 3): `{ message_id, assumption_id, assumption, invalidated_reason, action_id, invalidated_at }`. Advisory only — it never changes the decision. Acknowledge by marking the underlying inbox message read (`PATCH /api/messages { "message_ids": [...], "action": "read" }`); the Claude Code pretool hook surfaces the warning and acknowledges automatically. Until acknowledged, the alert rides every guard call — that is what "mid-task" means for agents that are not resident.
 
@@ -376,47 +379,32 @@ The signing key is the DashClaw instance's own Ed25519 key — generated and sto
 
 ## Minimal SDK Flow
 
-The canonical Node SDK is `dashclaw` on npm (version tracked in `sdk/package.json`). The canonical SDK file `sdk/dashclaw.js` exposes 40 public methods across the core runtime and extension surfaces (verify with `npm run sdk:count`).
+The canonical Node SDK is `dashclaw` on npm (version tracked in `sdk/package.json`). The canonical SDK file `sdk/dashclaw.js` exposes 41 public methods across the core runtime and extension surfaces (verify with `npm run sdk:count`).
 
 The minimal governance loop uses only a small subset:
 
 ```javascript
-import { DashClaw, GuardBlockedError } from 'dashclaw';
+import { DashClaw } from 'dashclaw';
 
 const claw = new DashClaw({ baseUrl, apiKey, agentId: 'deploy-agent-1' });
 
-const decision = await claw.guard({
+const act = { kind: 'http', request: { method: 'POST', url: deploymentUrl } };
+await claw.runGoverned(act, {
   action_type: 'deploy',
   declared_goal: 'Deploy build #402 to production',
   risk_score: 85,
-});
-
-if (decision.decision === 'block') {
-  throw new GuardBlockedError(decision);
-}
-
-const { action, action_id } = await claw.createAction({
-  action_type: 'deploy',
-  declared_goal: 'Deploy build #402 to production',
   idempotency_key: claw.deriveIdempotencyKey({
     agent_id: 'deploy-agent-1',
     action_type: 'deploy',
     declared_goal: 'Deploy build #402 to production',
   }),
-});
-
-if (action?.status === 'pending_approval') {
-  await claw.waitForApproval(action_id);
-}
-
-try {
-  await deployBuild402();
-  await claw.reportActionSuccess(action_id, 'Build #402 is live.');
-} catch (error) {
-  await claw.reportActionFailure(action_id, error.message);
-  throw error;
-}
+}, () => deployBuild402());
 ```
+
+`runGoverned` requires a fresh protocol-1 execution claim before calling the
+callback. The action idempotency key deduplicates ledger creation; it does not
+make `deployBuild402()` exactly once. Reconcile the deployment provider before
+retrying an uncertain result.
 
 See [`../../sdk/README.md`](../../sdk/README.md) for the full SDK catalogue and [`../sdk-parity.md`](../sdk-parity.md) for Node/Python parity status.
 

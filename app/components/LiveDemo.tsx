@@ -169,16 +169,16 @@ export default function LiveDemo() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-10">
           <p className="text-[11px] font-mono uppercase tracking-[0.2em] text-text-tertiary mb-3">
-            Live demo, real demo endpoints
+            Live policy evaluation, real demo endpoint
           </p>
           <h2
             id="live-demo-heading"
             className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary"
           >
-            Try a real governance decision
+            Try a live policy evaluation
           </h2>
           <p className="mt-3 text-sm text-text-secondary max-w-2xl mx-auto leading-relaxed">
-            Pick an action, hit Evaluate, and watch DashClaw enforce policy in real time. Every call hits the same governance runtime that ships to your instance.
+            Pick a declared action and inspect the policy decision returned by the demo endpoint. This bare guard call is cooperative and does not bind or execute an external act.
           </p>
         </div>
 
@@ -318,7 +318,7 @@ export default function LiveDemo() {
         </div>
 
         <p className="mt-5 text-sm text-text-tertiary text-center max-w-2xl mx-auto leading-relaxed">
-          Guard decisions are live against the demo deployment. Approval clicks resolve locally so visitors can explore the flow without an account; your own instance routes them to <code className="font-mono text-text-secondary">/api/actions/:id/approve</code>.
+          Policy decisions come from the demo deployment. Approval clicks are illustrative local state so visitors can explore the interface without an account; they do not approve server-side work. Your own instance records approval decisions through <code className="font-mono text-text-secondary">/api/actions/:id/approve</code>.
         </p>
       </div>
     </section>

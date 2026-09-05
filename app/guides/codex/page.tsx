@@ -127,7 +127,9 @@ cat /path/to/your/project/AGENTS.md`,
 DASHCLAW_API_KEY=oc_live_...
 DASHCLAW_HOOK_MODE=enforce
 DASHCLAW_GUARD_UNAVAILABLE_POLICY=block
-DASHCLAW_GUARD_TIMEOUT=5`,
+DASHCLAW_GUARD_TIMEOUT=5
+# Set after your server advertises execution-claim protocol 1:
+DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1`,
     },
     {
       number: 4,
@@ -166,10 +168,10 @@ codex hooks trust ~/.codex/config.toml:stop:0:0
       number: 7,
       title: 'Run Codex and trigger a tool call',
       summary:
-        'Ask Codex to do anything that uses local_shell, Bash, Edit, Write, or MultiEdit. The hook fires automatically. For policies that require approval, your phone DMs you and Codex pauses on the dashclaw_wait_for_approval MCP tool until you resolve.',
+        'Ask Codex to do anything that uses local_shell, Bash, Edit, Write, or MultiEdit. The hook evaluates current policy, records one action, waits when approval is required, then claims the exact action and principal before releasing the host tool. Approval is consumed at the claim.',
       codeTitle: 'Example prompt',
       codeBody: 'Create a file called hello.txt with the contents "Hello from a governed agent"',
-      note: 'Watch the terminal: you should see [DashClaw] messages as the hook evaluates the action. Codex shows hook output above each tool call.',
+      note: 'Watch the terminal: you should see [DashClaw] messages as the hook evaluates the action. Codex shows hook output above each tool call. During a server-first upgrade, an absent claim advertisement keeps the legacy flow; a partial or invalid advertisement blocks. The strict flag rejects servers that omit protocol 1.',
     },
     {
       number: 8,
@@ -215,9 +217,10 @@ Codex's hook schema treats local_shell as a Bash-class tool.
 
 ### Approval policy
 After install, approval_policy = "on-request" is set in the managed block.
-DashClaw's require_approval guard decisions surface through Codex's normal
-approval prompt; the dashclaw_wait_for_approval MCP tool blocks until your
-phone resolves it.
+DashClaw's require_approval guard decisions are resolved through the pre-tool
+hook before the host tool runs. The hook waits for the operator and claims the
+exact action before releasing the tool. The dashclaw_wait_for_approval MCP tool
+is also available for cooperative agent-driven workflows.
 
 ### Session transcripts
 Codex writes session rollouts to ~/.codex/sessions/rollout-<ts>-<uuid>.jsonl.

@@ -83,7 +83,7 @@ export default function HeroDecisionRecord() {
           <li className="flex items-center gap-3" style={stage(1150)}>
             <Zap size={15} className="text-text-secondary shrink-0" aria-hidden="true" />
             <span className="text-text-secondary min-w-0 truncate">
-              deploy executed, outcome <span className="text-success">success</span>
+              caller reported outcome <span className="text-success">success</span>
             </span>
             <span className="ml-auto font-mono text-xs text-text-tertiary tabular-nums">+47s</span>
           </li>
@@ -104,9 +104,9 @@ export default function HeroDecisionRecord() {
       </div>
 
       <figcaption className="mt-3 text-xs text-text-tertiary">
-        Intercepted, held, approved, executed, recorded.{' '}
+        Illustrative approval flow. Held, approved, and recorded.{' '}
         <a href="#live-demo" className="text-text-secondary underline underline-offset-4 decoration-border-hover hover:text-brand transition-colors">
-          Run this call against a live instance
+          Run a live policy evaluation
         </a>
       </figcaption>
     </figure>

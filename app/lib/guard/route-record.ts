@@ -140,6 +140,8 @@ export async function recordRunningAction(
         guardDecision: result,
         signature: null,
         verified: data.verification_status === 'verified',
+        identityVerified: data.verification_status === 'verified',
+        payloadSignatureStatus: 'missing',
         timestamp_start: new Date().toISOString(),
         riskScore: result.risk_score ?? null,
       }) as Record<string, unknown> | null;
@@ -198,6 +200,8 @@ export async function recordRunningAction(
       riskScore: result.risk_score ?? null,
       // Separation of duties (drizzle/0055): trusted middleware principal.
       createdBy,
+      identityVerified: data.verification_status === 'verified',
+      payloadSignatureStatus: 'missing',
     }) as Record<string, unknown> | null;
   } catch (err) {
     const recovered = await recoverIdempotentInsertRace(sql, orgId, record.idempotency_key, err);

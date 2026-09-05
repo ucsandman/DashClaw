@@ -15,6 +15,7 @@ import {
   APPROVAL_RETRY_GRACE_SECONDS,
   DEFAULT_APPROVAL_WAIT_SECONDS,
 } from '../../app/lib/repositories/actions.repository';
+import { actionInsertValuesByColumn } from './helpers/action-insert-values.js';
 
 type Row = Record<string, unknown>;
 
@@ -99,7 +100,7 @@ describe('createActionRecord expiry stamping', () => {
     const sql = makeSql([[{ action_id: 'act_1' }]]);
     const before = Date.now();
     await createActionRecord(sql, payload('pending_approval', 30));
-    const stamp = sql.calls[0]!.values.at(-1) as string;
+    const stamp = actionInsertValuesByColumn(sql.calls[0]!).approval_expires_at as string;
     const delta = (new Date(stamp).getTime() - before) / 1000;
     expect(delta).toBeGreaterThanOrEqual(30 + APPROVAL_RETRY_GRACE_SECONDS - 5);
     expect(delta).toBeLessThanOrEqual(30 + APPROVAL_RETRY_GRACE_SECONDS + 5);
@@ -108,7 +109,7 @@ describe('createActionRecord expiry stamping', () => {
   it('leaves the stamp NULL for every non-pending status', async () => {
     const sql = makeSql([[{ action_id: 'act_1' }]]);
     await createActionRecord(sql, payload('running', 30));
-    expect(sql.calls[0]!.values.at(-1)).toBeNull();
+    expect(actionInsertValuesByColumn(sql.calls[0]!).approval_expires_at).toBeNull();
   });
 });
 

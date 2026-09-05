@@ -42,6 +42,14 @@ const PINNED_EXPORTS: Record<string, string[]> = {
 
 /** Names that must never appear in any exported column list, by class. */
 const FORBIDDEN_EVERYWHERE = ['org_id', 'jti', 'key_hash', 'value_encrypted', 'private_jwk', 'token_hash', 'code_hash'];
+const SOURCE_INSTANCE_ACTION_AUTHORITY = [
+  'execution_claimed_at',
+  'execution_protocol',
+  'execution_guard_decision_id',
+  'execution_attempt_id',
+  'identity_verified',
+  'payload_signature_status',
+];
 
 describe('bundle column classification', () => {
   it.each(BUNDLE_TABLES.map((s) => [s.name, s] as const))(
@@ -56,6 +64,13 @@ describe('bundle column classification', () => {
       const cols = exportedColumns(spec);
       for (const bad of FORBIDDEN_EVERYWHERE) expect(cols).not.toContain(bad);
     }
+  });
+
+  it('does not export source-instance execution authority or identity attestations', () => {
+    const actions = BUNDLE_TABLES.find((spec) => spec.name === 'action_records');
+    expect(actions).toBeDefined();
+    const cols = exportedColumns(actions!);
+    for (const column of SOURCE_INSTANCE_ACTION_AUTHORITY) expect(cols).not.toContain(column);
   });
 
   it('credential tables are not bundle tables at all', () => {
@@ -205,5 +220,23 @@ describe('importWorkspaceBundle inserts', () => {
     }));
     expect(calls[0]!.text).not.toContain('evil_column');
     expect(calls[0]!.text).toContain('ON CONFLICT (org_id, agent_id) DO NOTHING');
+  });
+
+  it('drops source execution state and attestations when importing action history', async () => {
+    const { sql, calls } = makeSql(() => [1]);
+    await importWorkspaceBundle(sql, 'org_t', emptyBundle({
+      action_records: [{
+        action_id: 'act_source',
+        execution_claimed_at: '2026-07-05T00:00:00.000Z',
+        execution_protocol: 1,
+        execution_guard_decision_id: 'gd_source',
+        execution_attempt_id: 'attempt_source',
+        identity_verified: true,
+        payload_signature_status: 'valid',
+      }],
+    }));
+
+    for (const column of SOURCE_INSTANCE_ACTION_AUTHORITY) expect(calls[0]!.text).not.toContain(column);
+    expect(calls[0]!.params).toEqual(['org_t', 'act_source']);
   });
 });

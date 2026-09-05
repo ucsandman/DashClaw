@@ -31,6 +31,10 @@ export interface EnforcementLivenessCheck {
 
 export interface EnforcementLivenessHook {
   installed: boolean;
+  /** Probe-reported result of bounded `<runtime> --version` measurement. */
+  runtime_version?: string;
+  /** Probe-reported SHA-256 of the recognized installed enforcement source. */
+  hook_fingerprint?: string;
   settings_path?: string;
   timeout_seconds?: number;
   effective_timer_ms?: number;
@@ -75,6 +79,46 @@ export interface EnforcementLivenessRunInput {
   finishedAt: string;
 }
 
+function decodeStoredJson(value: unknown, field: string): unknown {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new Error(`Invalid stored enforcement liveness ${field}`);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeEnforcementLivenessRun(row: unknown): EnforcementLivenessRun {
+  if (!isRecord(row)) throw new Error('Invalid stored enforcement liveness run');
+  const hook = decodeStoredJson(row.hook, 'hook');
+  const witness = decodeStoredJson(row.witness, 'witness');
+  const checks = decodeStoredJson(row.checks, 'checks');
+  if (!isRecord(hook) || typeof hook.installed !== 'boolean') {
+    throw new Error('Invalid stored enforcement liveness hook');
+  }
+  if (!isRecord(witness) || typeof witness.path !== 'string' || typeof witness.executed !== 'boolean') {
+    throw new Error('Invalid stored enforcement liveness witness');
+  }
+  if (!Array.isArray(checks) || !checks.every((check) =>
+    isRecord(check) &&
+    typeof check.id === 'string' &&
+    typeof check.title === 'string' &&
+    (check.status === 'pass' || check.status === 'fail' || check.status === 'info')
+  )) {
+    throw new Error('Invalid stored enforcement liveness checks');
+  }
+  return {
+    ...row,
+    hook: hook as unknown as EnforcementLivenessHook,
+    witness: witness as unknown as EnforcementLivenessWitness,
+    checks: checks as EnforcementLivenessCheck[],
+  } as unknown as EnforcementLivenessRun;
+}
+
 /**
  * Insert a run and prune this org's runs past the retention window in the
  * same call — the probe reports per-session, so retention rides along
@@ -89,8 +133,8 @@ export async function insertEnforcementLivenessRun(
   await sql`
     INSERT INTO enforcement_liveness_runs
       (id, org_id, source, runtime, verdict, detail, hook, witness, decision, checks, started_at, finished_at)
-    VALUES (${id}, ${orgId}, ${run.source}, ${run.runtime}, ${run.verdict}, ${run.detail}, ${JSON.stringify(run.hook)},
-      ${JSON.stringify(run.witness)}, ${run.decision}, ${JSON.stringify(run.checks)}, ${run.startedAt}, ${run.finishedAt})
+    VALUES (${id}, ${orgId}, ${run.source}, ${run.runtime}, ${run.verdict}, ${run.detail}, ${JSON.stringify(run.hook)}::text::jsonb,
+      ${JSON.stringify(run.witness)}::text::jsonb, ${run.decision}, ${JSON.stringify(run.checks)}::text::jsonb, ${run.startedAt}, ${run.finishedAt})
   `;
   await sql`
     DELETE FROM enforcement_liveness_runs
@@ -110,7 +154,7 @@ export async function getLatestEnforcementLivenessRunForOrg(
     ORDER BY created_at DESC
     LIMIT 1
   `;
-  return (rows[0] as EnforcementLivenessRun | undefined) ?? null;
+  return rows[0] === undefined ? null : normalizeEnforcementLivenessRun(rows[0]);
 }
 
 /**
@@ -132,7 +176,7 @@ export async function listLatestEnforcementLivenessRunPerRuntime(
     WHERE org_id = ${orgId}
     ORDER BY runtime, created_at DESC
   `;
-  return rows as unknown as EnforcementLivenessRun[];
+  return Array.from(rows, normalizeEnforcementLivenessRun);
 }
 
 export async function listEnforcementLivenessRunsForOrg(
@@ -141,11 +185,11 @@ export async function listEnforcementLivenessRunsForOrg(
   limit: number,
 ): Promise<EnforcementLivenessRun[]> {
   const rows = await sql`
-    SELECT id, org_id, source, verdict, detail, hook, witness, decision, checks, started_at, finished_at, created_at
+    SELECT id, org_id, source, runtime, verdict, detail, hook, witness, decision, checks, started_at, finished_at, created_at
     FROM enforcement_liveness_runs
     WHERE org_id = ${orgId}
     ORDER BY created_at DESC
     LIMIT ${limit}
   `;
-  return rows as unknown as EnforcementLivenessRun[];
+  return Array.from(rows, normalizeEnforcementLivenessRun);
 }

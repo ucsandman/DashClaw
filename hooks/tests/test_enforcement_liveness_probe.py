@@ -9,6 +9,7 @@ The seeded v4.72.1 regression is the acceptance test from the roadmap: a
 settings.json carrying the exact overflowed timeout (3600000) must yield
 verdict `executed` even when the hook itself would have blocked.
 """
+import hashlib
 import json
 import os
 import subprocess
@@ -27,6 +28,7 @@ from enforcement_liveness_probe import (  # noqa: E402
     default_settings_paths,
     effective_hook_timer,
     find_pretool_entries,
+    measure_hook_metadata,
     parse_hooks_block_minimal,
 )
 
@@ -226,6 +228,115 @@ class TestFindPretoolEntries(unittest.TestCase):
         self.assertFalse(effective_hook_timer(3_600_000, "codex")[2])
 
 
+class TestHookMetadata(unittest.TestCase):
+    def _entry(self, hook_path):
+        return {
+            "command": '"%s" "%s" --agent-id codex' % (sys.executable, hook_path),
+            "settings_path": os.path.join(os.path.dirname(hook_path), "config.toml"),
+            "harness": "codex",
+        }
+
+    def test_fingerprint_tracks_the_selected_hook_file_bytes(self):
+        with TemporaryDirectory() as tmp:
+            hook = os.path.join(tmp, "dashclaw_pretool.py")
+            with open(hook, "wb") as f:
+                f.write(b"print('first')\n")
+            first = measure_hook_metadata(self._entry(hook), tmp)
+
+            with open(hook, "wb") as f:
+                f.write(b"print('second')\n")
+            second = measure_hook_metadata(self._entry(hook), tmp)
+
+            self.assertRegex(first["hook_fingerprint"], r"^sha256:[0-9a-f]{64}$")
+            self.assertNotEqual(first["hook_fingerprint"], second["hook_fingerprint"])
+            self.assertNotIn(tmp, " ".join(second.values()))
+
+    def test_fingerprint_follows_a_known_delegate_instead_of_the_launcher(self):
+        with TemporaryDirectory() as tmp:
+            launcher = os.path.join(tmp, "launcher.py")
+            hook = os.path.join(tmp, "dashclaw_pretool.py")
+            with open(launcher, "wb") as f:
+                f.write(b"print('shim')\n")
+            with open(hook, "wb") as f:
+                f.write(b"print('enforcement v1')\n")
+            entry = self._entry(hook)
+            entry["command"] = '"%s" "%s" "%s"' % (sys.executable, launcher, hook)
+            first = measure_hook_metadata(entry, tmp)
+
+            with open(hook, "wb") as f:
+                f.write(b"print('enforcement v2')\n")
+            second = measure_hook_metadata(entry, tmp)
+
+            self.assertNotEqual(first["hook_fingerprint"], second["hook_fingerprint"])
+
+    def test_hermes_fingerprint_includes_the_canonical_delegate_bytes(self):
+        with TemporaryDirectory() as tmp:
+            adapter_dir = os.path.join(tmp, ".hermes", "hooks")
+            canonical_dir = os.path.join(tmp, "hooks")
+            os.makedirs(adapter_dir)
+            os.makedirs(canonical_dir)
+            adapter = os.path.join(adapter_dir, "dashclaw_pretool_hermes.py")
+            canonical = os.path.join(canonical_dir, "dashclaw_pretool.py")
+            with open(adapter, "wb") as f:
+                f.write(b"adapter\n")
+            with open(canonical, "wb") as f:
+                f.write(b"canonical v1\n")
+            entry = self._entry(adapter)
+            entry["harness"] = "hermes"
+            first = measure_hook_metadata(entry, tmp)
+
+            with open(canonical, "wb") as f:
+                f.write(b"canonical v2\n")
+            second = measure_hook_metadata(entry, tmp)
+
+            self.assertNotEqual(first["hook_fingerprint"], second["hook_fingerprint"])
+
+    def test_malformed_version_output_is_unavailable_and_argv_is_bounded(self):
+        with TemporaryDirectory() as tmp:
+            hook = os.path.join(tmp, "dashclaw_pretool.py")
+            with open(hook, "wb") as f:
+                f.write(b"pass\n")
+            completed = subprocess.CompletedProcess([], 0, stdout=b"definitely-not-a-version\n", stderr=b"")
+            with mock.patch("enforcement_liveness_probe.shutil.which", return_value=sys.executable), \
+                    mock.patch("enforcement_liveness_probe.subprocess.run", return_value=completed) as run:
+                metadata = measure_hook_metadata(self._entry(hook), tmp)
+
+            self.assertEqual(metadata["runtime_version"], "unavailable")
+            argv = run.call_args.args[0]
+            self.assertEqual(argv, [sys.executable, "--version"])
+            self.assertFalse(run.call_args.kwargs.get("shell", False))
+            self.assertLessEqual(run.call_args.kwargs["timeout"], 3)
+
+    def test_version_timeout_returns_unavailable_with_a_fixed_bound(self):
+        with TemporaryDirectory() as tmp:
+            hook = os.path.join(tmp, "dashclaw_pretool.py")
+            with open(hook, "wb") as f:
+                f.write(b"pass\n")
+            with mock.patch("enforcement_liveness_probe.shutil.which", return_value=sys.executable), \
+                    mock.patch(
+                        "enforcement_liveness_probe.subprocess.run",
+                        side_effect=subprocess.TimeoutExpired([sys.executable, "--version"], 2),
+                    ) as run:
+                metadata = measure_hook_metadata(self._entry(hook), tmp)
+
+            self.assertEqual(metadata["runtime_version"], "unavailable")
+            self.assertRegex(metadata["hook_fingerprint"], r"^sha256:[0-9a-f]{64}$")
+            self.assertLessEqual(run.call_args.kwargs["timeout"], 3)
+
+    def test_runtime_version_comes_from_the_host_cli_not_the_hook_interpreter(self):
+        with TemporaryDirectory() as tmp:
+            hook = os.path.join(tmp, "dashclaw_pretool.py")
+            with open(hook, "wb") as f:
+                f.write(b"pass\n")
+            completed = subprocess.CompletedProcess([], 0, stdout=b"codex-cli 0.153.4\n", stderr=b"")
+            with mock.patch("enforcement_liveness_probe.shutil.which", return_value="C:/bin/codex.exe"), \
+                    mock.patch("enforcement_liveness_probe.subprocess.run", return_value=completed) as run:
+                metadata = measure_hook_metadata(self._entry(hook), tmp)
+
+            self.assertEqual(metadata["runtime_version"], "codex-cli 0.153.4")
+            self.assertEqual(run.call_args.args[0], ["C:/bin/codex.exe", "--version"])
+
+
 class TestDefaultSettingsPaths(unittest.TestCase):
     def test_codex_resolves_to_its_own_config_not_claude_code(self):
         # The regression this fixes: every runtime resolved to
@@ -364,14 +475,14 @@ class ProbeE2E(unittest.TestCase):
             )
         return config
 
-    def _run_probe(self, settings, tmp, extra_env=None, runtime=None):
+    def _run_probe(self, settings, tmp, extra_env=None, runtime=None, max_wait="30"):
         env = {**os.environ, "DASHCLAW_DISABLE_DOTENV": "1",
                "DASHCLAW_BASE_URL": self.base_url, "DASHCLAW_API_KEY": "test-key"}
         for k in ("DASHCLAW_URL", "DASHCLAW_HOOK_MODE", "DASHCLAW_LIVENESS_PROBE_DISABLED"):
             env.pop(k, None)
         env.update(extra_env or {})
         argv = [sys.executable, PROBE,
-                "--witness-dir", os.path.join(tmp, "witness"), "--source", "ci", "--max-wait", "30"]
+                "--witness-dir", os.path.join(tmp, "witness"), "--source", "ci", "--max-wait", max_wait]
         if settings is not None:
             argv += ["--settings", settings]
         if runtime is not None:
@@ -407,6 +518,104 @@ class ProbeE2E(unittest.TestCase):
             self.assertEqual(run["verdict"], "held")
             self.assertFalse(run["witness"]["executed"])
             self.assertEqual(run["hook"]["exit_code"], 2)
+
+    def test_metadata_describes_the_later_entry_that_actually_held(self):
+        with TemporaryDirectory() as tmp:
+            first_dir = os.path.join(tmp, "first")
+            second_dir = os.path.join(tmp, "second")
+            os.makedirs(first_dir)
+            os.makedirs(second_dir)
+            first = os.path.join(first_dir, "dashclaw_pretool.py")
+            second = os.path.join(second_dir, "dashclaw_pretool.py")
+            first_bytes = (STUB_EXIT_0 + "\n").encode("utf-8")
+            second_bytes = (STUB_EXIT_2 + "\n").encode("utf-8")
+            with open(first, "wb") as f:
+                f.write(first_bytes)
+            with open(second, "wb") as f:
+                f.write(second_bytes)
+            settings = os.path.join(tmp, "settings.json")
+            with open(settings, "w", encoding="utf-8") as f:
+                json.dump({"hooks": {"PreToolUse": [{"matcher": ".*", "hooks": [
+                    {"type": "command", "command": '"%s" "%s"' % (sys.executable, first), "timeout": 3660},
+                    {"type": "command", "command": '"%s" "%s"' % (sys.executable, second), "timeout": 120},
+                ]}]}}, f)
+
+            proc = self._run_probe(settings, tmp)
+
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            run = _StubApi.reports[0]
+            self.assertEqual(run["verdict"], "held")
+            self.assertEqual(run["hook"]["timeout_seconds"], 120)
+            self.assertEqual(
+                run["hook"]["hook_fingerprint"],
+                "sha256:" + hashlib.sha256(second_bytes).hexdigest(),
+            )
+
+    def test_metadata_and_exit_code_describe_a_hung_entry_before_a_later_allow(self):
+        with TemporaryDirectory() as tmp:
+            first_dir = os.path.join(tmp, "first")
+            second_dir = os.path.join(tmp, "second")
+            os.makedirs(first_dir)
+            os.makedirs(second_dir)
+            first = os.path.join(first_dir, "dashclaw_pretool.py")
+            second = os.path.join(second_dir, "dashclaw_pretool.py")
+            first_bytes = b"import time; time.sleep(2)\n"
+            with open(first, "wb") as f:
+                f.write(first_bytes)
+            with open(second, "w", encoding="utf-8") as f:
+                f.write(STUB_EXIT_0 + "\n")
+            settings = os.path.join(tmp, "settings.json")
+            with open(settings, "w", encoding="utf-8") as f:
+                json.dump({"hooks": {"PreToolUse": [{"matcher": ".*", "hooks": [
+                    {"type": "command", "command": '"%s" "%s"' % (sys.executable, first), "timeout": 3660},
+                    {"type": "command", "command": '"%s" "%s"' % (sys.executable, second), "timeout": 120},
+                ]}]}}, f)
+
+            proc = self._run_probe(settings, tmp, max_wait="0.1")
+
+            self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+            run = _StubApi.reports[0]
+            self.assertEqual(run["verdict"], "unprovable")
+            self.assertNotIn("exit_code", run["hook"])
+            self.assertEqual(run["hook"]["timeout_seconds"], 3660)
+            self.assertEqual(
+                run["hook"]["hook_fingerprint"],
+                "sha256:" + hashlib.sha256(first_bytes).hexdigest(),
+            )
+
+    def test_metadata_describes_a_cancelled_entry_before_a_later_allow(self):
+        with TemporaryDirectory() as tmp:
+            first_dir = os.path.join(tmp, "first")
+            second_dir = os.path.join(tmp, "second")
+            os.makedirs(first_dir)
+            os.makedirs(second_dir)
+            first = os.path.join(first_dir, "dashclaw_pretool.py")
+            second = os.path.join(second_dir, "dashclaw_pretool.py")
+            first_bytes = (STUB_EXIT_2 + "\n").encode("utf-8")
+            with open(first, "wb") as f:
+                f.write(first_bytes)
+            with open(second, "w", encoding="utf-8") as f:
+                f.write(STUB_EXIT_0 + "\n")
+            settings = os.path.join(tmp, "settings.json")
+            with open(settings, "w", encoding="utf-8") as f:
+                json.dump({"hooks": {"PreToolUse": [{"matcher": ".*", "hooks": [
+                    {"type": "command", "command": '"%s" "%s"' % (sys.executable, first), "timeout": 3600000},
+                    {"type": "command", "command": '"%s" "%s"' % (sys.executable, second), "timeout": 120},
+                ]}]}}, f)
+
+            proc = self._run_probe(settings, tmp)
+
+            self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+            run = _StubApi.reports[0]
+            self.assertEqual(run["verdict"], "executed")
+            self.assertTrue(run["hook"]["cancelled"])
+            self.assertTrue(run["hook"]["overflowed"])
+            self.assertEqual(run["hook"]["timeout_seconds"], 3600000)
+            self.assertNotIn("exit_code", run["hook"])
+            self.assertEqual(
+                run["hook"]["hook_fingerprint"],
+                "sha256:" + hashlib.sha256(first_bytes).hexdigest(),
+            )
 
     def test_codex_toml_seam_is_driven_end_to_end(self):
         """The codex seam reports on ITS OWN config. Before this the probe

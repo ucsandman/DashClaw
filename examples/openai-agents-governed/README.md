@@ -1,11 +1,16 @@
 # DashClaw + OpenAI Agents SDK: PII Cleanup Agent
 
-A governed AI agent that scans a database for personally identifiable information and deletes it — but only after a human operator approves the action in DashClaw Approvals.
+An OpenAI Agents SDK example showing DashClaw policy, approval, and audit calls
+around a simulated PII cleanup.
+
+> **Trust boundary:** The source uses lower-level cooperative SDK calls and does
+> not claim protocol-1 execution authority. Keep deletion simulated, or move a
+> real effect into `runGoverned(act, params, callback)`.
 
 ## What This Demonstrates
 
 1. **Real Agent Reasoning** — The OpenAI Agents SDK drives multi-step tool use (scan, analyze, propose, delete)
-2. **DashClaw Guard** — Policy evaluation gates the destructive action before it executes
+2. **DashClaw Guard** — The cooperative loop checks policy before the simulated deletion
 3. **Human-in-the-Loop** — The agent pauses and waits for operator approval via `waitForApproval()`
 4. **Evidence Trail** — Every step (intent, assumptions, outcome) is recorded in DashClaw
 
@@ -67,7 +72,7 @@ Agent Scans DB ──> DashClaw Guard ──> Policy Check
                         |           v         v
                         |         Yes        No -> x
                         v           |
-                   Execute <--------+
+              Simulated delete <----+
                         |
                    Record Outcome
 ```

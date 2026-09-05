@@ -463,6 +463,21 @@ export default function Ledger({
   // until the flash clears, so the human sees WHICH grant nullified their rule.
   const [focusGrants, setFocusGrants] = useState<string[]>([]);
 
+  const handleLensKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, current: Lens) => {
+    const lenses: Lens[] = ['table', 'sentences', 'groups'];
+    const index = lenses.indexOf(current);
+    let next = index;
+    if (event.key === 'ArrowRight') next = (index + 1) % lenses.length;
+    else if (event.key === 'ArrowLeft') next = (index - 1 + lenses.length) % lenses.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = lenses.length - 1;
+    else return;
+    event.preventDefault();
+    chooseLens(lenses[next]!);
+    const buttons = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    buttons?.[next]?.focus();
+  };
+
   const refetch = useCallback(async () => {
     try {
       const [pRes, aRes] = await Promise.all([fetch('/api/policies'), fetch('/api/agents')]);
@@ -1119,13 +1134,13 @@ export default function Ledger({
       {/* Toolbar */}
       <div className={styles.ledgerToolbar}>
         <div className={styles.lensSwitch} role="tablist" aria-label="Ledger lens">
-          <button role="tab" aria-selected={lens === 'table'} className={lens === 'table' ? styles.active : ''} onClick={() => chooseLens('table')}>
+          <button id="ledger-tab-table" role="tab" aria-selected={lens === 'table'} aria-controls="ledger-panel" tabIndex={lens === 'table' ? 0 : -1} className={lens === 'table' ? styles.active : ''} onKeyDown={(e) => handleLensKeyDown(e, 'table')} onClick={() => chooseLens('table')}>
             <Table size={13} aria-hidden="true" />Table
           </button>
-          <button role="tab" aria-selected={lens === 'sentences'} className={lens === 'sentences' ? styles.active : ''} onClick={() => chooseLens('sentences')}>
+          <button id="ledger-tab-sentences" role="tab" aria-selected={lens === 'sentences'} aria-controls="ledger-panel" tabIndex={lens === 'sentences' ? 0 : -1} className={lens === 'sentences' ? styles.active : ''} onKeyDown={(e) => handleLensKeyDown(e, 'sentences')} onClick={() => chooseLens('sentences')}>
             <AlignLeft size={13} aria-hidden="true" />Sentences
           </button>
-          <button role="tab" aria-selected={lens === 'groups'} className={lens === 'groups' ? styles.active : ''} onClick={() => chooseLens('groups')}>
+          <button id="ledger-tab-groups" role="tab" aria-selected={lens === 'groups'} aria-controls="ledger-panel" tabIndex={lens === 'groups' ? 0 : -1} className={lens === 'groups' ? styles.active : ''} onKeyDown={(e) => handleLensKeyDown(e, 'groups')} onClick={() => chooseLens('groups')}>
             <LayoutGrid size={13} aria-hidden="true" />Groups
           </button>
         </div>
@@ -1165,6 +1180,7 @@ export default function Ledger({
       )}
 
       {/* Lens views */}
+      <div id="ledger-panel" role="tabpanel" aria-labelledby={`ledger-tab-${lens}`} tabIndex={0}>
       {loading ? (
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded" />)}
@@ -1194,6 +1210,7 @@ export default function Ledger({
           ? <div className={styles.emptyNote}>No rules match the current filters.</div>
           : GroupsLens
       )}
+      </div>
 
       {/* Footer */}
       <div className={styles.footerActions}>

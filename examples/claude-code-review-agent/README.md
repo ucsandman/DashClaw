@@ -1,6 +1,12 @@
 # Claude Code Review Agent
 
-A Claude-powered agent that reviews a code file for security issues, proposes a fix, and attempts to write the modified file back to disk. DashClaw governance fires on the write step because the target file matches the `auth` pattern in the risk mapping.
+A Claude-powered agent that reviews a code file and demonstrates DashClaw
+policy, approval, and audit calls around a simulated write.
+
+> **Trust boundary:** This standalone example uses lower-level cooperative SDK
+> calls, not the Claude Code interception hook, and does not claim protocol-1
+> execution authority. Keep the write simulated, or use `runGoverned` for a real
+> file effect.
 
 ## What happens
 

@@ -46,7 +46,7 @@ Also check the wait window: clients declare `approval_wait_seconds` (SDKs/MCP de
 
 ### Agent retried and did the work twice
 
-You skipped the outcome poll. Before retrying any approved action, `getActionOutcome(action_id)`: `completed` → skip, `failed`/`lost_confirmation` → retry, `partial` → clean up first. And pass an `idempotency_key` on `createAction` so the create itself is retry-safe. Spec: [durable execution finality](./architecture/durable-execution-finality.md).
+Do not treat a missing, `failed`, or `lost_confirmation` outcome as proof that the external effect did not happen. Reconcile the target system first. An execution claim authorizes one recorded attempt, and an `idempotency_key` deduplicates the DashClaw action record; neither makes an arbitrary external callback exactly once. Automatic retry is safe only when the target offers an effect-specific idempotency key or another authoritative reconciliation primitive. Spec: [durable execution finality](./architecture/durable-execution-finality.md).
 
 ### Claude Code hooks installed but nothing lands in `/decisions`
 

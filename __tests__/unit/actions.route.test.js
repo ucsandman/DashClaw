@@ -117,7 +117,13 @@ vi.mock('@/lib/audit.js', () => ({ logActivityStrict: mockLogActivityStrict }));
 
 import { GET, POST, DELETE } from '@/api/actions/route.js';
 
-const defaultGuardDecision = { decision: 'allow', reasons: [], warnings: [], matched_policies: [] };
+const defaultGuardDecision = {
+  decision: 'allow',
+  decision_id: 'act_gd_1111111111111111',
+  reasons: [],
+  warnings: [],
+  matched_policies: [],
+};
 const defaultAction = { action_id: 'act_test', agent_id: 'agent_1', action_type: 'build', declared_goal: 'Test' };
 
 beforeEach(() => {
@@ -333,13 +339,14 @@ describe('/api/actions POST', () => {
       // evaluated for it, so the decision row this POST writes carries it too.
       expect(mockCreateActionRecord.mock.calls[0][1].data.confidence).toBe(80);
       expect(mockEvaluateGuard.mock.calls[0][1].confidence).toBe(80);
-      // The matched decision is linked explicitly, not inferred later.
-      expect(mockCreateActionRecord.mock.calls[0][1].data.guard_decision_id).toBe('act_gd_0123456789abcdef');
+      // Confidence is inherited, but execution authority links to this POST's
+      // fresh server evaluation rather than the historical prediction row.
+      expect(mockCreateActionRecord.mock.calls[0][1].data.guard_decision_id).toBe('act_gd_1111111111111111');
       // Lookup precedes this route's own evaluateGuard (else it would match itself).
       expect(mockFindInheritedConfidence.mock.invocationCallOrder[0]).toBeLessThan(mockEvaluateGuard.mock.invocationCallOrder[0]);
     });
 
-    it('a client-supplied guard_decision_id is kept even when confidence is inherited', async () => {
+    it('a validated client guard_decision_id is replaced by this request\'s fresh evaluation', async () => {
       const body = { ...validBody, guard_decision_id: 'act_gd_fedcba9876543210' };
       mockValidateActionRecord.mockReturnValue({ valid: true, data: { ...body }, errors: [] });
       mockFindInheritedConfidence.mockResolvedValue({ confidence: 80, decisionId: 'act_gd_0123456789abcdef' });
@@ -349,7 +356,8 @@ describe('/api/actions POST', () => {
       }));
       expect(res.status).toBe(201);
       expect(mockCreateActionRecord.mock.calls[0][1].data.confidence).toBe(80);
-      expect(mockCreateActionRecord.mock.calls[0][1].data.guard_decision_id).toBe('act_gd_fedcba9876543210');
+      expect(mockGuardDecisionExists).toHaveBeenCalledWith(mockSql, 'org_1', 'act_gd_fedcba9876543210');
+      expect(mockCreateActionRecord.mock.calls[0][1].data.guard_decision_id).toBe('act_gd_1111111111111111');
     });
 
     it('an explicitly stated confidence, including 50, is never overridden and skips the lookup', async () => {
@@ -407,7 +415,7 @@ describe('/api/actions POST', () => {
       expect(mockCreateActionRecord).not.toHaveBeenCalled();
     });
 
-    it('accepts a well-formed id that resolves in this org and persists it', async () => {
+    it('validates a same-org id but persists only this request\'s fresh evaluation', async () => {
       mockValidateActionRecord.mockReturnValue({
         valid: true,
         data: { ...validBody, guard_decision_id: 'act_gd_0123456789abcdef' },
@@ -418,10 +426,11 @@ describe('/api/actions POST', () => {
         body: { ...validBody, guard_decision_id: 'act_gd_0123456789abcdef' },
       }));
       expect(res.status).toBe(201);
+      expect(mockGuardDecisionExists).toHaveBeenCalledWith(mockSql, 'org_1', 'act_gd_0123456789abcdef');
       expect(mockCreateActionRecord).toHaveBeenCalledWith(
         mockSql,
         expect.objectContaining({
-          data: expect.objectContaining({ guard_decision_id: 'act_gd_0123456789abcdef' }),
+          data: expect.objectContaining({ guard_decision_id: 'act_gd_1111111111111111' }),
         }),
       );
     });

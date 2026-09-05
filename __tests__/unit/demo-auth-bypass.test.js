@@ -92,7 +92,7 @@ describe('middleware demo auth bypass', () => {
   });
 
   it('authenticated (NextAuth) + demo cookie + dashclaw.io → does NOT serve demo', async () => {
-    getToken.mockResolvedValue({ orgId: 'org_x', role: 'admin', sub: 'usr_1' });
+    getToken.mockResolvedValue({ orgId: 'org_x', role: 'admin', userId: 'usr_1', sub: 'usr_1' });
     const res = await middleware(req('/api/health'));
     // Bypass falls through to the real /api/health flow, which is a public route
     // served as a NextResponse.next() passthrough — no demo JSON body.
@@ -110,14 +110,14 @@ describe('middleware demo auth bypass', () => {
 
   it('DASHCLAW_MODE=demo (env) + authenticated → STILL serves demo for everyone', async () => {
     vi.stubEnv('DASHCLAW_MODE', 'demo');
-    getToken.mockResolvedValue({ orgId: 'org_x', role: 'admin', sub: 'usr_1' });
+    getToken.mockResolvedValue({ orgId: 'org_x', role: 'admin', userId: 'usr_1', sub: 'usr_1' });
     const res = await middleware(req('/api/health'));
     const body = await res.json();
     expect(body.mode).toBe('demo');
   });
 
   it('authenticated + demo cookie → page route deletes the stale dashclaw_demo cookie', async () => {
-    getToken.mockResolvedValue({ orgId: 'org_x', role: 'admin', sub: 'usr_1' });
+    getToken.mockResolvedValue({ orgId: 'org_x', role: 'admin', userId: 'usr_1', sub: 'usr_1' });
     const res = await middleware(req('/approvals'));
     // The authenticated page exit clears the stale cookie. NextResponse exposes
     // deletions via Set-Cookie with Max-Age=0 / an empty value.

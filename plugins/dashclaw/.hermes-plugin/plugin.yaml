@@ -1,8 +1,8 @@
 name: dashclaw
-version: 3.2.0
+version: 3.2.1
 description: |
-  DashClaw governance, integration, troubleshooting, and platform
-  intelligence for Hermes Agent. Adds guard checks, action recording,
+  DashClaw tool governance hooks, remote approvals, execution evidence,
+  and setup guidance for Hermes Agent. Adds guard checks, action recording,
   governed capability invocation, approval waits, policy discovery,
   per-turn governance-context injection, secret redaction in tool output,
   subagent ROI tracking, and live code-session ingest.

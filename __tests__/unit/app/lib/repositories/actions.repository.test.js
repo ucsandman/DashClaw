@@ -60,7 +60,8 @@ describe('actions.repository paired coverage', () => {
 
     await listActions(sql, 'org_1', { status: 'expired', expired_after: 'not-a-date' });
 
-    const [listText] = sql.queryCalls[0];
-    expect(listText).not.toContain('approval_expires_at');
+    const [listText, listParams] = sql.queryCalls[0];
+    expect(listText).not.toContain('approval_expires_at::timestamptz >');
+    expect(listParams).not.toContain('not-a-date');
   });
 });

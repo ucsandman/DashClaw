@@ -52,6 +52,13 @@ class RecordingDashClaw(DashClaw):
     def _sign_payload(self, payload):
         return None
 
+    def claim_execution(self, action_id, act):
+        return {
+            "claimed": True,
+            "action_id": action_id,
+            "attempt_id": "test-attempt",
+        }
+
     def wait_for_approval(self, action_id, timeout=300, interval=5):
         self.wait_for_approval_calls.append(action_id)
         if self._wait_for_approval_error:

@@ -6,8 +6,8 @@
  *  - GET /api/billing/portal — customer portal session for the org's
  *    stored Stripe customer.
  *  - POST /api/webhooks/stripe — public, stripe-signature verified in the
- *    route, every event id claimed exactly once through the
- *    stripe_webhook_events ledger before its handler runs.
+ *    route, with each event claim and local billing effect committed by one
+ *    repository statement.
  */
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -37,20 +37,20 @@ const {
   mockSaveCustomer: vi.fn(async () => true),
   mockClearCustomer: vi.fn(async () => true),
   mockClaimEvent: vi.fn(async () => true),
-  mockApplyCompleted: vi.fn(async () => ({ applied: true })),
-  mockApplyUpdated: vi.fn(async () => ({ applied: true, orgId: 'org_a' })),
-  mockApplyDeleted: vi.fn(async () => ({ applied: true, orgId: 'org_a' })),
-  mockApplyFailed: vi.fn(async () => ({ applied: true, orgId: 'org_a' })),
+  mockApplyCompleted: vi.fn(async () => ({ claimed: true, applied: true, orgId: 'org_a' as string | null })),
+  mockApplyUpdated: vi.fn(async () => ({ claimed: true, applied: true, orgId: 'org_a' })),
+  mockApplyDeleted: vi.fn(async () => ({ claimed: true, applied: true, orgId: 'org_a' })),
+  mockApplyFailed: vi.fn(async () => ({ claimed: true, applied: true, orgId: 'org_a' })),
 }));
 vi.mock('@/lib/repositories/billing.repository', () => ({
   getOrgBillingState: mockGetState,
   saveStripeCustomerId: mockSaveCustomer,
   clearStripeCustomerId: mockClearCustomer,
   claimWebhookEvent: mockClaimEvent,
-  applyCheckoutCompleted: mockApplyCompleted,
-  applySubscriptionUpdated: mockApplyUpdated,
-  applySubscriptionDeleted: mockApplyDeleted,
-  applyPaymentFailed: mockApplyFailed,
+  processCheckoutCompletedEvent: mockApplyCompleted,
+  processSubscriptionUpdatedEvent: mockApplyUpdated,
+  processSubscriptionDeletedEvent: mockApplyDeleted,
+  processPaymentFailedEvent: mockApplyFailed,
   FREE_TIER_ACTION_CAP: 10_000,
 }));
 vi.mock('@/lib/db', () => ({ getSql: () => ({}) }));
@@ -96,6 +96,10 @@ beforeEach(() => {
   vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://hosted.dashclaw.io');
   mockGetState.mockResolvedValue({ ...claimedState });
   mockClaimEvent.mockResolvedValue(true);
+  mockApplyCompleted.mockResolvedValue({ claimed: true, applied: true, orgId: 'org_a' });
+  mockApplyUpdated.mockResolvedValue({ claimed: true, applied: true, orgId: 'org_a' });
+  mockApplyDeleted.mockResolvedValue({ claimed: true, applied: true, orgId: 'org_a' });
+  mockApplyFailed.mockResolvedValue({ claimed: true, applied: true, orgId: 'org_a' });
   mockCheckoutCreate.mockResolvedValue({ url: 'https://checkout.stripe.com/s/1' });
   mockPortalCreate.mockResolvedValue({ url: 'https://billing.stripe.com/p/1' });
   mockCustomersCreate.mockResolvedValue({ id: 'cus_new' });
@@ -224,10 +228,11 @@ describe('POST /api/webhooks/stripe', () => {
     mockConstructEvent.mockReturnValue(completedEvent);
     const res = await webhookPOST(webhookReq(completedEvent));
     expect(res.status).toBe(200);
-    expect(mockClaimEvent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ eventId: 'evt_1' }));
-    expect(mockApplyCompleted).toHaveBeenCalledWith(expect.anything(), {
+    expect(mockClaimEvent).not.toHaveBeenCalled();
+    expect(mockApplyCompleted).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      eventId: 'evt_1', eventType: 'checkout.session.completed',
       orgId: 'org_a', plan: 'indie', customerId: 'cus_1', subscriptionId: 'sub_1',
-    });
+    }));
   });
 
   it('400 on a bad signature, and nothing is applied', async () => {
@@ -239,11 +244,11 @@ describe('POST /api/webhooks/stripe', () => {
 
   it('a replayed event id is acknowledged but never re-applied', async () => {
     mockConstructEvent.mockReturnValue(completedEvent);
-    mockClaimEvent.mockResolvedValue(false);
+    mockApplyCompleted.mockResolvedValue({ claimed: false, applied: false, orgId: null });
     const res = await webhookPOST(webhookReq(completedEvent));
     expect(res.status).toBe(200);
     expect((await res.json()).duplicate).toBe(true);
-    expect(mockApplyCompleted).not.toHaveBeenCalled();
+    expect(mockApplyCompleted).toHaveBeenCalledTimes(1);
   });
 
   it('maps subscription.updated price ids to plans (unknown price → keep stored plan)', async () => {
@@ -270,11 +275,15 @@ describe('POST /api/webhooks/stripe', () => {
   it('handles subscription.deleted and invoice.payment_failed', async () => {
     mockConstructEvent.mockReturnValue({ id: 'evt_4', type: 'customer.subscription.deleted', data: { object: { id: 'sub_1' } } });
     await webhookPOST(webhookReq({}));
-    expect(mockApplyDeleted).toHaveBeenCalledWith(expect.anything(), { subscriptionId: 'sub_1' });
+    expect(mockApplyDeleted).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      eventId: 'evt_4', subscriptionId: 'sub_1',
+    }));
 
     mockConstructEvent.mockReturnValue({ id: 'evt_5', type: 'invoice.payment_failed', data: { object: { customer: 'cus_1' } } });
     await webhookPOST(webhookReq({}));
-    expect(mockApplyFailed).toHaveBeenCalledWith(expect.anything(), { customerId: 'cus_1' });
+    expect(mockApplyFailed).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      eventId: 'evt_5', customerId: 'cus_1',
+    }));
   });
 
   it('unhandled event types are acknowledged without side effects', async () => {

@@ -11,7 +11,7 @@ import { marketingPageMetadata } from '../lib/marketingSeo';
 export const metadata: Metadata = marketingPageMetadata({
   title: 'Downloads: DashClaw',
   description:
-    'Skills, plugins, hooks, and the MCP server: every DashClaw governance artifact in one place, with install commands for Claude Code, Codex, and Hermes Agent.',
+    'Current DashClaw skills, plugins, hooks, SDKs, and MCP server artifacts, with install commands for Claude Code, Codex, and Hermes Agent.',
   path: '/downloads',
 });
 
@@ -138,7 +138,7 @@ export default function DownloadsPage() {
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Downloads</h1>
           </div>
           <p className="text-text-secondary max-w-2xl leading-relaxed">
-            Every DashClaw governance artifact in one place. Skills ship as zips you can drop into <code className="font-mono text-text-secondary text-sm">~/.claude/skills/</code>; plugins, hooks, and the MCP server install from a single command against the source repo.
+            Current DashClaw integration artifacts in one place. Skills ship as zips you can drop into <code className="font-mono text-text-secondary text-sm">~/.claude/skills/</code>; plugins, hooks, and the MCP server install from a single command against the source repo.
           </p>
         </div>
       </section>
@@ -226,7 +226,7 @@ npm run hooks:install`}
               ecosystem="Codex"
               manifest="plugins/dashclaw/.codex-plugin/plugin.json"
               agentId="codex"
-              description="Same governance surface DashClaw ships for Claude Code, wired into Codex's ~/.codex/config.toml: MCP server config, PreToolUse / PostToolUse / Stop hooks, governance protocol in AGENTS.md. Idempotent; re-run after every git pull."
+              description="Installs the supported DashClaw controls for Codex in ~/.codex/config.toml: MCP server config, PreToolUse / PostToolUse / Stop hooks, and the governance protocol in AGENTS.md. Idempotent; re-run after upgrades."
               installCommand={`node cli/bin/dashclaw.js install codex \\
   --project /path/to/your/project
 
@@ -257,7 +257,7 @@ hermes dashclaw doctor`}
             icon={Network}
             eyebrow="Model Context Protocol"
             title="MCP server"
-            description="17 governance tools plus 3 read-only resources. Ships inside every plugin above as the on-disk path mcp-server/bin/dashclaw-mcp.js. Also reachable as Streamable HTTP at /api/mcp on any DashClaw deployment, no install required."
+            description="17 governance tools plus 3 read-only resources over MCP. The on-disk server ships with the plugins above. Deployments can also expose Streamable HTTP at /api/mcp when the route is enabled and reachable; authentication is required. MCP calls remain cooperative unless an installed hook or supported gateway mechanically enforces them."
           />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="rounded-xl border border-border bg-surface-secondary p-5">
@@ -300,7 +300,7 @@ hermes dashclaw doctor`}
             icon={Terminal}
             eyebrow="Claude Code hooks"
             title="Hooks"
-            description="Govern Claude Code tool calls without per-call SDK code. Installs four hooks (PreToolUse, PostToolUse, Stop, and a SessionStart memory digest) plus the tool-classification module into .claude/hooks/, then merges the relevant blocks into .claude/settings.json. Idempotent; re-run after every git pull to upgrade."
+            description="Govern configured Claude Code tool categories without per-call SDK code. Installs PreToolUse, PostToolUse, Stop, and SessionStart hooks plus the tool-classification module into .claude/hooks/, then merges the relevant blocks into .claude/settings.json. Idempotent; re-run after upgrades."
           />
 
           {/* Hooks bundle download */}
@@ -329,7 +329,7 @@ hermes dashclaw doctor`}
             <CommandBlock label="Install from any other project pointing at a DashClaw checkout">{`node /path/to/DashClaw/scripts/install-hooks.mjs --target=.`}</CommandBlock>
           </div>
           <p className="mt-4 text-xs text-text-tertiary">
-            The Stop hook captures per-turn LLM token usage from the session transcript and PATCHes it onto the action records the pretool opened during the turn; cost analytics light up without per-agent instrumentation. Required env:{' '}
+            The Stop hook reports token usage observed in the session transcript and attaches it to action records opened by the pretool during that turn. The bundled liveness probe is also a point-in-time client report, not continuous attestation. Required env:{' '}
             <code className="font-mono">DASHCLAW_BASE_URL</code>,{' '}
             <code className="font-mono">DASHCLAW_API_KEY</code>, optional{' '}
             <code className="font-mono">DASHCLAW_HOOK_MODE=enforce</code>.
@@ -342,7 +342,7 @@ hermes dashclaw doctor`}
             icon={Package}
             eyebrow="Programmatic surface"
             title="SDKs"
-            description="For custom agents and frameworks. The 4-step governance loop and full method catalogue live in /docs. Versions current as of this build."
+            description="For custom agents and frameworks. Bare SDK calls are cooperative. The runGoverned and run_governed helpers require a protocol-1-compatible server before they invoke a callback, and uncertain claims or outcomes must be reconciled before retry. Versions current as of this build."
           />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="rounded-xl border border-border bg-surface-secondary p-5">
@@ -359,7 +359,7 @@ hermes dashclaw doctor`}
                 </a>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed mb-3">
-                Canonical 40-method surface across core governance, durable execution finality, security scanning, sessions and the action graph, agent identity, risk signals, policy simulation, plan authorization and attestation, delegation constraints, containment verdicts, and team tasks.
+                Canonical 41-method surface for core governance, protocol-1 bounded invocation, execution outcomes, security scanning, sessions and action graphs, agent identity, risk signals, policy simulation, plan authorization, containment, and team tasks.
               </p>
               <CommandBlock label="Install">{`npm install dashclaw`}</CommandBlock>
             </div>
@@ -377,7 +377,7 @@ hermes dashclaw doctor`}
                 </a>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed mb-3">
-                Broader Python surface (60 methods) with framework integrations: CrewAI task instrumentation and AutoGen conversation monitoring.
+                Broader Python surface (61 methods) with protocol-1 bounded invocation and framework integrations for CrewAI task instrumentation and AutoGen conversation monitoring.
               </p>
               <CommandBlock label="Install">{`pip install dashclaw`}</CommandBlock>
             </div>

@@ -14,6 +14,18 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-05 - Bind approval to one execution attempt, then align the claims
+
+Wes requested a repository-wide adversarial audit, implementation of the findings, a full documentation and marketing pass, and shipment of the completed batch. Codex prepared 5.33.9 with atomic execution claims, stronger authorization and secret custody, migration bookkeeping, clearer outcome uncertainty, and runtime parity fixes. The detailed remediation record is [here](audit-remediation-2026-09-05.md).
+
+The initial hook change exposed a rollout mistake: local hooks required a claim protocol that the deployed server did not yet advertise, interrupting other live sessions. Compatibility now preserves the older guard/approval flow when both advertisement fields are absent, while malformed or unsupported advertisements still fail closed. Strict governed SDK helpers require the matching server. The release order is therefore server and schema first, clients second. Global observe mode was not used to hide the mismatch.
+
+The documentation pass found a second failure mode: old copy could make a repaired product look safer than its actual boundary. Quick Start omitted the claim step, the demo guide described removed workflow routes, and the launch film implied universal interception. Current guidance now distinguishes installed enforcement seams, cooperative callers, one claimed attempt, reported outcomes, signed content, and probe-reported liveness. The old film and post kits are retained as historical material rather than promoted as current proof.
+
+The implementation passed the full local audit verification, including real PostgreSQL concurrency and recovery exercises, before this copy pass. Final release gates, rendered marketing checks, production backup/restore readiness, and deployment verification are separate requirements. No production RPO/RTO or exactly-once external-effect guarantee follows from a local test result.
+
+What worked was testing the enforcement seam with real competing claims and checking the UI against persisted data. What did not work was treating the shared working-tree hook as isolated from deployed clients. The corrective rule is concrete: preserve explicit legacy negotiation during rollout, deploy the server first, and test a real denial before enabling strict claims on a runtime. Docs and marketing must be checked against that same executable boundary in the release batch.
+
 ## 2026-09-05 - Keep identity restrictions ahead of the retry cache
 
 MoltFire prepared this platform-only patch at Wes's request after a blind investigation. Identity resolution detected reused JWTs, but the idempotency fast path could return an earlier allow before the evaluator enforced that restriction. The cache now checks the evaluator's current identity restrictions first, with rejections flowing through normal evaluation and mandatory auditing.

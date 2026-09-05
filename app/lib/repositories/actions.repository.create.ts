@@ -3,7 +3,8 @@ import { buildAgentDefense, type AgentDefense } from '../agent-defense';
 import { getGuardDecisionById } from './guardrails.repository';
 import { incrementUsageRollup } from './usage.repository';
 import { computeApprovalExpiry } from './actions.repository.approvals';
-import { boundedIdText, type Row, type SqlClient } from './actions.repository.shared';
+import { actionProvenance, boundedIdText, type Row, type SqlClient } from './actions.repository.shared';
+import { redactAny } from '../security';
 
 function clampRiskScore(value: unknown): number {
   return Math.max(0, Math.min(Math.round(Number(value) || 0), 100));
@@ -116,6 +117,8 @@ interface CreateActionPayload {
   // never from the client body. Approvals reject approver === created_by
   // (separation of duties, drizzle/0055); NULL = system/legacy, unenforced.
   createdBy?: string | null;
+  identityVerified?: boolean | null;
+  payloadSignatureStatus?: 'verified' | 'invalid' | 'missing' | 'unknown';
 }
 
 function createActionInsertValues(payload: CreateActionPayload) {
@@ -138,7 +141,7 @@ function createActionInsertValues(payload: CreateActionPayload) {
     input_summary: orNull(data.input_summary),
     reversible: boolFlag(data.reversible, 1),
     risk_score: persistedRiskScore(riskScore, data.risk_score),
-    confidence: orDefault(data.confidence, 50),
+    confidence: data.confidence ?? 50,
     recommendation_id: orNull(data.recommendation_id),
     recommendation_applied: boolFlag(data.recommendation_applied),
     recommendation_override_reason: orNull(data.recommendation_override_reason),
@@ -212,7 +215,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       signature, verified, idempotency_key, session_id, guard_decision_id,
       containment_status, containment_ref,
       act_content_hash, created_by, harness_session_id, subagent_uuid,
-      enforcement_mode, close_source, approval_expires_at
+      enforcement_mode, close_source, approval_expires_at, identity_verified, payload_signature_status, execution_protocol
     ) VALUES (
       ${orgId},
       ${action_id},
@@ -258,7 +261,10 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       ${values.subagent_uuid},
       ${values.enforcement_mode},
       ${closeSource},
-      ${approvalExpiresAt}
+      ${approvalExpiresAt},
+      ${payload.identityVerified ?? null},
+      ${payload.payloadSignatureStatus ?? 'unknown'},
+      ${Array.isArray(payload.data.client_capabilities) && payload.data.client_capabilities.includes('execution_claims') ? 1 : null}
     )
     RETURNING *
   `;
@@ -290,6 +296,8 @@ interface CreateBlockedActionPayload {
   verified: unknown;
   timestamp_start: string;
   riskScore?: number | null;
+  identityVerified?: boolean | null;
+  payloadSignatureStatus?: 'verified' | 'invalid' | 'missing' | 'unknown';
 }
 
 function blockedActionErrorFromPayload(payload: CreateBlockedActionPayload): string {
@@ -337,6 +345,8 @@ export async function createBlockedActionRecord(
     costEstimate: 0,
     signature,
     verified,
+    identityVerified: payload.identityVerified,
+    payloadSignatureStatus: payload.payloadSignatureStatus,
     timestamp_start,
     riskScore: persistedRiskScore(
       riskScore,
@@ -399,7 +409,7 @@ export async function getActionWithRelations(
   }
 
   return {
-    action,
+    action: { ...action, context: redactAny(parseJsonColumn(guardDecision?.context), []), provenance: actionProvenance(action) },
     assumptions,
     guard_decision: guardDecision
       ? (() => {

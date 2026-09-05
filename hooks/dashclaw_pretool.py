@@ -23,6 +23,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 
 # ---------------------------------------------------------------------------
 # Load .env file (C:/Projects/DashClaw/.env) before reading config.
@@ -380,6 +381,55 @@ def create_action(context, status="running"):
 def get_action(action_id):
     """GET /api/actions/<id>. Returns response dict or None."""
     return api_request("GET", "/api/actions/" + action_id, timeout=3)
+
+
+def _require_execution_claim_protocol(decision, guard_resp):
+    """Negotiate claims without breaking a server-first staged rollout."""
+    # Every verdict except an exact block can eventually release execution;
+    # unknown verdicts route to approval below and therefore need claims too.
+    if HOOK_MODE != "enforce" or decision == "block":
+        return
+    if (isinstance(guard_resp, dict)
+            and guard_resp.get("execution_claim_required") is True
+            and guard_resp.get("claim_protocol") == 1):
+        return
+    # Source checkouts can also be live harness installations. Until the
+    # server is upgraded, retain the existing guard/approval enforcement.
+    # Operators may pin the stronger contract after upgrading; an advertised
+    # but malformed/unknown protocol must never silently downgrade.
+    strict = os.environ.get("DASHCLAW_REQUIRE_EXECUTION_CLAIMS", "").lower() in ("1", "true")
+    advertised = isinstance(guard_resp, dict) and (
+        "claim_protocol" in guard_resp or "execution_claim_required" in guard_resp
+    )
+    if not strict and not advertised:
+        return
+    log("[DashClaw] Blocked: this DashClaw server does not support execution-claim protocol 1.")
+    log("Upgrade the DashClaw server before using this enforcement hook; permission cannot be renewed safely.")
+    sys.exit(2)
+
+
+def _claim_execution(action_id, context):
+    """Claim one action attempt exactly once. Never retry an ambiguous PATCH."""
+    attempt_id = str(uuid.uuid4())
+    body = {
+        "claim_execution": True,
+        "attempt_id": attempt_id,
+        "agent_id": AGENT_ID,
+    }
+    if "act" in context:
+        body["act"] = context["act"]
+    response = api_request(
+        "PATCH",
+        "/api/actions/" + action_id,
+        body=body,
+        retries=0,
+    )
+    return bool(
+        isinstance(response, dict)
+        and response.get("claimed") is True
+        and response.get("action_id") == action_id
+        and response.get("attempt_id") == attempt_id
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1181,26 +1231,22 @@ def _attach_client_capabilities(context, tool_name, tool_input=None):
     basis db_branch and needs a Neon target instead -- git is irrelevant to
     it, so the two gates are independent and a `psql` call inside a repo can
     advertise both."""
-    if not CONTAINMENT_ENABLED:
-        return
     if HOOK_MODE != "enforce":
         return
-    if tool_name not in _CONTAINABLE_TOOLS:
-        return
-    capabilities = []
-    if _is_git_repo():
-        capabilities.append("allow_contained")
-    if _db_containment_available(tool_name, tool_input):
-        capabilities.append("allow_contained:db")
-    if not capabilities:
-        return
+    capabilities = ["execution_claims"]
+    if CONTAINMENT_ENABLED and tool_name in _CONTAINABLE_TOOLS:
+        if _is_git_repo():
+            capabilities.append("allow_contained")
+        if _db_containment_available(tool_name, tool_input):
+            capabilities.append("allow_contained:db")
     context["client_capabilities"] = capabilities
     # Instance discriminator: the server folds this into the containment ref it
     # stamps (buildContainmentRef), so two co-installed hook instances firing
     # for the SAME harness session get DISTINCT branches/worktrees instead of
     # the second `git worktree add` failing forever. Same suffix that already
     # namespaces this instance's tempdir state files.
-    context["containment_instance"] = _INSTANCE_STATE_SUFFIX
+    if len(capabilities) > 1:
+        context["containment_instance"] = _INSTANCE_STATE_SUFFIX
 
 
 def _relative_to_repo(path, root):
@@ -1293,7 +1339,7 @@ def _extract_action_id(resp):
             or "")
 
 
-def _record_running_action(handler, context, tool_use_id):
+def _record_running_action(handler, context, tool_use_id, persist=True):
     """Create a running action and route its id to the per-tool / per-turn logs.
 
     Shared by handle_allow and handle_warn: on success it persists the id for
@@ -1312,12 +1358,13 @@ def _record_running_action(handler, context, tool_use_id):
         # the attribution gap instead of the failure disappearing silently.
         _log_hook_error(handler + ": create_action returned no action_id; response=" + str(resp)[:200])
         return ""
-    write_action_id(tool_use_id, action_id)
-    append_turn_action(_SESSION_ID, action_id)
+    if persist:
+        write_action_id(tool_use_id, action_id)
+        append_turn_action(_SESSION_ID, action_id)
     return action_id
 
 
-def _persist_guard_recorded_action(guard_resp, tool_use_id):
+def _persist_guard_recorded_action(guard_resp, tool_use_id, persist=True):
     """When the guard call itself recorded the action (?record=true on a
     4.7.11+ server), persist its action_id and skip the legacy create_action
     round-trip. Returns the action_id, or "" when the server did not record
@@ -1328,15 +1375,36 @@ def _persist_guard_recorded_action(guard_resp, tool_use_id):
     action_id = guard_resp.get("action_id") or ""
     if not action_id:
         return ""
-    write_action_id(tool_use_id, action_id)
-    append_turn_action(_SESSION_ID, action_id)
+    if persist:
+        write_action_id(tool_use_id, action_id)
+        append_turn_action(_SESSION_ID, action_id)
     return action_id
+
+
+def _authorize_execution(action_id, context, tool_use_id, guard_resp, persist=True):
+    """Claim the action, then expose it to PostToolUse/token attribution."""
+    if not action_id:
+        log("[DashClaw] Blocked: the governed action response contained no action_id.")
+        sys.exit(2)
+    # main() validates the protocol before dispatch. Keeping the condition here
+    # lets focused handler tests construct legacy fixtures without bypassing the
+    # production entry point.
+    if guard_resp.get("execution_claim_required") is True:
+        if not _claim_execution(action_id, context):
+            log("[DashClaw] Blocked: execution claim failed or returned an ambiguous response.")
+            log("Action ID: " + action_id + ". Do not retry automatically; reconcile this attempt first.")
+            sys.exit(2)
+    if persist:
+        write_action_id(tool_use_id, action_id)
+    append_turn_action(_SESSION_ID, action_id)
 
 
 def handle_allow(guard_resp, context, tool_use_id):
     """Record the action (in-guard via ?record=true when supported) and exit 0."""
-    if not _persist_guard_recorded_action(guard_resp, tool_use_id):
-        _record_running_action("handle_allow", context, tool_use_id)
+    action_id = _persist_guard_recorded_action(guard_resp, tool_use_id, persist=False)
+    if not action_id:
+        action_id = _record_running_action("handle_allow", context, tool_use_id, persist=False)
+    _authorize_execution(action_id, context, tool_use_id, guard_resp)
     sys.exit(0)
 
 
@@ -1364,8 +1432,10 @@ def handle_warn(guard_resp, context, tool_use_id):
     msg = warnings[0] if warnings else "Policy warning"
     log("[DashClaw] Warning: " + msg)
     _log_recovery(guard_resp)
-    if not _persist_guard_recorded_action(guard_resp, tool_use_id):
-        _record_running_action("handle_warn", context, tool_use_id)
+    action_id = _persist_guard_recorded_action(guard_resp, tool_use_id, persist=False)
+    if not action_id:
+        action_id = _record_running_action("handle_warn", context, tool_use_id, persist=False)
+    _authorize_execution(action_id, context, tool_use_id, guard_resp)
     sys.exit(0)
 
 
@@ -1410,7 +1480,7 @@ def handle_block(guard_resp, context, tool_use_id):
     sys.exit(2)
 
 
-def _wait_for_approval(action_id, tool_use_id):
+def _wait_for_approval(action_id, tool_use_id, context, guard_resp):
     """Poll get_action until approved, denied, or the deadline passes.
 
     On approval: persist the id and exit 0. On denial: exit 2. On timeout:
@@ -1426,8 +1496,7 @@ def _wait_for_approval(action_id, tool_use_id):
         status = action.get("status", "")
         approved = bool(action.get("approved_by")) or status == "running"
         if approved:
-            write_action_id(tool_use_id, action_id)
-            append_turn_action(_SESSION_ID, action_id)
+            _authorize_execution(action_id, context, tool_use_id, guard_resp)
             sys.exit(0)
         if status == "expired":
             # Approvals lifecycle (roadmap v2.3): the server decided this
@@ -1484,7 +1553,7 @@ def handle_require_approval(guard_resp, context, tool_use_id):
     log("Or visit the approval queue in your DashClaw dashboard.")
     log("Waiting for approval... (%ds timeout, then blocking)" % int(APPROVAL_TIMEOUT))
 
-    _wait_for_approval(action_id, tool_use_id)
+    _wait_for_approval(action_id, tool_use_id, context, guard_resp)
 
     log("[DashClaw] Approval timeout. Blocking tool execution.")
     sys.exit(2)
@@ -1511,7 +1580,7 @@ def _fail_db_containment(tool_use_id, action_id, reason):
     sys.exit(2)
 
 
-def _handle_contained_db(guard_resp, tool_name, tool_input, tool_use_id, action_id):
+def _handle_contained_db(guard_resp, tool_name, tool_input, tool_use_id, action_id, context):
     """Contained execution on the db_branch basis: run the command against an
     ephemeral Neon branch of the target database instead of the database
     itself. Always exits.
@@ -1582,6 +1651,7 @@ def _handle_contained_db(guard_resp, tool_name, tool_input, tool_use_id, action_
         # about the missing `cwd` field, which only the file bases needed).
         updated_input = dict(tool_input)
         updated_input["command"] = rewritten
+        _authorize_execution(action_id, context, tool_use_id, guard_resp, persist=False)
         _emit_contained_allow(updated_input, "Neon branch " + host, ref)
         sys.exit(0)
 
@@ -1625,15 +1695,15 @@ def handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_
         _record_observed_containment(guard_resp, context, tool_use_id)
         sys.exit(0)
 
-    action_id = _persist_guard_recorded_action(guard_resp, tool_use_id)
+    action_id = _persist_guard_recorded_action(guard_resp, tool_use_id, persist=False)
     if not action_id:
-        action_id = _record_running_action("handle_allow_contained", context, tool_use_id)
+        action_id = _record_running_action("handle_allow_contained", context, tool_use_id, persist=False)
 
     # Basis first: a db_branch verdict stages on a Neon branch and has nothing
     # to do with git, so it must never reach _ensure_containment_worktree
     # (which fails -- correctly, for the file bases -- outside a repo).
     if _containment_basis(guard_resp) == "db_branch":
-        _handle_contained_db(guard_resp, tool_name, tool_input, tool_use_id, action_id)
+        _handle_contained_db(guard_resp, tool_name, tool_input, tool_use_id, action_id, context)
 
     ensured = _ensure_containment_worktree(_SESSION_ID, _server_containment_ref(guard_resp))
     if not ensured:
@@ -1650,6 +1720,7 @@ def handle_allow_contained(guard_resp, tool_name, tool_input, context, tool_use_
         root = _repo_root()
         updated_input = _rewrite_input_for_containment(tool_input, worktree_path, root) if root else None
         if updated_input is not None:
+            _authorize_execution(action_id, context, tool_use_id, guard_resp, persist=False)
             _emit_contained_allow(updated_input, worktree_path, ref)
             sys.exit(0)
         # Path couldn't be mapped into the worktree (no path field, or outside
@@ -2259,6 +2330,7 @@ def main():
     # an allow — _dispatch_decision routes it to the human like any other
     # verdict this hook can't read.
     decision = guard_resp.get("decision") or ""
+    _require_execution_claim_protocol(decision, guard_resp)
     _warn_secret_scan(guard_resp, decision)
     _warn_assumption_alerts(guard_resp)
     _dispatch_decision(decision, guard_resp, context, tool_use_id, tool_name, tool_input)

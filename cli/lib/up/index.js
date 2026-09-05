@@ -21,7 +21,7 @@ import { join } from 'node:path';
 import { STEPS, loadInstance, saveInstance, checkpoint } from './instance.js';
 import { resolveAppVersion, downloadAndExtract } from './fetch-app.js';
 import { dockerAvailableSync, chooseDbMode, provisionDatabase } from './db.js';
-import { installDeps, buildApp, startServer, waitForHealth, openBrowser, winSafeSpawnArgs } from './run.js';
+import { installDeps, buildApp, startServer, waitForHealth, probeServerHealth, openBrowser, winSafeSpawnArgs } from './run.js';
 import { installClaude } from '../claude/install.js';
 import { parseUpArgs } from './args.js';
 import { ask } from '../config.js';
@@ -33,7 +33,9 @@ import { ask } from '../config.js';
  */
 export function killTree(pid) {
   if (process.platform === 'win32') {
-    spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' });
+    const result = spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' });
+    if (result.error) throw result.error;
+    if (result.status !== 0) throw new Error(`taskkill failed for pid ${pid} (exit ${result.status}).`);
   } else {
     process.kill(pid);
   }
@@ -230,6 +232,103 @@ export function defaultProcessAlive(pid) {
   try { process.kill(pid, 0); return true; } catch { return false; }
 }
 
+/** Read the recorded process command without executing through a shell. */
+export function readProcessCommand(pid) {
+  const numericPid = Number(pid);
+  if (!Number.isSafeInteger(numericPid) || numericPid <= 0) return '';
+  if (process.platform === 'win32') {
+    const script = `$p = Get-CimInstance Win32_Process -Filter 'ProcessId = ${numericPid}'; if ($p) { [Console]::Out.Write($p.CommandLine) }`;
+    const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+      encoding: 'utf8', timeout: 10_000, windowsHide: true,
+    });
+    return result.status === 0 ? String(result.stdout || '').trim() : '';
+  }
+  const result = spawnSync('ps', ['-p', String(numericPid), '-o', 'command='], {
+    encoding: 'utf8', timeout: 10_000,
+  });
+  return result.status === 0 ? String(result.stdout || '').trim() : '';
+}
+
+/** Require both the Next start executable shape and its exact recorded port. */
+export function commandLooksLikeDashClawServer(command, port) {
+  const text = String(command || '');
+  if (!/(?:^|[\\/\s"'])next(?:\.cmd)?(?:[\\/][^\s"']*)?["']?\s+start(?:\s|$)/i.test(text)) return false;
+  const escapedPort = String(port).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|\\s)(?:-p|--port)(?:=|\\s+)${escapedPort}(?=$|[\\s"'])`, 'i').test(text);
+}
+
+async function waitForProcessExit(pid, processAlive, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  while (processAlive(pid) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  if (processAlive(pid)) throw new Error(`Process ${pid} did not stop within ${timeoutMs}ms.`);
+}
+
+/** Stop a process we have already established belongs to this CLI invocation. */
+export async function stopProcess(pid, {
+  kill = killTree,
+  processAlive = defaultProcessAlive,
+  timeoutMs = 5000,
+} = {}) {
+  if (!processAlive(pid)) return;
+  try { kill(pid); } catch (error) {
+    if (processAlive(pid)) throw error;
+  }
+  await waitForProcessExit(pid, processAlive, timeoutMs);
+}
+
+/**
+ * Stop a previously recorded server only after command and health evidence
+ * agree with instance.json. A recycled pid or unrelated process is refused.
+ */
+export async function stopOwnedServer({
+  pid,
+  appDir,
+  port,
+  expectedVersion,
+  baseUrl,
+  processAlive = defaultProcessAlive,
+  processCommand = readProcessCommand,
+  healthProbe = probeServerHealth,
+  kill = killTree,
+}) {
+  if (!processAlive(pid)) return;
+  const command = processCommand(pid);
+  if (!commandLooksLikeDashClawServer(command, port)) {
+    throw new Error(
+      `Refusing to stop pid ${pid}: its command does not match the recorded DashClaw server on port ${port}.`,
+    );
+  }
+  if (!expectedVersion) {
+    throw new Error(`Refusing to stop pid ${pid}: the served version for ${appDir || 'the recorded app'} cannot be verified.`);
+  }
+  let health;
+  try {
+    health = await healthProbe({ baseUrl });
+  } catch (error) {
+    throw new Error(`Refusing to stop pid ${pid}: ${baseUrl}/api/health could not verify ownership (${error.message}).`);
+  }
+  const servedVersion = health?.body?.version;
+  if (servedVersion !== expectedVersion) {
+    throw new Error(
+      `Refusing to stop pid ${pid}: ${baseUrl} serves version ${servedVersion ?? 'unknown'}, expected ${expectedVersion}.`,
+    );
+  }
+  await stopProcess(pid, { kill, processAlive });
+}
+
+function instanceServedVersion(inst) {
+  if (inst?.version && inst.version !== 'source') return inst.version;
+  if (!inst?.appDir) return null;
+  try {
+    const pkg = JSON.parse(readFileSync(join(inst.appDir, 'package.json'), 'utf8'));
+    return typeof pkg.version === 'string' && pkg.version ? pkg.version : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The real effect wiring — swapped wholesale by tests. */
 export function realDeps() {
   return {
@@ -249,6 +348,8 @@ export function realDeps() {
     logger: console,
     dockerAvailable: dockerAvailableSync(),
     processAlive: defaultProcessAlive,
+    stopServer: stopOwnedServer,
+    stopStartedServer: stopProcess,
   };
 }
 
@@ -265,13 +366,34 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
   const { logger } = deps;
 
   let inst = loadInstance(baseDir) ?? { completed: [] };
+  let updatePrevious = null;
   if (args.update) {
-    inst = saveInstance(baseDir, { completed: [] });
+    const previousPort = inst.port ?? 3000;
+    if (inst.pid && deps.processAlive(inst.pid)) {
+      await deps.stopServer({
+        pid: inst.pid,
+        appDir: inst.appDir,
+        port: previousPort,
+        expectedVersion: instanceServedVersion(inst),
+        baseUrl: `http://localhost:${previousPort}`,
+      });
+    }
+    updatePrevious = inst.appDir ? {
+      previousVersion: inst.version ?? null,
+      previousAppDir: inst.appDir,
+    } : null;
+    inst = saveInstance(baseDir, {
+      completed: [],
+      pid: null,
+      update: updatePrevious ? { state: 'in_progress', ...updatePrevious } : null,
+    });
   }
   const done = (step) => inst.completed.includes(step);
 
   const port = args.port ?? inst.port ?? 3000;
   const baseUrl = `http://localhost:${port}`;
+
+  try {
 
   // 1. app_fetched ----------------------------------------------------------
   let appDir = inst.appDir;
@@ -364,14 +486,21 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
   if (!reusedServer) {
     loginToken = deps.mintLoginToken?.(appDir, logger) ?? null;
     child = deps.startServer({ appDir, port, logger });
-    inst = saveInstance(baseDir, { pid: child.pid });
+    inst = saveInstance(baseDir, {
+      pid: child.pid,
+      process: { appDir, port, version: instanceServedVersion(inst) },
+    });
     try {
-      await deps.waitForHealth({ baseUrl });
+      await deps.waitForHealth({ baseUrl, expectedVersion: instanceServedVersion(inst) });
     } catch (e) {
       // Health timeout: kill the orphaned server and clear the stale pid so the
       // next `dashclaw up` doesn't try to resume a dead process.
-      try { killTree(child.pid); } catch { /* already gone */ }
-      saveInstance(baseDir, { pid: null });
+      try {
+        await (deps.stopStartedServer ?? stopProcess)(child.pid);
+        saveInstance(baseDir, { pid: null, process: null });
+      } catch (cleanupError) {
+        throw new Error(`${e.message} The new process (pid ${child.pid}) could not be stopped: ${cleanupError.message}`);
+      }
       throw e;
     }
   }
@@ -414,7 +543,26 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
   }
   logger.log(`Done. First steps: ${baseUrl}/connect`);
 
+  if (args.update) inst = saveInstance(baseDir, { update: null });
   return { child, stopDb: db.stop, baseUrl, reusedServer };
+  } catch (error) {
+    if (!args.update || !updatePrevious) throw error;
+    const detail = error instanceof Error ? error.message : String(error);
+    const rollbackCommand = `npx dashclaw up --update --source-dir "${updatePrevious.previousAppDir}" --dir "${baseDir}"`;
+    saveInstance(baseDir, {
+      update: {
+        state: 'failed',
+        ...updatePrevious,
+        error: detail,
+        rollbackCommand,
+      },
+    });
+    throw new Error(
+      `Update failed: ${detail} Previous build remains at ${updatePrevious.previousAppDir}; ` +
+      `it was not restarted automatically. Roll back with: ${rollbackCommand}`,
+      { cause: error },
+    );
+  }
 }
 
 /**

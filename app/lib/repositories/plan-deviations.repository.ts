@@ -8,8 +8,8 @@ type SqlClient = {
 
 // Plan deviation events (docs/rfcs/2026-08-11-plan-deviation-events.md).
 // All SQL for the feature lives here — routes must not embed SQL
-// (route-sql:check). Deviations are the durable else-branch of
-// consumePlanStepGrant: recording is unconditional (D1), consequence flows
+// (route-sql:check). Deviations are the durable no-authority branch after
+// findPlanExecutionAuthority: recording is unconditional (D1), consequence flows
 // only through the deviation_response policy type (D2), and every write here
 // is best-effort from the guard's perspective (D3 — callers wrap, we throw).
 

@@ -5,10 +5,10 @@ import { NextResponse } from 'next/server';
 import { getStripe, planForPriceId } from '../../../lib/billing-stripe';
 import {
   claimWebhookEvent,
-  applyCheckoutCompleted,
-  applySubscriptionUpdated,
-  applySubscriptionDeleted,
-  applyPaymentFailed,
+  processCheckoutCompletedEvent,
+  processSubscriptionUpdatedEvent,
+  processSubscriptionDeletedEvent,
+  processPaymentFailedEvent,
 } from '../../../lib/repositories/billing.repository';
 import { getSql } from '../../../lib/db';
 
@@ -16,9 +16,9 @@ import { getSql } from '../../../lib/db';
  * Stripe webhook (v5.14). Public route — auth is the stripe-signature
  * header verified against STRIPE_WEBHOOK_SECRET over the RAW body (the
  * Telegram-webhook pattern: self-verifying, registered in PUBLIC_ROUTES).
- * Every event id is claimed exactly once through the stripe_webhook_events
- * ledger before its handler runs, so Stripe retries and operator replays
- * acknowledge without re-applying. Handlers acknowledge with 200 even when
+ * Every event id and its local billing effect commit in one SQL statement,
+ * so a failed effect leaves no claim that could suppress Stripe's retry.
+ * Handlers acknowledge with 200 even when
  * the referenced org/subscription is unknown — Stripe retries are for
  * transport failures, not data we have chosen not to store.
  */
@@ -45,22 +45,20 @@ export async function POST(request: Request) {
   const metadata = (obj.metadata ?? {}) as Record<string, string>;
   const orgId = typeof metadata.org_id === 'string' && metadata.org_id ? metadata.org_id : null;
 
-  const claimed = await claimWebhookEvent(sql, { eventId: event.id, eventType: event.type, orgId });
-  if (!claimed) {
-    return NextResponse.json({ received: true, duplicate: true });
-  }
+  let claimed = false;
 
   switch (event.type) {
     case 'checkout.session.completed': {
       const plan = typeof metadata.plan === 'string' ? metadata.plan : '';
       if (orgId && (plan === 'indie' || plan === 'team')) {
-        await applyCheckoutCompleted(sql, {
-          orgId,
+        ({ claimed } = await processCheckoutCompletedEvent(sql, {
+          eventId: event.id, eventType: event.type, orgId,
           plan,
           customerId: String(obj.customer ?? ''),
           subscriptionId: String(obj.subscription ?? ''),
-        });
+        }));
       } else {
+        claimed = await claimWebhookEvent(sql, { eventId: event.id, eventType: event.type, orgId });
         console.warn(`[StripeWebhook] checkout.session.completed without usable metadata (org=${orgId}, plan=${plan})`);
       }
       break;
@@ -71,24 +69,36 @@ export async function POST(request: Request) {
       const periodEnd = typeof obj.current_period_end === 'number'
         ? new Date(obj.current_period_end * 1000).toISOString()
         : null;
-      await applySubscriptionUpdated(sql, {
+      ({ claimed } = await processSubscriptionUpdatedEvent(sql, {
+        eventId: event.id, eventType: event.type, orgId,
         subscriptionId: String(obj.id ?? ''),
         plan: planForPriceId(priceId),
         status: String(obj.status ?? 'active'),
         currentPeriodEnd: periodEnd,
-      });
+      }));
       break;
     }
     case 'customer.subscription.deleted': {
-      await applySubscriptionDeleted(sql, { subscriptionId: String(obj.id ?? '') });
+      ({ claimed } = await processSubscriptionDeletedEvent(sql, {
+        eventId: event.id, eventType: event.type, orgId,
+        subscriptionId: String(obj.id ?? ''),
+      }));
       break;
     }
     case 'invoice.payment_failed': {
-      await applyPaymentFailed(sql, { customerId: String(obj.customer ?? '') });
+      ({ claimed } = await processPaymentFailedEvent(sql, {
+        eventId: event.id, eventType: event.type, orgId,
+        customerId: String(obj.customer ?? ''),
+      }));
       break;
     }
     default:
+      claimed = await claimWebhookEvent(sql, { eventId: event.id, eventType: event.type, orgId });
       break; // acknowledged, no side effects
+  }
+
+  if (!claimed) {
+    return NextResponse.json({ received: true, duplicate: true });
   }
 
   return NextResponse.json({ received: true });

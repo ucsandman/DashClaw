@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-09-04
+last-verified: 2026-09-05
 doc-type: architecture
 ---
 
@@ -13,7 +13,7 @@ DashClaw is not an agent framework and not an observability-only product. It doe
 
 ## What this file is authoritative for
 
-This file is the source of truth for DashClaw's product boundary, runtime architecture, primary surfaces, and integration model.
+This file describes the runtime architecture, primary surfaces, and integration model. [THESIS.md](./THESIS.md) is authoritative for the product boundary. Mechanical enforcement is limited to installed hooks and the bounded capability executor; SDK and ordinary MCP/API callers must route their actual effects through the governed path.
 
 Generated inventories remain authoritative for generated facts:
 
@@ -30,8 +30,9 @@ As of this verification (2026-08-12), generated API inventory reports **134 rout
 
 ### DashClaw owns
 
-- **Attribution**: which agent attempted which action, with `agent_id`, optional `agent_name`, org scoping, and fleet lineage — every row carries its harness session (`harness_session_id`), subagent leaves carry their instance uuid (`subagent_uuid`), and spawn rows carry the spawned agent's uuid (`outcome_metadata.spawned_agent_uuid`), so a multi-agent fan-out is joined from evidence at read time, never guessed.
-- **Policy decisions**: allow, block, or require approval, evaluated before the action proceeds — mechanically enforced on hook/capability surfaces, honored by cooperative callers (`docs/architecture/enforcement-boundary.md`).
+- **Attribution**: which principal and reported agent submitted an action, with `agent_id`, optional `agent_name`, org scoping, and fleet lineage. Harness-integrated rows carry `harness_session_id`; subagent leaves can carry `subagent_uuid`, and spawn rows can carry `outcome_metadata.spawned_agent_uuid`, so recorded multi-agent fan-out evidence can be joined at read time without inventing missing links.
+- **Policy decisions**: `allow < warn < allow_contained < require_approval < block`, evaluated before governed execution. The strictest applicable verdict wins; the calling execution seam must enforce it (`docs/architecture/enforcement-boundary.md`).
+- **Execution claims**: protocol 1 atomically claims one attempt for the recorded action, principal, agent, exact act, and a fresh policy decision. Operator and plan authority is consumed at claim time. A claim does not make an external effect exactly once or prove its outcome.
 - **Human-in-the-loop approval**: approval queues and chat/native approval bridges.
 - **Action ledger**: durable `action_records` rows with status, risk, reasoning, assumptions, costs, tokens, and trace data.
 - **Terminal outcomes**: one-shot action outcome finality through `GET/POST /api/actions/:actionId/outcome`.
@@ -55,7 +56,7 @@ As of this verification (2026-08-12), generated API inventory reports **134 rout
 | Replay | `/replay/[actionId]` | Action-level evidence view for a single governed decision. |
 | Policies | `/policies — the Short List + Needs your call + Calibration section` | Interruption-contract cockpit: the Short List (at most ten hard-capped rules permitted to interrupt an unattended run — BLOCK/HOLD/WATCH, ungrantable by default), a "Needs your call" review feed of silently-recorded warns (Fine / Always allow / Tighten, plus retrospective Yes/No verdicts and the MISFIRE queue), policy generation, simulation, import/proof surfaces, and a below-the-fold Calibration section (anchor `#calibration`) — the calibrated interruption controller: operator sets a target false-interruption rate; an online adaptive-conformal threshold learns from approve/deny verdicts (distribution-free bound) plus weighted retrospective warn-review verdicts, with anytime-valid per-agent e-process alarms. Shadow ("Preview") mode records what it would do on every decision (`_calibration` sibling); `relief` ("Fewer interruptions") mode runs the demote arm only (a policy's `require_approval` below the calibrated threshold becomes a recorded `warn`, bounded by `reliefCeiling` — the riskiest action the operator approved and has not since denied at or above — and never for an `ungrantable` rule, an alarmed agent, or a `block`); `active` ("Fewer and more interruptions") runs both arms. No arm ever reaches `allow` or edits a policy row; standing policy changes still route to the `/policies` proposal rails. Default shadow; admin-gated `POST /api/calibration/controller`. Theory: `docs/architecture/governance-core-theory.md`. |
 | Policy packs | `/policies/packs` | Pack Gallery: the browsable catalog of curated policy packs (18 packs across audiences — coding agents, spend, outbound comms, unattended runs, infra, data, fleets, support), filterable by audience and strictness, with a per-pack "preview against my history" dry run (`POST /api/policies/simulate { pack }`) and one-click install. Packs installed here land in the Watch tier (forced `warn`, no `short_list` flag) — they feed calibration but cannot interrupt until promoted onto the Short List. |
-| Setup | `/setup` | Readiness verification, instance health, setup proof, migration helper entry points, write-path health (live doctor canary verdicts proving the heartbeat/action-ledger/guard-audit write paths land), the live host canary (hourly external probes of the production hosts as a real client, reported via `POST /api/live-canary`), and enforcement liveness: the probe verdict card (`#enforcement-liveness`, holding/stale/broken) proving the pretool hook seam actually holds held actions, where a probe that has silently stopped running renders stale, never green. |
+| Setup | `/setup` | Readiness verification, instance health, setup proof, migration helper entry points, write-path health (live doctor canaries exercise heartbeat/action-ledger/guard-audit writes), the live host canary (hourly external probes of configured hosts as a client, reported via `POST /api/live-canary`), and enforcement liveness: the probe verdict card (`#enforcement-liveness`, holding/stale/broken) shows time-bounded, client-reported diagnostics for synthetic held actions; a probe that stops reporting renders stale, never green. |
 | Doctor | `/doctor` | In-app diagnostics from `GET /api/doctor`, grouped by category, with one-click fixes (admin keys) via `POST /api/doctor/fix`. |
 | Connect | `/connect` | Path to first governed action, including hosted trial provisioning when `DASHCLAW_HOSTED=true`. |
 | Proof | `/proof` | Self-governance evidence: the AI maintainer's own changes run through a live DashClaw instance. Supporting evidence, linked from the footer and about context, not the front door. |
@@ -70,15 +71,15 @@ These routes define the minimum DashClaw category. They are stable or runtime-cr
 
 | Route | Purpose | Notes |
 |:---|:---|:---|
-| `/api/guard` | Policy evaluation before execution | Returns allow, block, or require approval — an advisory decision point the calling surface enforces (see `docs/architecture/enforcement-boundary.md`). |
+| `/api/guard` | Policy evaluation before execution | Returns `allow`, `warn`, `allow_contained`, `require_approval`, or `block`. With recording enabled, protocol-1 responses also advertise the execution claim requirement. The calling surface enforces the verdict. |
 | `/api/actions` | Create, list, and delete action records | `POST` accepts `idempotency_key`; duplicate `(org_id, idempotency_key)` creates return the existing row with `idempotent_replay: true`. |
-| `/api/actions/:actionId` | Read or PATCH legacy lifecycle outcome fields | Legacy completion/update path. Durable finality uses the separate `/outcome` route. |
+| `/api/actions/:actionId` | Read, update, or claim an action | Protocol-1 clients PATCH `{ claim_execution: true, attempt_id, agent_id, act }` to claim one execution attempt. The server binds the authenticated principal, exact act, and fresh policy state; conflicts fail closed. Lifecycle updates remain available; durable finality uses the separate `/outcome` route. |
 | `/api/actions/:actionId/outcome` | Durable terminal outcome | One-shot `pending -> completed/partial/failed`; `lost_confirmation` is system-owned. |
 | `/api/actions/:actionId/trace` | Action trace | Read-only evidence path. |
 | `/api/actions/:actionId/graph` | Execution graph | Nodes and edges around an action, assumptions, and trace data. |
 | `/api/actions/:actionId/containment` | Operator promote/discard verdict on a contained action | `POST { verdict: 'promote' \| 'discard' }` (operator-authenticated, mirrors approvals auth). Promote creates a governed `containment_promote` action that merges the staged worktree diff (file basis) or replays the original statement on production (database basis, Neon branch). Backs the `allow_contained` guard verdict — see `docs/architecture/runtime-api.md` and `docs/rfcs/2026-09-04-database-containment.md`. |
 | `/api/approvals/:actionId` | Human approval decision | Also reachable via legacy rewrite `/api/actions/:id/approve`. |
-| `/api/approvals/:actionId/grant` | Mint a scoped `allow_grant` from an approval card | `POST { ttl_hours: 1 \| 24 \| 168 \| 720 }`. Derives the shape server-side, enforces the risk-70 ceiling, the unscoped-grant rejection and the `ungrantable` gate, then returns `release_ids` — the pending approvals the grant covers. Approves nothing itself; the caller releases those ids over `/api/approvals/:actionId` so there is one approval path. |
+| `/api/approvals/:actionId/grant` | Preview or mint a scoped `allow_grant` from an approval card | `GET ?ttl_hours=…` previews the exact server-derived target and matching pending approvals; `POST { ttl_hours: 1 \| 24 \| 168 \| 720 }` repeats that validation, enforces the risk-70 ceiling, unscoped-grant rejection, expiry, separation of duties, and `ungrantable` gate, then returns up to 200 `release_ids` plus `truncated`. The route approves nothing itself. The UI releases each id over `/api/approvals/:actionId` and reports partial failures, preserving one approval/audit path. |
 | `/api/assumptions` | Reasoning integrity records | Assumption tracking linked to actions. |
 | `/api/signals` | Runtime/anomaly signals | Signal listing and detection outputs. |
 | `/api/policies` | Policy CRUD | Guard policy management across all 17 policy types, from `non_fabrication` to `deviation_response` (per-kind consequence for plan-vs-actual deviation, v5.22.0). |
@@ -115,9 +116,9 @@ These modules consume core runtime data and add operator value without changing 
 | Plan attestation (`experimental`) | `POST /api/plans/[planId]/attest` | Run-start seam for preflight plan authorization (v5.28.0): an unattended runner posts the plan hash (`plan_hash`) it is about to act under and gets a yes/no before its first model call. Agent-facing org-scoped credential, not the operator verdict's admin auth. Fails closed (`403` with `reason` one of `not_approved \| expired \| revoked \| hash_mismatch`, `404 not_found`) and never echoes the stored hash back on a mismatch; journals `attest_count`/`attested_at`/`last_attest_result` on every call, rendered in the approvals UI. `app/api/plans/[planId]/attest/route.ts`. |
 | Operations summary | `GET /api/operations/summary` | Read-only runtime metrics over the ledger. |
 
-## Durable execution finality (v2.13.3)
+## Durable execution finality
 
-Durable finality closes the gap between "this action was approved" and "this action definitely completed."
+Durable finality distinguishes approval from the reported terminal outcome. A completed record is a report, not independent proof that an external effect completed. Missing confirmation requires reconciliation before any retry.
 
 | Primitive | Detail |
 |:---|:---|
@@ -134,11 +135,13 @@ Vercel Hobby cron runs the sweep daily. Operators who need tighter detection can
 
 ## Agent identity (Phase 2 / 2b / 2c)
 
-`/api/guard` resolves agent identity on three independent axes, each recorded on
-its own column of `guard_decisions` and returned on the guard response. None
-overloads `verification_status`; an absent or invalid token always fails soft to
-the Phase 1 trust-on-assertion path (body `agent_id`), never blocking on
-infrastructure failure. Full setup guide: `docs/agent-identity.md`.
+`/api/guard` records JWT verification, replay, and action-binding status on
+separate columns. No configured issuer leaves JWT attribution unverified; a
+malformed, expired, mismatched, or unknown-issuer JWT does not become a verified
+identity. Replay and action-binding modes can fail closed as described below.
+Opaque OAuth tokens use a middleware-derived client/user principal and scope;
+that principal is authenticated but is not JWKS-verified agent identity. Full
+setup guide: `docs/agent-identity.md`.
 
 | Phase | Question | Column | Mechanism |
 |:---|:---|:---|:---|
@@ -153,7 +156,7 @@ and are never touched by these knobs:
 
 | Env var | Modes | Default | Blocks on |
 |:---|:---|:---|:---|
-| `DASHCLAW_ALLOWED_ISSUER` / `DASHCLAW_JWT_AUDIENCE` | (set / unset) | unset = any | restrict trusted issuers / validate `aud` |
+| `DASHCLAW_ALLOWED_ISSUER` / `DASHCLAW_JWT_AUDIENCE` | (set / unset) | no issuer = no verified JWT; audience optional | establish the issuer trust anchor / validate `aud` |
 | `DASHCLAW_JTI_REPLAY_PROTECTION` | `off` / `best_effort` / `required` | `required` | `replayed`/`exp_too_far` always; `unavailable`/`not_present` only under `required` |
 | `DASHCLAW_JTI_MAX_TTL_SECONDS` | integer | `86400` | rejects tokens whose `exp` exceeds the cap (`exp_too_far`) |
 | `DASHCLAW_ACT_BINDING` | `off` / `best_effort` / `required` | `best_effort` | `mismatch` under `best_effort`+`required`; `not_present`/`unsupported_typ`/`ctx_incomplete` only under `required` |
@@ -165,11 +168,11 @@ older integrations but is no longer the primary identity surface.
 
 ## External decision provider
 
-An org can configure **one external decision provider** (RFC `docs/rfcs/2026-08-13-external-policy-verdict-input.md`, #219): `/policies` workbench form → seven `EXTERNAL_VERDICT_*` org-settings keys (URL and bearer token encrypted at rest; the `ACTION_TYPES` applicability scope deliberately plain-text so it survives an unreadable URL), read on the guard hot path through the shared cached settings read (`app/lib/guard/caches.ts`). During evaluation, `app/lib/guard/external-verdict.ts` POSTs the evaluated act tuple over `safeFetch` (SSRF-guarded, budgeted by the evaluation deadline) and the verdict joins **stricter-wins** via the existing `raiseDecision` lattice — `allow/warn/escalate/deny` → `allow/warn/require_approval/block`, external `deny` absolute, external `allow` never loosening, identity-bound by an echoed `input_identity` digest (a mismatch discards the verdict). Unavailability takes the configured posture (`fail_closed` default → `require_approval`; `fail_open` → local-only) and is recorded honestly as `external unavailable`. Provenance persists as a `_external_verdict` sibling in `guard_decisions.context` (never inside the score vector); operators see the regime on decision detail and `/approvals`. A domain-specific provider can declare an applicability scope (`EXTERNAL_VERDICT_ACTION_TYPES`, exact `action_type` allowlist; empty = every act): out-of-scope acts skip the wire call, take no posture, and persist `status: "skipped"` / `regime: "not_applicable"` — surfaced as `External: out of scope` on decision detail, deliberately unlabeled on `/approvals` (a never-consulted provider never caused an ask). Wire contract for provider implementers: `docs/external-verdict-provider.md`. Conformance: the ten #220 adversarial cases plus the applicability-scope cases in `__tests__/unit/guard-external-verdict.test.js`. Zero new routes/SDK methods/MCP tools/policy types.
+An org can configure **one external decision provider** (RFC `docs/rfcs/2026-08-13-external-policy-verdict-input.md`, #219): `/policies` workbench form → seven `EXTERNAL_VERDICT_*` org-settings keys (URL and bearer token encrypted at rest; the `ACTION_TYPES` applicability scope deliberately plain-text so it survives an unreadable URL), read on the guard hot path through the shared cached settings read (`app/lib/guard/caches.ts`). During evaluation, `app/lib/guard/external-verdict.ts` POSTs the evaluated act tuple over `safeFetch` (SSRF-guarded, budgeted by the evaluation deadline) and the verdict joins **stricter-wins** via the existing `raiseDecision` lattice — `allow/warn/escalate/deny` → `allow/warn/require_approval/block`, external `deny` absolute, external `allow` never loosening, and the response is bound to the exact input by an echoed `input_identity` digest (a mismatch discards the verdict). This digest is request binding, not agent-identity verification. Unavailability takes the configured posture (`fail_closed` default → `require_approval`; `fail_open` → local-only) and is recorded honestly as `external unavailable`. Provenance persists as a `_external_verdict` sibling in `guard_decisions.context` (never inside the score vector); operators see the regime on decision detail and `/approvals`. A domain-specific provider can declare an applicability scope (`EXTERNAL_VERDICT_ACTION_TYPES`, exact `action_type` allowlist; empty = every act): out-of-scope acts skip the wire call, take no posture, and persist `status: "skipped"` / `regime: "not_applicable"` — surfaced as `External: out of scope` on decision detail, deliberately unlabeled on `/approvals` (a never-consulted provider never caused an ask). Wire contract for provider implementers: `docs/external-verdict-provider.md`. Conformance: the ten #220 adversarial cases plus the applicability-scope cases in `__tests__/unit/guard-external-verdict.test.js`. Zero new routes/SDK methods/MCP tools/policy types.
 
 ## Non-fabrication & signed evidence
 
-The `non_fabrication` guard policy adds a deterministic non-fabrication guarantee: given an action's outbound `content` and a `source_of_truth` (allowed/required facts, forbidden patterns, extract options), the verifier in `app/lib/integrity/` confirms that every operational token (currency, date, percentage, and caller-registered patterns like account/invoice IDs) traces verbatim to an allowed fact, that every required fact is present, and that no forbidden pattern appears — returning pass or block with structured violations. It is fail-closed: any error or a missing/malformed source-of-truth blocks, and `on_violation: require_approval` routes through the existing multi-channel approval flow. Each decision is recorded in `guard_decisions` (new `evidence` column) with a signed, independently re-verifiable Ed25519 **proof receipt**, and the compliance exporter now emits a signed, hash-chained **bundle** instead of unsigned markdown/JSON. The instance signing key is hybrid (env `DASHCLAW_SIGNING_KEY_JWK` or auto-generated into `server_signing_keys`) and published at `/.well-known/jwks.json`; receipts and bundles re-verify via `POST /api/integrity/verify`. A signature proves integrity, the verdict, the ruleset version, and the issuer — **not** time-of-issuance (no trusted timestamp) or the semantic correctness of token-free prose. Schema: `drizzle/0013`. Crypto reuses the single canonicalization in `app/lib/canonical-json.ts`; the published Ed25519 keys use the same JWKS format the runtime's `app/lib/jwks-verifier.ts` already consumes, but receipt/bundle signing and verification run through `app/lib/integrity/{sign,keys}.js` on `node:crypto` directly.
+The `non_fabrication` guard policy deterministically checks an action's outbound `content` against its `source_of_truth` (allowed/required facts, forbidden patterns, extract options). It checks operational tokens such as currency, dates, percentages, and caller-registered identifiers, plus required facts and forbidden patterns; it does not establish the semantic correctness of token-free prose. Missing or malformed source material fails closed. Eligible non-fabrication results attempt to attach an independently re-verifiable Ed25519 **proof receipt**, but signing is best-effort and never gates the verdict; ordinary decisions do not all carry receipts. The compliance exporter emits a signed, hash-chained **bundle**. The instance signing key is hybrid (env `DASHCLAW_SIGNING_KEY_JWK` or auto-generated into `server_signing_keys`) and published at `/.well-known/jwks.json`; receipts and bundles re-verify via `POST /api/integrity/verify`. A valid signature proves the signed contents and issuer key, not external execution, universal agent identity, or time-of-issuance. Schema: `drizzle/0013`. Crypto reuses `app/lib/canonical-json.ts`; receipt/bundle signing and verification use `app/lib/integrity/{sign,keys}.ts` on `node:crypto`.
 
 ## Integration model
 
@@ -201,13 +204,13 @@ DashClaw ships a Node SDK and a Python SDK. The DEPRECATED `dashclaw/legacy` sub
 | Canonical Node SDK | `import { DashClaw } from 'dashclaw'` from `sdk/dashclaw.js` | npm package `dashclaw`; the SDK for all work (version tracked in `sdk/package.json`). |
 | Python SDK | `sdk-python/dashclaw/client.py` | Broad Python surface with route-contract parity for critical domains. |
 
-The canonical Node SDK currently exposes **40 public methods** in `sdk/dashclaw.js` and the Python SDK **60** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
+The canonical Node SDK currently exposes **41 public methods** in `sdk/dashclaw.js` and the Python SDK **61** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
 
 - core governance: `guard`, `createAction`, `updateOutcome`, `getAction`, `approveAction`, `getPendingApprovals`, `waitForApproval`, `recordAssumption`
 - durable finality: `reportActionOutcome`, `getActionOutcome`, `reportActionSuccess`, `reportActionFailure`, `reportActionPartial`, `deriveIdempotencyKey`
 - action graph (`getActionGraph`), risk signals (`getSignals`), security scanning (`scanPromptInjection`), sessions (`createSession`/`getSession`/`updateSession`/`listSessions`/`getSessionEvents`)
 - agent pairing/identity enrollment: `createPairing`, `waitForPairing`
-- governed execution wrappers: `runGoverned`, `guardedFetch`, `actionContext`
+- governed execution: `runGoverned`, `claimExecution`, `guardedFetch`, `actionContext`
 - side-effect-free dry-run: `simulatePolicy` (replays a proposed policy against recent historical actions)
 - team tasks (Node-only, fleets-and-teams amendment): `createTeamTask`, `appendTeamTaskEvent`, `updateTeamTask`
 

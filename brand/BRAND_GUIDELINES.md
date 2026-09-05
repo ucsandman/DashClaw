@@ -2,6 +2,8 @@
 
 **Version 1.9.1 — Generated 2026-02-19**
 
+This file records the historical logo kit. Current interface design and copy follow [`.impeccable.md`](../.impeccable.md); product claims follow [`THESIS.md`](../THESIS.md) and the [enforcement boundary](../docs/architecture/enforcement-boundary.md). Historical palette, typography, and tagline examples below do not override those sources.
+
 Logo: Outline Claw — dark shield, orange border, three centered diagonal claw strokes.
 
 ---

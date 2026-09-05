@@ -21,6 +21,17 @@ interface CircuitBreakerConfig {
   [key: string]: unknown;
 }
 
+function capabilityInvocationMarkers(capability: Capability) {
+  const legacy = JSON.stringify([`capability:${capability.slug}`]);
+  const capabilityId = typeof capability.capability_id === 'string' ? capability.capability_id.trim() : '';
+  return {
+    legacy,
+    stable: capabilityId
+      ? JSON.stringify([`capability:${capability.slug}`, `capability-id:${capabilityId}`])
+      : null,
+  };
+}
+
 interface LatestTest {
   action_id?: unknown;
   status?: string;
@@ -103,7 +114,7 @@ async function getCapabilityHealthSummaryLegacy(
   orgId: string,
   capability: Capability,
 ): Promise<CapabilityHealthSummary> {
-  const systemsTouched = JSON.stringify([`capability:${capability.slug}`]);
+  const systemsTouched = capabilityInvocationMarkers(capability);
   const [statsRows, testRows] = await Promise.all([
     sql`
       SELECT
@@ -121,8 +132,8 @@ async function getCapabilityHealthSummaryLegacy(
         MAX(CASE WHEN status = 'failed' THEN created_at END) as last_failure_at
       FROM action_records
       WHERE org_id = ${orgId}
-        AND action_type = 'capability_invoke'
-        AND systems_touched = ${systemsTouched}
+        AND (systems_touched = ${systemsTouched.stable}
+          OR (action_type = 'capability_invoke' AND systems_touched = ${systemsTouched.legacy}))
         AND created_at >= NOW() - INTERVAL '7 days'
     `,
     sql`
@@ -130,7 +141,7 @@ async function getCapabilityHealthSummaryLegacy(
       FROM action_records
       WHERE org_id = ${orgId}
         AND action_type = 'capability_test'
-        AND systems_touched = ${systemsTouched}
+        AND systems_touched = ${systemsTouched.legacy}
       ORDER BY created_at DESC
       LIMIT 1
     `,
@@ -177,7 +188,7 @@ export async function getCapabilityHealthSummary(
   orgId: string,
   capability: Capability,
 ): Promise<CapabilityHealthSummary> {
-  const systemsTouched = JSON.stringify([`capability:${capability.slug}`]);
+  const systemsTouched = capabilityInvocationMarkers(capability);
   let statsRows: Row[];
   let errorRows: Row[];
   let testRows: Row[];
@@ -202,16 +213,16 @@ export async function getCapabilityHealthSummary(
             FILTER (WHERE duration_ms IS NOT NULL AND duration_ms > 0) as p95_latency_ms
         FROM action_records
         WHERE org_id = ${orgId}
-          AND action_type = 'capability_invoke'
-          AND systems_touched = ${systemsTouched}
+          AND (systems_touched = ${systemsTouched.stable}
+            OR (action_type = 'capability_invoke' AND systems_touched = ${systemsTouched.legacy}))
           AND timestamp_start::timestamptz >= NOW() - INTERVAL '7 days'
       `,
       sql`
         SELECT error_message, timestamp_start
         FROM action_records
         WHERE org_id = ${orgId}
-          AND action_type = 'capability_invoke'
-          AND systems_touched = ${systemsTouched}
+          AND (systems_touched = ${systemsTouched.stable}
+            OR (action_type = 'capability_invoke' AND systems_touched = ${systemsTouched.legacy}))
           AND status = 'failed'
           AND error_message IS NOT NULL
         ORDER BY timestamp_start::timestamptz DESC
@@ -222,7 +233,7 @@ export async function getCapabilityHealthSummary(
         FROM action_records
         WHERE org_id = ${orgId}
           AND action_type = 'capability_test'
-          AND systems_touched = ${systemsTouched}
+          AND systems_touched = ${systemsTouched.legacy}
         ORDER BY timestamp_start::timestamptz DESC
         LIMIT 1
       `,
@@ -293,13 +304,13 @@ export async function checkCircuitBreaker(
   }
 
   const threshold = cb.consecutive_failures || 5;
-  const systemsTouched = JSON.stringify([`capability:${capability.slug}`]);
+  const systemsTouched = capabilityInvocationMarkers(capability);
 
   const rows = await sql`
     SELECT status FROM action_records
     WHERE org_id = ${orgId}
-      AND action_type = 'capability_invoke'
-      AND systems_touched = ${systemsTouched}
+      AND (systems_touched = ${systemsTouched.stable}
+        OR (action_type = 'capability_invoke' AND systems_touched = ${systemsTouched.legacy}))
     ORDER BY timestamp_start DESC
     LIMIT ${threshold}
   `;

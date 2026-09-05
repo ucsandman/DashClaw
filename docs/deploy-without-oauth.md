@@ -81,7 +81,7 @@ After core checks pass, you can strengthen that view with live SDK proof:
 
 Before calling a Vercel or Docker self-host ready, verify these paths:
 
-- Migrations: the build runs `node scripts/auto-migrate.mjs && next build`; `/setup` reports missing tables and the migration action when a schema check fails.
+- Migrations: the build runs `node scripts/auto-migrate.mjs && next build`. The runner serializes with an advisory lock, records file checksums, applies each file transactionally, and rejects checksum drift. An explicit process `DATABASE_URL` wins over repository dotenv loading. `/setup` reports missing tables and the migration action when a schema check fails.
 - Env requirements: keep the variables in Step 3 in the deployment environment and keep secret values out of logs; `npm run doctor` reports missing required settings with `NEXT:` guidance.
 - Health checks: poll `/api/health` for machine-readable runtime state and use `/api/doctor` or `npm run doctor` for diagnosis when health is degraded.
 - Logs: start with Vercel deployment/function logs, or Docker/stdout logs for self-host, then correlate the failing route with `/setup`, `/api/health`, and `/api/doctor`.
@@ -142,12 +142,12 @@ const claw = new DashClaw({
 });
 
 const action = await claw.createAction({
-  action_type: 'api_call',
-  declared_goal: 'Fetch user data from CRM',
-  risk_score: 20,
+  action_type: 'test',
+  declared_goal: 'Verify DashClaw action recording',
+  risk_score: 5,
 });
 
-await claw.updateOutcome(action.action_id, { status: 'completed' });
+await claw.reportActionSuccess(action.action_id, 'Action recording verified; no external effect was attempted.');
 
 console.log('Action recorded. Check your dashboard.');
 ```

@@ -46,8 +46,8 @@ export default function BlogPostPage() {
         <p className="mt-4 text-base text-text-secondary">
           One install script. Eight lifecycle hooks. Per-turn governance
           context injection so the model knows what is pending and what
-          is policied. Secret redaction in tool output so keys never
-          reach the model. Live session ingest so{' '}
+          is policied. Recognized credential patterns in tool output are
+          replaced before the model receives the hook result. Live session ingest so{' '}
           <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
             /code-sessions
           </code>{' '}
@@ -90,7 +90,7 @@ export default function BlogPostPage() {
           <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
             subagent_stop
           </code>{' '}
-          (record every delegate_task child for ROI tracking). The
+          (record reported delegate_task children for ROI tracking). The
           existing Claude Code Python hooks still run unchanged for the
           pre/post tool path; Hermes shares the same stdin JSON shape.
         </p>
@@ -110,7 +110,8 @@ export default function BlogPostPage() {
             </code>{' '}
             injects active policies, pending approvals, and today&apos;s
             action count via Hermes&apos;s context-injection contract.
-            The model walks into every turn already knowing what
+            Each observed turn receives the governance state available to
+            the hook, so the model knows what
             governance state it is in. Cached for 5 minutes so the hot
             path stays cheap.
           </li>
@@ -123,7 +124,7 @@ export default function BlogPostPage() {
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               /api/code-sessions/ingest-live
             </code>{' '}
-            every turn. No more waiting for a Stop hook to flush a
+            for each reported turn. No more waiting for a Stop hook to flush a
             transcript: token costs and tool calls land in{' '}
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               /code-sessions
@@ -143,7 +144,7 @@ export default function BlogPostPage() {
           </li>
           <li>
             <strong className="text-text-primary">Subagent ROI.</strong>{' '}
-            Every{' '}
+            Each reported{' '}
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               delegate_task
             </code>{' '}
@@ -185,8 +186,8 @@ export default function BlogPostPage() {
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               dashclaw_wait_for_approval
             </code>{' '}
-            MCP tool: Hermes blocks on it the same way Claude Code and
-            Codex do.
+            MCP tool: when Hermes calls it and honors the result, it waits on
+            the same server-side approval decision as Claude Code and Codex.
           </li>
           <li>· Same policy packs. No Hermes-specific policies to write.</li>
           <li>
@@ -195,8 +196,7 @@ export default function BlogPostPage() {
               dashclaw-governance
             </code>{' '}
             skill is mirrored into the Hermes plugin from the same
-            canonical source the Claude Code and global skill installs
-            use, never edited by hand, never drifts.
+            canonical source used by the Claude Code and global skill installs.
           </li>
         </ul>
       </section>

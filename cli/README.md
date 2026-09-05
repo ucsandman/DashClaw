@@ -56,6 +56,8 @@ npx dashclaw up --source-dir <path> # use a local repo checkout instead of the p
 
 Re-running `npx dashclaw up` on an existing install boots the server without re-provisioning. Failures checkpoint and resume from where they stopped.
 
+During `--update`, the CLI verifies that the recorded PID is the DashClaw server for the recorded port and version before stopping it. It then starts the rebuilt app and waits until `/api/health` reports the target version. If the update fails after the previous server stops, the error and `~/.dashclaw/instance.json` show the exact manual rollback command; the CLI does not claim that the previous version restarted automatically.
+
 Postgres prefers host port 5433; when something else already holds it, provisioning scans forward to the first free port and says so (an existing `dashclaw-pg` container keeps whatever port it was created with — data lives in the `dashclaw_pgdata` volume and survives container recreation).
 
 ### `dashclaw down`

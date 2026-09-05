@@ -271,6 +271,7 @@ class TestPosttoolContainmentDiff(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown()
         cls.server_thread.join(timeout=5)
+        cls.server.server_close()
 
     def setUp(self):
         self.log.clear()

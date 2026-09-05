@@ -169,8 +169,8 @@ export function applyAllowGrants(
  *    observe mode carries.
  *
  * Read-only, so it also runs under `simulate`: a preflight preview must show
- * the posture the real call would meet. It runs BEFORE the consuming grant
- * passes so a pause never burns an operator's single-use approval.
+ * the posture the real call would meet. It runs before authority selection;
+ * the later execution claim is the only operation that consumes approval.
  */
 export async function applyApprovalPause(deps: GuardPhaseDeps, acc: GuardAccumulator): Promise<void> {
   if (acc.highestDecision !== 'require_approval') return;
@@ -238,8 +238,8 @@ export async function applyApprovalPause(deps: GuardPhaseDeps, acc: GuardAccumul
  *    reconcile.
  *
  * Read-only, so it runs under `simulate` too, and it runs beside the approval
- * pause — before the CONSUMING grant passes, so a demotion never burns an
- * operator's single-use approval.
+ * pause — before authority selection. The later execution claim is the only
+ * operation that consumes an operator's single-use approval.
  */
 /**
  * The one way an automated pass is allowed to remove an interruption:
@@ -329,13 +329,9 @@ const OPERATOR_APPROVAL_WINDOW_MINUTES = 15;
  * admin-gated approvals routes, and only on ALLOW (deny leaves it NULL), so
  * its presence IS the grant.
  *
- * Single-use (ADR Phase 2): the grant is CONSUMED atomically — the UPDATE
- * stamps approval_grant_used_at (drizzle/0045) under `IS NULL`, so one
- * approval covers exactly one retry even under concurrent identical calls
- * (Postgres row locking picks a single winner). Exact idempotent retries
- * still replay the resulting allow via the idempotency short-circuit, so the
- * approve-then-retry UX is unchanged. Binding on action_type stops a generic
- * goal string from carrying one approval across different action kinds.
+ * Evaluation only selects candidate authority. The execution claim consumes
+ * it atomically with the target attempt, so a block, abandoned evaluation,
+ * or failed action insert cannot burn the operator's approval.
  *
  * Act-content binding (drizzle/0056): when the approved row was created with
  * an act payload (evidence-first guard), its server-computed act_content_hash
@@ -352,6 +348,7 @@ const OPERATOR_APPROVAL_WINDOW_MINUTES = 15;
 export async function applyOperatorApprovalGrant(deps: GuardPhaseDeps, acc: GuardAccumulator): Promise<void> {
   if (acc.highestDecision !== 'require_approval') return;
   const { context, sql, orgId } = deps;
+  if (!Array.isArray(context.client_capabilities) || !context.client_capabilities.includes('execution_claims')) return;
   if (!context.agent_id || !context.declared_goal) return;
   try {
     const actionType = context.action_type ?? null;
@@ -359,29 +356,33 @@ export async function applyOperatorApprovalGrant(deps: GuardPhaseDeps, acc: Guar
     // the retry) can only match rows that were never act-stamped.
     const retryActHash = computeActContentHash(context.act);
     const rows = await sql`
-      UPDATE action_records
-      SET approval_grant_used_at = NOW()
-      WHERE action_id = (
-        SELECT action_id
-        FROM action_records
+        SELECT action_id, approved_by, act_content_hash
+        FROM action_records AS approval
         WHERE org_id = ${orgId}
           AND agent_id = ${context.agent_id}
           AND declared_goal = ${context.declared_goal}
           AND (${actionType}::text IS NULL OR action_type = ${actionType})
-          AND (act_content_hash IS NULL OR act_content_hash = ${retryActHash})
+          AND act_content_hash IS NOT DISTINCT FROM ${retryActHash}::text
+          AND execution_protocol = 1
+          AND (${context._execution_principal_id ?? null}::text IS NULL
+            OR created_by = ${context._execution_principal_id ?? null}
+            OR (action_type = 'containment_promote' AND EXISTS (
+              SELECT 1 FROM action_records origin WHERE origin.action_id = approval.parent_action_id
+                AND origin.org_id = approval.org_id AND origin.agent_id = approval.agent_id
+                AND origin.created_by = ${context._execution_principal_id ?? null}
+            )))
           AND approved_by IS NOT NULL
           AND approved_by <> ''
           AND approved_at > NOW() - make_interval(mins => ${OPERATOR_APPROVAL_WINDOW_MINUTES})
           AND approval_grant_used_at IS NULL
-        ORDER BY approved_at DESC
+          AND execution_claimed_at IS NULL
+          AND status = 'running' AND outcome_status = 'pending'
+        ORDER BY (action_id = ${context.action_id ?? null}) DESC NULLS LAST, approved_at DESC
         LIMIT 1
-      )
-        AND org_id = ${orgId}
-        AND approval_grant_used_at IS NULL
-      RETURNING action_id, approved_by, act_content_hash
     `;
     const grant = rows[0];
     if (!grant) return;
+    acc.executionAuthorization = { kind: 'operator', id: String(grant.action_id) };
     acc.warnings.push(
       `Covered by operator approval ${grant.action_id} (approved by ${grant.approved_by}${grant.act_content_hash ? ', act-bound' : ''}) — require_approval downgraded to allow`
     );
@@ -410,21 +411,20 @@ export async function applyOperatorApprovalGrant(deps: GuardPhaseDeps, acc: Guar
  *     doesn't scope on it, see its docblock) and NOT both goal AND act. A
  *     deny check must not be skippable by simply omitting one optional
  *     field — that would let an attacker evade an operator's explicit "no".
- *  2. Consumption: when the decision is require_approval, an approved,
- *     unconsumed, unexpired, act-or-goal-bound step is consumed atomically
- *     (single UPDATE ... WHERE grant_used_at IS NULL RETURNING — the same
- *     race shape as the operator grant above) and the decision downgrades to
- *     allow. Operator grants run FIRST (more specific; they win). Requires
- *     the full triple (agent_id, declared_goal, action_type) — a grant is
- *     only usable by the agent+goal it was actually issued to, so this half
- *     stays strict.
+ *  2. Authority selection: when the decision is require_approval, an approved,
+ *     unconsumed, unexpired, act-or-goal-bound step is selected read-only and
+ *     the decision downgrades to allow. The later execution claim revalidates
+ *     and consumes that step atomically with the action attempt. Operator
+ *     grants run FIRST (more specific; they win). Selection requires the full
+ *     triple (agent_id, declared_goal, action_type), so a grant is usable only
+ *     by the agent and goal it was issued to.
  *
  * Never touches block. Never runs in simulate mode (gated at the call site).
  * Fail-soft/fail-closed split, NOT uniform: the deny lookup fails CLOSED
  * (an unverifiable denial state raises to require_approval — see the catch
  * below) because a grant downgrade built on top of a broken deny check would
- * be unsafe; the consumption lookup fails SOFT (a failed consumption simply
- * leaves require_approval, which is already the safe state).
+ * be unsafe; the authority lookup fails SOFT and leaves require_approval,
+ * which is already the safe state.
  */
 // U3: the operator's preview verdict (preview_decision, stamped at plan
 // submission) vs. what the LIVE evaluation just raised (live_reasons_count)
@@ -439,7 +439,7 @@ export async function applyPlanStepGrant(deps: GuardPhaseDeps, acc: GuardAccumul
   // click's single-use grant. A containment_promote action is never a
   // legitimate plan step in the first place (it's the synthetic merge row
   // minted by the containment route, not something a plan ever proposes),
-  // so this excludes it from both the deny-check and consumption phases.
+  // so this excludes it from both the deny-check and authority-selection phases.
   if (context.action_type === 'containment_promote') return null;
   const declaredGoal = context.declared_goal || '';
   const actHash = computeActContentHash(context.act);
@@ -472,7 +472,7 @@ export async function applyPlanStepGrant(deps: GuardPhaseDeps, acc: GuardAccumul
     } catch (err) {
       // U2: fail CLOSED — an unverifiable denial state must not silently let
       // a grant downgrade proceed. Raise (never lower) to require_approval
-      // and skip consumption entirely; unlike the fail-soft consumption
+      // and skip authority selection entirely; unlike the fail-soft authority
       // catch below, a require_approval left in place here could otherwise
       // still be downgraded by a grant this same call never got to check.
       console.warn('[Guard] plan-deny lookup failed — failing closed:', (err as Error).message);
@@ -483,24 +483,23 @@ export async function applyPlanStepGrant(deps: GuardPhaseDeps, acc: GuardAccumul
     }
   }
 
-  // Consumption keeps the strict full-triple requirement — action_type is
+  // Authority selection keeps the strict full-triple requirement — action_type is
   // no longer guaranteed by the entry guard above (V2 relaxed it to allow a
   // hash-only deny check), so it must be re-asserted here explicitly.
   if (!context.agent_id || !context.action_type || !declaredGoal) return null;
   if (acc.highestDecision !== 'require_approval') return null;
+  if (!Array.isArray(context.client_capabilities) || !context.client_capabilities.includes('execution_claims')) return null;
 
   try {
-    const { consumePlanStepGrant } = await import('../repositories/plans.repository');
-    const grant = await consumePlanStepGrant(sql as never, orgId, {
+    const { findPlanExecutionAuthority } = await import('../repositories/actions.repository.execution');
+    const grant = await findPlanExecutionAuthority(sql as never, orgId, {
       agentId: context.agent_id,
       actionType: context.action_type,
       declaredGoal,
       actHash,
-      // W4: an honest NULL when there's no action_id, not an empty string —
-      // SQL handles NULL fine, and '' previously read as "matched but blank".
-      matchedActionId: context.action_id ? String(context.action_id) : null,
     });
     if (!grant) return null;
+    acc.executionAuthorization = { kind: 'plan', id: String(grant.step_id) };
     acc.warnings.push(
       `Covered by plan ${grant.plan_id} step ${grant.seq}/${grant.total_steps} (approved by ${grant.reviewed_by || 'operator'}${grant.act_content_hash ? ', act-bound' : ''}) — require_approval downgraded to allow`,
     );
@@ -521,9 +520,9 @@ export async function applyPlanStepGrant(deps: GuardPhaseDeps, acc: GuardAccumul
       preview_decision: grant.preview_decision, live_reasons_count: liveReasonsCount,
     };
   } catch (err) {
-    // Fail-soft: a failed consumption simply leaves require_approval intact
-    // — already the safe state, unlike the deny lookup above.
-    console.warn('[Guard] plan-grant consumption lookup failed:', (err as Error).message);
+    // Fail-soft: failed authority selection leaves require_approval intact,
+    // already the safe state unlike the deny lookup above.
+    console.warn('[Guard] plan-grant authority lookup failed:', (err as Error).message);
     return null;
   }
 }

@@ -5,8 +5,9 @@ import { NextResponse } from 'next/server';
 import { getSql as getDbSql } from '../../../lib/db';
 import { apiErrorResponse } from '../../../lib/apiErrors';
 import { validateActionOutcome } from '../../../lib/validate.js';
-import { getOrgId } from '../../../lib/org';
+import { getOrgId, getUserId } from '../../../lib/org';
 import { resolveAgentIdentity } from '../../../lib/identity-resolution';
+import { authorizeActionExecution } from '../../../lib/guard/execution';
 import { EVENTS, publishOrgEvent } from '../../../lib/events';
 import { redactAny } from '../../../lib/security';
 import { estimateCost } from '../../../lib/billing';
@@ -94,8 +95,32 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
     // A literal `null` (or non-object) JSON body would otherwise crash on the
     // body.close_if_running read below and surface as a 500; return the normal
     // 400 validation response instead.
-    if (!body || typeof body !== 'object') {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
       return NextResponse.json({ error: 'Validation failed', details: ['request body must be a JSON object'] }, { status: 400 });
+    }
+
+    if (body.claim_execution !== undefined) {
+      if (body.claim_execution !== true || typeof body.attempt_id !== 'string'
+        || !/^[A-Za-z0-9_-]{16,128}$/.test(body.attempt_id)
+        || Object.keys(body).some((key) => !['claim_execution', 'attempt_id', 'agent_id', 'act'].includes(key))) {
+        return NextResponse.json({ error: 'Invalid execution claim', code: 'INVALID_EXECUTION_CLAIM' }, { status: 400 });
+      }
+      const identity = await resolveAgentIdentity(request, {
+        agentId: typeof body.agent_id === 'string' ? body.agent_id : null,
+      });
+      if (!identity.agent_id) {
+        return NextResponse.json({ error: 'Execution claim requires agent identity', code: 'AGENT_IDENTITY_REQUIRED' }, { status: 403 });
+      }
+      const claimed = await authorizeActionExecution(sql, {
+        orgId, actionId, identity, principalId: getUserId(request) || '', attemptId: body.attempt_id,
+        act: body.act,
+      });
+      if (!claimed) {
+        return NextResponse.json({ error: 'Action is not eligible for a new execution attempt. Reconcile its state before retrying.',
+          code: 'EXECUTION_CLAIM_CONFLICT', action_id: actionId }, { status: 409 });
+      }
+      return NextResponse.json({ claimed: true, action_id: actionId, attempt_id: body.attempt_id,
+        claimed_at: claimed.execution_claimed_at }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     // Stop-hook contract — see dashclaw_stop.py. When true, the request's close

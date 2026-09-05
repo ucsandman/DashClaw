@@ -79,6 +79,14 @@ Phase 4 grep evidence:
 
 ## 2026-05-13 Durable Execution Finality (v2.13.3+)
 
+> **Current contract (2026-09-05):** This dated section describes immutable
+> outcome and ledger-deduplication work. It does not promise exactly-once tool
+> execution. Claim-aware paths now select approval authority without consuming
+> it and atomically claim one exact-act, authenticated-principal attempt under
+> fresh policy immediately before execution. Uncertain external effects still
+> require target-system reconciliation. See
+> [`durable-execution-finality.md`](./architecture/durable-execution-finality.md).
+
 The five-state outcome machine and idempotency-key surface shipped in commits `25599c35` through `5407b6ca` add three security-relevant guarantees. Full design context: [`docs/architecture/durable-execution-finality.md`](./architecture/durable-execution-finality.md).
 
 ### One-shot CAS at the repository layer
@@ -411,7 +419,10 @@ DashClaw includes Data Loss Prevention (DLP) redaction to reduce the chance of s
 
 ### Encryption at Rest (Integration Secrets)
 
-- Integration credentials are encrypted in the database using AEAD (AES-256-GCM).
+- New integration-secret, webhook-secret, and DB-backed private-JWK writes use
+  AEAD (AES-256-GCM). Legacy plaintext webhook and private-JWK rows remain
+  readable for compatibility until an operator runs the explicit custody
+  migration in [`key-custody-and-rotation.md`](./key-custody-and-rotation.md).
 - Required: `ENCRYPTION_KEY` must be set and must be exactly 32 characters (32 ASCII characters recommended).
 - Backward compatibility: legacy ciphertext formats are still decryptable so upgrades do not break existing installs.
 

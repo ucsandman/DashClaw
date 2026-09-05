@@ -53,7 +53,13 @@ const stateRow = (theta, agents = {}) => [
 ];
 
 // deploy base score 75 — above a calibrated θ of 30, below the policy default 80.
-const CTX = () => ({ action_type: 'deploy', agent_id: 'agent_1', agent_name: 'Bot', declared_goal: 'roll out the widget' });
+const CTX = () => ({
+  action_type: 'deploy',
+  agent_id: 'agent_1',
+  agent_name: 'Bot',
+  declared_goal: 'roll out the widget',
+  client_capabilities: ['execution_claims'],
+});
 
 beforeEach(() => {
   vi.clearAllMocks();

@@ -31,54 +31,28 @@ const claw = new DashClaw({
 });
 ```
 
-### Step 2: Implement the Loop
-Wrap your tool-calling or execution logic. **Always act on the guard decision
-and check `action.status` after `createAction` — don't ignore either.**
+### Step 2: Use the governed helper
+`runGoverned()` performs guard, recording, approval wait, a fresh protocol-1
+execution claim, callback execution, and terminal outcome reporting. It refuses
+to call the callback if claim confirmation is missing or ambiguous.
 
 ```javascript
-import { DashClaw, GuardBlockedError, ApprovalDeniedError } from 'dashclaw';
+import { DashClaw } from 'dashclaw';
 
 async function executeRiskyAction(intent) {
-  // 1. GUARD: Ask policy before acting. Abort on hard block.
-  const decision = await claw.guard({
+  const act = { kind: 'http', method: 'POST', url: intent.url };
+  return claw.runGoverned(act, {
     action_type: intent.type,
     declared_goal: intent.goal,
     risk_score: intent.estimatedRisk,
-  });
-  if (decision.decision === 'block') {
-    throw new GuardBlockedError(decision);
-  }
-
-  // 2. RECORD: Create the action record. The server re-evaluates policy
-  //    at this point and is the authoritative source for HITL gating —
-  //    even if guard returned 'allow' above, the server may still set
-  //    status='pending_approval' (e.g. if a capability requires approval).
-  const { action, action_id } = await claw.createAction({
-    action_type: intent.type,
-    declared_goal: intent.goal,
-    risk_score: intent.estimatedRisk,
-  });
-
-  // 3. HITL: If the server flagged this, wait for a human operator.
-  //    Pass createAction's action_id — NOT guard's decision.action_id.
-  if (action?.status === 'pending_approval') {
-    try {
-      await claw.waitForApproval(action_id);
-    } catch (err) {
-      if (err instanceof ApprovalDeniedError) return; // operator denied
-      throw err;
-    }
-  }
-
-  // 4. EXECUTE + OUTCOME
-  try {
-    await myExternalSystem.call(intent);
-    await claw.updateOutcome(action_id, { status: 'completed' });
-  } catch (err) {
-    await claw.updateOutcome(action_id, { status: 'failed', error_message: err.message });
-  }
+  }, () => myExternalSystem.call(intent));
 }
 ```
+
+The claim authorizes one recorded attempt. It does not make the external call
+exactly once. If callback success or outcome confirmation is uncertain,
+reconcile the target system before retrying and use the target's idempotency
+primitive where available.
 
 ---
 
@@ -100,14 +74,13 @@ See the canonical HITL flow and action-ID rules in
 [`sdk/README.md` → Human-in-the-Loop (HITL) Approval Flow](../sdk/README.md#human-in-the-loop-hitl-approval-flow).
 The short version:
 
-1. **Trust `action.status`, not `decision.decision`.** The server's
-   `createAction` response is the authoritative HITL signal.
-2. **Call `waitForApproval(action_id)` with the ID from `createAction()`**,
-   not the one from `guard()`. They point at different database tables.
-3. `waitForApproval()` uses SSE with a polling fallback and resolves the
-   instant an operator approves from the dashboard, CLI, mobile PWA, or
-   (if configured) an inline Telegram Approve button.
-   It throws `ApprovalDeniedError` on denial.
+1. Prefer `runGoverned()` / `run_governed()` for callback execution; both
+   require the current execution-claim contract.
+2. For a manual low-level loop, call `waitForApproval(action_id)` with the ID
+   from `createAction()`, then `claimExecution(action_id, act)` immediately
+   before the act. A guard `decision_id` is not an action ID.
+3. SSE is a latency hint. `waitForApproval()` reconciles authoritative action
+   state and throws `ApprovalDeniedError` on denial.
 
 ---
 

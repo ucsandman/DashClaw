@@ -60,57 +60,19 @@ const claw = new DashClaw({
 });
 
 // Wrap any AI SDK execute function in the DashClaw governance loop.
-function governed({ actionType, riskScore, systemsTouched, goal }, execute) {
+function governed({ actionType, riskScore, systemsTouched, goal, act }, execute) {
   return async (input) => {
     const declaredGoal = typeof goal === 'function' ? goal(input) : goal;
-
-    // 1. GUARD: policy check before executing
-    const { decision, reasons } = await claw.guard({
-      action_type: actionType,
-      declared_goal: declaredGoal,
-      risk_score: riskScore,
-      systems_touched: systemsTouched,
-    });
-    if (decision === 'block') {
-      return \`BLOCKED: \${(reasons || []).join(', ')}\`;
-    }
-
-    // 2. RECORD: declare intent
-    const { action } = await claw.createAction({
-      action_type: actionType,
-      declared_goal: declaredGoal,
-      risk_score: riskScore,
-      systems_touched: systemsTouched,
-    });
-
-    // 3. HITL: wait for approval if required
-    if (decision === 'require_approval') {
-      try {
-        await claw.waitForApproval(action.action_id, { timeout: 120000 });
-      } catch (err) {
-        await claw.updateOutcome(action.action_id, {
-          status: 'cancelled',
-          error_message: String(err?.message || err),
-        });
-        return \`DENIED: \${err?.message || err}\`;
-      }
-    }
-
-    // 4. EXECUTE + OUTCOME
-    try {
-      const result = await execute(input);
-      await claw.updateOutcome(action.action_id, {
-        status: 'completed',
-        output_summary: typeof result === 'string' ? result : JSON.stringify(result),
-      });
-      return result;
-    } catch (err) {
-      await claw.updateOutcome(action.action_id, {
-        status: 'failed',
-        error_message: String(err?.message || err),
-      });
-      throw err;
-    }
+    return claw.runGoverned(
+      act(input),
+      {
+        action_type: actionType,
+        declared_goal: declaredGoal,
+        risk_score: riskScore,
+        systems_touched: systemsTouched,
+      },
+      () => execute(input),
+    );
   };
 }`;
 
@@ -126,6 +88,14 @@ function governed({ actionType, riskScore, systemsTouched, goal }, execute) {
       riskScore: 70,
       systemsTouched: ['stripe'],
       goal: ({ orderId, amountUsd }) => \`Refund $\${amountUsd} for order \${orderId}\`,
+      act: ({ orderId, amountUsd }) => ({
+        kind: 'http',
+        request: {
+          method: 'POST',
+          url: \`https://payments.example.test/orders/\${orderId}/refund\`,
+          body_excerpt: JSON.stringify({ amountUsd }),
+        },
+      }),
     },
     async ({ orderId, amountUsd }) => \`Refunded $\${amountUsd} for order \${orderId}.\`,
   ),
@@ -169,10 +139,10 @@ DASHCLAW_API_KEY=oc_live_...`,
       number: 4,
       title: 'Write a governed() wrapper for tool execute functions',
       summary:
-        'One generic higher-order function turns any AI SDK tool execute into a governed one: guard before, record intent, pause for approval when required, report the outcome after.',
+        'One wrapper passes the exact tool act and callback to runGoverned, which handles current policy, recording, approval, one execution claim, and outcome reporting.',
       codeTitle: 'governance.mjs',
       codeBody: governedWrapperCode,
-      note: "The guard decision drives the flow: 'block' returns early, 'require_approval' pauses for a human click on /approvals, 'allow' proceeds straight to execution. Note the Node SDK's waitForApproval takes milliseconds.",
+      note: 'The callback runs only after DashClaw confirms protocol-1 execution authority for the exact action, agent, and scrubbed act.',
     },
     {
       number: 5,

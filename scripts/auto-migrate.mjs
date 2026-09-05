@@ -27,11 +27,11 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
-import { splitSqlStatements } from '../app/lib/setup/sql-statements.mjs';
+import { runSchemaMigrations } from '../app/lib/setup/migration-runner.mjs';
 import { seedCatastrophePack, holdMassDestructive, gateMassDestructiveOnEvidence, seedLateAddedPackLines } from '../app/lib/setup/catastrophe-pack.mjs';
 
 // Load .env / .env.local if present (no-op in Vercel where vars are injected).
-import './_load-env.mjs';
+import { ENV_LOAD_REPORT } from './_load-env.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '..');
@@ -62,6 +62,20 @@ if (!process.env.DATABASE_URL) {
 
 log('DATABASE_URL detected. Starting schema migration...');
 
+function classifyDatabaseTarget(url) {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return 'local-postgres';
+    if (hostname.endsWith('.neon.tech')) return 'managed-neon';
+    return 'managed-or-remote-postgres';
+  } catch {
+    return 'unclassified-postgres';
+  }
+}
+
+const runtimeEnvironment = process.env.VERCEL_ENV || process.env.NODE_ENV || 'local';
+log(`Migration target: environment=${runtimeEnvironment}; database=${classifyDatabaseTarget(process.env.DATABASE_URL)}; configuration=${ENV_LOAD_REPORT.databaseSource}.`);
+
 // ── Connect via postgres.js (works with Neon, Supabase, any Postgres) ──────
 const sql = postgres(process.env.DATABASE_URL, {
   max: 1,
@@ -71,12 +85,12 @@ const sql = postgres(process.env.DATABASE_URL, {
 
 // ── Step 1: Execute DDL directly (no drizzle-kit, no prompts) ──────────────
 // Read every Drizzle migration file under drizzle/ in filename order and
-// execute each statement individually. Files are expected to be named with
+// execute each unapplied file under one serialized transaction. Files are expected to be named with
 // a zero-padded sequence prefix (0000_..., 0001_..., 0002_..., etc.) so the
 // filename sort matches the intended apply order. All statements use
-// IF NOT EXISTS / IF EXISTS idempotent guards, and SAFE_CODES below covers
-// the remaining "already applied" Postgres error codes, so re-running on an
-// already-migrated database is a no-op.
+// IF NOT EXISTS / IF EXISTS idempotent guards. The migration ledger makes
+// ordinary re-runs a no-op; precise duplicate-object codes cover adoption by
+// legacy databases that predate the ledger.
 log('Executing schema DDL...');
 
 const migrationsDir = resolve(projectRoot, 'drizzle');
@@ -95,160 +109,19 @@ if (migrationFiles.length === 0) {
 
 log(`Found ${migrationFiles.length} migration file(s): ${migrationFiles.join(', ')}`);
 
-const statements = [];
-for (const filename of migrationFiles) {
-  const content = readFileSync(resolve(migrationsDir, filename), 'utf8');
-  // splitSqlStatements also strips full-line comments — REQUIRED, not
-  // cosmetic: comment text is converted to the database encoding server-side,
-  // and non-ASCII comment characters hard-fail on non-UTF8 databases (22P05
-  // on WIN1252, the fresh-Windows embedded default), killing the whole chain.
-  const fileStatements = splitSqlStatements(content);
-  log(`  ${filename}: ${fileStatements.length} statements`);
-  for (const stmt of fileStatements) statements.push(stmt);
+const migrations = migrationFiles.map((filename) => ({
+  filename,
+  content: readFileSync(resolve(migrationsDir, filename), 'utf8'),
+}));
+try {
+  const result = await runSchemaMigrations(sql, migrations);
+  log(`Migration ledger: ${result.migrationsApplied} applied, ${result.migrationsAlreadyApplied} already applied.`);
+  log(`DDL complete: ${result.appliedStatements} applied, ${result.alreadyAppliedStatements} precise legacy/optional skips.`);
+  log(`Column sync complete: ${result.reconciledColumns} strict ALTER statements executed (no-op if already present).`);
+} catch (err) {
+  try { await sql.end({ timeout: 2 }); } catch { /* connection teardown only */ }
+  fail(err.message);
 }
-
-log(`Total DDL statements across all migrations: ${statements.length}.`);
-
-// Postgres error codes we can safely skip (idempotent re-runs):
-const SAFE_CODES = new Set([
-  '42P07', // duplicate_table
-  '42P16', // invalid_table_definition (e.g. column already exists)
-  '42701', // duplicate_column
-  '42710', // duplicate_object (indexes, constraints)
-  '42P10', // invalid_column_reference
-  '23505', // unique_violation (for ON CONFLICT seed inserts)
-]);
-
-let created = 0;
-let skipped = 0;
-let pgvectorAvailable = null; // tri-state: null=unknown, true, false
-// Tables we skipped because their CREATE TABLE required pgvector. Every
-// later statement that only references one of these tables (index, FK,
-// ALTER, policy) must also skip — otherwise it fails with 42P01 on a
-// table that was never created.
-const skippedTables = new Set();
-
-/**
- * Returns the primary target of a DDL statement — the table being created,
- * altered, indexed on, or dropped. We skip statements whose primary target
- * is a pgvector-dependent table that was skipped upstream, regardless of
- * what else the statement references (FK targets, etc. — those are separate
- * tables and their own skip status is evaluated on their own statements).
- */
-function primaryTargetTable(stmt) {
-  const patterns = [
-    /CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+"?(\w+)"?/i,
-    /CREATE\s+(?:UNIQUE\s+)?INDEX(?:\s+CONCURRENTLY)?(?:\s+IF\s+NOT\s+EXISTS)?\s+\S+\s+ON\s+"?(\w+)"?/i,
-    /ALTER\s+TABLE(?:\s+IF\s+EXISTS)?\s+"?(\w+)"?/i,
-    /DROP\s+TABLE(?:\s+IF\s+EXISTS)?\s+"?(\w+)"?/i,
-  ];
-  for (const re of patterns) {
-    const m = stmt.match(re);
-    if (m) return m[1];
-  }
-  return null;
-}
-
-for (const stmt of statements) {
-  // Enable pgvector on demand and remember whether it's available on this
-  // database. CI Postgres images typically lack the pgvector extension;
-  // in that case the vector-dependent statements are skipped deliberately
-  // so the rest of the schema still lands.
-  const needsVector = stmt.includes('vector(') && !stmt.startsWith('CREATE EXTENSION');
-  if (needsVector && pgvectorAvailable === null) {
-    try {
-      await sql.unsafe('CREATE EXTENSION IF NOT EXISTS vector');
-      pgvectorAvailable = true;
-    } catch {
-      pgvectorAvailable = false;
-    }
-  }
-  if (needsVector && pgvectorAvailable === false) {
-    // pgvector not installed — skip this statement. Record the primary
-    // target (the table being created) so every subsequent ALTER / INDEX /
-    // constraint that targets it is also skipped on its own turn.
-    const target = primaryTargetTable(stmt);
-    if (target) skippedTables.add(target);
-    skipped++;
-    continue;
-  }
-
-  // Skip statements whose primary target is a pgvector-dependent table
-  // that was skipped. A FK / REFERENCES to an existing real table is
-  // irrelevant — the statement still can't run because its own target
-  // doesn't exist on this DB.
-  if (skippedTables.size > 0) {
-    const target = primaryTargetTable(stmt);
-    if (target && skippedTables.has(target)) {
-      skipped++;
-      continue;
-    }
-  }
-
-  try {
-    await sql.unsafe(stmt);
-    created++;
-  } catch (err) {
-    if (SAFE_CODES.has(err.code)) {
-      skipped++;
-      continue;
-    }
-    // Also handle "already exists" in the message (belt + suspenders)
-    if (err.message?.includes('already exists')) {
-      skipped++;
-      continue;
-    }
-    // Real DDL failure — missing ref, syntax error, permission denied,
-    // etc. Silently continuing produces a partial schema that the app
-    // boots against, which is harder to diagnose than a loud failure.
-    // Fail the deploy so the operator has to fix the DDL before ship.
-    fail(`DDL statement failed (${err.code || 'unknown'}): ${err.message?.slice(0, 200)}`);
-  }
-}
-
-log(`DDL complete: ${created} applied, ${skipped} skipped (already exist).`);
-
-// ── Step 1b: Ensure columns on existing tables (schema drift fix) ──────────
-// When tables already exist from an older deploy, CREATE TABLE is skipped but
-// the old table may be missing columns added in later schema versions.
-// ALTER TABLE ADD COLUMN IF NOT EXISTS is a no-op for columns that already exist.
-log('Ensuring schema columns are up to date...');
-
-let columnsAdded = 0;
-
-for (const stmt of statements) {
-  const tableMatch = stmt.match(/^CREATE TABLE\s+"(\w+)"\s*\(/i);
-  if (!tableMatch) continue;
-  const table = tableMatch[1];
-
-  // Extract column lines: anything that starts with "column_name" type...
-  // Stop at CONSTRAINT lines.
-  const body = stmt.slice(stmt.indexOf('(') + 1, stmt.lastIndexOf(')'));
-  const lines = body.split('\n').map((l) => l.trim().replace(/,\s*$/, ''));
-
-  for (const line of lines) {
-    if (!line.startsWith('"')) continue;
-    // Parse: "col_name" type [DEFAULT ...] [NOT NULL]
-    const colMatch = line.match(/^"(\w+)"\s+(.+)/);
-    if (!colMatch) continue;
-
-    const colName = colMatch[1];
-    let rest = colMatch[2];
-    // Strip trailing constraints that ALTER TABLE ADD COLUMN doesn't accept inline
-    // Keep type + DEFAULT + NOT NULL but remove PRIMARY KEY / UNIQUE / CONSTRAINT
-    rest = rest.replace(/\s*PRIMARY KEY.*/i, '');
-    rest = rest.replace(/,\s*$/, '');
-
-    try {
-      await sql.unsafe(`ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS "${colName}" ${rest}`);
-      columnsAdded++;
-    } catch {
-      // Column already exists or type mismatch — skip silently
-    }
-  }
-}
-
-log(`Column sync complete: ${columnsAdded} ALTER statements executed (no-op if already present).`);
 
 // ── Step 2: Seed org_default ───────────────────────────────────────────────
 // The app requires at least one organization row with id='org_default'.

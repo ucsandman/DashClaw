@@ -67,7 +67,11 @@ def _make_handler(state: _ServerState):
             bare = self.path.partition("?")[0]
 
             if bare == "/api/guard":
-                self._json(200, state.guard_response)
+                payload = dict(state.guard_response)
+                if payload.get("decision") != "block":
+                    payload.setdefault("execution_claim_required", True)
+                    payload.setdefault("claim_protocol", 1)
+                self._json(200, payload)
                 return
             if bare == "/api/actions":
                 if state.actions_fail:
@@ -83,6 +87,17 @@ def _make_handler(state: _ServerState):
             # Pending forever: the approval wait must time out and block.
             self._json(200, {"action": {"action_id": "act_failclosed_001",
                                         "status": "pending_approval"}})
+
+        def do_PATCH(self):
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length)) if length else {}
+            state.add("PATCH", self.path)
+            action_id = self.path.rstrip("/").split("/")[-1]
+            self._json(200, {
+                "claimed": True,
+                "action_id": action_id,
+                "attempt_id": body.get("attempt_id"),
+            })
 
         def _json(self, code, payload):
             resp = json.dumps(payload).encode()
@@ -127,6 +142,7 @@ class _HookRunner(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown()
         cls.server_thread.join(timeout=5)
+        cls.server.server_close()
 
     def setUp(self):
         self.state.clear()

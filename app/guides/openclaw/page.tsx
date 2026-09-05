@@ -96,7 +96,7 @@ policies:
       number: 4,
       title: 'Trigger a governed tool call',
       summary:
-        'Start the agent and give it something that uses a governed tool: bash, write, edit. From here governance is automatic. Guard runs before the call, a record opens, the call waits if a policy requires approval, and the outcome is recorded after. The agent calls no DashClaw tools itself. An Agent Session opens on its first tool call and closes when the run ends.',
+        'Start the agent and give it something that uses a governed tool: bash, write, edit. From here governance is automatic. Current policy runs before the call, one action record opens, the call waits if approval is required, and protocol 1 claims the exact action and principal before the host tool runs. Approval is consumed at the claim, and the outcome is recorded after. The agent calls no DashClaw tools itself. An Agent Session opens on its first tool call and closes when the run ends.',
       codeTitle: 'Example prompt',
       codeBody:
         'Create a file called hello.txt with the contents "Hello from a governed agent"',
@@ -148,7 +148,7 @@ policies:
           <p className="mb-6 text-sm text-secondary leading-relaxed">
             OpenClaw is where DashClaw&apos;s &ldquo;Claw&rdquo; comes from: it was the first
             agent runtime we governed, and this plugin remains one of the deepest integrations:
-            the full guard &rarr; record &rarr; approval &rarr; outcome loop on every tool call,
+            the guard &rarr; record &rarr; approval &rarr; claim &rarr; outcome loop on every tool call,
             with token-cost attribution built in.
           </p>
 
@@ -209,6 +209,14 @@ policies:
                 @dashclaw/openclaw-plugin README
               </a>
               .
+            </p>
+            <p className="mt-4 text-xs text-tertiary leading-relaxed">
+              During a server-first upgrade, a response with neither claim advertisement field keeps the
+              legacy guard and approval flow. A partial or invalid advertisement blocks the call. Set{' '}
+              <span className="font-mono text-secondary">DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1</span>{' '}
+              after the server supports protocol 1 to reject legacy responses that omit claim negotiation.
+              A lost or rejected claim acknowledgement never releases the host tool and is not retried
+              automatically.
             </p>
           </section>
 

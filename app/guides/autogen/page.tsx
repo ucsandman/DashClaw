@@ -64,45 +64,18 @@ claw = DashClaw(
 
 def governed_deploy_tool(environment: str) -> str:
     """Deploy to an environment. Governed by DashClaw policies."""
-
-    # 1. GUARD: Check policy before executing
-    result = claw.guard({
-        "action_type": "deploy",
-        "declared_goal": f"Deploy to {environment}",
-        "risk_score": 70 if environment == "production" else 30,
-        "systems_touched": [environment],
-        "reversible": environment != "production",
-    })
-    decision = result.get("decision", "allow")
-    if decision == "block":
-        return f"BLOCKED: {', '.join(result.get('reasons', []))}"
-
-    # 2. RECORD: Declare intent
-    action = claw.create_action(
-        "deploy",
-        f"Deploy to {environment}",
-        risk_score=70 if environment == "production" else 30,
-        systems_touched=[environment],
-    )
-    action_id = action["action_id"]
-
-    # 3. HITL: Wait for approval if required
-    if decision == "require_approval":
-        try:
-            claw.wait_for_approval(action_id, timeout=120, interval=5)
-        except Exception as e:
-            claw.update_outcome(action_id, status="cancelled", error_message=str(e))
-            return f"DENIED: {e}"
-
-    # 4. ASSUMPTION + EXECUTE + OUTCOME
-    claw.register_assumption(
-        action_id,
-        f"Tests pass on {environment}",
-        basis="CI pipeline green for current branch",
-    )
-    deploy_result = f"Successfully deployed to {environment}."
-    claw.update_outcome(action_id, status="completed", output_summary=deploy_result)
-    return deploy_result`;
+    command = f"deploy --environment {environment}"
+    return claw.run_governed(
+        {"kind": "shell", "command": command},
+        {
+            "action_type": "deploy",
+            "declared_goal": f"Deploy to {environment}",
+            "risk_score": 70 if environment == "production" else 30,
+            "systems_touched": [environment],
+            "reversible": environment != "production",
+        },
+        lambda: f"Successfully deployed to {environment}.",
+    )`;
 
   const registerToolCode = `# Register the governed function as an AutoGen tool — the governance
 # loop runs identically when the model invokes it.
@@ -143,12 +116,12 @@ DASHCLAW_API_KEY=oc_live_...`,
     },
     {
       number: 4,
-      title: 'Wrap your tool in the 4-step governance loop',
+      title: 'Wrap the deploy effect with run_governed',
       summary:
-        'The tool checks DashClaw guard before executing, records the action, waits for approval when required, and reports the outcome.',
+        'The helper binds the exact command to one persisted action, waits when required, claims one execution attempt, runs the callback, and reports the outcome.',
       codeTitle: 'main.py',
       codeBody: governedToolCode,
-      note: "The guard decision drives the flow: 'block' returns early, 'require_approval' pauses for a human click on /approvals, 'allow' proceeds straight to execution.",
+      note: 'The callback runs only after DashClaw confirms protocol-1 execution authority for this action, agent, and scrubbed act.',
     },
     {
       number: 5,

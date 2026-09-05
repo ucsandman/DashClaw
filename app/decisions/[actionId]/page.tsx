@@ -322,17 +322,22 @@ export default function DecisionReplayPage() {
               {reissuing ? 'Re-issuing…' : 'Re-issue merge grant'}
             </button>
           )}
-          {action.verified ? (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-success-subtle border border-success/20 text-[10px] font-bold text-success uppercase tracking-wider" title="Decision cryptographically signed by agent">
-              <ShieldCheck size={12} /> Verified Agent
+          {action.provenance?.identity_verified === true && (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-success-subtle border border-success/20 text-[10px] font-bold text-success uppercase tracking-wider" title="The submitting identity was authenticated">
+              <ShieldCheck size={12} /> Verified identity
             </div>
-          ) : action.signature ? (
+          )}
+          {action.provenance?.payload_signature === 'verified' ? (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-success-subtle border border-success/20 text-[10px] font-bold text-success uppercase tracking-wider" title="The action payload signature was verified">
+              <ShieldCheck size={12} /> Payload signed
+            </div>
+          ) : action.provenance?.payload_signature === 'invalid' ? (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-error-subtle border border-error/20 text-[10px] font-bold text-error uppercase tracking-wider" title="Cryptographic signature is invalid">
-              <ShieldAlert size={12} /> Invalid Signature
+              <ShieldAlert size={12} /> Invalid payload signature
             </div>
           ) : (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] font-bold text-tertiary uppercase tracking-wider" title="No cryptographic signature provided">
-              <Info size={12} /> Unsigned Decision
+              <Info size={12} /> Payload signature {action.provenance?.payload_signature || 'unknown'}
             </div>
           )}
 
@@ -382,7 +387,7 @@ export default function DecisionReplayPage() {
         </Card>
         <Card hover={false}>
           <CardContent className="pt-4 pb-4 text-center">
-            <div className="text-2xl font-semibold tabular-nums text-white">{action.confidence || 50}%</div>
+            <div className="text-2xl font-semibold tabular-nums text-white">{action.confidence ?? 50}%</div>
             <div className="text-[10px] text-tertiary uppercase tracking-wider mt-1">Confidence</div>
           </CardContent>
         </Card>
@@ -437,11 +442,29 @@ export default function DecisionReplayPage() {
       )}
 
       {/* ═══ Tab Navigation ═══ */}
-      <div className="flex items-center gap-1 mb-6 border-b border-white/5 pb-px">
+      <div className="flex items-center gap-1 mb-6 border-b border-white/5 pb-px" role="tablist" aria-label="Decision replay views">
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            id={`decision-tab-${tab.id}`}
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            aria-controls="decision-panel"
+            tabIndex={activeTab === tab.id ? 0 : -1}
             onClick={() => setActiveTab(tab.id)}
+            onKeyDown={(event) => {
+              const index = tabs.findIndex((item) => item.id === tab.id);
+              let next = index;
+              if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+              else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+              else if (event.key === 'Home') next = 0;
+              else if (event.key === 'End') next = tabs.length - 1;
+              else return;
+              event.preventDefault();
+              setActiveTab(tabs[next]!.id);
+              const buttons = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+              buttons?.[next]?.focus();
+            }}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors relative ${
               activeTab === tab.id
                 ? 'text-brand'
@@ -458,7 +481,13 @@ export default function DecisionReplayPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+        <div
+          className="lg:col-span-2 space-y-6"
+          id="decision-panel"
+          role="tabpanel"
+          aria-labelledby={`decision-tab-${activeTab}`}
+          tabIndex={0}
+        >
           {/* Database containment evidence (RFC 2026-09-04): the same artifact
               the /approvals card renders, shown here on every tab because it is
               the record of WHAT was staged — the Artifacts tab only has its

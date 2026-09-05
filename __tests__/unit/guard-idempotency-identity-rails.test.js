@@ -155,13 +155,15 @@ describe('idempotency cannot override current JWT enforcement', () => {
     expectAuditedBlock(await post(token('fresh-token')), 'unique', 'Action-binding not_present');
   });
 
-  it('preserves idempotency for the same action retried with a fresh valid token', async () => {
+  it('re-evaluates the same action with a fresh valid token', async () => {
     const first = await post(token('first-token'));
     const retry = await post(token('fresh-token'));
     expect(retry.status).toBe(200);
-    expect(retry.body).toMatchObject({ decision: 'allow', idempotent_replay: true, decision_id: first.body.decision_id });
+    expect(retry.body).toMatchObject({ decision: 'allow' });
+    expect(retry.body.idempotent_replay).toBeUndefined();
+    expect(retry.body.decision_id).not.toBe(first.body.decision_id);
     expect(state.seenTokens.size).toBe(2);
-    expect(state.decisions).toHaveLength(1);
+    expect(state.decisions).toHaveLength(2);
   });
 
   it('allows recovery with a fresh token after a rejected token replay', async () => {
@@ -183,24 +185,29 @@ describe('idempotency cannot override current JWT enforcement', () => {
     expectAuditedBlock(await post(jwt, withoutKey), 'replayed', 'Replay detected');
   });
 
-  it('preserves non-JWT route idempotency', async () => {
+  it('re-evaluates permissive non-JWT decisions', async () => {
     const first = await post();
     const retry = await post();
     expect(retry.status).toBe(200);
-    expect(retry.body).toMatchObject({ decision: 'allow', idempotent_replay: true, decision_id: first.body.decision_id });
-    expect(state.decisions).toHaveLength(1);
+    expect(retry.body).toMatchObject({ decision: 'allow' });
+    expect(retry.body.idempotent_replay).toBeUndefined();
+    expect(retry.body.decision_id).not.toBe(first.body.decision_id);
+    expect(state.decisions).toHaveLength(2);
     expect(state.seenTokens.size).toBe(0);
   });
 
-  it('preserves the explicit replay-protection-off mode', async () => {
+  it('re-evaluates permissive decisions when token replay protection is off', async () => {
     vi.stubEnv('DASHCLAW_JTI_REPLAY_PROTECTION', 'off');
     const jwt = token('reusable-only-when-off');
     const first = await post(jwt);
     const retry = await post(jwt);
     expect(retry.status).toBe(200);
-    expect(retry.body).toMatchObject({ decision: 'allow', idempotent_replay: true, decision_id: first.body.decision_id });
-    expect(state.decisions).toHaveLength(1);
+    expect(retry.body).toMatchObject({ decision: 'allow' });
+    expect(retry.body.idempotent_replay).toBeUndefined();
+    expect(retry.body.decision_id).not.toBe(first.body.decision_id);
+    expect(state.decisions).toHaveLength(2);
     expect(state.decisions[0].replay_status).toBe('disabled');
+    expect(state.decisions[1].replay_status).toBe('disabled');
     expect(state.seenTokens.size).toBe(0);
   });
 

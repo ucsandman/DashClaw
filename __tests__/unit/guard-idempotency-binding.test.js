@@ -1,12 +1,13 @@
 /**
- * The idempotency replay must be bound to the ACT, not to the client's key.
+ * Negative-decision replay must be bound to the ACT, not to the client's key.
  *
  * Regression (2026-08-11 adversarial review): `idempotency_key` is ordinary
  * client input, and the replay lookup filtered on (org_id, key, 10-minute
  * window) and nothing else. An agent could earn an `allow` for
  * `{kind:'shell',command:'ls'}` and then reuse the key for `rm -rf /` — the
  * cached allow came back with evaluateGuard, the evidence classifier and every
- * org policy skipped, and no decision row written for the second act.
+ * org policy skipped. Permissive receipts are now always re-evaluated; exact
+ * binding remains mandatory before a prior block/hold can be replayed.
  *
  * Also pins the blocked-action after() callback: it must RETURN the promises
  * it schedules. after() only keeps the invocation alive until the returned
@@ -131,9 +132,9 @@ describe('/api/guard idempotency replay is bound to the act', () => {
     mockPublishOrgEvent.mockResolvedValue(undefined);
   });
 
-  it('does NOT replay an allow for a different act — it re-evaluates', async () => {
-    // The `ls` allow is cached under KEY; the retry swaps in `rm -rf /`.
-    mockGetPriorDecision.mockResolvedValue(priorRow(guardData({ act: LS_ACT })));
+  it('does NOT replay a block for a different act — it re-evaluates', async () => {
+    // The `ls` block is cached under KEY; the retry swaps in `rm -rf /`.
+    mockGetPriorDecision.mockResolvedValue(priorRow(guardData({ act: LS_ACT }), { decision: 'block' }));
 
     const res = await post(guardData({ act: RM_ACT }));
     const body = await res.json();
@@ -144,22 +145,34 @@ describe('/api/guard idempotency replay is bound to the act', () => {
     expect(mockEvaluateGuard.mock.calls[0][1].act).toEqual(RM_ACT);
   });
 
-  it('still replays when the key AND the act are the same', async () => {
+  it('re-evaluates an exact prior allow so current policy decides', async () => {
     const request = guardData({ act: LS_ACT });
     mockGetPriorDecision.mockResolvedValue(priorRow(request));
 
     const res = await post(request);
     const body = await res.json();
 
+    expect(body.idempotent_replay).toBeUndefined();
+    expect(body.decision).toBe('block');
+    expect(mockEvaluateGuard).toHaveBeenCalledTimes(1);
+  });
+
+  it('still replays an exact prior block without creating new authority', async () => {
+    const request = guardData({ act: LS_ACT });
+    mockGetPriorDecision.mockResolvedValue(priorRow(request, { decision: 'block' }));
+
+    const res = await post(request);
+    const body = await res.json();
+
     expect(body.idempotent_replay).toBe(true);
-    expect(body.decision).toBe('allow');
+    expect(body.decision).toBe('block');
     expect(body.decision_id).toBe('act_gd_prior1');
     expect(mockEvaluateGuard).not.toHaveBeenCalled();
   });
 
   it('re-evaluates when a decision-relevant field other than the act changed', async () => {
     // declared_goal steers policy matching and the approval an operator reads.
-    mockGetPriorDecision.mockResolvedValue(priorRow(guardData({ act: LS_ACT })));
+    mockGetPriorDecision.mockResolvedValue(priorRow(guardData({ act: LS_ACT }), { decision: 'block' }));
 
     const res = await post(guardData({ act: LS_ACT, declared_goal: 'something else entirely' }));
     const body = await res.json();
@@ -169,7 +182,10 @@ describe('/api/guard idempotency replay is bound to the act', () => {
   });
 
   it('re-evaluates when the prior row carries no context to bind against', async () => {
-    mockGetPriorDecision.mockResolvedValue({ ...priorRow(guardData({ act: LS_ACT })), context: null });
+    mockGetPriorDecision.mockResolvedValue({
+      ...priorRow(guardData({ act: LS_ACT }), { decision: 'block' }),
+      context: null,
+    });
 
     const res = await post(guardData({ act: LS_ACT }));
     const body = await res.json();
@@ -178,7 +194,7 @@ describe('/api/guard idempotency replay is bound to the act', () => {
     expect(mockEvaluateGuard).toHaveBeenCalledTimes(1);
   });
 
-  it('replays an http act whose target the server derived from the act url', async () => {
+  it('re-evaluates an exact prior http allow after deriving the same target', async () => {
     // evaluate stamps context.target from act.request.url, so the stored
     // context carries a target the live request never sent. The binding has
     // to survive that or every http retry would re-evaluate.
@@ -189,26 +205,27 @@ describe('/api/guard idempotency replay is bound to the act', () => {
     const res = await post(request);
     const body = await res.json();
 
-    expect(body.idempotent_replay).toBe(true);
-    expect(mockEvaluateGuard).not.toHaveBeenCalled();
+    expect(body.idempotent_replay).toBeUndefined();
+    expect(body.decision).toBe('block');
+    expect(mockEvaluateGuard).toHaveBeenCalledTimes(1);
   });
 
-  it('still replays when only the stated confidence changed', async () => {
-    // confidence is stored, never decided on, so it is deliberately absent
-    // from buildReplayBinding. If it leaked into the digest, two honest
-    // retries that happened to state different odds would stop deduping and
-    // each write its own decision row.
+  it('re-evaluates a prior allow when only the stated confidence changed', async () => {
+    // Confidence remains absent from the binding, but a permissive historical
+    // receipt is never authority for a new attempt even when all bound fields
+    // still match.
     const request = guardData({ act: LS_ACT, confidence: 20 });
     mockGetPriorDecision.mockResolvedValue(priorRow(request));
 
     const res = await post(guardData({ act: LS_ACT, confidence: 90 }));
     const body = await res.json();
 
-    expect(body.idempotent_replay).toBe(true);
-    expect(mockEvaluateGuard).not.toHaveBeenCalled();
+    expect(body.idempotent_replay).toBeUndefined();
+    expect(body.decision).toBe('block');
+    expect(mockEvaluateGuard).toHaveBeenCalledTimes(1);
   });
 
-  it('replays across the declared→derived action_type swap evaluate persists', async () => {
+  it('re-evaluates a prior allow across the declared→derived action_type swap', async () => {
     // On a declared/derived mismatch evaluate rewrites context.action_type and
     // parks the declared value in declared_action_type. The binding unwinds it.
     const request = guardData({ act: RM_ACT });
@@ -219,8 +236,9 @@ describe('/api/guard idempotency replay is bound to the act', () => {
     const res = await post(request);
     const body = await res.json();
 
-    expect(body.idempotent_replay).toBe(true);
-    expect(mockEvaluateGuard).not.toHaveBeenCalled();
+    expect(body.idempotent_replay).toBeUndefined();
+    expect(body.decision).toBe('block');
+    expect(mockEvaluateGuard).toHaveBeenCalledTimes(1);
   });
 });
 

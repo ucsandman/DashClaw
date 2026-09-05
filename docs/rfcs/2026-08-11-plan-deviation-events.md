@@ -14,7 +14,9 @@
 DashClaw holds both halves of the comparison and never connects them.
 
 - `dashclaw_plan_submit` records **declared intent** as forward-looking authorization: an ordered list of `{ action_type, step_goal, act? }`, each dry-run through the guard pipeline.
-- `dashclaw_record` / `dashclaw_guard` record **what actually happened**.
+- `dashclaw_record` / `dashclaw_guard` record the **reported attempted act and
+  governance decision**. Later outcome reports remain claims about external
+  effects, not independent observation of them.
 
 Deviation is the diff. Today nothing computes it — and more precisely, today the diff is computed and *thrown away*: `consumePlanStepGrant` runs an exact match of the live action against every approved step, and the no-match branch simply falls through to normal governance without leaving a trace. The signal already exists as the else-branch of a query that runs in production.
 

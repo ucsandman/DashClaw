@@ -9,9 +9,10 @@
  * Usage:
  *   node scripts/policy-smoke.mjs [baseUrl]        # default http://localhost:3000
  *
- * Auth: operator key (x-api-key = DASHCLAW_API_KEY from .env.local) → org_default,
- * admin. Per-org DB keys don't authenticate on local Postgres (middleware
- * resolveApiKey is Neon-HTTP-only — known gap, see the audit doc).
+ * Auth: operator key (x-api-key = DASHCLAW_API_KEY) selected from explicit
+ * process configuration or, when unset, the canonical repository env loader.
+ * Per-org database keys resolve through hosted Neon HTTP and the self-hosted
+ * internal key-resolution path.
  *
  * Isolation: every policy this script creates is scoped via agent_ids to
  * run-unique smoke agents and uses run-unique action types, so real org
@@ -19,38 +20,17 @@
  * (guard may serve them from cache for up to 30s after — harmless here).
  */
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import './_load-env.mjs';
+import { randomUUID } from 'node:crypto';
 
 // --- env ---
-// When .env.local exists (local dev), its DASHCLAW_API_KEY wins over anything
-// inherited from the shell — machine-level DASHCLAW_* vars can point at prod.
-// When it doesn't (CI), fall back to the inherited env (the CI job sets it).
-const inheritedKey = process.env.DASHCLAW_API_KEY;
-for (const k of Object.keys(process.env)) {
-  if (k.startsWith('DASHCLAW_')) delete process.env[k];
-}
-let envFileKey;
-try {
-  const envFile = readFileSync(resolve(process.cwd(), '.env.local'), 'utf8');
-  for (const line of envFile.split(/\r?\n/)) {
-    const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    // Scoped to DASHCLAW_ (matching the delete loop above) — .env.local must
-    // NOT clobber other vars like DATABASE_URL. Otherwise a repo-root
-    // .env.local's dev DB silently overrides whatever DATABASE_URL the
-    // caller (CI, or a scratch-DB run) already put in process.env, breaking
-    // the M2/M3 seeded-backdate checks below.
-    if (m && m[1].startsWith('DASHCLAW_')) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-  }
-  envFileKey = process.env.DASHCLAW_API_KEY;
-} catch {
-  console.log('note: no .env.local — using DASHCLAW_API_KEY from the environment (CI mode)');
-}
+// Explicit process/CI configuration wins. The canonical loader fills unset
+// values from repository env files unless DASHCLAW_ENV_FILE_DISABLE=1.
 
 const BASE = process.argv[2] || 'http://localhost:3000';
-const KEY = envFileKey || inheritedKey;
+const KEY = process.env.DASHCLAW_API_KEY;
 if (!KEY) {
-  console.error('FATAL: DASHCLAW_API_KEY not found in .env.local or the environment');
+  console.error('FATAL: DASHCLAW_API_KEY is not configured');
   process.exit(1);
 }
 
@@ -67,6 +47,36 @@ async function api(method, path, body) {
   let json = null;
   try { json = await res.json(); } catch { /* some endpoints return empty */ }
   return { status: res.status, json };
+}
+
+function withExecutionClaims(payload) {
+  const caps = Array.isArray(payload.client_capabilities) ? payload.client_capabilities : [];
+  return { ...payload, client_capabilities: [...new Set([...caps, 'execution_claims'])] };
+}
+
+// Protocol 1 separates read-only authority selection from the one durable
+// permission boundary. Two evaluations may select the same grant; only the
+// exact recorded action's PATCH claim consumes it and wins execution.
+async function exerciseExecutionClaim(payload) {
+  const request = withExecutionClaims(payload);
+  const selected = await api('POST', '/api/guard', request);
+  const recorded = await api('POST', '/api/guard?record=true', request);
+  const actionId = recorded.json?.action_id;
+  const attemptId = randomUUID();
+  const claimBody = {
+    claim_execution: true,
+    attempt_id: attemptId,
+    agent_id: request.agent_id,
+    ...(request.act === undefined ? {} : { act: request.act }),
+  };
+  const claimed = actionId
+    ? await api('PATCH', `/api/actions/${actionId}`, claimBody)
+    : { status: 0, json: null };
+  const duplicate = actionId
+    ? await api('PATCH', `/api/actions/${actionId}`, { ...claimBody, attempt_id: randomUUID() })
+    : { status: 0, json: null };
+  const afterClaim = await api('POST', '/api/guard', request);
+  return { selected, recorded, actionId, attemptId, claimed, duplicate, afterClaim };
 }
 
 // Since v5.27.0 (the Short List), POST /api/policies stores an interrupting
@@ -301,6 +311,7 @@ async function main() {
     const pending = await api('POST', '/api/actions', {
       agent_id: approvalAgent, action_type: 'smoke.risky',
       declared_goal: `risky recorded action ${RUN}`, risk_score: 75,
+      client_capabilities: ['execution_claims'],
     });
     const pendingStatus = pending.json?.action?.status || pending.json?.status;
     check('C2', 'approval-required action recorded as pending_approval',
@@ -317,15 +328,34 @@ async function main() {
         approved.status < 400 && afterStatus === 'running',
         `approve=${approved.status} after=${afterStatus}`);
 
-      // A6: identical agent + declared_goal re-guarded within 15 min → allow via operator approval
-      const reguard = await api('POST', '/api/guard', {
+      // A6: evaluation selects the approval without consuming it. The exact
+      // recorded retry consumes it only when protocol 1 claims execution.
+      const execution = await exerciseExecutionClaim({
         agent_id: approvalAgent, action_type: 'smoke.risky',
         declared_goal: `risky recorded action ${RUN}`, risk_score: 75,
       });
-      check('A6', 'operator approval downgrades identical re-ask to allow (builtin:operator_approval)',
-        reguard.json?.decision === 'allow' &&
-        (reguard.json?.matched_policies || []).includes('builtin:operator_approval'),
-        `decision=${reguard.json?.decision} matched=${JSON.stringify(reguard.json?.matched_policies)}`);
+      const selectedPolicies = execution.selected.json?.matched_policies || [];
+      const recordedPolicies = execution.recorded.json?.matched_policies || [];
+      check('A6', 'operator approval is selected twice without consumption before execution claim',
+        execution.selected.json?.decision === 'allow'
+          && selectedPolicies.includes('builtin:operator_approval')
+          && execution.recorded.json?.decision === 'allow'
+          && recordedPolicies.includes('builtin:operator_approval')
+          && execution.recorded.json?.recorded === true
+          && execution.recorded.json?.execution_claim_required === true
+          && execution.recorded.json?.claim_protocol === 1,
+        `selected=${execution.selected.json?.decision}/${JSON.stringify(selectedPolicies)} recorded=${execution.recorded.json?.decision}/${JSON.stringify(recordedPolicies)} action_id=${execution.actionId}`);
+      check('A6', 'exact protocol-1 action claim succeeds and echoes its attempt',
+        execution.claimed.status === 200 && execution.claimed.json?.claimed === true
+          && execution.claimed.json?.action_id === execution.actionId
+          && execution.claimed.json?.attempt_id === execution.attemptId,
+        `status=${execution.claimed.status} body=${JSON.stringify(execution.claimed.json)?.slice(0, 200)}`);
+      check('A6', 'a second execution claim conflicts',
+        execution.duplicate.status === 409 && execution.duplicate.json?.code === 'EXECUTION_CLAIM_CONFLICT',
+        `status=${execution.duplicate.status} body=${JSON.stringify(execution.duplicate.json)?.slice(0, 160)}`);
+      check('A6', 'the claimed attempt consumes the operator grant',
+        execution.afterClaim.json?.decision === 'require_approval',
+        `decision=${execution.afterClaim.json?.decision} matched=${JSON.stringify(execution.afterClaim.json?.matched_policies)}`);
 
       // D1-D3: outcome finality on the approved action
       const noErr = await api('POST', `/api/actions/${actionId}/outcome`, { status: 'failed', summary: 'x' });
@@ -356,8 +386,8 @@ async function main() {
   }
 
   // AE: act-content grant binding (drizzle/0056) — an approval for act X is
-  // consumed only by a retry presenting the SAME act; a different act with an
-  // identical goal tuple re-queues for approval instead of riding the grant.
+  // selectable only by a retry presenting the SAME act; its execution claim
+  // consumes the grant. A different act with the same tuple re-queues.
   // Both acts are benign echoes so the evidence fold never swaps the
   // action_type — this family isolates the HASH binding, nothing else.
   {
@@ -368,6 +398,7 @@ async function main() {
 
     const pending = await api('POST', '/api/actions', {
       agent_id: agent, action_type: 'smoke.risky', declared_goal: goal, risk_score: 75, act: actX,
+      client_capabilities: ['execution_claims'],
     });
     const pendingStatus = pending.json?.action?.status || pending.json?.status;
     const actionId = pending.json?.action_id || pending.json?.action?.action_id;
@@ -377,24 +408,38 @@ async function main() {
 
     if (actionId) {
       const approved = await api('POST', `/api/approvals/${actionId}`, { decision: 'allow', reasoning: 'policy smoke (act binding)' });
-      // Different act, same tuple → the grant must NOT cover it (and must not
-      // be consumed by the refused attempt — the same-act retry below proves
-      // the grant survived).
+      // Different act, same tuple → the grant must NOT cover it. The same-act
+      // evaluations and claim below prove this refused attempt left it usable.
       const wrongAct = await api('POST', '/api/guard', {
         agent_id: agent, action_type: 'smoke.risky', declared_goal: goal, risk_score: 75, act: actY,
+        client_capabilities: ['execution_claims'],
       });
       check('AE', 'approval for act X does NOT cover a retry with act Y (same goal tuple)',
         approved.status < 400 && wrongAct.json?.decision === 'require_approval',
         `approve=${approved.status} decision=${wrongAct.json?.decision}`);
-      // Same act → grant consumed, decision act-bound
-      const rightAct = await api('POST', '/api/guard', {
+      // Same act can be selected repeatedly, then the exact recorded retry's
+      // protocol-1 claim consumes the act-bound grant.
+      const execution = await exerciseExecutionClaim({
         agent_id: agent, action_type: 'smoke.risky', declared_goal: goal, risk_score: 75, act: actX,
       });
-      check('AE', 'same-act retry consumes the grant (act-bound operator approval)',
-        rightAct.json?.decision === 'allow' &&
-        (rightAct.json?.matched_policies || []).includes('builtin:operator_approval') &&
-        (rightAct.json?.warnings || []).join(' ').includes('act-bound'),
-        `decision=${rightAct.json?.decision} warnings=${JSON.stringify(rightAct.json?.warnings)?.slice(0, 160)}`);
+      check('AE', 'same-act approval is selected twice without consumption before claim',
+        execution.selected.json?.decision === 'allow'
+          && (execution.selected.json?.matched_policies || []).includes('builtin:operator_approval')
+          && (execution.selected.json?.warnings || []).join(' ').includes('act-bound')
+          && execution.recorded.json?.decision === 'allow'
+          && execution.recorded.json?.recorded === true
+          && execution.recorded.json?.claim_protocol === 1,
+        `selected=${execution.selected.json?.decision} recorded=${execution.recorded.json?.decision} warnings=${JSON.stringify(execution.selected.json?.warnings)?.slice(0, 160)}`);
+      check('AE', 'same-act protocol-1 claim succeeds with the exact act and attempt',
+        execution.claimed.status === 200 && execution.claimed.json?.claimed === true
+          && execution.claimed.json?.attempt_id === execution.attemptId,
+        `status=${execution.claimed.status} body=${JSON.stringify(execution.claimed.json)?.slice(0, 180)}`);
+      check('AE', 'second same-act execution claim conflicts',
+        execution.duplicate.status === 409 && execution.duplicate.json?.code === 'EXECUTION_CLAIM_CONFLICT',
+        `status=${execution.duplicate.status} body=${JSON.stringify(execution.duplicate.json)?.slice(0, 160)}`);
+      check('AE', 'successful claim consumes the act-bound operator grant',
+        execution.afterClaim.json?.decision === 'require_approval',
+        `decision=${execution.afterClaim.json?.decision}`);
     } else {
       check('AE', 'act binding flow', false, 'no action_id returned for act-stamped pending action');
     }
@@ -817,6 +862,36 @@ async function main() {
     const sess = await api('POST', '/api/sessions', { agent_id: agent, workspace: 'smoke' });
     const sessId = sess.json?.session?.id;
 
+    // POST /api/actions now always evaluates guard and stamps its decision.
+    // Seed one explicit legacy row with no decision so coverage keeps testing
+    // the real mixed-history denominator instead of relying on obsolete route
+    // behavior. This uses only the configured disposable/local database.
+    let legacySeeded = false;
+    let retroSql = null;
+    try {
+      if (process.env.DATABASE_URL) {
+        const { createSqlFromEnv } = await import(new URL('./_db.mjs', import.meta.url));
+        retroSql = createSqlFromEnv();
+        const legacyActionId = `act_retro_legacy_${RUN}`;
+        const rows = await retroSql`
+          INSERT INTO action_records (
+            org_id, action_id, agent_id, action_type, declared_goal,
+            status, outcome_status, session_id, guard_decision_id
+          ) VALUES (
+            ${process.env.DASHCLAW_API_KEY_ORG || 'org_default'}, ${legacyActionId}, ${agent},
+            ${`smoke.retro.legacy.${RUN}`}, ${`retro legacy unguarded ${RUN}`},
+            'running', 'pending', ${sessId || null}, NULL
+          )
+          RETURNING action_id
+        `;
+        legacySeeded = rows[0]?.action_id === legacyActionId;
+      }
+    } catch (err) {
+      console.log(`  warn: retro legacy fixture unavailable: ${err.message}`);
+    } finally {
+      if (typeof retroSql?.end === 'function') await retroSql.end().catch(() => {});
+    }
+
     // Baseline action posted WITHOUT session_id — same agent inside the
     // session window, so it must be attributed via the legacy fallback arm
     // of sessionActionMatchSql (spec: repository proof incl. legacy-window rows).
@@ -863,10 +938,10 @@ async function main() {
       kinds.includes('intervention'),
       `kinds=${kinds.join(',')}`);
     check('O4', 'coverage is honest: some actions ungoverned',
-      (retro.coverage?.actions_total ?? 0) >= 3 &&
+      legacySeeded && (retro.coverage?.actions_total ?? 0) >= 4 &&
       (retro.coverage?.actions_with_guard_decision ?? 0) >= 1 &&
       retro.coverage.actions_with_guard_decision < retro.coverage.actions_total,
-      `coverage=${JSON.stringify(retro.coverage)}`);
+      `legacy_seeded=${legacySeeded} coverage=${JSON.stringify(retro.coverage)}`);
     await retirePolicy(retroPid);
   }
 
@@ -1527,8 +1602,9 @@ async function main() {
 
   // ---------------------------------------------------------------- AF ----
   // Preflight plan authorization (governed-autonomy feature 1). Live proof:
-  // submit -> approve -> a matching guarded call consumes the grant (allow)
-  // -> the identical second call interrupts again (single-use proven live).
+  // submit -> approve -> repeated evaluation selects the grant without
+  // consuming it -> the recorded attempt claims execution and consumes it ->
+  // the second claim conflicts and later evaluation interrupts again.
   //
   // Self-contained: rather than relying on the org's ambient Production
   // Safety template to land require_approval for risk 90 (not guaranteed on
@@ -1559,20 +1635,27 @@ async function main() {
       approve.status === 200 && approve.json?.plan?.status === 'approved' && !!approve.json?.plan?.expires_at,
       `status=${approve.status} plan=${approve.json?.plan?.status}`);
 
-    const first = await api('POST', '/api/guard', {
+    const execution = await exerciseExecutionClaim({
       agent_id: agent, action_type: 'deploy', declared_goal: goal, risk_score: 90,
     });
-    check('AF3', 'matching call consumes the plan grant (allow + builtin:plan_grant)',
-      first.json?.decision === 'allow'
-        && JSON.stringify(first.json?.matched_policies || []).includes('builtin:plan_grant'),
-      `decision=${first.json?.decision} matched=${JSON.stringify(first.json?.matched_policies)}`);
-
-    const second = await api('POST', '/api/guard', {
-      agent_id: agent, action_type: 'deploy', declared_goal: goal, risk_score: 90,
-    });
-    check('AF4', 'identical second call interrupts again (grant was single-use)',
-      second.json?.decision === 'require_approval',
-      `decision=${second.json?.decision}`);
+    check('AF3', 'matching plan authority is selected twice without consumption before claim',
+      execution.selected.json?.decision === 'allow'
+        && (execution.selected.json?.matched_policies || []).includes('builtin:plan_grant')
+        && execution.recorded.json?.decision === 'allow'
+        && (execution.recorded.json?.matched_policies || []).includes('builtin:plan_grant')
+        && execution.recorded.json?.recorded === true
+        && execution.recorded.json?.claim_protocol === 1,
+      `selected=${execution.selected.json?.decision} recorded=${execution.recorded.json?.decision} matched=${JSON.stringify(execution.recorded.json?.matched_policies)} action_id=${execution.actionId}`);
+    check('AF3', 'matching plan attempt claims execution with the exact nonce',
+      execution.claimed.status === 200 && execution.claimed.json?.claimed === true
+        && execution.claimed.json?.attempt_id === execution.attemptId,
+      `status=${execution.claimed.status} body=${JSON.stringify(execution.claimed.json)?.slice(0, 180)}`);
+    check('AF3', 'second plan execution claim conflicts',
+      execution.duplicate.status === 409 && execution.duplicate.json?.code === 'EXECUTION_CLAIM_CONFLICT',
+      `status=${execution.duplicate.status} body=${JSON.stringify(execution.duplicate.json)?.slice(0, 160)}`);
+    check('AF4', 'identical evaluation interrupts after the claim consumes the single-use grant',
+      execution.afterClaim.json?.decision === 'require_approval',
+      `decision=${execution.afterClaim.json?.decision}`);
 
     const revoked = await api('POST', `/api/plans/${planId}`, { verdict: 'revoke' });
     check('AF5', 'revoke kills the plan',
@@ -1595,22 +1678,37 @@ async function main() {
     const actPlanId = actSubmit.json?.plan?.plan_id;
     await api('POST', `/api/plans/${actPlanId}`, { verdict: 'approve' });
 
-    const sameAct = await api('POST', '/api/guard', {
-      agent_id: actAgent, action_type: 'shell', declared_goal: actGoal, risk_score: 90,
-      act: { kind: 'shell', command: actCommand },
-    });
-    check('AF6', 'act-bound grant: the SAME act consumes the grant (allow + builtin:plan_grant)',
-      sameAct.json?.decision === 'allow'
-        && JSON.stringify(sameAct.json?.matched_policies || []).includes('builtin:plan_grant'),
-      `decision=${sameAct.json?.decision} matched=${JSON.stringify(sameAct.json?.matched_policies)}`);
-
+    // The mismatched evaluation runs before consumption, so AF7 proves the
+    // act binding rather than merely observing an already-used grant.
     const otherAct = await api('POST', '/api/guard', {
       agent_id: actAgent, action_type: 'shell', declared_goal: actGoal, risk_score: 90,
       act: { kind: 'shell', command: `echo af-other-${RUN}` },
+      client_capabilities: ['execution_claims'],
+    });
+    const actExecution = await exerciseExecutionClaim({
+      agent_id: actAgent, action_type: 'shell', declared_goal: actGoal, risk_score: 90,
+      act: { kind: 'shell', command: actCommand },
     });
     check('AF7', 'act-bound grant: a DIFFERENT act does not match (require_approval, no grant)',
       otherAct.json?.decision === 'require_approval',
       `decision=${otherAct.json?.decision}`);
+    check('AF6', 'act-bound plan authority is selected twice before the exact claim',
+      actExecution.selected.json?.decision === 'allow'
+        && (actExecution.selected.json?.matched_policies || []).includes('builtin:plan_grant')
+        && actExecution.recorded.json?.decision === 'allow'
+        && actExecution.recorded.json?.recorded === true
+        && actExecution.recorded.json?.claim_protocol === 1,
+      `selected=${actExecution.selected.json?.decision} recorded=${actExecution.recorded.json?.decision} matched=${JSON.stringify(actExecution.recorded.json?.matched_policies)}`);
+    check('AF6', 'exact-act plan attempt claims execution with the exact nonce',
+      actExecution.claimed.status === 200 && actExecution.claimed.json?.claimed === true
+        && actExecution.claimed.json?.attempt_id === actExecution.attemptId,
+      `status=${actExecution.claimed.status} body=${JSON.stringify(actExecution.claimed.json)?.slice(0, 180)}`);
+    check('AF6', 'second exact-act plan claim conflicts',
+      actExecution.duplicate.status === 409 && actExecution.duplicate.json?.code === 'EXECUTION_CLAIM_CONFLICT',
+      `status=${actExecution.duplicate.status} body=${JSON.stringify(actExecution.duplicate.json)?.slice(0, 160)}`);
+    check('AF6', 'successful exact-act claim consumes the plan grant',
+      actExecution.afterClaim.json?.decision === 'require_approval',
+      `decision=${actExecution.afterClaim.json?.decision}`);
 
     const actRevoked = await api('POST', `/api/plans/${actPlanId}`, { verdict: 'revoke' });
     check('AF8', 'revoke kills the act-bound plan',
@@ -1683,8 +1781,9 @@ async function main() {
   // call without that advertisement downgrades to require_approval (skew
   // only tightens); an http act is never containable even in-band with
   // capabilities; the agent-side awaiting_promotion flip + operator promote
-  // verdict actually mint a covering grant; and that grant is consumed by
-  // the SAME canonical merge retry exactly once (act-content-hash bound).
+  // verdict actually mint a covering grant; repeated evaluation selects it
+  // read-only, then the SAME canonical merge retry claims execution exactly
+  // once and consumes it (act-content-hash bound).
   console.log('\nAH. live containment verdict + promotion proof...');
   {
     const agent = agentFor('contain');
@@ -1819,37 +1918,43 @@ async function main() {
     // AH6-AH8: the canonical merge retry the promote verdict expects —
     // same agent_id as the contained action, declared_goal built by
     // buildPromotionGoal(containedActionId), act built by
-    // buildPromotionAct(containmentRef). Consumes the grant the promote
-    // verdict minted (act-bound + single-use), same shape as AF6-AF8's
-    // act-bound plan-grant proof above.
+    // buildPromotionAct(containmentRef). Evaluation selects the grant without
+    // consuming it; only the recorded retry's protocol-1 execution claim
+    // consumes it, same shape as AF6-AF8's plan-grant proof above.
     const mergeGoal = `containment promote ${containedActionId}`;
     const mergeAct = { kind: 'shell', command: `git merge --no-ff ${containmentRef}` };
 
-    const mergeFirst = await api('POST', '/api/guard', {
-      agent_id: agent, action_type: 'containment_promote', declared_goal: mergeGoal, act: mergeAct,
-    });
-    const mergeFirstMatched = JSON.stringify(mergeFirst.json?.matched_policies || []);
-    check('AH6', 'canonical merge retry consumes the promote grant → allow, both builtin sentinels matched',
-      mergeFirst.json?.decision === 'allow'
-        && mergeFirstMatched.includes('builtin:containment_promote')
-        && mergeFirstMatched.includes('builtin:operator_approval'),
-      `decision=${mergeFirst.json?.decision} matched=${mergeFirstMatched}`);
-
-    const mergeSecond = await api('POST', '/api/guard', {
-      agent_id: agent, action_type: 'containment_promote', declared_goal: mergeGoal, act: mergeAct,
-    });
-    check('AH7', 'identical second merge call interrupts again (grant was single-use)',
-      mergeSecond.json?.decision === 'require_approval',
-      `decision=${mergeSecond.json?.decision}`);
-
-    // AH7 already consumed the grant, so this would fail even on a hash
-    // match — the mutated act additionally proves it was never eligible via
-    // act-content-hash in the first place (same accepted double-coverage as
-    // AF's ordering above).
+    // Exercise the mutated act before consumption, so the check proves the
+    // content-hash binding itself.
     const mergeMutated = await api('POST', '/api/guard', {
       agent_id: agent, action_type: 'containment_promote', declared_goal: mergeGoal,
       act: { kind: 'shell', command: 'git merge --no-ff other-branch' },
+      client_capabilities: ['execution_claims'],
     });
+    const mergeExecution = await exerciseExecutionClaim({
+      agent_id: agent, action_type: 'containment_promote', declared_goal: mergeGoal, act: mergeAct,
+    });
+    const mergeSelected = JSON.stringify(mergeExecution.selected.json?.matched_policies || []);
+    const mergeRecorded = JSON.stringify(mergeExecution.recorded.json?.matched_policies || []);
+    check('AH6', 'canonical merge authority is selected twice without consumption before claim',
+      mergeExecution.selected.json?.decision === 'allow'
+        && mergeSelected.includes('builtin:containment_promote')
+        && mergeSelected.includes('builtin:operator_approval')
+        && mergeExecution.recorded.json?.decision === 'allow'
+        && mergeRecorded.includes('builtin:containment_promote')
+        && mergeRecorded.includes('builtin:operator_approval')
+        && mergeExecution.recorded.json?.recorded === true
+        && mergeExecution.recorded.json?.claim_protocol === 1,
+      `selected=${mergeExecution.selected.json?.decision}/${mergeSelected} recorded=${mergeExecution.recorded.json?.decision}/${mergeRecorded} action_id=${mergeExecution.actionId}`);
+    check('AH6', 'canonical merge attempt claims execution with exact act and nonce',
+      mergeExecution.claimed.status === 200 && mergeExecution.claimed.json?.claimed === true
+        && mergeExecution.claimed.json?.attempt_id === mergeExecution.attemptId,
+      `status=${mergeExecution.claimed.status} body=${JSON.stringify(mergeExecution.claimed.json)?.slice(0, 180)}`);
+    check('AH7', 'second canonical merge claim conflicts and the grant stays consumed',
+      mergeExecution.duplicate.status === 409
+        && mergeExecution.duplicate.json?.code === 'EXECUTION_CLAIM_CONFLICT'
+        && mergeExecution.afterClaim.json?.decision === 'require_approval',
+      `claim_status=${mergeExecution.duplicate.status} decision=${mergeExecution.afterClaim.json?.decision}`);
     check('AH8', 'mutated merge act is never covered by the grant (act-content-hash bind)',
       mergeMutated.json?.decision === 'require_approval',
       `decision=${mergeMutated.json?.decision}`);

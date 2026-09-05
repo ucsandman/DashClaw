@@ -1,8 +1,8 @@
 /**
  * /blog/codex-parity — Codex parity launch post.
  *
- * Added by the Codex parity phase. Same governance surface DashClaw shipped
- * for Claude Code now runs for OpenAI Codex CLI: PreToolUse hooks, MCP
+ * Added by the Codex parity phase. The supported governance controls DashClaw shipped
+ * for Claude Code now run for OpenAI Codex CLI: PreToolUse hooks, MCP
  * server, AGENTS.md governance protocol, JSONL session ingest. The post
  * focuses on "what changed in DashClaw to support Codex" — narrower scope
  * than the beachhead post because the beachhead already established the
@@ -17,9 +17,9 @@ import { marketingPageMetadata } from '../../lib/marketingSeo';
 import JsonLd from '../../components/JsonLd';
 
 export const metadata: Metadata = marketingPageMetadata({
-  title: 'DashClaw now governs Codex: same surface, same audit ledger',
+  title: 'DashClaw for Codex: supported hooks and a shared decision ledger',
   description:
-    "Codex's hook schema is field-compatible with Claude Code's. One `dashclaw install codex` and every Codex tool call is governed.",
+    'Install DashClaw hooks and MCP configuration for Codex. Supported hook events are mechanically checked; MCP use remains cooperative.',
   path: '/blog/codex-parity',
   ogType: 'article',
 });
@@ -31,8 +31,8 @@ export default function BlogPostPage() {
         data={{
           '@context': 'https://schema.org',
           '@type': 'BlogPosting',
-          headline: 'DashClaw now governs Codex: same surface, same audit ledger',
-          description: "Codex's hook schema is field-compatible with Claude Code's. One `dashclaw install codex` and every Codex tool call is governed.",
+          headline: 'DashClaw for Codex: supported hooks and a shared decision ledger',
+          description: 'Install DashClaw hooks and MCP configuration for Codex. Supported hook events are mechanically checked; MCP use remains cooperative.',
           url: 'https://www.dashclaw.io/blog/codex-parity',
           datePublished: '2026-05-14',
           publisher: { '@type': 'Organization', name: 'DashClaw', url: 'https://www.dashclaw.io' },
@@ -197,9 +197,8 @@ export default function BlogPostPage() {
           for batch upload.
         </p>
         <p className="mt-3 text-base text-text-secondary">
-          Server-side codex session ingestion lands in the next release.
-          For now the parser and CLI are ready; sessions accumulate on
-          disk waiting for the server endpoint.
+          The parser and CLI keep the normalized session files on disk for
+          upload through the configured ingestion path.
         </p>
       </section>
 
@@ -224,13 +223,13 @@ export default function BlogPostPage() {
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               dashclaw_wait_for_approval
             </code>{' '}
-            MCP tool: Codex blocks on it the same way Claude Code does.
+            MCP tool: when Codex calls it and honors the result, it waits on
+            the same server-side approval decision as Claude Code.
           </li>
           <li>· Same policy packs. No Codex-specific policies to write.</li>
           <li>
-            · Free for everyone, no tier gating. DashClaw is an
-            open-source project: there is no pricing surface and no
-            Pro plan.
+            · The core runtime is MIT licensed and self-hostable. Hosted
+            plans cover capacity, retention, and managed operations.
           </li>
         </ul>
       </section>

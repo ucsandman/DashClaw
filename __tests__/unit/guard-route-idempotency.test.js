@@ -1,17 +1,14 @@
 /**
  * /api/guard idempotency replay (Organ 3, Phase 3).
  *
- * A duplicate-key call inside the replay window returns the PRIOR decision
- * and does NOT re-evaluate. Every guard_decisions insert happens inside
- * evaluateGuard (persistGuardDecision), so "evaluateGuard not called" is the
- * proof that a replay writes no new row — which is exactly what keeps the
- * approval-flood / signal / digest window counts honest (they count
- * guard_decisions rows over time windows).
+ * A duplicate-key call may replay a prior restrictive decision, but a prior
+ * allow/warn/allow_contained is historical evidence only and must be
+ * re-evaluated against current policy. Action-record idempotency remains
+ * independent and still deduplicates one persisted row.
  *
- * Chosen replay semantics (stated for VERIFY): replays write NO new
- * guard_decisions row; the response carries idempotent_replay:true and the
- * prior decision_id, so the audit trail keeps exactly one row per logical
- * evaluation and nothing vanishes.
+ * Restrictive replays write no new guard_decisions row and carry the prior
+ * decision_id. Fresh permissive evaluations write fresh decision rows while
+ * record=true reuses the existing action record for the idempotency key.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeRequest } from '../helpers.js';
@@ -173,7 +170,7 @@ describe('/api/guard idempotency replay', () => {
     expect(mockGetPriorDecision).not.toHaveBeenCalled();
   });
 
-  it('retry-storm: 3 identical ?record=true calls produce exactly 1 action row', async () => {
+  it('retry-storm: permissive calls re-evaluate but still produce exactly 1 action row', async () => {
     const url = 'http://localhost/api/guard?record=true';
 
     // Call 1: fresh evaluation + record. The route mints the action_id
@@ -192,24 +189,24 @@ describe('/api/guard idempotency replay', () => {
     for (const _ of [2, 3]) {
       const res = await post(url);
       const body = await res.json();
-      expect(body.idempotent_replay).toBe(true);
+      expect(body.idempotent_replay).toBeUndefined();
       expect(body.recorded).toBe(true);
       expect(body.action_id).toBe(recordedId);
     }
 
-    // 3 calls, 1 effective row: createActionRecord never ran again and the
-    // evaluation ran exactly once.
+    // 3 current-policy evaluations, 1 effective action row.
     expect(mockCreateActionRecord).toHaveBeenCalledTimes(1);
-    expect(mockEvaluateGuard).toHaveBeenCalledTimes(1);
+    expect(mockEvaluateGuard).toHaveBeenCalledTimes(3);
   });
 
-  it('replay with record=true heals a missing action row by creating it with the same key', async () => {
+  it('fresh evaluation with record=true heals a missing action row using the same key', async () => {
     mockGetPriorDecision.mockResolvedValue({ ...PRIOR_ROW, decision: 'allow' });
     mockGetActionByKey.mockResolvedValue(null); // prior record attempt failed
     const res = await post('http://localhost/api/guard?record=true');
     const body = await res.json();
-    expect(body.idempotent_replay).toBe(true);
+    expect(body.idempotent_replay).toBeUndefined();
     expect(body.recorded).toBe(true);
+    expect(mockEvaluateGuard).toHaveBeenCalledTimes(1);
     expect(mockCreateActionRecord).toHaveBeenCalledTimes(1);
     // The healed row carries the idempotency key so the next retry dedupes.
     expect(mockCreateActionRecord.mock.calls[0][1].data.idempotency_key).toBe(KEY);

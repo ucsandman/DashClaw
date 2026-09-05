@@ -18,7 +18,7 @@ Two policy behaviors to internalize:
 
 ## Approvals
 
-When a policy answers `require_approval`, the action parks in a queue and the agent waits. You resolve it from whichever surface you're nearest to — all five hit the same endpoint, and the agent unblocks near-instantly over SSE:
+When a policy answers `require_approval`, the action parks in a queue and the agent waits. You resolve it from whichever surface you're nearest to — all five hit the same endpoint, and SDK waiters use SSE for low latency while reconciling authoritative action state:
 
 | Surface | Where | Setup |
 |---|---|---|
@@ -31,14 +31,14 @@ When a policy answers `require_approval`, the action parks in a queue and the ag
 What keeps the queue honest:
 
 - **Expiry.** Approvals are only approvable while approving can still release something. Overdue rows flip to `expired` and render in a distinct non-approvable section; acting on one returns `410 Gone`.
-- **Late-approval grace.** If you approve after the agent's wait timed out, its identical retry within 15 minutes is honored (`allow`, with the covering approval named on the decision) instead of re-queuing. When the pending action carried an act payload (marked **Act-bound** on its card), the grant is pinned to that exact act — a retry presenting a different command or request re-queues instead of riding your approval.
+- **Late-approval authority.** For a protocol-1 caller, an identical retry within 15 minutes can select the approval without consuming it. The execution claim then rechecks current policy, the authenticated principal, action type, exact goal, and null-safe act hash before atomically consuming that authority with one attempt. Expired approvals return `410 Gone`; the actor who created an action cannot approve it, except for the explicit single-operator `operator` root exemption.
 - **Flood control.** When one policy (or the fleet) exceeds its interruption budget, per-action pings collapse into one flood banner with pause-rule and bulk-resolve controls. Nothing is ever auto-approved.
 
 ## The ledger: decisions, replay, signals
 
 Every governed action lands in `/decisions` with its risk breakdown, matched policies, assumptions, signature state, and terminal outcome. Click through to `/replay/:actionId` for the full causal chain — this is the artifact you hand an auditor. Risk signals (stuck loops, lost confirmations, drift) surface in Approvals' intervention queue; repeated occurrences collapse into one row, and dismissing it clears them all.
 
-Watch the **outcome** column, not just the decision: `lost_confirmation` rows mean an agent went silent after approval — the sweep caught it, and something should investigate before anyone retries.
+Watch the **outcome** column, not just the decision: `lost_confirmation` means DashClaw did not receive a terminal report. It does not prove the external act failed or succeeded. Reconcile the target system before anyone retries.
 
 ## Posture: the score that cannot be gamed
 

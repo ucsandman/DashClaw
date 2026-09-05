@@ -34,8 +34,10 @@ const setupTabsText = readFileSync(setupTabsPath, 'utf8');
 
 describe('onboarding snippet hygiene', () => {
   describe('docs/prompts/dashclaw-agent-connect.md', () => {
-    it('teaches the canonical v2 finality path (reportActionSuccess)', () => {
-      expect(promptText).toContain('claw.reportActionSuccess(');
+    it('teaches the governed helper and explains execution-claim uncertainty', () => {
+      expect(promptText).toContain('claw.runGoverned(');
+      expect(promptText).toContain('execution claims');
+      expect(promptText).toContain('uncertain outcome confirmation');
     });
 
     it('does not use ` -- ` as a sentence break in CLI command bullets', () => {

@@ -254,18 +254,9 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
       // (evaluationAbandoned can flip true while either call is in flight).
       if (evaluationAbandoned) return 'completed';
       await timed('grants', () => applyOperatorApprovalGrant(deps, liveAcc));
-      // S5 (accepted, not fixed): applyPlanStepGrant consumes the single-use
-      // step grant here (grant_used_at set), but replayBlockReason /
-      // actBlockReason (computed earlier, applied via applyBlockOverride
-      // further down near persistGuardDecision) can still override the
-      // decision to block after this point. A grant can therefore be burnt
-      // on an action that ends up blocked anyway by replay/act-binding —
-      // the agent would need a fresh plan step to retry. This matches
-      // applyOperatorApprovalGrant's existing accepted behavior (same
-      // ordering, same exposure); not fixed here. The deadline variant of
-      // grant-burning (an abandoned evaluation consuming a grant for a
-      // result that's never returned) IS closed, by the evaluationAbandoned
-      // check above and below.
+      // Both grant passes select candidate authority only. Consumption is
+      // deferred to the atomic execution claim after every blocking check
+      // and durable action creation succeeds.
       if (evaluationAbandoned) return 'completed';
       planGrant = await timed('plan_grant', () => applyPlanStepGrant(deps, liveAcc));
       // Deviation detection (RFC 2026-08-11-plan-deviation-events): after the

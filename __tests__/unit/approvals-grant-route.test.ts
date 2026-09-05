@@ -5,17 +5,17 @@ const {
   mockSql,
   mockGetActionForGrant,
   mockListPendingApprovalsForGrant,
+  mockCreateApprovalGrant,
   mockGetActivePolicies,
   mockGetGuardDecisionById,
-  mockInsertOrRevivePolicy,
   mockLogActivity,
 } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockGetActionForGrant: vi.fn(),
   mockListPendingApprovalsForGrant: vi.fn(),
+  mockCreateApprovalGrant: vi.fn(),
   mockGetActivePolicies: vi.fn(),
   mockGetGuardDecisionById: vi.fn(),
-  mockInsertOrRevivePolicy: vi.fn(),
   mockLogActivity: vi.fn(),
 }));
 
@@ -31,14 +31,15 @@ vi.mock('@/lib/audit.js', () => ({ logActivity: mockLogActivity }));
 vi.mock('@/lib/repositories/actions.repository.js', () => ({
   getActionForGrant: mockGetActionForGrant,
   listPendingApprovalsForGrant: mockListPendingApprovalsForGrant,
+  createApprovalGrant: mockCreateApprovalGrant,
+  isApprovalOverdue: (row: { approval_expires_at?: string }) => Boolean(row.approval_expires_at && Date.parse(row.approval_expires_at) < Date.now()),
 }));
 vi.mock('@/lib/repositories/guardrails.repository.js', () => ({
   getActivePolicies: mockGetActivePolicies,
   getGuardDecisionById: mockGetGuardDecisionById,
-  insertOrRevivePolicy: mockInsertOrRevivePolicy,
 }));
 
-import { POST } from '@/api/approvals/[actionId]/grant/route.js';
+import { GET, POST } from '@/api/approvals/[actionId]/grant/route.js';
 
 const SCRATCH = 'C:/Users/sandm/AppData/Local/Temp/claude/audit/scratchpad/build.mjs';
 
@@ -72,13 +73,21 @@ async function post(body: unknown = {}, headers: Record<string, string> = {}) {
   return { status: res.status, body: await res.json() };
 }
 
+async function get(ttlHours = '24', headers: Record<string, string> = {}) {
+  const request = new Request(`http://localhost/api/approvals/act_self/grant?ttl_hours=${ttlHours}`, {
+    headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin', 'x-user-id': 'user_wes', ...headers },
+  });
+  const res = await GET(request, { params });
+  return { status: res.status, body: await res.json() };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetActionForGrant.mockResolvedValue({ ...ACTION });
-  mockListPendingApprovalsForGrant.mockResolvedValue([]);
+  mockListPendingApprovalsForGrant.mockResolvedValue({ rows: [], truncated: false });
   mockGetActivePolicies.mockResolvedValue([]);
   mockGetGuardDecisionById.mockResolvedValue({ matched_policies: '[]' });
-  mockInsertOrRevivePolicy.mockImplementation(async (_sql, _org, data) => ({ id: 'gp_1', ...data }));
+  mockCreateApprovalGrant.mockImplementation(async (_sql, _org, _action, _actor, data) => ({ id: 'gp_1', ...data }));
 });
 
 describe('POST /api/approvals/[actionId]/grant — refusals', () => {
@@ -114,7 +123,7 @@ describe('POST /api/approvals/[actionId]/grant — refusals', () => {
     const res = await post();
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('GRANT_RISK_CEILING');
-    expect(mockInsertOrRevivePolicy).not.toHaveBeenCalled();
+    expect(mockCreateApprovalGrant).not.toHaveBeenCalled();
   });
 
   // F1: an unscoped grant blanket-allows the whole action type.
@@ -123,7 +132,7 @@ describe('POST /api/approvals/[actionId]/grant — refusals', () => {
     const res = await post();
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('UNSCOPED_GRANT_REJECTED');
-    expect(mockInsertOrRevivePolicy).not.toHaveBeenCalled();
+    expect(mockCreateApprovalGrant).not.toHaveBeenCalled();
   });
 
   it('refuses when a matched gating policy is ungrantable', async () => {
@@ -134,7 +143,7 @@ describe('POST /api/approvals/[actionId]/grant — refusals', () => {
     const res = await post();
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('GRANT_REFUSED_BY_POLICY');
-    expect(mockInsertOrRevivePolicy).not.toHaveBeenCalled();
+    expect(mockCreateApprovalGrant).not.toHaveBeenCalled();
   });
 
   // An ungrantable rule the action did NOT trip must not block the grant.
@@ -151,7 +160,7 @@ describe('POST /api/approvals/[actionId]/grant — minting', () => {
   it('mints a scoped, expiring, ceilinged grant', async () => {
     const res = await post();
     expect(res.status).toBe(201);
-    const rules = JSON.parse(mockInsertOrRevivePolicy.mock.calls[0]![2].rules);
+    const rules = JSON.parse(mockCreateApprovalGrant.mock.calls[0]![4].rules);
     expect(rules.action_type).toBe('apply');
     expect(rules.target_prefix).toBe(SCRATCH);
     expect(rules.max_risk).toBe(70);
@@ -161,14 +170,14 @@ describe('POST /api/approvals/[actionId]/grant — minting', () => {
 
   it('defaults the lease to 24h and honors an explicit one', async () => {
     await post();
-    const def = JSON.parse(mockInsertOrRevivePolicy.mock.calls[0]![2].rules);
+    const def = JSON.parse(mockCreateApprovalGrant.mock.calls[0]![4].rules);
     const defHours = (new Date(def.expires_at).getTime() - Date.now()) / 3_600_000;
     expect(defHours).toBeGreaterThan(23);
     expect(defHours).toBeLessThan(25);
 
-    mockInsertOrRevivePolicy.mockClear();
+    mockCreateApprovalGrant.mockClear();
     await post({ ttl_hours: 1 });
-    const short = JSON.parse(mockInsertOrRevivePolicy.mock.calls[0]![2].rules);
+    const short = JSON.parse(mockCreateApprovalGrant.mock.calls[0]![4].rules);
     expect((new Date(short.expires_at).getTime() - Date.now()) / 3_600_000).toBeLessThan(1.1);
   });
 
@@ -178,35 +187,35 @@ describe('POST /api/approvals/[actionId]/grant — minting', () => {
   });
 
   it('includes a matching sibling', async () => {
-    mockListPendingApprovalsForGrant.mockResolvedValue([
+    mockListPendingApprovalsForGrant.mockResolvedValue({ rows: [
       { action_id: 'act_self', action_type: 'apply', risk_score: 65, context: JSON.stringify({ target: SCRATCH }) },
       { action_id: 'act_twin', action_type: 'apply', risk_score: 65, context: JSON.stringify({ target: SCRATCH }) },
-    ]);
+    ], truncated: false });
     const res = await post();
     expect(res.body.release_ids).toEqual(['act_self', 'act_twin']);
   });
 
   it('excludes a sibling above the ceiling', async () => {
-    mockListPendingApprovalsForGrant.mockResolvedValue([
+    mockListPendingApprovalsForGrant.mockResolvedValue({ rows: [
       { action_id: 'act_hot', action_type: 'apply', risk_score: 95, context: JSON.stringify({ target: SCRATCH }) },
-    ]);
+    ], truncated: false });
     const res = await post();
     expect(res.body.release_ids).toEqual(['act_self']);
   });
 
   it('excludes a sibling whose target is outside the grant scope', async () => {
-    mockListPendingApprovalsForGrant.mockResolvedValue([
+    mockListPendingApprovalsForGrant.mockResolvedValue({ rows: [
       { action_id: 'act_elsewhere', action_type: 'apply', risk_score: 10, context: JSON.stringify({ target: 'C:/Projects/DashClaw/app/page.tsx' }) },
-    ]);
+    ], truncated: false });
     const res = await post();
     expect(res.body.release_ids).toEqual(['act_self']);
   });
 
   // The clicked action must never appear twice, however the lister returns it.
   it('never duplicates the clicked action', async () => {
-    mockListPendingApprovalsForGrant.mockResolvedValue([
+    mockListPendingApprovalsForGrant.mockResolvedValue({ rows: [
       { action_id: 'act_self', action_type: 'apply', risk_score: 65, context: JSON.stringify({ target: SCRATCH }) },
-    ]);
+    ], truncated: false });
     const res = await post();
     expect(res.body.release_ids).toEqual(['act_self']);
   });
@@ -217,5 +226,45 @@ describe('POST /api/approvals/[actionId]/grant — minting', () => {
       expect.objectContaining({ action: 'policy.grant_created', actorId: 'user_wes' }),
       mockSql,
     );
+  });
+
+  it('returns 409 when the source loses eligibility during the atomic write', async () => {
+    mockCreateApprovalGrant.mockResolvedValueOnce(null);
+    const res = await post();
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('GRANT_SOURCE_CHANGED');
+  });
+});
+
+describe('GET /api/approvals/[actionId]/grant — preview', () => {
+  it('rejects a lease outside the supported menu', async () => {
+    const res = await get('5');
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_TTL');
+  });
+
+  it('returns the same bounded shape without creating a policy', async () => {
+    mockListPendingApprovalsForGrant.mockResolvedValue({ rows: [
+      { action_id: 'act_twin', action_type: 'apply', risk_score: 65, context: JSON.stringify({ target: SCRATCH }), created_by: 'agent' },
+    ], truncated: true });
+    const res = await get();
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({
+      scope: 'apply', target: SCRATCH, matching_count: 2,
+      release_ids: ['act_self', 'act_twin'], truncated: true,
+    }));
+    expect(mockCreateApprovalGrant).not.toHaveBeenCalled();
+  });
+
+  it('rejects a creator preview for the same principal', async () => {
+    mockGetActionForGrant.mockResolvedValue({ ...ACTION, created_by: 'user_wes' });
+    const res = await get();
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('SELF_APPROVAL_FORBIDDEN');
+  });
+
+  it('keeps the root operator exemption', async () => {
+    mockGetActionForGrant.mockResolvedValue({ ...ACTION, created_by: 'operator' });
+    expect((await get('24', { 'x-user-id': 'operator' })).status).toBe(200);
   });
 });

@@ -45,10 +45,16 @@ vi.mock('@/lib/db', () => ({ getSql: () => ({}) }));
 
 const { GET, POST } = await import('../../app/api/hosted/claim/route');
 
-function req(method: string, { userId = 'usr_1', orgId = 'org_personal', cookie = 'dashclaw-trial-session=tok' } = {}) {
+function req(method: string, {
+  userId = 'usr_1',
+  orgId = 'org_personal',
+  cookie = 'dashclaw-trial-session=tok',
+  authKind = 'session',
+} = {}) {
   const headers: Record<string, string> = { cookie };
   if (userId) headers['x-user-id'] = userId;
   if (orgId) headers['x-org-id'] = orgId;
+  if (authKind) headers['x-auth-kind'] = authKind;
   return new Request('http://localhost:3000/api/hosted/claim', { method, headers });
 }
 
@@ -103,6 +109,13 @@ describe('GET (preview)', () => {
     expect(body.signed_in).toBe(false);
     expect(mockCanLeave).not.toHaveBeenCalled();
   });
+
+  it('does not report a forged usr_ identity as signed in without a session attestation', async () => {
+    for (const authKind of ['', 'api-key', 'oauth', 'operator-key', 'local-admin']) {
+      const res = await GET(req('GET', { authKind }));
+      expect((await res.json()).signed_in).toBe(false);
+    }
+  });
 });
 
 describe('POST (claim)', () => {
@@ -120,6 +133,14 @@ describe('POST (claim)', () => {
   it('401 for non-human principals (trial cookie only, api key, missing)', async () => {
     for (const userId of ['trial:org_trial', 'key_abc', '']) {
       const res = await POST(req('POST', { userId }));
+      expect(res.status).toBe(401);
+    }
+    expect(mockClaim).not.toHaveBeenCalled();
+  });
+
+  it('401 for a usr_ identity without the exact session attestation', async () => {
+    for (const authKind of ['', 'api-key', 'oauth', 'operator-key', 'local-admin']) {
+      const res = await POST(req('POST', { authKind }));
       expect(res.status).toBe(401);
     }
     expect(mockClaim).not.toHaveBeenCalled();

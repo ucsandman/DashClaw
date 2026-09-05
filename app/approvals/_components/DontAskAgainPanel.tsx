@@ -28,6 +28,9 @@ interface DontAskAgainPanelProps {
   onCancel: () => void;
   /** How many pending approvals this grant is expected to release, including this one. */
   matchCount: number;
+  truncated?: boolean;
+  previewError?: string | null;
+  previewPending?: boolean;
   busy: boolean;
 }
 
@@ -39,6 +42,9 @@ export default function DontAskAgainPanel({
   onConfirm,
   onCancel,
   matchCount,
+  truncated,
+  previewError,
+  previewPending,
   busy,
 }: DontAskAgainPanelProps) {
   const extras = Math.max(0, matchCount - 1);
@@ -78,10 +84,11 @@ export default function DontAskAgainPanel({
         <div className="flex items-start gap-2 rounded-md border border-warning/20 bg-warning-subtle px-2.5 py-2 text-xs text-warning">
           <AlertTriangle size={13} className="mt-0.5 shrink-0" />
           <span>
-            This also releases {extras} waiting {extras === 1 ? 'action' : 'actions'} that {extras === 1 ? 'matches' : 'match'}.
+            This also releases {truncated ? 'at least ' : ''}{extras} waiting {extras === 1 ? 'action' : 'actions'} that {extras === 1 ? 'matches' : 'match'}.
           </span>
         </div>
       )}
+      {previewError && <p className="text-xs text-error" role="alert">Preview unavailable: {previewError}</p>}
 
       <div className="flex gap-2">
         <button
@@ -93,10 +100,18 @@ export default function DontAskAgainPanel({
         </button>
         <button
           onClick={onConfirm}
-          disabled={busy}
+          disabled={busy || previewPending || Boolean(previewError)}
           className="flex-1 rounded-lg border border-success/20 bg-success-subtle px-3 py-2 text-sm font-semibold text-success transition-colors hover:border-success/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy ? 'Working…' : matchCount > 1 ? `Allow all ${matchCount}` : 'Allow'}
+          {busy
+            ? 'Working…'
+            : previewError
+              ? 'Preview unavailable'
+            : previewPending
+              ? 'Checking…'
+              : matchCount > 1
+                ? `Allow ${truncated ? 'at least ' : 'all '}${matchCount}`
+                : 'Allow'}
         </button>
       </div>
     </div>

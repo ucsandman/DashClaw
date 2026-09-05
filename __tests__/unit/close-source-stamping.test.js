@@ -13,6 +13,7 @@ import {
   updateActionOutcome,
   setActionOutcome,
 } from '../../app/lib/repositories/actions.repository.js';
+import { actionInsertValuesByColumn } from './helpers/action-insert-values.js';
 
 function makeCapturingSqlMock(responses) {
   const queue = [...responses];
@@ -43,21 +44,20 @@ describe('createActionRecord — direct close on terminal-at-create', () => {
   it("stamps 'direct' when the row is born terminal (e.g. completed)", async () => {
     const sql = makeCapturingSqlMock([[{ action_id: 'act_1' }]]);
     await createActionRecord(sql, basePayload('completed'));
-    // close_source is the second-to-last bound VALUES entry (approval_expires_at stays last — approvals-lifecycle pins that).
-    expect(sql.calls[0].values.at(-2)).toBe('direct');
+    expect(actionInsertValuesByColumn(sql.calls[0]).close_source).toBe('direct');
     expect(sql.calls[0].text).toContain('close_source');
   });
 
   it('leaves close_source NULL for a still-running create', async () => {
     const sql = makeCapturingSqlMock([[{ action_id: 'act_1' }]]);
     await createActionRecord(sql, basePayload('running'));
-    expect(sql.calls[0].values.at(-2)).toBeNull();
+    expect(actionInsertValuesByColumn(sql.calls[0]).close_source).toBeNull();
   });
 
   it('leaves close_source NULL for pending_approval', async () => {
     const sql = makeCapturingSqlMock([[{ action_id: 'act_1' }]]);
     await createActionRecord(sql, basePayload('pending_approval'));
-    expect(sql.calls[0].values.at(-2)).toBeNull();
+    expect(actionInsertValuesByColumn(sql.calls[0]).close_source).toBeNull();
   });
 
   it("createBlockedActionRecord stamps 'direct' (blocked rows are born terminal)", async () => {
@@ -72,7 +72,7 @@ describe('createActionRecord — direct close on terminal-at-create', () => {
       timestamp_start: '2026-07-04T00:00:00Z',
       riskScore: 90,
     });
-    expect(sql.calls[0].values.at(-2)).toBe('direct');
+    expect(actionInsertValuesByColumn(sql.calls[0]).close_source).toBe('direct');
   });
 });
 

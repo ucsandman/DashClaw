@@ -35,9 +35,14 @@ the code corrects the natural framing of the problem:
    `app/lib/guard/evaluate.ts:102-104`). `allow_contained` (added v5.6,
    `docs/rfcs/2026-07-06-containment-verdicts.md`) is a capability-negotiated
    fifth element between `warn` and `require_approval`; it does not change the
-   downgrade analysis below. Exactly two sanctioned downgrades exist —
-   `allow_grant` and the single-use operator-approval grant — and both are
-   structurally unable to touch `block` (`evaluate.ts:271`, `evaluate.ts:331`).
+   downgrade analysis below. Three sanctioned lower-capable passes exist:
+   standing `allow_grant`, selected operator-approval authority
+   (`builtin:operator_approval`), and selected plan-step authority
+   (`builtin:plan_grant`). All are structurally unable to touch `block`.
+   Operator and plan selection is read-only during evaluation; protocol-1
+   execution claim validation consumes the selected authority atomically with
+   one attempt (`app/lib/guard/evaluate.grants.ts`,
+   `app/lib/repositories/actions.repository.execution.ts`).
 4. **The feedback stream for calibration already exists.** Every
    `require_approval` interruption resolves to `approved` (status `running`,
    `approved_by` stamped), `denied` (status `failed`), or `expired` (no human
@@ -567,11 +572,12 @@ stripped and re-derived by middleware from the authenticated principal
 credential is exempt (single-admin self-host bootstrap — if an agent holds
 root, the gate was forfeit anyway; charter-accepted), and NULL `created_by`
 (pre-0055 rows) is unenforceable. One **finding** from this review: the
-approval-*grant* consumption path binds on (agent, goal, action_type,
-act_content_hash) but any admin's approval creates the grant — I2 composes
-correctly because grant creation itself passed I2; no violation, but the chain
-of custody is only as strong as `approved_by` provenance, which is why §3's
-ledger work matters.
+approval authority selection binds on (principal, agent, goal, action_type,
+act_content_hash) but any eligible admin approval can create that authority —
+I2 composes correctly because approval itself passed I2. Selection is read-only;
+the protocol-1 execution claim rechecks current policy and consumes the
+authority atomically with one attempt. The chain of custody is only as strong
+as `approved_by` provenance, which is why §3's ledger work matters.
 
 **I3 — Humans ratify every enforcement change.**
 `G( enforce(p) at t ∧ ¬enforce(p) at t−1 → ∃ human admin click(p) )`.

@@ -145,6 +145,7 @@ const navItems = [
   { href: '#tightening-proposals', label: 'Tightening proposals', indent: true },
   { href: '#loosening-proposals', label: 'Loosening proposals', indent: true },
   { href: '#action-recording', label: 'Action Recording' },
+  { href: '#runGoverned', label: 'runGoverned', indent: true },
   { href: '#createAction', label: 'createAction', indent: true },
   { href: '#waitForApproval', label: 'waitForApproval', indent: true },
   { href: '#updateOutcome', label: 'updateOutcome', indent: true },
@@ -304,7 +305,7 @@ claw = DashClaw(
                 </div>
                 <div className="pl-10">
                   <p className="mb-3 text-sm text-text-secondary leading-relaxed">
-                    The smallest event that proves the connection end to end: one action, one outcome.
+                    The smallest event that confirms the client can create an action record and report an outcome.
                   </p>
                   <DocsCodeTabs
                     nodeSnippet={`const { action_id } = await claw.createAction({
@@ -337,82 +338,34 @@ claw.update_outcome(created["action_id"], status="completed")`}
                 </div>
                 <div className="pl-10">
                   <p className="mb-3 text-sm text-text-secondary leading-relaxed">
-                    For real work, wrap the action in the full loop: guard before acting, wait for approval when
-                    the server holds it, record evidence, report the outcome.
+                    For real work, use the bounded invocation helper. It binds one redacted act through guard,
+                    approval, a protocol-1 execution claim, the callback, and outcome reporting.
                   </p>
                   <DocsCodeTabs
-                    nodeSnippet={`// 1. Ask permission — your abort IS the enforcement on the SDK path
-const decision = await claw.guard({
-  action_type: 'deploy',
-  risk_score: 85,
-  declared_goal: 'Update the auth service'
-});
-
-if (decision.decision === 'block') {
-  throw new Error(\`Blocked: \${decision.reason || decision.reasons?.join(', ')}\`);
-}
-
-// 2. Log intent. The server re-evaluates policy here and is the
-//    authoritative source for HITL gating.
-const { action, action_id } = await claw.createAction({
-  action_type: 'deploy',
-  declared_goal: 'Update the auth service'
-});
-
-// 3. If the server flagged this, wait for a human operator.
-//    Pass createAction's action_id — NOT the guard's decision_id (a.k.a. decision.action_id).
-if (action?.status === 'pending_approval') {
-  await claw.waitForApproval(action_id);
-}
-
-try {
-  // 4. Log evidence
-  await claw.recordAssumption({
-    action_id,
-    assumption: 'Tests passed'
-  });
-
-  // ... deploy ...
-
-  // 5. Record outcome
-  await claw.updateOutcome(action_id, { status: 'completed' });
-} catch (err) {
-  await claw.updateOutcome(action_id, { status: 'failed', error_message: err.message });
-}`}
-                    pythonSnippet={`# 1. Ask permission — your abort IS the enforcement on the SDK path
-decision = claw.guard({
-    "action_type": "deploy",
-    "risk_score": 85,
-    "declared_goal": "Update the auth service"
-})
-
-if decision["decision"] == "block":
-    raise Exception(f"Blocked: {decision.get('reason') or ', '.join(decision.get('reasons', []))}")
-
-# 2. Log intent
-created = claw.create_action(
-    action_type="deploy",
-    declared_goal="Update the auth service"
-)
-action_id = created["action_id"]
-
-# 3. If the server flagged this, wait for a human operator.
-if created.get("action", {}).get("status") == "pending_approval":
-    claw.wait_for_approval(action_id)
-
-try:
-    # 4. Log evidence
-    claw.record_assumption({
-        "action_id": action_id,
-        "assumption": "Tests passed"
-    })
-
-    # ... deploy ...
-
-    # 5. Record outcome
-    claw.update_outcome(action_id, status="completed")
-except Exception as e:
-    claw.update_outcome(action_id, status="failed", error_message=str(e))`}
+                    nodeSnippet={`await claw.runGoverned(
+  {
+    kind: 'http',
+    request: { method: 'POST', url: 'https://chat.example.test/messages' }
+  },
+  {
+    action_type: 'api',
+    declared_goal: 'Notify #ops of deploy start',
+    risk_score: 40
+  },
+  () => sendDeploymentNotice()
+);`}
+                    pythonSnippet={`claw.run_governed(
+    {
+        "kind": "http",
+        "request": {"method": "POST", "url": "https://chat.example.test/messages"},
+    },
+    {
+        "action_type": "api",
+        "declared_goal": "Notify #ops of deploy start",
+        "risk_score": 40,
+    },
+    send_deployment_notice,
+)`}
                   />
                 </div>
               </div>
@@ -428,7 +381,7 @@ except Exception as e:
               <h2 className="text-2xl font-bold tracking-tight">MCP Server</h2>
             </div>
             <p className="mt-2 mb-8 text-sm text-text-secondary leading-relaxed">
-              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 17 governance tools across 5 groups (core governance, retrospection, agent identity, team tasks, plans) plus 3 read-only resources.
+              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. A configured MCP-compatible client gets 17 governance tools across 5 groups (core governance, retrospection, agent identity, team tasks, plans) plus 3 read-only resources. The client must call these tools and honor their results unless a separate enforcing hook or gateway owns the action path.
             </p>
 
             {/* Tools */}
@@ -557,7 +510,7 @@ instance runs its own OAuth (DCR + PKCE). Guide: docs/CLAUDE-DESKTOP-PLUGIN.md`}
             <div id="dashclaw-doctor" className="scroll-mt-20 mb-10">
               <h3 className="text-lg font-semibold text-text-primary mb-4">dashclaw doctor</h3>
               <p className="text-xs text-text-tertiary mb-3">
-                Diagnoses your instance (database, configuration, auth, deployment, SDK reachability, governance staleness, data hygiene, write-path canaries (synthetic self-cleaning writes that prove heartbeat, action-ledger, and guard-audit inserts land) and this machine (stale compiled mcp-server lib, .gitattributes drift, local schema behind code, stale global CLI shim, broken hook installs, leaked machine-scope env vars). Report-only by default; <code className="font-mono text-text-secondary">--fix</code> applies safe repairs, re-checks, and prints a what-changed report. Invokes <code className="font-mono text-text-secondary">GET /api/doctor</code> and <code className="font-mono text-text-secondary">POST /api/doctor/fix</code> (admin keys). For operators, <code className="font-mono text-text-secondary">npm run doctor -- --fix</code> on the host adds <code className="font-mono text-text-secondary">.env</code> writes, migrations, and default-policy seeding (backs up <code className="font-mono text-text-secondary">.env</code> before any write).
+                Diagnoses your instance (database, configuration, auth, deployment, SDK reachability, governance staleness, data hygiene, write-path canaries (synthetic self-cleaning writes that exercise heartbeat, action-ledger, and guard-audit inserts during that run) and this machine (stale compiled mcp-server lib, .gitattributes drift, local schema behind code, stale global CLI shim, broken hook installs, leaked machine-scope env vars). Report-only by default; <code className="font-mono text-text-secondary">--fix</code> applies safe repairs, re-checks, and prints a what-changed report. Invokes <code className="font-mono text-text-secondary">GET /api/doctor</code> and <code className="font-mono text-text-secondary">POST /api/doctor/fix</code> (admin keys). For operators, <code className="font-mono text-text-secondary">npm run doctor -- --fix</code> on the host adds <code className="font-mono text-text-secondary">.env</code> writes, migrations, and default-policy seeding (backs up <code className="font-mono text-text-secondary">.env</code> before any write).
               </p>
               <CodeBlock title="dashclaw doctor">{`npm install -g @dashclaw/cli
 
@@ -576,7 +529,7 @@ npm run doctor -- --fix`}</CodeBlock>
             <div id="live-host-canary" className="scroll-mt-20 mb-10">
               <h3 className="text-lg font-semibold text-text-primary mb-4">Live host canary</h3>
               <p className="text-xs text-text-tertiary mb-3">
-                The doctor proves your instance works from the inside; the live host canary proves your deployment works from the outside. <code className="font-mono text-text-secondary">scripts/live-canary.mjs</code> probes your production hosts hourly as a real unauthenticated client: marketing page, docs, demo entry, trial-mint fail-closed (it passes on the Turnstile rejection, so it never mints junk trials), OAuth discovery, and the MCP handshake&apos;s 401 challenge; it files the verdict to <code className="font-mono text-text-secondary">POST /api/live-canary</code>. Verdicts render on <code className="font-mono text-text-secondary">/setup#live-canary</code>; a fresh failure also raises a posture auditability finding. Canary traffic is stored in its own table and never touches the action or guard ledgers.
+                Doctor checks the instance from the inside during that run; the live host canary checks configured deployment routes from the outside when its workflow runs. <code className="font-mono text-text-secondary">scripts/live-canary.mjs</code> probes configured hosts as an unauthenticated client: marketing page, docs, demo entry, trial-mint fail-closed, OAuth discovery, and the MCP handshake&apos;s 401 challenge; it files the reported result to <code className="font-mono text-text-secondary">POST /api/live-canary</code>. Results render on <code className="font-mono text-text-secondary">/setup#live-canary</code>; a fresh failure also raises a posture auditability finding. This is scheduled probing, not continuous attestation. Canary traffic is stored in its own table and never touches the action or guard ledgers.
               </p>
               <CodeBlock title="Enable (GitHub Actions)">{`# One-off run against your hosts:
 LIVE_CANARY_MARKETING_ORIGIN=https://your-site \\
@@ -597,6 +550,9 @@ node scripts/live-canary.mjs
               <p className="text-xs text-text-tertiary mb-3">
                 <code className="font-mono text-text-secondary">plugins/dashclaw/.claude-plugin/plugin.json</code> is the Claude Code plugin manifest. Distributes the DashClaw MCP server (<code className="font-mono text-text-secondary">.mcp-claude.json</code>) plus the <code className="font-mono text-text-secondary">dashclaw-governance</code> skill as one installable bundle. Full step-by-step at <Link href="/guides/claude-code" className="text-brand hover:text-brand-hover">/guides/claude-code</Link>.
               </p>
+              <p className="text-xs text-text-tertiary mb-3">
+                Current servers advertise execution-claim protocol 1. If that advertisement is wholly absent, the hook preserves the legacy guard and approval flow without an atomic execution claim. A malformed or unsupported advertisement fails closed. After upgrading the server, strict deployments can set <code className="font-mono text-text-secondary">DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1</code>.
+              </p>
               <CodeBlock title="Install">{`# No clone required — the CLI downloads the hooks bundle from your instance:
 npm i -g @dashclaw/cli
 dashclaw install claude            # prompts for endpoint + API key
@@ -609,7 +565,7 @@ npm run hooks:install`}</CodeBlock>
             <div id="codex-plugin" className="scroll-mt-20 mb-10">
               <h3 className="text-lg font-semibold text-text-primary mb-4">Codex Plugin</h3>
               <p className="text-xs text-text-tertiary mb-3">
-                <code className="font-mono text-text-secondary">dashclaw install codex</code> wires the same governance surface DashClaw ships for Claude Code into Codex&apos;s <code className="font-mono text-text-secondary">~/.codex/config.toml</code>: MCP server config, PreToolUse / PostToolUse / Stop hooks, and the governance protocol in <code className="font-mono text-text-secondary">AGENTS.md</code>. Idempotent; re-run after every <code className="font-mono text-text-secondary">git pull</code>. Full step-by-step at <Link href="/guides/codex" className="text-brand hover:text-brand-hover">/guides/codex</Link>.
+                <code className="font-mono text-text-secondary">dashclaw install codex</code> wires the supported DashClaw controls into Codex&apos;s <code className="font-mono text-text-secondary">~/.codex/config.toml</code>: MCP server config, PreToolUse / PostToolUse / Stop hooks, and the governance protocol in <code className="font-mono text-text-secondary">AGENTS.md</code>. Idempotent; re-run after upgrades. Full step-by-step at <Link href="/guides/codex" className="text-brand hover:text-brand-hover">/guides/codex</Link>.
               </p>
               <CodeBlock title="Install">{`# One command from the DashClaw repo root:
 node cli/bin/dashclaw.js install codex --project /path/to/your/project
@@ -691,7 +647,7 @@ cp -r public/downloads/dashclaw-governance ~/.claude/skills/
             <MethodEntry
               id="guard"
               signature="claw.guard(context)"
-              description="Evaluate guard policies for a proposed action. Call this before risky operations. With a non_fabrication policy active, pass `content` + `sourceOfTruth` to verify outbound text before it goes out: a violation blocks (or routes to approval) and is returned under `non_fabrication` with a signed, re-verifiable receipt."
+              description="Evaluate guard policies for a proposed action. Bare guard calls are cooperative: the caller must stop on block or require_approval. With a non_fabrication policy active, pass `content` + `sourceOfTruth` to check outbound text before it goes out. Where DashClaw issues a signed receipt, it protects the integrity of the recorded content and verdict; it does not prove external reality."
               params={[
                 { name: 'action_type', type: 'string', required: true, desc: 'Proposed action type' },
                 { name: 'risk_score', type: 'number', required: false, desc: '0-100' },
@@ -739,7 +695,7 @@ cp -r public/downloads/dashclaw-governance ~/.claude/skills/
             <div id="external-verdict" className="scroll-mt-20 mt-6 p-4 rounded-xl bg-surface-secondary border border-border">
               <h3 className="text-sm font-semibold text-text-primary mb-1.5">External decision provider</h3>
               <p className="text-sm text-text-secondary leading-relaxed">
-                One outside decision engine per org can join every guard evaluation. Configure it on{' '}
+                One outside decision engine per org can join each in-scope guard evaluation. Configure it on{' '}
                 <code className="text-xs">/policies → External decision provider</code> (URL, optional bearer token,
                 timeout, unavailability posture); the guard POSTs the evaluated act and joins the verdict{' '}
                 <strong>stricter-wins</strong>: <code className="text-xs">allow/warn/escalate/deny</code> map onto the
@@ -765,7 +721,7 @@ cp -r public/downloads/dashclaw-governance ~/.claude/skills/
                 <code className="text-xs">require_approval</code> policy for that action type in the same click
                 and resolves the posture finding; dismiss records why and stops the re-proposal. The same queue
                 is available at <code className="text-xs">GET /api/policies/tightening</code>. Nothing
-                auto-applies: every policy exists because a human ratified it.
+                in this proposal queue auto-applies; ratification creates the policy.
               </p>
             </div>
             <div id="loosening-proposals" className="scroll-mt-20 mt-6 p-4 rounded-xl bg-surface-secondary border border-border">
@@ -792,17 +748,39 @@ cp -r public/downloads/dashclaw-governance ~/.claude/skills/
               <h2 className="text-2xl font-bold tracking-tight">Action Recording</h2>
             </div>
             <MethodEntry
+              id="runGoverned"
+              signature="claw.runGoverned(act, params, fn) / claw.run_governed(act, params, fn)"
+              description="Run the bounded SDK path: guard the canonical redacted act, create or reuse its action record, wait if policy requires approval, obtain a protocol-1 execution claim, invoke the callback once, and report its outcome. The helper requires a server that supports execution-claim protocol 1; upgrade the server and SDK together. The claim binds the fresh policy result, exact act, attempt, and principal. It grants one execution attempt, not exactly-once delivery of the external side effect. If a claim or outcome confirmation is uncertain, reconcile the target system before retrying."
+              returns="Promise<fn result> / fn result"
+              example={
+                <DocsCodeTabs
+                  nodeSnippet={`await claw.runGoverned(
+  { kind: 'http', request: { method: 'POST', url } },
+  { action_type: 'api', declared_goal: 'Create the release note' },
+  () => fetch(url, { method: 'POST', body })
+);`}
+                  pythonSnippet={`claw.run_governed(
+    {"kind": "http", "request": {"method": "POST", "url": url}},
+    {"action_type": "api", "declared_goal": "Create the release note"},
+    lambda: requests.post(url, data=body),
+)`}
+                />
+              }
+            />
+            <MethodEntry
               id="createAction"
               signature="claw.createAction(action) / claw.create_action(**kwargs)"
-              description="Create a governance action record. The server re-evaluates policy at this point, so this call is the authoritative source for HITL gating: if policy requires human review, the response is HTTP 202 with action.status='pending_approval'. Always check action.status before assuming the action is clear to execute. Non-fabrication (optional): pass content + sourceOfTruth (Node) / content + source_of_truth (Python) to have a non_fabrication policy verify the outbound content before the action proceeds: a violation blocks or routes to approval and is recorded with a signed receipt. Session linkage (optional): pass session_id (the sess_… id from a started agent session) to attribute this action to that session, so /sessions can aggregate per-session action count, cost, and risk."
+              description="Create a governance action record. The server re-evaluates policy, throws on a blocked response, and returns pending_approval when a human verdict is required. This bare method does not execute or mechanically halt unrelated caller code; the caller must stop on errors and pending approval. Prefer runGoverned/run_governed when a callback should be gated by protocol 1. Non-fabrication results and signed receipts, where issued, attest to the recorded input and verdict. Session linkage is optional."
               returns="Promise<{ action: { action_id, status, ... }, action_id, decision, security }>"
               example={
                 <DocsCodeTabs
-                  nodeSnippet={`const { action, action_id } = await claw.createAction({ action_type: 'deploy' });
+                  nodeSnippet={`// A blocked response throws. Do not catch it and continue.
+const { action, action_id } = await claw.createAction({ action_type: 'deploy' });
 if (action?.status === 'pending_approval') {
   // gate execution on waitForApproval — see the method below
 }`}
-                  pythonSnippet={`created = claw.create_action(action_type="deploy")
+                  pythonSnippet={`# A blocked response raises. Do not catch it and continue.
+created = claw.create_action(action_type="deploy")
 if created.get("action", {}).get("status") == "pending_approval":
     claw.wait_for_approval(created["action_id"])`}
                 />
@@ -811,7 +789,7 @@ if created.get("action", {}).get("status") == "pending_approval":
             <MethodEntry
               id="waitForApproval"
               signature="claw.waitForApproval(actionId, { timeout?, interval? }) / claw.wait_for_approval(action_id, timeout=300, interval=5)"
-              description="Wait for a human operator to approve or deny an action. Opens an SSE stream on /api/stream and falls back to polling /api/actions/:id every 5 seconds. Resolves when action.approved_by is set; throws ApprovalDeniedError when the operator denies AND when the approval expires server-side before a decision (a distinct third outcome: check err.status === 'expired' to tell a lapsed window from an operator 'no'; expired approvals render in their own section on /approvals and can no longer release anything); throws on timeout. IMPORTANT: pass the action_id returned by createAction(), NOT the action_id returned by guard(). They refer to different database tables and waiting on a guard decision ID will never resolve. Approvals can be resolved from the dashboard (/approvals), the CLI (dashclaw approve <id>), the mobile PWA (/approve), or, if the instance has Telegram configured (TELEGRAM_BOT_TOKEN), via an inline Approve/Reject button pushed to the admin Telegram chat. All four surfaces call the same /api/approvals/:id endpoint, so waitForApproval unblocks the agent within ~1 second regardless of which surface was used."
+              description="Wait for a human operator to approve or deny an action. Opens an SSE stream on /api/stream and falls back to polling /api/actions/:id every 5 seconds. Resolves when action.approved_by is set; throws ApprovalDeniedError when the operator denies or when the approval expires server-side before a decision. Check err.status === 'expired' to distinguish a lapsed window from an operator denial. IMPORTANT: pass the action_id returned by createAction(), not the decision id returned by guard(). Approvals can be resolved from the dashboard, CLI, mobile PWA, or optional Telegram bridge; each surface writes the same server-side approval decision."
               example={
                 <DocsCodeTabs
                   nodeSnippet={`// Correct — wait on createAction's action_id
@@ -828,7 +806,7 @@ if created.get("action", {}).get("status") == "pending_approval":
             <MethodEntry
               id="updateOutcome"
               signature="claw.updateOutcome(id, outcome) / claw.update_outcome(id, **kwargs)"
-              description="Log final results. Accepts status, output_summary, error_message, duration_ms, tokens_in, tokens_out, model, cost_estimate. When tokens + model are supplied without cost_estimate, the server derives cost from the pricing table."
+              description="Record caller-reported results. Accepts status, output_summary, error_message, duration_ms, tokens_in, tokens_out, model, cost_estimate. When tokens and model are supplied without cost_estimate, the server derives cost from the pricing table. This record supports reconciliation; it is not independent proof of the external effect."
               example={
                 <DocsCodeTabs
                   nodeSnippet={`await claw.updateOutcome(action_id, {
@@ -875,12 +853,12 @@ if created.get("action", {}).get("status") == "pending_approval":
               <code className="font-mono text-text-secondary">dashclaw_plan_status</code> tools above) pins a plan&apos;s
               authority to a content hash (<code className="font-mono text-text-secondary">plan_hash</code>) computed at
               submission. <code className="font-mono text-text-secondary">attestPlan</code> is the run-start seam for that
-              hash: an unattended runner proves its pinned plan is still good before it spends anything.
+              hash: an unattended runner checks that its pinned plan is still approved before it spends anything.
             </p>
             <MethodEntry
               id="attestPlan"
               signature="claw.attestPlan(planId, planHash) / claw.attest_plan(plan_id, plan_hash)"
-              description="POST /api/plans/:planId/attest. Proves a pinned plan is still approved, unexpired and unrevoked before the caller spends its first model call. Authenticates with the agent's own org-scoped credential, not the admin credential an operator verdict requires -- attesting reads your own authority, it does not grant it. Resolves { ok: true, ... } only when the plan is approved, unexpired, unrevoked and still carries the presented plan_hash; every other outcome throws, so an unattended run fails closed: 403 with reason not_approved | expired | revoked | hash_mismatch, or 404 not_found. On hash_mismatch the stored hash is never echoed back, so a caller holding a stale or forged plan can't use the response to forge a matching attestation. Every call is journaled on the plan row (attest_count, attested_at, last_attest_result) whether it succeeds or not, and the approvals UI renders it as an 'Attested N x -- last <when> -- <result>' line on the plan card."
+              description="POST /api/plans/:planId/attest. Checks that a pinned plan is still approved, unexpired and unrevoked before the caller spends its first model call. Authenticates with the agent's own org-scoped credential, not the admin credential an operator verdict requires; attesting reads existing authority and does not grant it. Resolves { ok: true, ... } only when the plan is approved, unexpired, unrevoked and still carries the presented plan_hash; every other outcome throws. On hash_mismatch the stored hash is not echoed back. Calls are journaled on the plan row and rendered on the approvals UI."
               returns="Promise<{ ok: true, plan_id, plan_hash, expires_at, steps_remaining }>"
               example={
                 <DocsCodeTabs
@@ -1097,13 +1075,13 @@ if not result["clean"]:
               <h2 className="text-2xl font-bold tracking-tight">Agent Identity</h2>
             </div>
             <p className="text-sm text-text-secondary mb-6 leading-relaxed">
-              DashClaw verifies <em>which agent</em> took each action on three independent axes, each returned on the guard response and recorded in the decisions ledger. The current path is JWKS-verified JWTs (Phase&nbsp;2&nbsp;/&nbsp;2b&nbsp;/&nbsp;2c); the public-key pairing API further down remains for older (v1) integrations. Full setup guide:{' '}
+              DashClaw reports identity verification separately from payload-signature status. JWKS-verified JWTs establish a principal and return token replay and act-binding evidence; the public-key pairing API further down verifies signed payloads for older integrations. Neither status should be inferred from the other. Full setup guide:{' '}
               <a href="https://github.com/ucsandman/DashClaw/blob/main/docs/agent-identity.md" className="text-brand hover:underline">docs/agent-identity.md</a>.
             </p>
 
             <h3 className="text-lg font-semibold tracking-tight mt-8 mb-2">JWKS verification (Phase 2 / 2b / 2c)</h3>
             <p className="text-sm text-text-secondary mb-4 leading-relaxed">
-              Attach an OIDC bearer token (or pass <code className="text-brand">authToken</code> to the SDK constructor). DashClaw fetches the issuer&apos;s keys from its <code className="text-brand">/.well-known/jwks.json</code>, verifies the signature (EdDSA, RS256&ndash;512, ES256&ndash;512), and on success overrides any body-supplied <code className="text-brand">agent_id</code> with the token&apos;s <code className="text-brand">sub</code>: proof beats self-assertion. A downed issuer fails soft to <code className="text-brand">unverified</code> and never blocks a decision.
+              Attach an OIDC bearer token (or pass <code className="text-brand">authToken</code> to the SDK constructor). DashClaw fetches the issuer&apos;s keys from its <code className="text-brand">/.well-known/jwks.json</code>, verifies the signature (EdDSA, RS256&ndash;512, ES256&ndash;512), and on success overrides any body-supplied <code className="text-brand">agent_id</code> with the token&apos;s <code className="text-brand">sub</code>. A downed issuer reports <code className="text-brand">unverified</code>; it does not become a verified identity.
             </p>
             <CodeBlock title="Guard with a verified identity">
 {`import { DashClaw } from 'dashclaw';
@@ -1121,7 +1099,7 @@ const { decision, verification_status } = await claw.guard({
 //                    | 'failed' | 'unknown_issuer' | 'exp_too_far'`}
             </CodeBlock>
             <p className="text-sm text-text-secondary mt-4 mb-2 leading-relaxed">
-              Three independent axes travel back on the response, each in its own field so a downed issuer or absent claim degrades gracefully instead of hard-failing:
+              Three JWT-related axes travel back on the response. These fields describe identity and token binding, not a universal signature over the request payload:
             </p>
             <ul className="text-sm text-text-secondary mb-4 leading-relaxed list-disc pl-5 space-y-1">
               <li><strong>Phase 2: <code className="text-brand">verification_status</code></strong>: who signed the token. Configure trust with <code className="text-brand">DASHCLAW_ALLOWED_ISSUER</code> and <code className="text-brand">DASHCLAW_JWT_AUDIENCE</code>.</li>
@@ -1145,7 +1123,7 @@ const { decision, verification_status } = await claw.guard({
 
             <h3 className="text-lg font-semibold tracking-tight mt-10 mb-2">Public-key pairing</h3>
             <p className="text-sm text-text-secondary mb-6 leading-relaxed">
-              Enroll agents via public-key pairing and manage approved identities. Pairing requests are created by agents; approval is an operator action (one click on the /identities page). Once approved, the agent&apos;s public key is registered as a trusted identity for signature verification.
+              Enroll agents via public-key pairing and manage approved signing keys. Pairing requests are created by agents; approval is an operator action on the /identities page. Once approved, the public key can verify supported signed payloads. Payload-signature status remains separate from JWT/JWKS identity verification.
             </p>
 
             <MethodEntry
@@ -1275,7 +1253,7 @@ const { identities } = await res.json();`}
               <h2 className="text-2xl font-bold tracking-tight">Execution Studio (HTTP API)</h2>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed mb-6">
-              Governance packaging: a read-only execution graph and durable action outcomes on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 40 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md" className="text-brand underline">sdk/README.md</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
+              Governance packaging: a read-only execution graph and durable action outcomes on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 41 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md" className="text-brand underline">sdk/README.md</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
             </p>
 
             {/* Execution Graph */}
@@ -1302,12 +1280,12 @@ const { rootActionId, nodes, edges } = await res.json();
             {/* Action Outcome (durable execution finality) */}
             <div id="action-outcome" className="scroll-mt-20 pt-10">
               <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Action Outcome</h3>
-              <p className="text-xs text-text-tertiary mb-4">Five-state terminal outcome on every action: closes the audit-trail gap between &quot;what was approved&quot; and &quot;what actually completed.&quot; See <a href="https://github.com/ucsandman/DashClaw/blob/main/docs/architecture/durable-execution-finality.md" className="text-brand underline">durable-execution-finality.md</a>.</p>
+              <p className="text-xs text-text-tertiary mb-4">Durable outcome states record what the caller or server reported after an action attempt. They improve reconciliation but do not prove an external side effect happened exactly once. See <a href="https://github.com/ucsandman/DashClaw/blob/main/docs/architecture/durable-execution-finality.md" className="text-brand underline">durable-execution-finality.md</a>.</p>
 
               <MethodEntry
                 id="reportActionOutcome"
                 signature="POST /api/actions/:actionId/outcome"
-                description="Record the terminal outcome of an approved action. One-shot: the first successful POST wins, subsequent POSTs return 409 with the current state. status must be one of completed | partial | failed. error_message is required when status=failed; progress (object) is required when status=partial. lost_confirmation is reserved for the system sweep."
+                description="Record the caller's terminal outcome assertion for an approved action. One-shot: the first successful POST wins, subsequent POSTs return 409 with the current state. status must be one of completed | partial | failed. error_message is required when status=failed; progress is required when status=partial. lost_confirmation is reserved for the system sweep. A failed report does not establish whether an external side effect happened."
                 returns="{ outcome: { action_id, status, outcome_at, summary, error_message, progress, elapsed_ms }, security: { clean, findings_count } }"
                 example={
                   <CodeBlock title="Report success">
@@ -1326,17 +1304,18 @@ const { rootActionId, nodes, edges } = await res.json();
               <MethodEntry
                 id="getActionOutcome"
                 signature="GET /api/actions/:actionId/outcome"
-                description="Read the current outcome state. Returns the full outcome shape including elapsed_ms (outcome_at − created_at, or now − created_at while still pending). Agents call this before retrying to avoid re-executing already-completed actions."
+                description="Read the current recorded outcome state, including elapsed_ms. Use it as one input to reconciliation before any retry. No outcome value by itself grants authority to rerun an external effect."
                 returns="{ action_id, status, outcome_at, summary, error_message, progress, elapsed_ms }"
                 example={
-                  <CodeBlock title="Retry-safe poll">
+                  <CodeBlock title="Reconciliation poll">
 {`const outcome = await fetch(
   \`\${baseUrl}/api/actions/\${actionId}/outcome\`,
   { headers: { 'x-api-key': apiKey } }
 ).then(r => r.json());
 
-// completed → SKIP, failed | lost_confirmation → RETRY,
-// pending → WAIT, partial → CLEANUP_THEN_RETRY`}
+// completed: verify the target when consequential.
+// failed, partial, or lost_confirmation: reconcile the target.
+// pending: wait or investigate. No state authorizes an automatic retry.`}
                   </CodeBlock>
                 }
               />
@@ -1348,11 +1327,11 @@ const { rootActionId, nodes, edges } = await res.json();
           <section id="coverage" className="scroll-mt-20 pt-12 border-t border-border">
             <div className="space-y-6">
               <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Coverage</h3>
-              <p className="text-xs text-text-tertiary mb-4">Event coverage, orthogonal to posture&apos;s policy coverage (&quot;is it governed&quot;). Answers &quot;did the ledger actually see everything that happened.&quot; The Claude Code Stop hook POSTs one fail-silent per-turn report comparing transcript <code className="text-brand">tool_use</code> ground truth against the session&apos;s recorded action map; every closed action also carries a <code className="text-brand">close_source</code> (outcome | stop_autoclose | direct) so outcome coverage is computable from durable data. Operator surface only; no SDK wrapper. Powers the Coverage column on the <code className="text-brand">/agents</code> page and a posture finding when either figure drops below 90% (min 20 sampled).</p>
+              <p className="text-xs text-text-tertiary mb-4">Event coverage compares a client-reported transcript count with that client&apos;s recorded action map. It measures the reporting path that supplied the sample; it is not proof of events outside that client. Closed actions also carry a <code className="text-brand">close_source</code> (outcome | stop_autoclose | direct) so outcome coverage is computable from recorded data. Operator surface only; no SDK wrapper. Powers the Coverage column on the <code className="text-brand">/agents</code> page and a posture finding when either figure drops below 90% (min 20 sampled).</p>
               <MethodEntry
                 id="coverage-get"
                 signature="GET /api/coverage"
-                description="Per-agent record coverage (sum(recorded)/sum(expected) over a 24h window) and outcome coverage (share of hook-recorded actions closed with a real outcome vs Stop-hook auto-close). An agent with no reports renders an explicit no-evidence state rather than 100%."
+                description="Per-agent record coverage (sum(recorded)/sum(client-reported expected) over a 24h window) and outcome coverage (share of hook-recorded actions closed with a caller-reported outcome vs Stop-hook auto-close). An agent with no reports renders an explicit no-evidence state rather than 100%."
                 params={[
                   { name: 'window_hours', type: 'number', required: false, desc: '1-168, default 24' },
                   { name: 'include_synthetic', type: 'string', required: false, desc: '"1" includes synthetic/loadtest agents; diagnostics only, real views and posture always exclude them' },

@@ -13,7 +13,12 @@ interface SigningKeyRow {
   alg: string;
   private_jwk: string;
   public_jwk: string;
+  status: SigningKeyStatus;
+  retired_at: string | null;
+  compromised_at: string | null;
 }
+
+export type SigningKeyStatus = 'active' | 'retired' | 'compromised';
 
 interface InsertSigningKeyInput {
   id?: string;
@@ -25,9 +30,9 @@ interface InsertSigningKeyInput {
 
 export async function getActiveSigningKey(sql: SqlTag): Promise<SigningKeyRow | null> {
   const rows = await sql`
-    SELECT kid, alg, private_jwk, public_jwk
+    SELECT kid, alg, private_jwk, public_jwk, status, retired_at, compromised_at
     FROM server_signing_keys
-    WHERE active = 1
+    WHERE active = 1 AND status = 'active'
     ORDER BY created_at DESC
     LIMIT 1
   `;
@@ -44,8 +49,8 @@ export async function insertSigningKey(
   { id = 'default', kid, alg = 'EdDSA', privateJwk, publicJwk }: InsertSigningKeyInput
 ): Promise<boolean> {
   const rows = await sql`
-    INSERT INTO server_signing_keys (id, kid, alg, private_jwk, public_jwk, active)
-    VALUES (${id}, ${kid}, ${alg}, ${privateJwk}, ${publicJwk}, 1)
+    INSERT INTO server_signing_keys (id, kid, alg, private_jwk, public_jwk, active, status)
+    VALUES (${id}, ${kid}, ${alg}, ${privateJwk}, ${publicJwk}, 1, 'active')
     ON CONFLICT (id) DO NOTHING
     RETURNING kid
   `;
@@ -54,10 +59,74 @@ export async function insertSigningKey(
 
 export async function listPublicJwks(sql: SqlTag): Promise<unknown[]> {
   const rows = await sql`
-    SELECT public_jwk
+    SELECT public_jwk, status, retired_at, compromised_at
     FROM server_signing_keys
-    WHERE active = 1
+    WHERE status IN ('active', 'retired')
     ORDER BY created_at DESC
   `;
-  return rows.map((r) => (typeof r.public_jwk === 'string' ? JSON.parse(r.public_jwk) : r.public_jwk));
+  return rows
+    .filter((r) => r.status !== 'compromised')
+    .map((r) => ({
+      ...(typeof r.public_jwk === 'string' ? JSON.parse(r.public_jwk) : r.public_jwk),
+      dashclaw_status: r.status || 'active',
+      ...(r.retired_at ? { dashclaw_retired_at: r.retired_at } : {}),
+    }));
+}
+
+/**
+ * Public-only lifecycle manifest. Compromised keys remain listed here so an
+ * operator can communicate the incident without returning them in trusted
+ * JWKS `keys`. No private material is selected.
+ */
+export async function listSigningKeyStatuses(sql: SqlTag): Promise<unknown[]> {
+  const rows = await sql`
+    SELECT kid, alg, active, status, retired_at, compromised_at, created_at
+    FROM server_signing_keys
+    ORDER BY created_at DESC
+  `;
+  return rows.map((row) => ({
+    kid: row.kid,
+    alg: row.alg,
+    status: row.status || (Number(row.active) === 1 ? 'active' : 'retired'),
+    created_at: row.created_at,
+    retired_at: row.retired_at || null,
+    compromised_at: row.compromised_at || null,
+  }));
+}
+
+/** Retire the current DB key and install its replacement atomically. */
+export async function rotateSigningKey(
+  sql: SqlTag,
+  input: Omit<InsertSigningKeyInput, 'id'> & {
+    id?: string;
+    rotatedAt: string;
+    compromiseKid?: string | null;
+    compromisedAt?: string | null;
+  },
+): Promise<boolean> {
+  const { id = `key_${input.kid}`, kid, alg = 'EdDSA', privateJwk, publicJwk, rotatedAt } = input;
+  const rows = await sql`
+    SELECT public.rotate_server_signing_key(
+      ${id}, ${kid}, ${alg}, ${privateJwk}, ${publicJwk}, ${rotatedAt},
+      ${input.compromiseKid || null}, ${input.compromisedAt || null}
+    ) AS rotated
+  `;
+  return rows[0]?.rotated === true;
+}
+
+/** Mark a key compromised and remove it from the trusted JWKS set. */
+export async function markSigningKeyCompromised(
+  sql: SqlTag,
+  kid: string,
+  compromisedAt: string,
+): Promise<boolean> {
+  const rows = await sql`
+    UPDATE server_signing_keys
+    SET active = 0,
+        status = 'compromised',
+        compromised_at = COALESCE(compromised_at, ${compromisedAt})
+    WHERE kid = ${kid} AND status != 'compromised'
+    RETURNING kid
+  `;
+  return rows.length > 0;
 }

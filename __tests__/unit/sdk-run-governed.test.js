@@ -77,6 +77,11 @@ describe('runGoverned', () => {
 
   beforeEach(() => {
     claw = new DashClaw({ baseUrl: 'http://localhost:3000', apiKey: 'k', agentId: 'agent-1' });
+    vi.spyOn(claw, 'claimExecution').mockImplementation(async (actionId) => ({
+      claimed: true,
+      action_id: actionId,
+      attempt_id: 'test-attempt',
+    }));
   });
 
   it('guard(allow, recorded) -> fn() -> reportActionOutcome(completed), with ONE call (no createAction)', async () => {
@@ -93,7 +98,12 @@ describe('runGoverned', () => {
 
     expect(result).toBe('done');
     expect(claw.guard).toHaveBeenCalledWith(
-      { action_type: 'other', declared_goal: 'g', act: { kind: 'shell', command: 'ls' } },
+      {
+        action_type: 'other',
+        declared_goal: 'g',
+        act: { kind: 'shell', command: 'ls' },
+        client_capabilities: ['execution_claims'],
+      },
       { record: true },
     );
     expect(createSpy).not.toHaveBeenCalled();
@@ -114,7 +124,12 @@ describe('runGoverned', () => {
     );
 
     expect(result).toBe('done');
-    expect(createSpy).toHaveBeenCalledWith({ action_type: 'other', declared_goal: 'g', act: { kind: 'shell', command: 'ls' } });
+    expect(createSpy).toHaveBeenCalledWith({
+      action_type: 'other',
+      declared_goal: 'g',
+      act: { kind: 'shell', command: 'ls' },
+      client_capabilities: ['execution_claims'],
+    });
     expect(fn).toHaveBeenCalledTimes(1);
     expect(outcomeSpy).toHaveBeenCalledWith('act_fallback', { status: 'completed' });
   });
@@ -266,6 +281,11 @@ describe('guardedFetch', () => {
     claw = new DashClaw({ baseUrl: 'http://localhost:3000', apiKey: 'k', agentId: 'agent-1' });
     vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'allow' });
     vi.spyOn(claw, 'createAction').mockResolvedValue({ action: { status: 'running' }, action_id: 'act_http_1' });
+    vi.spyOn(claw, 'claimExecution').mockResolvedValue({
+      claimed: true,
+      action_id: 'act_http_1',
+      attempt_id: 'test-attempt',
+    });
     vi.spyOn(claw, 'reportActionOutcome').mockResolvedValue({});
     global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
   });

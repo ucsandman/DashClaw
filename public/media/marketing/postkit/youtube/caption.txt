@@ -1,1 +1,3 @@
-Agent decision infrastructure
+Archived July 2026 asset. Do not publish this clip as current product guidance: its enforcement claims predate the execution-claim contract.
+
+Use the current demo and documentation at https://www.dashclaw.io/demo.

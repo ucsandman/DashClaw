@@ -166,7 +166,7 @@ echo '{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_use_id":"t
   | python .claude/hooks/dashclaw_pretool.py
 ```
 
-If DashClaw is reachable, the hook evaluates the command against your guard policies. If not, it exits silently and Claude Code proceeds normally.
+If DashClaw is reachable, the hook evaluates the command against your guard policies. If the configured instance is unreachable, the default `DASHCLAW_GUARD_UNAVAILABLE_POLICY=block` stops the command; set `warn` or `allow` explicitly for a development fail-open posture.
 
 > Use `python3` here if your system has no `python` on PATH. (Installed hooks don't have this concern — they run through the `run_hook.cjs` shim, which resolves the interpreter automatically.)
 
@@ -178,7 +178,13 @@ The Stop hook also auto-closes any action still in `status='running'` at turn en
 
 ### Enforcement-liveness probe (SessionStart hook)
 
-`enforcement_liveness_probe.py` is wired as the SessionStart hook (`--source session-start`). It proves the enforcement seam still holds end to end: it drives a synthetic action that policy must hold through the SAME PreToolUse hook seam real actions use, and verdicts by observing whether the action executed — never by reading the decision ledger (the ledger is exactly what kept lying in v4.72.1). Its verdict is filed to `POST /api/enforcement-liveness`.
+`enforcement_liveness_probe.py` is wired as the SessionStart hook (`--source session-start`). It tests the enforcement seam end to end: it drives a synthetic action through the selected PreToolUse hook entry and verdicts by observing whether the action executed, never by reading the decision ledger. Its verdict is filed to `POST /api/enforcement-liveness`.
+
+The same run measures the selected host runtime with its fixed version command
+and computes a SHA-256 fingerprint over the selected hook source bytes, including
+the delegated canonical hook when an adapter is selected. These fields describe
+what the local probe observed. They are client-reported operational evidence,
+not remote attestation or proof that the reporting process was trustworthy.
 
 To keep session start instant, the SessionStart entry point throttles itself to at most once per 12h (a marker file under `~/.dashclaw/liveness-probe/`) and runs the actual probe in a DETACHED child — session start is never delayed or broken by it. It reads the same configuration as the other hooks (`DASHCLAW_BASE_URL`/`DASHCLAW_URL`, `DASHCLAW_API_KEY`). Set `DASHCLAW_LIVENESS_PROBE_DISABLED=1` to turn it off without uninstalling. The installer wires it automatically (per-project and `--global --governance`). Run it manually any time with `python hooks/enforcement_liveness_probe.py` (or `npm run liveness:probe`).
 
@@ -211,6 +217,7 @@ Runtimes with no row above are not oversights. MCP, the Node and Python SDKs, an
 | `DASHCLAW_AGENT_ID` | No | `claude-code` | Identity for this agent in DashClaw. A `--agent-id <id>` flag on the hook command line (written by the harness installers since v2.2) takes precedence, so each harness on a machine reports its own identity even when this var is exported machine-wide. |
 | `DASHCLAW_SUBAGENT_IDENTITY` | No | `distinct` | `distinct` (default since v2.2) gives each sub-agent type its own composed agent_id (`<parent>:<type>`) — a distinct fleet agent; the server falls back to the parent's pairing/targeted policies and rolls agent-scoped x402 budgets up to the family base. `provenance` restores the legacy behavior (agent_id stays the parent; sub-agent identity rides the provenance fields only). |
 | `DASHCLAW_HOOK_MODE` | No | `enforce` | `enforce` blocks on policy violations. `observe` logs everything but never blocks. The hook reports this mode on every guard call and action record (`enforcement_mode`), so observe-mode agents surface as a **red** signal, a red banner on `/approvals` and `/decisions`, and a doctor warning with a fix. When an observe-mode block or approval gate executes anyway, PostToolUse stamps `executed_despite` on the row — the ledger renders it "Executed despite block," never identically to an enforced block. CAUTION: the hook loads `.env` files by walking up from the **hook file's** directory, so one `observe` override applies to every session using that hook install. |
+| `DASHCLAW_REQUIRE_EXECUTION_CLAIMS` | No | `0` | Staged rollout pin. Set `1` after upgrading the server to execution claim protocol 1. Without the pin, a server that omits claim negotiation uses the existing guard and approval flow, which does not guarantee a single execution attempt. Advertised claims always require an exact acknowledgement; unsupported or malformed advertised protocols block. Install live hooks from a stable release, because editing a checkout used by a harness changes its next tool call immediately. |
 | `DASHCLAW_PERMISSION_MODE` | No | `danger` | Permission mode passed to the guard for policy evaluation |
 | `DASHCLAW_GOVERNED_CATEGORIES` | No | `execution,orchestration,file_io,interactive,mcp` | Comma-separated list of tool categories that are governed |
 | `DASHCLAW_GUARD_TIMEOUT` | No | `5` | Timeout in seconds for the guard request. By default the guard makes **one attempt** (no retries); set `DASHCLAW_GUARD_RETRIES=2` to restore the old three-attempt behavior. |
@@ -243,6 +250,15 @@ The PreToolUse hook calls `POST /api/guard` before each governed tool executes. 
 
   **Second-person-gate caveat:** the `operator` identity is exempt from the separation-of-duties check on the containment resolve route (mirrors the accepted approvals precedent). If this hook authenticates with the bootstrap `DASHCLAW_API_KEY`, its actions are attributed to `operator`, and `operator` can promote its own contained work — `SELF_APPROVAL_FORBIDDEN` never fires. For containment to have a real second-person gate, install the hook with a database-backed `api_keys` credential rather than the bootstrap operator key.
 - **require_approval**: In enforce mode, an action record is created in `pending_approval` status. The hook prints the action ID and a replay link, then polls for up to 30 seconds waiting for an operator to approve or deny. If approved, the tool proceeds. If denied or timed out, the tool is blocked. In observe mode, the action is recorded but the tool proceeds immediately, and PostToolUse stamps `executed_despite: require_approval` on the pending row so the ledger shows the gate did not hold.
+
+In enforce mode, a server advertising execution-claim protocol 1 must confirm a
+fresh claim for the exact action, principal, current decision, and act before the
+host tool is released. Approval and plan grants are consumed atomically at this
+claim, not by guard evaluation. A rejected, malformed, or lost acknowledgement
+blocks and is never retried automatically. During a server-first upgrade, a
+response with no claim fields keeps the legacy guard and approval flow until
+`DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1` is set. Any partial or unknown claim
+advertisement blocks even when that strict pin is unset.
 
 ### Script bodies are evidence
 

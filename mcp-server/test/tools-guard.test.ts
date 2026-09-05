@@ -16,7 +16,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DashClawClient } from "../src/client.js";
 import { registerGovernance } from "../src/server.js";
-import { createToolHandlers } from "../src/tools.js";
+import { createToolHandlers, TOOL_DEFINITIONS } from "../src/tools.js";
 
 let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -282,6 +282,82 @@ describe("non-guard governance tools fail loud on transport errors", () => {
     expect(body.error).toContain("DashClaw API unreachable");
     expect(body.error).toContain("***REDACTED***");
     expect(body.error).not.toContain("oc_live_test");
+  });
+
+  it.each([
+    [401, { error: "Invalid or missing API key" }, /HTTP 401.*Invalid or missing API key/],
+    [403, {
+      success: false,
+      error: "blocked_by_policy",
+      guard_decision: { decision: "block", reasons: ["Capability denied by policy"] },
+    }, /denied by policy.*Capability denied by policy/],
+    [500, { error: "internal" }, /HTTP 500.*internal/],
+  ])("dashclaw_invoke maps HTTP %s to a structural MCP error", async (status, response, message) => {
+    fetchMock.mockResolvedValue(mockStatus(status, response));
+    const handlers = registeredGovernanceHandlers();
+
+    const result = await handlers.get("dashclaw_invoke")!({
+      capability_id: "cap_1",
+      declared_goal: "call capability",
+    });
+    const body = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(body.error).toMatch(message);
+  });
+});
+
+describe("session transitions preserve honest ambient attribution", () => {
+  it("failed session_start is structural and invalidates the previous ambient session", async () => {
+    fetchMock
+      .mockResolvedValueOnce(mockOk({ session: { id: "sess_A" } }))
+      .mockResolvedValueOnce(mockStatus(500, { error: "session store unavailable" }))
+      .mockResolvedValueOnce(mockOk({ action: { action_id: "act_1" } }));
+    const handlers = makeHandlers();
+
+    await handlers.dashclaw_session_start({ agent_id: "srv-agent", workspace: "A" });
+    await expect(handlers.dashclaw_session_start({ agent_id: "srv-agent", workspace: "B" }))
+      .rejects.toThrow(/dashclaw_session_start.*HTTP 500.*session store unavailable/);
+    await handlers.dashclaw_record({ action_type: "research", declared_goal: "B work", status: "completed" });
+
+    expect(lastRequestBody().session_id).toBeUndefined();
+  });
+
+  it("malformed session_start is structural and does not adopt an absent id", async () => {
+    fetchMock.mockResolvedValueOnce(mockOk({ session: {} }));
+    const handlers = registeredGovernanceHandlers();
+
+    const result = await handlers.get("dashclaw_session_start")!({ agent_id: "srv-agent", workspace: "B" });
+    const body = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(body.error).toMatch(/valid session id/);
+  });
+
+  it("failed session_end is structural and retains the still-open ambient session", async () => {
+    fetchMock
+      .mockResolvedValueOnce(mockOk({ session: { id: "sess_A" } }))
+      .mockResolvedValueOnce(mockStatus(500, { error: "close failed" }))
+      .mockResolvedValueOnce(mockOk({ action: { action_id: "act_1" } }));
+    const handlers = makeHandlers();
+
+    await handlers.dashclaw_session_start({ agent_id: "srv-agent", workspace: "A" });
+    await expect(handlers.dashclaw_session_end({ session_id: "sess_A", status: "completed" }))
+      .rejects.toThrow(/dashclaw_session_end.*HTTP 500.*close failed/);
+    await handlers.dashclaw_record({ action_type: "research", declared_goal: "still A", status: "completed" });
+
+    expect(lastRequestBody().session_id).toBe("sess_A");
+  });
+});
+
+describe("governance tool guidance", () => {
+  it("does not describe a guard decision id as a closable action record id", () => {
+    const record = TOOL_DEFINITIONS.find((tool) => tool.name === "dashclaw_record");
+    const actionId = record?.inputSchema.properties?.action_id?.description ?? "";
+
+    expect(actionId).toContain("earlier dashclaw_record");
+    expect(actionId).toContain("dashclaw_guard decision_id is not an action record");
+    expect(actionId).not.toMatch(/returned by[^.]*dashclaw_guard/);
   });
 });
 

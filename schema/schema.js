@@ -13,6 +13,12 @@ const vector = customType({
 
 // --- Base Tables ---
 
+export const schemaMigrations = pgTable('schema_migrations', {
+  filename: text('filename').primaryKey(),
+  checksum: text('checksum').notNull(),
+  appliedAt: timestamp('applied_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const organizations = pgTable('organizations', {
   id: text('id').primaryKey(), // org_ prefix
   name: text('name').notNull(),
@@ -207,6 +213,12 @@ export const actionRecords = pgTable('action_records', {
   // Single-use operator-approval grants (drizzle/0045): stamped by the
   // guard's atomic consume; NULL means the approval is still grantable.
   approvalGrantUsedAt: timestamp('approval_grant_used_at'),
+  executionClaimedAt: timestamp('execution_claimed_at', { withTimezone: true }),
+  executionProtocol: integer('execution_protocol'),
+  executionGuardDecisionId: text('execution_guard_decision_id'),
+  executionAttemptId: text('execution_attempt_id'),
+  identityVerified: boolean('identity_verified'),
+  payloadSignatureStatus: text('payload_signature_status'),
   // Act-content grant binding (drizzle/0056): server-computed digest of the
   // act payload the row was created with (evidence-first guard). The
   // operator-approval grant only matches a retry presenting the same act;
@@ -748,6 +760,9 @@ export const serverSigningKeys = pgTable('server_signing_keys', {
   privateJwk: text('private_jwk').notNull(),
   publicJwk: text('public_jwk').notNull(),
   active: integer('active').notNull().default(1),
+  status: text('status').notNull().default('active'),
+  retiredAt: timestamp('retired_at'),
+  compromisedAt: timestamp('compromised_at'),
   createdAt: timestamp('created_at').defaultNow(),
 });
 

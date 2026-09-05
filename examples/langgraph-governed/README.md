@@ -1,6 +1,12 @@
 # LangGraph + DashClaw Governance Example
 
-A minimal example showing how to govern a LangGraph agent's tool calls with DashClaw.
+A minimal LangGraph example showing policy decisions and audit records as graph
+state around simulated research.
+
+> **Trust boundary:** The source splits lower-level cooperative SDK calls across
+> graph nodes and does not claim protocol-1 execution authority. Keep its work
+> simulated. For a real effect, call `run_governed` inside the node that owns the
+> effect callback.
 
 ## Prerequisites
 
@@ -45,9 +51,9 @@ The governance node runs first, checks policy, then the research node executes i
 
 This example uses the DashClaw Python SDK directly (`from dashclaw import DashClaw`),
 governing the graph with the core methods (`guard`, `create_action`,
-`wait_for_approval`, `update_outcome`) — the intercept → decide → approve → prove loop.
+`wait_for_approval`, `update_outcome`) for a cooperative policy and audit flow.
 
-## What's Governed
+## What's Recorded
 
 | DashClaw Feature | Graph Node |
 |---|---|

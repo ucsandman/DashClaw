@@ -36,34 +36,16 @@ claw = DashClaw(
 @tool("Analyze Customer Data")
 def analyze_customer_data(query: str) -> str:
     """Analyze customer data. Governed by DashClaw policies."""
-
-    # 1. GUARD: Check policy before executing
-    result = claw.guard({
-        "action_type": "data_analysis",
-        "declared_goal": f"Analyze customer data: {query}",
-        "risk_score": 40,
-        "systems_touched": ["customer_database"],
-    })
-
-    if result.get("decision") == "block":
-        reasons = result.get("reasons", [])
-        return f"Blocked by governance policy: {', '.join(reasons)}"
-
-    # 2. RECORD: Declare intent
-    action = claw.create_action(
-        "data_analysis",
-        f"Analyze customer data: {query}",
-        risk_score=40,
-    )
-    action_id = action["action_id"]
-
-    # 3. EXECUTE: Your tool logic here
-    analysis_result = f"Analysis of '{query}': 42 segments, avg satisfaction 4.2/5."
-
-    # 4. OUTCOME: Report result
-    claw.update_outcome(action_id, status="completed", output_summary=analysis_result)
-
-    return analysis_result`;
+    return claw.run_governed(
+        {"kind": "sql", "statement": f"/* customer analysis */ {query}"},
+        {
+            "action_type": "data_analysis",
+            "declared_goal": f"Analyze customer data: {query}",
+            "risk_score": 40,
+            "systems_touched": ["customer_database"],
+        },
+        lambda: f"Analysis of '{query}': 42 segments, avg satisfaction 4.2/5.",
+    )`;
 
   const guardrailsYaml = `version: 1
 project: my-crewai-agent
@@ -121,10 +103,10 @@ DASHCLAW_API_KEY=oc_live_...`,
       number: 4,
       title: 'Create a governed CrewAI tool with the @tool decorator',
       summary:
-        'The @tool decorator creates a CrewAI tool. Inside the function, call DashClaw guard before executing, then record the action and outcome.',
+        'The @tool decorator creates a CrewAI tool. run_governed keeps policy, approval, execution claiming, callback, and outcome on one persisted action.',
       codeTitle: 'main.py',
       codeBody: toolCodeBody,
-      note: 'The guard check runs before each tool execution. If the policy blocks, the tool returns early with the block reason. Otherwise it records the action, executes, and reports the outcome.',
+      note: 'The callback runs only after DashClaw confirms protocol-1 execution authority for the exact action and act.',
     },
     {
       number: 5,

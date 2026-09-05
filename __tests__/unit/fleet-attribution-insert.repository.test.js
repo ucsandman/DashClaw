@@ -2,15 +2,12 @@
  * v4.3 fleet attribution — createActionRecord persists + sanitizes the two new
  * lineage columns (harness_session_id, subagent_uuid).
  *
- * A tagged-template mock captures the bound VALUES. Column order is load-bearing:
- * the insert appends harness_session_id, subagent_uuid BEFORE enforcement_mode
- * (v5.7.0, F0) and close_source, and approval_expires_at stays last
- * (close-source-stamping pins .at(-2)=close_source and approvals-lifecycle pins
- * .at(-1)=approval_expires_at), so:
- *   .at(-5) = harness_session_id, .at(-4) = subagent_uuid, .at(-3) = enforcement_mode.
+ * A tagged-template mock captures the bound VALUES. Assertions resolve values
+ * by column name so unrelated schema additions cannot retarget them.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createActionRecord, createBlockedActionRecord, updateActionOutcome } from '../../app/lib/repositories/actions.repository.js';
+import { actionInsertValuesByColumn } from './helpers/action-insert-values.js';
 
 function makeCapturingSqlMock(responses) {
   const queue = [...responses];
@@ -41,33 +38,36 @@ describe('createActionRecord — fleet attribution columns', () => {
   it('persists harness_session_id and subagent_uuid from the payload data', async () => {
     const sql = makeCapturingSqlMock([[{ action_id: 'act_1' }]]);
     await createActionRecord(sql, payload({ harness_session_id: 'hs_abc', subagent_uuid: 'uuid_xyz' }));
-    const { text, values } = sql.calls[0];
+    const { text } = sql.calls[0];
+    const insert = actionInsertValuesByColumn(sql.calls[0]);
     expect(text).toContain('harness_session_id');
     expect(text).toContain('subagent_uuid');
-    expect(values.at(-5)).toBe('hs_abc'); // harness_session_id
-    expect(values.at(-4)).toBe('uuid_xyz'); // subagent_uuid
-    expect(values.at(-2)).toBeNull(); // close_source (running create)
+    expect(insert.harness_session_id).toBe('hs_abc');
+    expect(insert.subagent_uuid).toBe('uuid_xyz');
+    expect(insert.close_source).toBeNull();
   });
 
   it('binds NULL when the fields are absent', async () => {
     const sql = makeCapturingSqlMock([[{ action_id: 'act_1' }]]);
     await createActionRecord(sql, payload({}));
-    expect(sql.calls[0].values.at(-5)).toBeNull();
-    expect(sql.calls[0].values.at(-4)).toBeNull();
+    const insert = actionInsertValuesByColumn(sql.calls[0]);
+    expect(insert.harness_session_id).toBeNull();
+    expect(insert.subagent_uuid).toBeNull();
   });
 
   it('sanitizes to NULL: over-200-char and non-string values', async () => {
     const sql = makeCapturingSqlMock([[{ action_id: 'act_1' }]]);
     await createActionRecord(sql, payload({ harness_session_id: 'x'.repeat(201), subagent_uuid: 12345 }));
-    expect(sql.calls[0].values.at(-5)).toBeNull(); // too long
-    expect(sql.calls[0].values.at(-4)).toBeNull(); // not a string
+    const insert = actionInsertValuesByColumn(sql.calls[0]);
+    expect(insert.harness_session_id).toBeNull();
+    expect(insert.subagent_uuid).toBeNull();
   });
 
   it('accepts exactly 200 chars', async () => {
     const sql = makeCapturingSqlMock([[{ action_id: 'act_1' }]]);
     const s = 'y'.repeat(200);
     await createActionRecord(sql, payload({ harness_session_id: s }));
-    expect(sql.calls[0].values.at(-5)).toBe(s);
+    expect(actionInsertValuesByColumn(sql.calls[0]).harness_session_id).toBe(s);
   });
 
   it('createBlockedActionRecord threads the fields through (it delegates)', async () => {
@@ -82,9 +82,10 @@ describe('createActionRecord — fleet attribution columns', () => {
       timestamp_start: '2026-07-04T00:00:00Z',
       riskScore: 90,
     });
-    expect(sql.calls[0].values.at(-5)).toBe('hs_blocked');
-    expect(sql.calls[0].values.at(-4)).toBe('uuid_blocked');
-    expect(sql.calls[0].values.at(-2)).toBe('direct'); // blocked rows are born terminal
+    const insert = actionInsertValuesByColumn(sql.calls[0]);
+    expect(insert.harness_session_id).toBe('hs_blocked');
+    expect(insert.subagent_uuid).toBe('uuid_blocked');
+    expect(insert.close_source).toBe('direct');
   });
 });
 

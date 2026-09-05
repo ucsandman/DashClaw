@@ -14,8 +14,9 @@
  */
 
 import { generateSigningKey, publicJwkFromPrivate, jwkThumbprint } from './keys';
-import { getActiveSigningKey, insertSigningKey, listPublicJwks } from '../repositories/signing-keys.repository';
+import { getActiveSigningKey, insertSigningKey, listPublicJwks, listSigningKeyStatuses } from '../repositories/signing-keys.repository';
 import type { SqlTag } from '../types/db';
+import { decrypt, encrypt } from '../encryption';
 
 /** A JSON Web Key. Members are dynamic (parsed JSON / node crypto export). */
 type Jwk = Record<string, unknown> & { kid?: string };
@@ -60,7 +61,16 @@ function parseEnvSigningKey(): ResolvedSigningKey | null {
 }
 
 function fromRow(row: SigningKeyRowLike): ResolvedSigningKey {
-  const privateKeyJwk = typeof row.private_jwk === 'string' ? JSON.parse(row.private_jwk) : row.private_jwk;
+  let privateKeyJwk: Jwk;
+  if (typeof row.private_jwk === 'string' && row.private_jwk.startsWith('v2:')) {
+    const plaintext = decrypt(row.private_jwk, `dashclaw:server-signing-key:${row.kid}`);
+    if (!plaintext) throw new Error(`stored signing key ${row.kid} cannot be decrypted`);
+    privateKeyJwk = JSON.parse(plaintext) as Jwk;
+  } else {
+    // Explicit upgrade compatibility: releases before F29 stored a JSON JWK
+    // directly. Keep it readable until the operator runs custody-keys --apply.
+    privateKeyJwk = typeof row.private_jwk === 'string' ? JSON.parse(row.private_jwk) : row.private_jwk;
+  }
   const publicKeyJwk = typeof row.public_jwk === 'string' ? JSON.parse(row.public_jwk) : row.public_jwk;
   return { kid: row.kid, privateKeyJwk, publicKeyJwk, source: 'db' };
 }
@@ -71,7 +81,11 @@ function fromRow(row: SigningKeyRowLike): ResolvedSigningKey {
  * key).
  */
 export async function getServerSigningKey(sql: SqlTag): Promise<ResolvedSigningKey> {
-  if (cached) return cached;
+  // An environment-held key changes only with a process restart. DB-backed
+  // keys are re-checked so a rotation or compromise takes effect before the
+  // next receipt is issued; the cache only avoids repeated JWK decryption when
+  // the active kid is unchanged.
+  if (cached?.source === 'env') return cached;
 
   const env = parseEnvSigningKey();
   if (env) {
@@ -81,6 +95,7 @@ export async function getServerSigningKey(sql: SqlTag): Promise<ResolvedSigningK
 
   const existing = await getActiveSigningKey(sql);
   if (existing) {
+    if (cached?.source === 'db' && cached.kid === existing.kid) return cached;
     cached = fromRow(existing as unknown as SigningKeyRowLike);
     return cached;
   }
@@ -89,10 +104,14 @@ export async function getServerSigningKey(sql: SqlTag): Promise<ResolvedSigningK
   // under concurrent cold starts; the loser re-reads the winner's key so every
   // instance signs with the one key whose public half is in the JWKS.
   const kp = generateSigningKey();
+  const encryptedPrivateJwk = encrypt(
+    JSON.stringify(kp.privateKeyJwk),
+    `dashclaw:server-signing-key:${kp.kid}`,
+  );
   const won = await insertSigningKey(sql, {
     kid: kp.kid,
     alg: 'EdDSA',
-    privateJwk: JSON.stringify(kp.privateKeyJwk),
+    privateJwk: encryptedPrivateJwk,
     publicJwk: JSON.stringify(kp.publicKeyJwk),
   });
   if (won) {
@@ -110,11 +129,19 @@ export async function getServerSigningKey(sql: SqlTag): Promise<ResolvedSigningK
  * Public JWKS for re-verification. Publishes the public half of the env key
  * (if any) and every active DB key. Never includes the private member `d`.
  */
-export async function getServerPublicJwks(sql: SqlTag): Promise<{ keys: Jwk[] }> {
+export async function getServerPublicJwks(sql: SqlTag): Promise<{
+  keys: Jwk[];
+  dashclaw_key_status: unknown[];
+}> {
   const keys: Jwk[] = [];
+  let keyStatuses: unknown[] = [];
+  let envKeyStatus: { kid: string; alg: string; status: string; source: string } | null = null;
   try {
     const env = parseEnvSigningKey();
-    if (env) keys.push(env.publicKeyJwk);
+    if (env) {
+      keys.push(env.publicKeyJwk);
+      envKeyStatus = { kid: env.kid, alg: 'EdDSA', status: 'active', source: 'env' };
+    }
   } catch {
     // Malformed env key: signing is broken regardless, but we can still publish
     // any DB keys so previously-issued receipts remain verifiable.
@@ -127,7 +154,16 @@ export async function getServerPublicJwks(sql: SqlTag): Promise<{ keys: Jwk[] }>
   } catch {
     // DB unavailable — the env key (if any) is still published.
   }
-  return { keys };
+  try {
+    keyStatuses = await listSigningKeyStatuses(sql);
+  } catch {
+    // Keep the trusted key response available when lifecycle metadata cannot
+    // be loaded. The manifest is additive and never fabricated.
+  }
+  if (envKeyStatus && !keyStatuses.some((row: any) => row?.kid === envKeyStatus?.kid)) {
+    keyStatuses.unshift(envKeyStatus);
+  }
+  return { keys, dashclaw_key_status: keyStatuses };
 }
 
 /** Test-only: clear the resolved-key cache. */

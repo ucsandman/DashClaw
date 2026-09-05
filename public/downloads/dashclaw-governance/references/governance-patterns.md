@@ -3,26 +3,26 @@
 Concrete tool call sequences for common governance scenarios. Load this reference when
 you need implementation examples.
 
-## Guard-Before-Invoke Pattern
+## Governed Capability Pattern
 
-The standard pattern for governed capability invocations:
+`dashclaw_invoke` owns the current policy evaluation, action record, approval,
+execution claim, external effect, and outcome:
 
 ```
-Step 1: Guard the action
-  dashclaw_guard(action_type="api_call", declared_goal="Send Slack notification",
-                 risk_score=45, systems_touched=["slack"])
+Step 1: Invoke the registered capability directly
+  result = dashclaw_invoke(
+    capability_id="cap_slack_notify",
+    declared_goal="Send deployment notification to #ops",
+    payload={"channel": "#ops", "message": "Deployed v2.3.1"})
 
-Step 2: Check the decision
-  If "allow" or "warn" → proceed to step 3
-  If "block" → stop, inform user
-  If "require_approval" → go to Approval Wait Pattern
+Step 2: Handle the result
+  success == true → the server evaluated current policy, claimed one attempt,
+                    performed the call, and recorded completion
+  error == "pending_approval" → wait on result.action_id, then repeat the exact invoke
+  error == "blocked_by_policy" → stop and report the reason
+  execution_state == "unknown" → reconcile Slack before any retry
 
-Step 3: Invoke the capability
-  dashclaw_invoke(capability_id="cap_slack_notify",
-                  declared_goal="Send deployment notification to #ops",
-                  payload={"channel": "#ops", "message": "Deployed v2.3.1"})
-
-Step 4: dashclaw_invoke records automatically. Do NOT call dashclaw_record again
+Step 3: dashclaw_invoke records automatically. Do NOT call dashclaw_record again
   for the same operation — that would create a second audit row for one action.
   Only emit a separate dashclaw_record when summarizing a multi-call workflow as
   one parent action.
@@ -30,40 +30,40 @@ Step 4: dashclaw_invoke records automatically. Do NOT call dashclaw_record again
 
 ## Approval Wait Pattern
 
-When a guard decision requires human approval:
+For a registered capability whose invocation returns `pending_approval`:
 
 ```
-Step 1: Guard returns require_approval
-  result = dashclaw_guard(action_type="deploy", declared_goal="Deploy to production",
-                          risk_score=85, systems_touched=["production"])
-  result.decision == "require_approval"
+Step 1: Invoke returns pending_approval
+  result = dashclaw_invoke(capability_id="cap_deploy",
+                           declared_goal="Deploy v2.3.1 to production",
+                           payload={"environment": "production"})
+  result.error == "pending_approval"
 
-Step 2: Record the pending action
-  dashclaw_record(action_type="deploy", declared_goal="Deploy v2.3.1 to production",
-                  status="pending_approval", risk_score=85,
-                  reasoning="All tests passed, staging verified")
-
-Step 3: Inform the user
+Step 2: Inform the user
   "This deployment requires human approval. An operator can approve or deny
    this action in DashClaw Approvals."
 
-Step 4: Wait for the decision
-  dashclaw_wait_for_approval(action_id="act_xxx")
+Step 3: Wait for the decision
+  approval = dashclaw_wait_for_approval(action_id=result.action_id)
 
-Step 5: Handle the result. The response shape is { approved, denied, expired?, action, timed_out }.
-  - approved == true → proceed with the deploy, then PATCH the outcome
-                       (status="completed", optional tokens_in/tokens_out/model)
+Step 4: Handle the result. The response shape is { approved, denied, expired?, action, timed_out }.
+  - approved == true → repeat the exact dashclaw_invoke. Its atomic execution
+                       claim consumes the approval before the external effect.
   - timed_out == true → operator never responded inside the configured timeout
-                        (default 300s; override with timeout_seconds — declare
-                        the same window as approval_wait_seconds on the guard/
-                        record call so the pending row expires truthfully).
-                        Either re-request, fall back, or stop with an explicit log.
+                        (default 300s; override with timeout_seconds).
+                        Re-request or stop with an explicit log.
   - denied == true → operator denied. Read denial_reason, then stop.
   - expired == true → the server expired the approval (your wait window +
                        retry grace passed). It can no longer be approved —
                        re-request if the action is still wanted.
   - approved == false otherwise → action moved to a non-completed terminal
                                    state. Read action.error_message, then stop.
+
+For an ordinary MCP action, `dashclaw_guard` + `dashclaw_record` + approval wait
+is cooperative policy state. It does not claim execution authority. Put a
+consequential effect behind a host interception hook or SDK
+`runGoverned` / `run_governed` callback.
+```
 
 ## Token + Cost Reporting Pattern
 
@@ -104,7 +104,7 @@ Step 1: Start session
   → session_id = "sess_xxx"
 
 Step 2: Execute governed work
-  ... (guard, act, record for each action) ...
+  ... (claimed effect boundary; record separate cooperative decisions) ...
 
 Step 3: End session
   dashclaw_session_end(session_id="sess_xxx", status="completed",
@@ -136,15 +136,11 @@ Step 3: Run tests (moderate risk)
                   output_summary="847/847 tests passed")
 
 Step 4: Deploy to staging (high risk)
-  dashclaw_guard(action_type="deploy", declared_goal="Deploy to staging",
-                 risk_score=70, systems_touched=["staging"])
   dashclaw_invoke(capability_id="cap_deploy", payload={"env": "staging"})
 
 Step 5: Deploy to production (very high risk — expect approval)
-  dashclaw_guard(action_type="deploy", declared_goal="Deploy to production",
-                 risk_score=90, systems_touched=["production"])
-  → require_approval → wait → approved
-  dashclaw_invoke(capability_id="cap_deploy", payload={"env": "production"})
+  result = dashclaw_invoke(capability_id="cap_deploy", payload={"env": "production"})
+  → pending_approval → wait → approved → repeat the exact dashclaw_invoke
 
 Step 6: End session
   dashclaw_session_end(session_id="sess_xxx", status="completed",
@@ -153,23 +149,32 @@ Step 6: End session
 
 ## Error/Failure Recording Pattern
 
-Always record failures — silent failures are governance gaps:
+`dashclaw_invoke` owns its action record and outcome. Do not add a second
+`dashclaw_record` for the same invocation:
 
 ```
 Step 1: Attempt the action
   result = dashclaw_invoke(capability_id="cap_api", payload={...})
 
-Step 2: Check for failure
-  If result.success == false:
-    dashclaw_record(action_type="api_call", declared_goal="Fetch user data",
-                    status="failed", risk_score=40,
-                    output_summary="HTTP 503: Service temporarily unavailable")
+Step 2: Interpret the returned state
+  success == true
+    → the server recorded completion; use the returned action_id
 
-Step 3: Do NOT silently retry
-  If you want to retry, record the retry as a new action:
-    dashclaw_guard(action_type="api_call", declared_goal="Retry: Fetch user data",
-                   risk_score=40)
-    dashclaw_invoke(capability_id="cap_api", payload={...})
+  error == "execution_outcome_unknown" or execution_state == "unknown"
+    → the capability call may have completed, but DashClaw could not confirm
+      its outcome; reconcile the downstream system before any retry
+
+  timeout, network, or transport error
+    → downstream effect is ambiguous even if DashClaw recorded the attempt as
+      failed; reconcile the downstream system before any retry
+
+  an unambiguous pre-execution rejection such as blocked_by_policy,
+  pending_approval, access_denied, or execution_claim_unavailable
+    → no external effect ran; follow the returned guidance
+
+Step 3: Retry only after reconciliation proves another effect is appropriate
+  Call dashclaw_invoke again with the exact capability and payload. It creates
+  and governs the new attempt; do not pre-guard or create a duplicate record.
 ```
 
 ## Discovery Pattern
@@ -184,11 +189,7 @@ Step 1: List available capabilities
 Step 2: Check the capability's health
   If health == "degraded" or "failing" → inform user, consider alternatives
 
-Step 3: Guard the invocation
-  dashclaw_guard(action_type="api_call", declared_goal="Send Slack message",
-                 risk_score=45)
-
-Step 4: Invoke
+Step 3: Invoke through the registered effect seam
   dashclaw_invoke(capability_id="cap_slack_notify",
                   declared_goal="Notify team of completed analysis",
                   payload={"channel": "#team", "message": "Analysis complete"})

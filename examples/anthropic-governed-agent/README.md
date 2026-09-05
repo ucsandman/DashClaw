@@ -1,12 +1,17 @@
 # DashClaw + Anthropic Claude SDK: Deployment Agent
 
-A governed AI agent that analyzes deployment readiness, checks service health, and deploys to production — but only after a human operator approves the action in DashClaw Approvals.
+A Claude agent that demonstrates DashClaw policy, approval, and audit calls around
+a simulated deployment.
+
+> **Trust boundary:** This example uses the lower-level cooperative SDK calls.
+> It does not claim protocol-1 execution authority. Keep the deploy simulated,
+> or move a real effect into `runGoverned(act, params, callback)`.
 
 ## What This Demonstrates
 
 1. **Real Agent Reasoning** — Claude analyzes the deployment manifest, checks each service's health, identifies risks (degraded user-service), and decides whether to proceed
 2. **Tool Use Loop** — The agent uses tools (`check_deployment_manifest`, `check_service_health`, `deploy_to_production`) in a multi-turn agentic conversation
-3. **DashClaw Guard** — The `deploy_to_production` tool call is intercepted for policy evaluation
+3. **DashClaw Guard** — The cooperative tool loop submits `deploy_to_production` for policy evaluation
 4. **Human-in-the-Loop** — The agent pauses and waits for operator approval via `waitForApproval()`
 5. **Evidence Trail** — Intent, assumptions, and outcome are recorded in DashClaw
 
@@ -77,7 +82,7 @@ Agent Checks Manifest --> Agent Checks Health --> Agent Decides to Deploy
                                         |           v         v
                                         |         Yes        No -> x
                                         v           |
-                                   Deploy <---------+
+                              Simulated deploy <----+
                                         |
                                    Record Outcome
 ```

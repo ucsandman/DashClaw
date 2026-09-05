@@ -145,7 +145,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
     after(() => logActivity({
       orgId, actorId: userId, action: `action.${decision}ed`,
       resourceType: 'action', resourceId: actionId,
-      details: { decision, reasoning }, request,
+      details: { decision, reasoning: safeReasoning }, request,
     }, sql));
 
     // Emit event for real-time updates

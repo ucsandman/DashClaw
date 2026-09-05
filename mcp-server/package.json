@@ -1,8 +1,8 @@
 {
   "name": "@dashclaw/mcp-server",
-  "version": "3.1.5",
+  "version": "3.1.6",
   "mcpName": "io.github.ucsandman/dashclaw",
-  "description": "MCP server for DashClaw governance — guard, record, invoke, discover capabilities, and read the decision ledger through the governance loop.",
+  "description": "DashClaw policy checks, approvals, action records, and governed execution of registered HTTP capabilities over MCP.",
   "type": "module",
   "bin": {
     "dashclaw-mcp": "bin/dashclaw-mcp.js"

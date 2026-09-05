@@ -127,7 +127,7 @@ export default function SystemStatusBar() {
           {redCount === 0 && amberCount === 0 && (
             <span className="flex items-center gap-1.5 text-[11px] font-medium text-success">
               <ShieldCheck size={11} aria-hidden="true" />
-              All clear
+              No active signals
             </span>
           )}
         </div>

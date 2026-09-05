@@ -1,11 +1,5 @@
-# DashClaw — Instagram post kit
+# Archived DashClaw post kit
 
-## Files
-- Video: social-1x1-captioned.mp4
-- Thumbnail: thumb.jpg
-- Caption: caption.txt (paste as the post copy)
-- Alt text: alt.txt (one-sentence video description)
+This kit is retained for source reference. Its video and copy predate the current enforcement contract and are not approved for publication.
 
-
-## Notes
-Upload as an Instagram feed post or Reel. Paste caption.txt as the caption and alt.txt into Advanced settings > Accessibility > Alt text.
+Regenerate the video, audio, captions, and post copy together before reuse. See the [asset archive notes](../../README.md) and the [current interactive demo](https://www.dashclaw.io/demo).

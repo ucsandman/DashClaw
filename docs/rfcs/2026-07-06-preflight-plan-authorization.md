@@ -1,5 +1,13 @@
 # RFC: Preflight Plan Authorization
 
+> **Superseded implementation note (2026-09-05):** The plan feature shipped,
+> but its authority lifecycle no longer matches this proposal. Guard evaluation
+> selects an eligible plan step without consuming it; protocol-1 execution
+> claim rechecks current policy, exact act, and authenticated principal, then
+> atomically consumes the step with one attempt. See
+> [runtime-api.md](../architecture/runtime-api.md) and
+> [durable-execution-finality.md](../architecture/durable-execution-finality.md).
+
 - **Status:** PROPOSED (program: governed-autonomy, build order 1 of 3 — see `docs/plans/2026-07-06-governed-autonomy-program.md`)
 - **Date:** 2026-07-06
 - **Depends on:** the calibrated interruption controller (currently uncommitted WIP: `app/lib/guard/calibration.ts`, `drizzle/0059_calibration_controller.sql`) MUST be committed/landed before this builds — both features modify `app/lib/guard/evaluate.ts` and the approvals routes.

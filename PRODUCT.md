@@ -17,7 +17,7 @@ Context of use is always professional, focused, and consequential — an agent i
 
 ## Product Purpose
 
-DashClaw is a fail-closed approval layer for unattended AI agent runs: it intercepts a tool call before it executes, risk-scores it against policy (`allow < warn < require_approval < block`), freezes dangerous actions until a human approves with one click from anywhere (phone, inbox — not a terminal), and writes a signed, replayable audit row for every decision. One loop: **Intercept → Decide → Approve → Prove.** The hero surface is the **Approvals inbox**; support surfaces are `/setup`, `/policies`, `/decisions`. Success = governance that earns its interruptions (calibrated false-block bound) and proves it is still enforcing (liveness), instead of nagging users into disabling it.
+DashClaw provides policy checks, remote approvals, and execution evidence for unattended AI agents. Supported hooks, OpenClaw, and the bounded capability-invoke path can stop a call before execution; bare SDK/API callers must honor the result. The lattice is `allow < warn < allow_contained < require_approval < block`. Protocol-1 clients obtain a single-use execution claim under current policy, then report the outcome. Signed receipts verify their recorded contents, while liveness probes provide time-bounded, client-reported evidence of the installed seam. Neither proves exactly-once external execution. The primary surface is the **Approvals inbox**, supported by Setup, Policies, and Decisions. The canonical product scope lives in [THESIS.md](THESIS.md).
 
 ## Brand Personality
 

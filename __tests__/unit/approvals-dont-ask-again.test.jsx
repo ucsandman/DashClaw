@@ -46,14 +46,19 @@ const action = (over = {}) => ({
  * that the release went out over the ordinary approval route — the whole point
  * of the design is that there is no second approval path.
  */
-function makeFetch({ actions = [action()], policies = [], grantOk = true, releaseIds } = {}) {
+function makeFetch({ actions = [action()], policies = [], grantOk = true, releaseIds, truncated = false } = {}) {
   const calls = [];
   const fn = vi.fn(async (url, init) => {
     const u = String(url);
     calls.push({ url: u, method: init?.method || 'GET', body: init?.body ? JSON.parse(init.body) : null });
     if (u.includes('/grant')) {
+      const matching = releaseIds ?? actions.filter((candidate) => {
+        let context = {};
+        try { context = JSON.parse(candidate.context || '{}'); } catch { /* no match */ }
+        return candidate.risk_score < 70 && context.target === SCRATCH;
+      }).map((candidate) => candidate.action_id);
       return grantOk
-        ? { ok: true, json: async () => ({ ok: true, policy: { id: 'gp_1' }, release_ids: releaseIds ?? ['act_1'] }) }
+        ? { ok: true, json: async () => ({ ok: true, policy: { id: 'gp_1' }, target: SCRATCH, matching_count: matching.length, release_ids: matching, truncated }) }
         : { ok: false, json: async () => ({ error: 'Ceiling' }) };
     }
     if (u.startsWith('/api/approvals/')) return { ok: true, json: async () => ({ success: true }) };
@@ -73,12 +78,16 @@ function makeFetch({ actions = [action()], policies = [], grantOk = true, releas
 async function renderPage() {
   const { default: ApprovalsPage } = await import('@/approvals/page.jsx');
   render(<ApprovalsPage />);
-  await waitFor(() => expect(screen.getByText(/edit the build script|Reads information|All clear/i)).toBeTruthy());
+  await waitFor(() => expect(screen.getAllByText(/edit the build script|Reads information|All clear/i).length).toBeGreaterThan(0));
 }
 
 /** The card's own Allow button shares a name with the panel's confirm, so
  *  every confirm assertion is scoped to the panel group. */
 const panel = () => within(screen.getByRole('group', { name: /stop asking about this action/i }));
+async function openPanel(index = 0) {
+  fireEvent.click((await screen.findAllByRole('button', { name: /don't ask again/i }))[index]);
+  await waitFor(() => expect(panel().getByRole('button', { name: /allow/i }).disabled).toBe(false));
+}
 
 describe('approval card — the risk ceiling', () => {
   beforeEach(() => { global.fetch = undefined; });
@@ -113,7 +122,7 @@ describe('approval card — the scope panel', () => {
   it('opens the panel and shows the exact target', async () => {
     global.fetch = makeFetch();
     await renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: /don't ask again/i }));
+    await openPanel();
     expect(screen.getByText(/stop asking about/i)).toBeTruthy();
     expect(screen.getByText(new RegExp(SCRATCH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeTruthy();
     expect(screen.getByText(/covers this exact target only/i)).toBeTruthy();
@@ -124,9 +133,17 @@ describe('approval card — the scope panel', () => {
       actions: [action(), action({ action_id: 'act_2' })],
     });
     await renderPage();
-    fireEvent.click((await screen.findAllByRole('button', { name: /don't ask again/i }))[0]);
+    await openPanel();
     expect(panel().getByRole('button', { name: /allow all 2/i })).toBeTruthy();
     expect(screen.getByText(/also releases 1 waiting action/i)).toBeTruthy();
+  });
+
+  it('labels a truncated preview as a lower bound', async () => {
+    global.fetch = makeFetch({ releaseIds: ['act_1', 'act_2'], truncated: true });
+    await renderPage();
+    await openPanel();
+    expect(panel().getByRole('button', { name: /allow at least 2/i })).toBeTruthy();
+    expect(screen.getByText(/also releases at least 1 waiting action/i)).toBeTruthy();
   });
 
   // A sibling above the ceiling is not covered, so it must not be counted.
@@ -135,7 +152,7 @@ describe('approval card — the scope panel', () => {
       actions: [action(), action({ action_id: 'act_hot', risk_score: 95 })],
     });
     await renderPage();
-    fireEvent.click((await screen.findAllByRole('button', { name: /don't ask again/i }))[0]);
+    await openPanel();
     expect(panel().getByRole('button', { name: /^allow$/i })).toBeTruthy();
   });
 
@@ -144,17 +161,17 @@ describe('approval card — the scope panel', () => {
       actions: [action(), action({ action_id: 'act_far', context: JSON.stringify({ target: 'C:/Projects/DashClaw/app/page.tsx' }) })],
     });
     await renderPage();
-    fireEvent.click((await screen.findAllByRole('button', { name: /don't ask again/i }))[0]);
+    await openPanel();
     expect(panel().getByRole('button', { name: /^allow$/i })).toBeTruthy();
   });
 
   it('closes on cancel without calling the grant route', async () => {
     global.fetch = makeFetch();
     await renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: /don't ask again/i }));
+    await openPanel();
     fireEvent.click(panel().getByRole('button', { name: /cancel/i }));
     await waitFor(() => expect(screen.queryByText(/stop asking about/i)).toBeNull());
-    expect(global.fetch.calls.some((c) => c.url.includes('/grant'))).toBe(false);
+    expect(global.fetch.calls.some((c) => c.url.includes('/grant') && c.method === 'POST')).toBe(false);
   });
 });
 
@@ -165,12 +182,13 @@ describe('approval card — confirming', () => {
   it('mints the grant with the chosen lease and releases over the approval route', async () => {
     global.fetch = makeFetch({ releaseIds: ['act_1', 'act_2'] });
     await renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: /don't ask again/i }));
+    await openPanel();
     fireEvent.change(panel().getByRole('combobox'), { target: { value: '1' } });
-    fireEvent.click(panel().getByRole('button', { name: /^allow$/i }));
+    await waitFor(() => expect(panel().getByRole('button', { name: /^allow all 2$/i }).disabled).toBe(false));
+    fireEvent.click(panel().getByRole('button', { name: /^allow all 2$/i }));
 
     await waitFor(() => {
-      const grant = global.fetch.calls.find((c) => c.url.includes('/grant'));
+      const grant = global.fetch.calls.find((c) => c.url.includes('/grant') && c.method === 'POST');
       expect(grant).toBeTruthy();
       expect(grant.body.ttl_hours).toBe(1);
     });
@@ -191,10 +209,10 @@ describe('approval card — confirming', () => {
   it('defaults the lease to 24h', async () => {
     global.fetch = makeFetch();
     await renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: /don't ask again/i }));
+    await openPanel();
     fireEvent.click(panel().getByRole('button', { name: /^allow$/i }));
     await waitFor(() => {
-      const grant = global.fetch.calls.find((c) => c.url.includes('/grant'));
+      const grant = global.fetch.calls.find((c) => c.url.includes('/grant') && c.method === 'POST');
       expect(grant.body.ttl_hours).toBe(24);
     });
   });
@@ -202,11 +220,11 @@ describe('approval card — confirming', () => {
   // A refused grant must not silently approve the action anyway.
   it('does not release anything when the grant is refused', async () => {
     global.fetch = makeFetch({ grantOk: false });
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
     await renderPage();
     fireEvent.click(await screen.findByRole('button', { name: /don't ask again/i }));
-    fireEvent.click(panel().getByRole('button', { name: /^allow$/i }));
-    await waitFor(() => expect(window.alert).toHaveBeenCalled());
+    await screen.findByRole('alert');
+    expect(panel().getByRole('button', { name: /preview unavailable/i }).disabled).toBe(true);
+    expect(panel().getByRole('button', { name: /cancel/i }).disabled).toBe(false);
     expect(global.fetch.calls.some(
       (c) => c.method === 'POST' && !c.url.includes('/grant') && c.url.startsWith('/api/approvals/'),
     )).toBe(false);

@@ -40,10 +40,15 @@ export async function GET() {
   // Check database connection and core table existence
   try {
     const sql = getSql();
-    const { ok, missing } = await checkCoreTables(sql);
+    const { ok, missing, missingIndexes, missingColumns } = await checkCoreTables(sql);
     if (!ok) {
       health.status = 'degraded';
-      health.checks.database = { status: 'degraded', missing_tables: missing.length };
+      health.checks.database = {
+        status: 'degraded',
+        missing_tables: missing.length,
+        missing_indexes: missingIndexes.length,
+        missing_columns: missingColumns.length,
+      };
     } else {
       health.checks.database = { status: 'healthy' };
     }

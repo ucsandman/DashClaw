@@ -204,6 +204,7 @@
     {
       "path": "/api/approvals/{actionId}/grant",
       "methods": [
+        "GET",
         "POST"
       ],
       "maturity": "experimental",

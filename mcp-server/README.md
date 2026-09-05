@@ -1,6 +1,6 @@
 # @dashclaw/mcp-server
 
-MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance. Exposes 17 governance tools, 2 stdio-only support tools, and 3 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/) — guard, record, invoke governed capabilities, wait for approvals, and read the decision ledger, all through the DashClaw governance loop. Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
+MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance. Exposes 17 governance tools, 2 stdio-only support tools, and 3 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/): evaluate policy, record evidence, invoke registered capabilities, wait for approvals, and read the decision ledger. Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
 
 The governance tools register only when `DASHCLAW_URL` and `DASHCLAW_API_KEY` are both set; without them the server registers nothing and warns on stderr if exactly one is present.
 
@@ -93,7 +93,7 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 |---|---|
 | `dashclaw_guard` | Evaluate policies before risky actions |
 | `dashclaw_record` | Log actions to audit trail |
-| `dashclaw_invoke` | Execute governed capabilities (guard + run + record) |
+| `dashclaw_invoke` | Execute a registered capability through the server's guard, approval, execution-claim, effect, and outcome seam |
 | `dashclaw_capabilities_list` | Discover available APIs |
 | `dashclaw_policies_list` | See active governance policies |
 | `dashclaw_wait_for_approval` | Block until a human resolves an approval |
@@ -102,6 +102,21 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 | `dashclaw_session_retro` | Read the session's own defensibility retro (clean/review/flagged posture) |
 
 > **Session linkage:** after `dashclaw_session_start`, the server auto-stamps that session's id onto every `dashclaw_record` in the same connection (stdio). Pass `session_id` on `dashclaw_record` to override, or to attribute explicitly on the HTTP transport (`POST /api/mcp`), where each request is stateless.
+
+### Enforcement boundary
+
+`dashclaw_guard`, `dashclaw_record`, and `dashclaw_wait_for_approval` are
+cooperative tools. They return policy and audit state, but the MCP host or model
+still chooses whether to honor it. Use a host interception hook when you need a
+mechanical gate around ordinary MCP tools.
+
+`dashclaw_invoke` is the bounded effect seam. DashClaw holds the registered
+capability configuration, evaluates the exact invocation against current
+policy, records it, enforces approval, and atomically claims one execution
+attempt before making the external call. Approval and plan grants are consumed
+at that claim, not by the earlier guard evaluation. If execution finishes but
+the outcome cannot be recorded, the tool reports unknown execution state and
+does not describe a retry as safe. Reconcile the external system first.
 
 **Retrospection (2)** — record assumptions; recent governed-action ledger.
 
@@ -124,11 +139,11 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 | `dashclaw_task_event` | Append one event to a Team Task timeline (delegation, reply, status, approval_needed, result, error, done) |
 | `dashclaw_task_update` | Update a Team Task: status transitions and stored transport session ids |
 
-**Plans (2)** — submit a preflight plan for one-card operator review; poll its verdict before executing.
+**Plans (2)** — submit a preflight plan for one-card operator review and poll its review state. Preview and review responses are evidence; the live action is re-evaluated and any grant is consumed only by its execution claim.
 
 | Tool | Description |
 |---|---|
-| `dashclaw_plan_submit` | Submit an ordered step list for preflight review; approved steps become single-use grants |
+| `dashclaw_plan_submit` | Submit an ordered step list for preflight review; approved steps become scoped, expiring grants consumed only by an execution claim |
 | `dashclaw_plan_status` | Check a submitted plan's overall and per-step verdict |
 
 ### DashClaw-gated stdio tools (2)

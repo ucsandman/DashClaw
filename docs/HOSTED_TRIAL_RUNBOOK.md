@@ -26,7 +26,7 @@ Work through [`hosted-deployment-runbook.md`](./hosted-deployment-runbook.md) â€
 - [ ] Optional instant-trial sign-in: `GOOGLE_ID` + `GOOGLE_SECRET`
 - [ ] Caps reviewed: `HOSTED_TRIAL_DAYS` (30), `HOSTED_TRIAL_ACTION_CAP` (10000), `HOSTED_MAX_ACTIVE_TRIALS` (500), `HOSTED_PROVISION_MAX_PER_IP_PER_DAY` (5)
 
-Schema is automatic: the Vercel build runs `node scripts/auto-migrate.mjs` on every deploy (idempotent, includes `drizzle/0027`, so the hot `action_records` indexes exist from day one). To check the hosted DB from your machine, run `npm run db:migrate` with the hosted `DATABASE_URL` exported.
+Schema is automatic: the Vercel build runs `node scripts/auto-migrate.mjs` on every deploy. The runner serializes with an advisory lock and uses a checksummed transactional ledger, so an edited applied migration fails instead of being silently accepted. An explicit process `DATABASE_URL` wins over repository dotenv loading. To check the hosted DB from your machine, run `npm run db:migrate` with the hosted `DATABASE_URL` exported.
 
 ## 2. Pre-deploy readiness
 

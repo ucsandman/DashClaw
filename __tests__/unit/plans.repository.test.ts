@@ -5,10 +5,11 @@
 // rather than trusting an arbitrary stub.
 import { describe, it, expect } from 'vitest';
 import {
-  createPlanWithSteps, reviewPlan, consumePlanStepGrant, findDeniedStepMatch, countPendingPlans,
+  createPlanWithSteps, reviewPlan, findDeniedStepMatch, countPendingPlans,
   markPlanPending, listPlans, getPlanWithSteps, listStepsForPlans, PENDING_PLAN_CAP_WINDOW_MINUTES,
 } from '../../app/lib/repositories/plans.repository';
 import { computeActContentHash } from '../../app/lib/act-content-hash';
+import { findPlanExecutionAuthority } from '../../app/lib/repositories/actions.repository.execution';
 
 type SqlCall = { text: string; v: unknown[] };
 type ScriptEntry = unknown[] | ((call: SqlCall) => unknown[]);
@@ -39,16 +40,21 @@ function sqlMock(script: ScriptEntry[]) {
   return tag;
 }
 
+function atomicCreateResult(call: SqlCall) {
+  const steps = JSON.parse(String(call.v[11])) as Array<Record<string, unknown>>;
+  const plan = {
+    plan_id: call.v[1], org_id: call.v[2], agent_id: call.v[3], declared_goal: call.v[4],
+    status: 'previewing', ttl_minutes: call.v[5], created_by: call.v[6], plan_hash: call.v[7],
+  };
+  return [{
+    plan,
+    steps: steps.map((step) => ({ ...step, plan_id: plan.plan_id, org_id: plan.org_id })),
+  }];
+}
+
 describe('plans.repository', () => {
   it('createPlanWithSteps mints pa_/ps_ ids, seq from 1, act hash only when act present', async () => {
-    const sql = sqlMock([
-      // plan insert: (plan_id, org_id, agent_id, declared_goal, ttl_minutes) — status is a literal
-      (c) => [{ plan_id: c.v[0], org_id: c.v[1], agent_id: c.v[2], declared_goal: c.v[3], status: 'pending', ttl_minutes: c.v[4] }],
-      // step insert #1: (step_id, plan_id, org_id, seq, action_type, step_goal, act, act_content_hash)
-      (c) => [{ step_id: c.v[0], plan_id: c.v[1], org_id: c.v[2], seq: c.v[3], action_type: c.v[4], step_goal: c.v[5], act: c.v[6], act_content_hash: c.v[7] }],
-      // step insert #2
-      (c) => [{ step_id: c.v[0], plan_id: c.v[1], org_id: c.v[2], seq: c.v[3], action_type: c.v[4], step_goal: c.v[5], act: c.v[6], act_content_hash: c.v[7] }],
-    ]);
+    const sql = sqlMock([atomicCreateResult]);
     const { plan, steps } = (await createPlanWithSteps(sql as never, 'org_1', {
       agentId: 'agent-a', declaredGoal: 'ship the feature', ttlMinutes: 60, maxPending: 10,
       steps: [
@@ -77,15 +83,12 @@ describe('plans.repository', () => {
     // at test time without tripping secret-scanning on the file itself.
     const fakeKey = ['sk', 'X'.repeat(24)].join('-');
     const secretAct = { kind: 'shell', command: `export TOKEN=${fakeKey} && deploy` };
-    const sql = sqlMock([
-      (c) => [{ plan_id: c.v[0], org_id: c.v[1], agent_id: c.v[2], declared_goal: c.v[3], status: 'pending', ttl_minutes: c.v[4] }],
-      (c) => [{ step_id: c.v[0], plan_id: c.v[1], org_id: c.v[2], seq: c.v[3], action_type: c.v[4], step_goal: c.v[5], act: c.v[6], act_content_hash: c.v[7] }],
-    ]);
+    const sql = sqlMock([atomicCreateResult]);
     const { steps } = (await createPlanWithSteps(sql as never, 'org_1', {
       agentId: 'agent-a', declaredGoal: 'deploy', ttlMinutes: 60, maxPending: 10,
       steps: [{ action_type: 'deploy', step_goal: 'deploy it', act: secretAct }],
     }))!;
-    const storedAct = JSON.parse(steps[0]!.act as string);
+    const storedAct = steps[0]!.act as { command: string };
     expect(storedAct.command).not.toContain(fakeKey);
     // the hash binds the ORIGINAL act, not the redacted display copy
     expect(steps[0]!.act_content_hash).toBe(computeActContentHash(secretAct));
@@ -103,13 +106,11 @@ describe('plans.repository', () => {
     expect(result).toBeNull();
     // No step INSERTs are attempted once the header insert is rejected.
     expect(sql.calls).toHaveLength(1);
-    expect(sql.calls[0]!.text).toContain('WHERE (SELECT COUNT(*) FROM plan_authorizations');
+    expect(sql.calls[0]!.text).toContain('AND (SELECT COUNT(*) FROM plan_authorizations');
   });
 
   it('T1: stamps created_by from input.createdBy into the INSERT', async () => {
-    const sql = sqlMock([
-      (c) => [{ plan_id: c.v[0], org_id: c.v[1], agent_id: c.v[2], declared_goal: c.v[3], status: 'pending', ttl_minutes: c.v[4], created_by: c.v[5] }],
-    ]);
+    const sql = sqlMock([atomicCreateResult]);
     const { plan } = (await createPlanWithSteps(sql as never, 'org_1', {
       agentId: 'agent-a', declaredGoal: 'ship the feature', ttlMinutes: 60, maxPending: 10,
       steps: [], createdBy: 'user_submitter',
@@ -120,9 +121,7 @@ describe('plans.repository', () => {
   });
 
   it('T1: createdBy defaults to null when omitted', async () => {
-    const sql = sqlMock([
-      (c) => [{ plan_id: c.v[0], created_by: c.v[5] }],
-    ]);
+    const sql = sqlMock([atomicCreateResult]);
     const { plan } = (await createPlanWithSteps(sql as never, 'org_1', {
       agentId: 'agent-a', declaredGoal: 'ship the feature', ttlMinutes: 60, maxPending: 10, steps: [],
     }))!;
@@ -172,8 +171,7 @@ describe('plans.repository', () => {
     const sql = sqlMock([
       [{ plan_id: 'pa_1', ttl_minutes: 99999, status: 'pending' }], // SELECT plan
       [], // SELECT step_id FROM plan_authorization_steps (no steps -> approved, denied=0)
-      [{ plan_id: 'pa_1', status: 'approved' }], // UPDATE plan_authorizations RETURNING *
-      [], // SELECT steps ORDER BY seq ASC
+      [{ plan: { plan_id: 'pa_1', status: 'approved' }, steps: [] }], // atomic header + step update
     ]);
     const result = await reviewPlan(sql as never, 'org_1', 'pa_1', { verdict: 'approve', stepOverrides: {}, reviewedBy: 'operator', ttlClampMinutes: 480 });
     expect(result!.plan!.status).toBe('approved');
@@ -187,10 +185,10 @@ describe('plans.repository', () => {
     const sql = sqlMock([
       [{ plan_id: 'pa_1', ttl_minutes: 100, status: 'pending' }], // SELECT plan (clampedTtl would be min(100, 480) = 100)
       [{ step_id: 'ps_1' }, { step_id: 'ps_2' }], // SELECT step_id FROM plan_authorization_steps (two steps)
-      [{ plan_id: 'pa_1', status: 'partially_approved' }], // UPDATE plan_authorizations RETURNING *
-      [], // UPDATE plan_authorization_steps SET grant_status = 'approved' (ps_1)
-      [], // UPDATE plan_authorization_steps SET grant_status = 'denied' (ps_2)
-      [], // SELECT steps ORDER BY seq ASC
+      [{
+        plan: { plan_id: 'pa_1', status: 'partially_approved' },
+        steps: [{ step_id: 'ps_1', grant_status: 'approved' }, { step_id: 'ps_2', grant_status: 'denied' }],
+      }], // atomic header + all step updates
     ]);
     const result = await reviewPlan(sql as never, 'org_1', 'pa_1', {
       verdict: 'approve', stepOverrides: { ps_2: 'deny' }, reviewedBy: 'operator', ttlClampMinutes: 480,
@@ -204,35 +202,34 @@ describe('plans.repository', () => {
     expect(headerUpdate!.v).not.toContain(100);
   });
 
-  it('consumePlanStepGrant issues a single atomic UPDATE with grant_used_at IS NULL guard', async () => {
+  it('findPlanExecutionAuthority selects an unconsumed live grant without mutating it', async () => {
     const sql = sqlMock([
       [{ step_id: 'ps_1', plan_id: 'pa_1', seq: 1, reviewed_by: 'operator', act_content_hash: null, total_steps: 3 }],
     ]);
-    const hit = await consumePlanStepGrant(sql as never, 'org_1', {
-      agentId: 'agent-a', actionType: 'deploy', declaredGoal: 'deploy it', actHash: null, matchedActionId: 'act_gd_x',
+    const hit = await findPlanExecutionAuthority(sql as never, 'org_1', {
+      agentId: 'agent-a', actionType: 'deploy', declaredGoal: 'deploy it', actHash: null,
     });
     expect(hit!.step_id).toBe('ps_1');
     const q = sql.calls[0]!.text;
     expect(q).toContain('grant_used_at IS NULL');
-    expect(q).toContain('UPDATE plan_authorization_steps');
-    // R1: unlike findDeniedStepMatch, grants must fail safe by UNDER-matching
-    // — a grant is only usable by the agent it was actually issued to.
+    expect(q).not.toContain('UPDATE');
     expect(q).toContain('p.agent_id = ?');
-    // guard appears twice: once in the subquery WHERE, once in the outer WHERE
-    expect(q.split('grant_used_at IS NULL').length - 1).toBe(2);
-    // U3: preview_decision rides the RETURNING clause — it feeds the
-    // _plan_grant audit provenance (operator's preview verdict vs. the live
-    // evaluation that just consumed the grant).
-    expect(q).toContain('s.preview_decision');
+    expect(q).toContain("p.status IN ('approved', 'partially_approved')");
+    expect(q).toContain('p.expires_at > NOW()');
   });
 
-  it('S4: consumePlanStepGrant requires step_goal equality on the act-bound branch too (parity with applyOperatorApprovalGrant)', async () => {
+  it('findPlanExecutionAuthority binds the complete org, agent, type, goal, and act tuple', async () => {
     const sql = sqlMock([[]]);
-    await consumePlanStepGrant(sql as never, 'org_1', {
-      agentId: 'agent-a', actionType: 'deploy', declaredGoal: 'deploy it', actHash: 'sha256:x', matchedActionId: 'act_gd_x',
+    await findPlanExecutionAuthority(sql as never, 'org_1', {
+      agentId: 'agent-a', actionType: 'deploy', declaredGoal: 'deploy it', actHash: 'sha256:x',
     });
     const q = sql.calls[0]!.text;
-    expect(q).toContain('act_content_hash IS NOT NULL AND st.act_content_hash = ? AND st.step_goal = ?');
+    expect(q).toContain('s.org_id = ?');
+    expect(q).toContain('p.agent_id = ?');
+    expect(q).toContain('s.action_type = ?');
+    expect(q).toContain('s.step_goal = ?');
+    expect(q).toContain('s.act_content_hash IS NULL OR s.act_content_hash = ?');
+    expect(sql.calls[0]!.v).toEqual(['org_1', 'agent-a', 'deploy', 'deploy it', 'sha256:x']);
   });
 
   it('findDeniedStepMatch is a read (no UPDATE)', async () => {
@@ -402,9 +399,10 @@ describe('plans.repository', () => {
   it('reviewPlan deny uses the org ttlClampMinutes directly, never min(ttl_minutes, clamp)', async () => {
     const sql = sqlMock([
       [{ plan_id: 'pa_1', ttl_minutes: 10, status: 'pending' }], // SELECT plan (small ttl_minutes)
-      [{ plan_id: 'pa_1', status: 'denied' }], // UPDATE plan_authorizations RETURNING * (header, guarded on status='pending')
-      [], // UPDATE plan_authorization_steps SET grant_status = 'denied'
-      [], // SELECT steps ORDER BY seq ASC
+      [{
+        plan: { plan_id: 'pa_1', status: 'denied' },
+        steps: [{ step_id: 'ps_1', grant_status: 'denied' }],
+      }], // atomic header + all step updates
     ]);
     const result = await reviewPlan(sql as never, 'org_1', 'pa_1', { verdict: 'deny', reviewedBy: 'operator', ttlClampMinutes: 480 });
     expect(result!.plan!.status).toBe('denied');

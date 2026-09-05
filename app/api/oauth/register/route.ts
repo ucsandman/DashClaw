@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getSql } from '../../../lib/db';
 import { registerClient } from '../../../lib/repositories/oauth.repository';
 import { newId } from '../../../lib/oauth/crypto';
+import { normalizeOAuthScope } from '../scopes';
 export const dynamic = 'force-dynamic';
 
 // Only register redirect URIs we'd be willing to send a freshly-minted auth code
@@ -26,12 +27,19 @@ export async function POST(request: Request) {
   if (redirectUris.length === 0) {
     return NextResponse.json({ error: 'invalid_redirect_uri', error_description: 'redirect_uris must be one or more absolute https URIs' }, { status: 400 });
   }
+  const requestedScope = body.scope === undefined ? null : normalizeOAuthScope(body.scope);
+  if (body.scope !== undefined && !requestedScope) {
+    return NextResponse.json({
+      error: 'invalid_client_metadata',
+      error_description: 'scope contains an unsupported value',
+    }, { status: 400 });
+  }
   const clientId = newId('ocl');
   await registerClient(getSql(), {
     clientId,
     clientName: typeof body.client_name === 'string' ? body.client_name : null,
     redirectUris,
-    scope: typeof body.scope === 'string' ? body.scope : null,
+    scope: requestedScope,
   });
   return NextResponse.json({
     client_id: clientId,

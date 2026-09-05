@@ -16,8 +16,10 @@ const m = vi.hoisted(() => ({
   evaluateAccess: vi.fn(),
   checkCircuitBreaker: vi.fn(),
   resolveAgentIdentity: vi.fn(),
+  authorizeActionExecution: vi.fn(),
   createActionRecord: vi.fn(),
   createBlockedActionRecord: vi.fn(),
+  updateActionOutcome: vi.fn(),
   updateCapability: vi.fn(),
 }));
 
@@ -28,16 +30,18 @@ vi.mock('next/server', async (importOriginal) => {
 });
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => m.sql }));
-vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_1', getUserId: () => null }));
+vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_1', getUserId: () => 'usr_actor' }));
 vi.mock('@/lib/capability-runtime.js', () => ({
   prepareCapabilityInvocation: m.prepare,
   executeCapabilityInvocation: m.execute,
 }));
 vi.mock('@/lib/guard.js', () => ({ evaluateGuard: m.evaluateGuard }));
+vi.mock('@/lib/guard/execution.js', () => ({ authorizeActionExecution: m.authorizeActionExecution }));
 vi.mock('@/lib/approvalSurfaces.js', () => ({ fireApprovalSurfaces: vi.fn() }));
 vi.mock('@/lib/repositories/actions.repository.js', () => ({
   createActionRecord: m.createActionRecord,
   createBlockedActionRecord: m.createBlockedActionRecord,
+  updateActionOutcome: m.updateActionOutcome,
 }));
 vi.mock('@/lib/capability-health.js', () => ({ checkCircuitBreaker: m.checkCircuitBreaker }));
 vi.mock('@/lib/repositories/capabilities.repository.js', () => ({ updateCapability: m.updateCapability }));
@@ -65,8 +69,10 @@ beforeEach(() => {
   m.checkCircuitBreaker.mockResolvedValue({ open: false });
   m.resolveAgentIdentity.mockResolvedValue({ agent_id: 'agt_x', agent_name: null, verification_status: 'unverified', verified: false });
   m.evaluateAccess.mockResolvedValue({ access: 'allow', rule: null });
-  m.execute.mockResolvedValue({ ok: true, status: 200, latency_ms: 5, body: '{}' });
+  m.execute.mockResolvedValue({ success: true, data: {}, elapsed_ms: 5 });
   m.createActionRecord.mockResolvedValue({ action_id: 'act_1' });
+  m.authorizeActionExecution.mockResolvedValue({ action_id: 'act_1', execution_claimed_at: 'now' });
+  m.updateActionOutcome.mockResolvedValue({ action_id: 'act_1', status: 'completed' });
   m.updateCapability.mockResolvedValue({});
 });
 
@@ -148,7 +154,16 @@ describe('requires_approval capabilities and evidence', () => {
     expect(m.evaluateGuard).toHaveBeenCalledWith(
       'org_1',
       expect.objectContaining({
-        act: { kind: 'http', request: { method: 'POST', url: 'https://api.vercel.com/v1/registrar/domains/x.com/buy' } },
+        act: {
+          kind: 'http',
+          request: {
+            method: 'POST',
+            url: 'https://api.vercel.com/v1/registrar/domains/x.com/buy',
+            url_digest: expect.stringMatching(/^sha256:[A-Za-z0-9_-]+$/),
+            body_excerpt: JSON.stringify({ agent_id: 'agt_x', domain: 'x.com' }),
+            body_digest: expect.stringMatching(/^sha256:[A-Za-z0-9_-]+$/),
+          },
+        },
       }),
       m.sql,
     );

@@ -44,7 +44,8 @@ function parseDecisionContext(value: unknown): Record<string, unknown> | null {
  *
  * promote: flips containment_status -> promoted, then raises a synthetic
  * `containment_promote` grant row (born 'running', pre-approved by this
- * verdict) whose act is the canonical `git merge --no-ff <containment_ref>`
+ * verdict, claim protocol 1, parent-linked to the contained action) whose act
+ * is the canonical `git merge --no-ff <containment_ref>`
  * for a file ref, or the action's ORIGINAL recorded act for a
  * `dashclaw/contained-db-` ref (RFC 2026-09-04-database-containment: the
  * replay against production IS the promotion) — the same act shape the
@@ -219,9 +220,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
         action_id: promotionActionId,
         data: {
           agent_id: action.agent_id as string | null | undefined,
+          parent_action_id: actionId,
           action_type: 'containment_promote',
           declared_goal: buildPromotionGoal(actionId),
           act: buildPromotionAct(containmentRef as string, promotionAct),
+          client_capabilities: ['execution_claims'],
           risk_score: promotionRiskScore,
           reversible: promotionReversible,
           reasoning,

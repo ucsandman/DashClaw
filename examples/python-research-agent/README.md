@@ -2,6 +2,10 @@
 
 A Python agent that researches a topic, fetches content from sources, and writes a report file. Governance fires on the file write step. This example uses the Python SDK and requires no AI API key. The "research" is simulated with hardcoded content so the example focuses purely on the governance flow.
 
+> **Trust boundary:** The source uses lower-level cooperative SDK calls and does
+> not claim protocol-1 execution authority. Its research and report write stay
+> simulated. Put a real file or network effect inside `run_governed`.
+
 ## What happens
 
 1. A guard check permits the research phase (low risk, read-only)

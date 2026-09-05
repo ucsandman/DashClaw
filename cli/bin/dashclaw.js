@@ -1123,7 +1123,7 @@ async function loadCommandConfig() {
     const config = await resolveConfig();
     if (!config) {
       console.error('Error: Missing required config (DASHCLAW_BASE_URL, DASHCLAW_API_KEY).');
-      console.error('Set them as env vars, save with an interactive first run, or use a .env file.');
+      console.error('Set them as environment variables or save them with an interactive first run (~/.dashclaw/config.json).');
       process.exit(1);
     }
     applyConfig(config);

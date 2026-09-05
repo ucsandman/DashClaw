@@ -3,32 +3,20 @@
  *
  * Added by Plan 03-02. Source of truth: docs/launch/blog-post.md.
  *
- * Video src is intentionally a Loom placeholder — matches the hero video
- * at app/page.jsx:59 and will be backfilled in the same atomic commit
- * that closes Plan 03-01 Task 3 (walkthrough recording) + Phase 2 CCI-01
- * + CCI-05. The VideoHero component enforces a Loom + youtube-nocookie
- * host allowlist at render time, so the embed URL must stay on one of
- * those two hosts (T-03-01-04 SSRF mitigation).
- *
  * Design: CSS tokens only per .impeccable.md. No hardcoded hex in this
  * file. Brand orange is signal — applied only on the trigger number in
  * the commitment section.
  */
 
 import Link from 'next/link';
-import VideoHero from '../../components/VideoHero';
 import type { Metadata } from 'next';
 import { marketingPageMetadata } from '../../lib/marketingSeo';
 import JsonLd from '../../components/JsonLd';
 
-// Placeholder until recording lands. Mirrors app/page.jsx:59 so a single
-// backfill commit flips both hero + blog embeds at once.
-const VIDEO_URL = 'https://www.loom.com/embed/PLACEHOLDER_VIDEO_ID';
-
 export const metadata: Metadata = marketingPageMetadata({
   title: 'Govern Claude Code before it surprises you: DashClaw',
   description:
-    'DashClaw is a PreToolUse hook for Claude Code. Intercept destructive commands, approve from your phone in Discord, keep a signed audit ledger of every decision.',
+    'DashClaw installs a PreToolUse checkpoint for supported Claude Code tool categories, routes policy holds to human approval, and records decision evidence.',
   path: '/blog/claude-code-beachhead',
   ogType: 'article',
 });
@@ -41,7 +29,7 @@ export default function BlogPostPage() {
           '@context': 'https://schema.org',
           '@type': 'BlogPosting',
           headline: 'Govern Claude Code before it surprises you: DashClaw',
-          description: 'DashClaw is a PreToolUse hook for Claude Code. Intercept destructive commands, approve from your phone in Discord, keep a signed audit ledger of every decision.',
+          description: 'DashClaw installs a PreToolUse checkpoint for supported Claude Code tool categories, routes policy holds to human approval, and records decision evidence.',
           url: 'https://www.dashclaw.io/blog/claude-code-beachhead',
           datePublished: '2026-04-22',
           publisher: { '@type': 'Organization', name: 'DashClaw', url: 'https://www.dashclaw.io' },
@@ -55,10 +43,10 @@ export default function BlogPostPage() {
           Govern Claude Code before it surprises you
         </h1>
         <p className="mt-4 text-base text-text-secondary">
-          A PreToolUse hook that turns every Bash, Edit, Write,
-          MultiEdit, and MCP tool call into a checkpoint. Destructive commands pause.
-          My phone buzzes. I tap Approve or Deny. Terminal unblocks in
-          about eight seconds.
+          A PreToolUse hook that checks configured Bash, Edit, Write,
+          MultiEdit, and MCP tool categories before execution. Policy-matched
+          actions can pause for approval. I tap Approve or Deny, and the hook
+          observes the server-side decision.
         </p>
       </header>
 
@@ -86,18 +74,13 @@ export default function BlogPostPage() {
 
       <section>
         <h2 className="mt-10 text-xl font-semibold tracking-tight">
-          Demo
+          Try the current demo
         </h2>
         <p className="mt-3 text-base text-text-secondary">
-          Here is the three-minute walkthrough. Hook install, first
-          destructive call intercepted, phone tap, terminal unblocks.
-          Real Claude Code session, real Discord DM, real stopwatch.
-        </p>
-        <div className="mt-6">
-          <VideoHero src={VIDEO_URL} title="DashClaw walkthrough" />
-        </div>
-        <p className="mt-3 text-sm text-text-tertiary">
-          Everything below is the writeup of what you just watched.
+          The home page has a live guard demo using the current decision
+          shape. It shows policy results and the approval flow without
+          relying on the retired launch video.
+          {' '}<Link href="/#live-demo" className="text-text-primary underline decoration-border hover:decoration-text-primary">Run the live demo</Link>.
         </p>
       </section>
 
@@ -107,8 +90,8 @@ export default function BlogPostPage() {
         </h2>
         <p className="mt-3 text-base text-text-secondary">
           DashClaw registers a PreToolUse hook on your Claude Code
-          install. Every Bash, Edit, Write, MultiEdit, and mcp__* call
-          goes through a policy check before it runs. Three steps:
+          install. Configured, supported Bash, Edit, Write, MultiEdit, and
+          mcp__* calls go through a policy check before they run. Three steps:
         </p>
         <ol className="mt-4 space-y-2 text-base text-text-secondary">
           <li>
@@ -148,8 +131,7 @@ export default function BlogPostPage() {
           What&apos;s free
         </h2>
         <p className="mt-3 text-base text-text-secondary">
-          The runtime is free forever for solo devs on the Claude Code
-          path. That includes:
+          The core runtime is MIT licensed and self-hostable. That includes:
         </p>
         <ul className="mt-4 space-y-2 text-base text-text-secondary">
           <li>
@@ -165,11 +147,11 @@ export default function BlogPostPage() {
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               /decisions
             </code>{' '}
-            ledger with signed approvals and denials.
+            ledger with explicit identity verification, payload-signature,
+            and receipt status on recorded decisions.
           </li>
           <li>
-            · The semantic guard, using your own OpenAI or Anthropic key,
-            so the governance loop costs me about a cent per approval.
+            · Optional semantic guard integrations using your own provider key.
           </li>
           <li>
             · The{' '}
@@ -214,8 +196,9 @@ export default function BlogPostPage() {
             </strong>{' '}
             If my deployment was down, a destructive action would
             just… run. Fixed with a block / warn / allow policy knob
-            that defaults to block, plus an orphan-actions journal that
-            backfills every outage call into the ledger on recovery.
+            that defaults to block, plus an orphan-actions journal. Calls that
+            reach the unavailable-guard handler are recorded locally and can be
+            reconciled when the guard recovers.
           </li>
         </ul>
         <p className="mt-3 text-base text-text-secondary">
@@ -232,9 +215,8 @@ export default function BlogPostPage() {
           I&apos;m building the rest of DashClaw&apos;s growth loop
           under DashClaw-governed agents. Research, content drafts,
           monitoring: each one is a Claude Code session with policies
-          the public can read. If the flywheel works, every piece of
-          marketing I publish also proves the product. If it breaks, the
-          audit ledger shows exactly where.
+          the public can read. The ledger adds evidence for the paths that
+          reported to DashClaw. It does not prove unobserved external behavior.
         </p>
         <p className="mt-3 text-base text-text-secondary">
           Public status page coming. The first one will be a live board

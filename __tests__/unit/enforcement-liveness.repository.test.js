@@ -76,7 +76,13 @@ const RUN = {
   runtime: 'claude-code',
   verdict: 'held',
   detail: 'probe action was blocked by require_approval',
-  hook: { installed: true, timeout_seconds: 30, mode: 'enforced' },
+  hook: {
+    installed: true,
+    timeout_seconds: 30,
+    mode: 'enforced',
+    runtime_version: 'codex-cli 0.153.4',
+    hook_fingerprint: `sha256:${'b'.repeat(64)}`,
+  },
   witness: { path: '/tmp/enforcement-liveness-witness.json', executed: false },
   decision: 'require_approval',
   checks: [
@@ -100,8 +106,13 @@ describe('enforcement-liveness repository (v8.2)', () => {
     expect(sql._rows[0].org_id).toBe('org_default');
     expect(sql._rows[0].verdict).toBe('held');
     expect(sql._rows[0].hook.installed).toBe(true);
+    expect(sql._rows[0].hook.runtime_version).toBe('codex-cli 0.153.4');
+    expect(sql._rows[0].hook.hook_fingerprint).toBe(`sha256:${'b'.repeat(64)}`);
     expect(sql._rows[0].witness.executed).toBe(false);
     expect(sql._rows[0].checks).toHaveLength(2);
+    const insertCall = sql.mock.calls.find(([strings]) =>
+      strings.join(' ').includes('INSERT INTO enforcement_liveness_runs'));
+    expect(insertCall[0].join(' ').match(/::text::jsonb/g)).toHaveLength(3);
     const deleteCall = sql.mock.calls.find(([strings]) =>
       strings.join(' ').includes('DELETE FROM enforcement_liveness_runs'));
     expect(deleteCall).toBeTruthy();
@@ -124,6 +135,39 @@ describe('enforcement-liveness repository (v8.2)', () => {
     const runs = await listEnforcementLivenessRunsForOrg(sql, 'org_default', 1);
     expect(runs).toHaveLength(1);
     expect(runs[0].verdict).toBe('held');
+    expect(runs[0].runtime).toBe('claude-code');
+    const listCall = sql.mock.calls.find(([strings]) => {
+      const text = strings.join(' ');
+      return text.includes('SELECT id, org_id, source') && text.includes('LIMIT') && !text.includes('DISTINCT ON');
+    });
+    expect(listCall[0].join(' ')).toMatch(/source,\s+runtime,\s+verdict/);
+  });
+
+  it('decodes legacy string-encoded JSONB through every read path', async () => {
+    await insertEnforcementLivenessRun(sql, 'org_default', RUN);
+    const row = sql._rows[0];
+    row.hook = JSON.stringify(row.hook);
+    row.witness = JSON.stringify(row.witness);
+    row.checks = JSON.stringify(row.checks);
+
+    const latest = await getLatestEnforcementLivenessRunForOrg(sql, 'org_default');
+    const listed = await listEnforcementLivenessRunsForOrg(sql, 'org_default', 1);
+    const perRuntime = await listLatestEnforcementLivenessRunPerRuntime(sql, 'org_default');
+
+    for (const run of [latest, listed[0], perRuntime[0]]) {
+      expect(run.hook.installed).toBe(true);
+      expect(run.witness.executed).toBe(false);
+      expect(run.checks).toHaveLength(2);
+    }
+  });
+
+  it('rejects malformed stored JSON instead of projecting a healthy run', async () => {
+    await insertEnforcementLivenessRun(sql, 'org_default', RUN);
+    sql._rows[0].checks = JSON.stringify({ not: 'an array' });
+
+    await expect(getLatestEnforcementLivenessRunForOrg(sql, 'org_default')).rejects.toThrow(
+      /invalid stored enforcement liveness checks/i,
+    );
   });
 
   it('listLatestEnforcementLivenessRunPerRuntime returns one newest row per seam', async () => {

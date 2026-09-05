@@ -285,6 +285,10 @@ describe('POST /api/approvals/[actionId]', () => {
     expect(data.security.findings_count).toBe(1);
     expect(data.security.critical_count).toBe(1);
     expect(data.security.categories).toContain('api_key');
+    expect(mockLogActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ details: { decision: 'allow', reasoning: '[REDACTED]' } }),
+      expect.anything(),
+    );
   });
 
   it('emits real-time event on approval', async () => {

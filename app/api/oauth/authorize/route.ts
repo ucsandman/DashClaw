@@ -4,6 +4,11 @@ import { getToken } from 'next-auth/jwt';
 import { getSql } from '../../../lib/db';
 import { getClient, insertAuthCode } from '../../../lib/repositories/oauth.repository';
 import { newOpaqueToken, hashToken } from '../../../lib/oauth/crypto';
+import {
+  normalizeOAuthScope,
+  oauthScopeIsSubset,
+  SUPPORTED_OAUTH_SCOPES,
+} from '../scopes';
 export const dynamic = 'force-dynamic';
 
 const CODE_TTL_MS = 5 * 60 * 1000;
@@ -42,7 +47,7 @@ function readParams(request: Request) {
     // No 'plain' default: validate() rejects anything that isn't an explicit S256.
     codeChallengeMethod: p.get('code_challenge_method') || '',
     state: p.get('state') || '',
-    scope: p.get('scope') || 'governance:write',
+    scope: p.get('scope') ?? 'governance:write',
   };
 }
 
@@ -55,6 +60,15 @@ async function validate(request: Request) {
   const client = await getClient(getSql(), q.clientId);
   if (!client) return { ok: false, error: 'invalid_client' };
   if (!(client.redirectUris as string[]).includes(q.redirectUri)) return { ok: false, error: 'invalid_redirect_uri' };
+  const requestedScope = normalizeOAuthScope(q.scope);
+  if (!requestedScope) return { ok: false, error: 'invalid_scope' };
+  const allowedScope = client.scope == null
+    ? SUPPORTED_OAUTH_SCOPES.join(' ')
+    : normalizeOAuthScope(client.scope);
+  if (!allowedScope || !oauthScopeIsSubset(requestedScope, allowedScope)) {
+    return { ok: false, error: 'invalid_scope' };
+  }
+  q.scope = requestedScope;
   return { ok: true, q, client };
 }
 
@@ -65,6 +79,9 @@ export async function GET(request: Request) {
     const login = new URL('/login', here);
     login.searchParams.set('callbackUrl', here.pathname + here.search);
     return NextResponse.redirect(login);
+  }
+  if (!session.orgId) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 });
   }
   const v = await validate(request);
   if (!v.ok) return NextResponse.json({ error: v.error }, { status: 400 });
@@ -84,7 +101,7 @@ export async function GET(request: Request) {
 <body>
 <main>
   <h1>Authorize ${v.client!.clientName ? esc(v.client!.clientName) : 'this app'}</h1>
-  <p>Grant Claude access to your DashClaw governance tools (guard, record, approvals, audit trail) for this workspace.</p>
+  <p>Grant this connector the requested DashClaw scope: <code>${esc(v.q!.scope)}</code>.</p>
   <form method="post">
     <button type="submit">Authorize</button>
   </form>
@@ -107,6 +124,9 @@ export async function POST(request: Request) {
   }
   const session = await getToken({ req: request as unknown as Parameters<typeof getToken>[0]['req'], secret: process.env.NEXTAUTH_SECRET });
   if (!session) return NextResponse.json({ error: 'login_required' }, { status: 401 });
+  if (!session.orgId) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 });
+  }
   const v = await validate(request);
   if (!v.ok) return NextResponse.json({ error: v.error }, { status: 400 });
 
@@ -114,7 +134,7 @@ export async function POST(request: Request) {
   await insertAuthCode(getSql(), {
     codeHash: hashToken(code),
     clientId: v.q!.clientId as string,
-    orgId: (session.orgId as string) || 'org_default',
+    orgId: session.orgId as string,
     userId: (session.userId as string) || null,
     redirectUri: v.q!.redirectUri as string,
     codeChallenge: v.q!.codeChallenge as string,

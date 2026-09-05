@@ -1,8 +1,8 @@
 # DashClaw Python SDK: Agent Decision Infrastructure
 
-Governance-core toolkit for the [DashClaw](https://github.com/ucsandman/DashClaw) runtime: guard enforcement, action recording, assumption tracking, approvals, sessions, and security scanning. Zero dependencies, requires Python 3.7+.
+Governance toolkit for the [DashClaw](https://github.com/ucsandman/DashClaw) runtime: policy checks, claimed callbacks, action recording, assumption tracking, approvals, sessions, and security scanning. Zero dependencies, requires Python 3.7+.
 
-DashClaw treats every agent action as a governed decision. The SDK provides decision recording, policy enforcement, assumption tracking, and human-in-the-loop approvals.
+DashClaw treats every agent action as a governed decision. The SDK provides decision recording, cooperative policy checks, assumption tracking, human-in-the-loop approvals, and the `run_governed` execution boundary.
 
 ## Install
 
@@ -22,7 +22,7 @@ Python agents typically pair the SDK with one or more of these:
 
 ## Quick Start
 
-The Python SDK exposes the governance-core surface (60 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK exposes the governance-core surface (61 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -67,7 +67,7 @@ with claw.track(action_type="research", declared_goal="Explore Python SDK capabi
 
 ## Real-Time Events
 
-Both Node and Python SDKs support real-time SSE events for `waitForApproval()` / `wait_for_approval()`. The SDK connects to `/api/stream` automatically and falls back to polling if SSE is unavailable. Zero additional dependencies required.
+Both Node and Python SDKs support real-time SSE events for `waitForApproval()` / `wait_for_approval()`. While the stream is connected, the SDK also polls the authoritative action state at a low frequency so a lost event cannot pause the agent indefinitely. Zero additional dependencies required.
 
 ## Action Recording
 
@@ -152,7 +152,7 @@ claw.validate_assumption(assumption["assumption"]["id"], validated=True)
 DashClaw can enforce cryptographic signatures for actions (recommended for verified agents). To enable signing in your Python agent:
 
 1. Install the `cryptography` library: `pip install cryptography`
-2. Generate an RSA keypair using `node scripts/generate-agent-keys.mjs <agent-id>` from the DashClaw repo.
+2. Generate an RSA keypair using `node scripts/generate-agent-keys.mjs <agent-id> --output-dir ./agent-keys` from the DashClaw repo. The command writes `private_key.pem` and `public_key.pem` without printing private key material.
 3. Pass the private key to the constructor:
 
 ```python
@@ -160,7 +160,7 @@ from dashclaw import DashClaw
 from cryptography.hazmat.primitives import serialization
 
 # Load your private key (from env or file)
-with open("private_key.pem", "rb") as key_file:
+with open("agent-keys/private_key.pem", "rb") as key_file:
     private_key = serialization.load_pem_private_key(
         key_file.read(),
         password=None
@@ -170,7 +170,12 @@ claw = DashClaw(
     ...,
     private_key=private_key
 )
+
+# Pair public_key.pem with this same agent_id before signature enforcement.
 ```
+
+The Node SDK uses the supported JWKS-backed JWT path instead: pass your identity
+provider token as `authToken`. It does not accept an RSA private-key option.
 
 ## Human-in-the-Loop (HITL) Governance
 
@@ -206,12 +211,12 @@ override). A pending approval expires server-side once that window plus a
 `wait_for_approval()` raises `ApprovalDeniedError` with `decision="expired"`,
 and approving the dead request returns `410 APPROVAL_EXPIRED` instead of a
 fake success. If an operator approves before expiry but after your wait timed
-out, retrying the identical call within 15 minutes of the approval is
-auto-allowed (operator-approval grant). When the action was created with an
-``act`` payload (as ``run_governed`` does), the grant is additionally
-**act-bound**: the server hashes the act at record time and the retry only
-rides the approval if it presents the same act — approving one command never
-authorizes a different one that shares the same goal string.
+out, a later identical call can match the operator-approval grant during a
+fresh policy evaluation. Evaluation does not consume the grant.
+``run_governed`` consumes it only when the server atomically accepts the
+protocol-1 execution claim for the same action, principal, and act. A lost
+claim response is unknown authority and must be reconciled; the SDK does not
+automatically retry it or the callback.
 
 ## Behavior Guard
 
@@ -228,10 +233,9 @@ decision = claw.guard({"action_type": "deploy", "risk_score": 80, "confidence": 
 print(decision["decision"])  # allow | warn | allow_contained | require_approval | block
 print(decision["risk_score"])  # Server-computed authoritative score
 print(decision["agent_risk_score"])  # Raw agent-supplied value (or None)
-# allow_contained only ever reaches a caller that declared
-# client_capabilities: ["allow_contained"]; this SDK never does, so old/
-# non-advertising clients receive require_approval in its place. See
-# "Containment Verdicts" above.
+# allow_contained only reaches a caller that declared
+# client_capabilities: ["allow_contained"]. The SDK does not add that
+# capability itself; run_governed only adds "execution_claims".
 
 # Fetch recent guard decisions
 decisions = claw.get_guard_decisions(decision="block", limit=50)
@@ -314,7 +318,7 @@ act can't satisfy an Evidence Required policy.
 
 | Method | Description |
 |--------|-------------|
-| `run_governed(act, params, fn)` | guard (with `act`, `record=True`) records in the same HTTP call for supported guard fields. Uses `create_action` for richer action metadata, configured signing/guard/HITL behavior, or if the server didn't record. If either response requires approval, `wait_for_approval` -> `fn()` -> one-shot outcome (`completed` on success, `failed` on exception). Raises `GuardBlockedError` on block, `ApprovalDeniedError` on denial. Pass `params={"wait": False, ...}` to raise `ApprovalPendingError` instead of blocking — `fn()` is never run while the approval is pending; poll and re-run once approved. |
+| `run_governed(act, params, fn)` | Guard and persist the same scrubbed act, wait if approval is required, claim one exact execution attempt, run `fn()`, then report a one-shot outcome. Raises `ExecutionClaimError` before `fn()` when the claim is not confirmed and `OutcomeConfirmationError` after a successful `fn()` when the completed report is uncertain. |
 
 **Client-side scrub.** Before an `act` is sent, `Authorization`/`Cookie`/`x-api-key`
 header values are stripped and `oc_live_*`/`sk-*`/`ghp_*`/`Bearer …` tokens and
@@ -323,9 +327,10 @@ The pure helper is exported for testing: `from dashclaw import scrub_act`. The
 server still re-redacts — this is defense in depth, not the only layer.
 
 **Forward compatibility.** `act` is an additive field on `POST /api/guard`.
-Sending it to a DashClaw instance that predates evidence-first guard is safe —
-unrecognized keys are silently ignored by the server's validator, not
-rejected, so no fallback or retry-without-`act` is needed.
+The evidence field itself is backward-compatible with servers that predate
+evidence-first guard. `run_governed()` still requires protocol-1 execution
+claims and refuses to run its callback on an older server that cannot confirm
+the claim.
 
 ### Compliance & Governance Patterns
 
@@ -649,9 +654,9 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK exposes the governance surface (60 methods) — the same intercept → decide → approve → prove core as the Node SDK, plus a handful of read/admin conveniences (webhooks, org management, activity logs).
+This SDK exposes the governance surface (61 methods): policy checks, action recording, approval, execution claims, and outcome reporting, plus read/admin conveniences such as webhooks, org management, and activity logs. Lower-level guard and record methods are cooperative; use `run_governed` or a host enforcement seam for consequential effects.
 
-The Node.js SDK exposes a curated subset of **40 methods** focused on agent governance. The following core methods are available in both the Node.js SDK and this Python SDK:
+The Node.js SDK exposes a curated subset of **41 methods** focused on agent governance. The following core methods are available in both the Node.js SDK and this Python SDK:
 
 | Category | Node method | Python equivalent |
 |----------|-------------|-------------------|
@@ -685,14 +690,18 @@ Track agent work sessions and their event timeline, at parity with the Node SDK:
 
 ## Plans
 
-Preflight plan authorization, at parity with the Node SDK: submit an ordered plan of steps for operator review, each dry-run through the guard pipeline server-side; approved steps become single-use grants consumed automatically when the matching action runs.
+Preflight plan authorization, at parity with the Node SDK: submit an ordered plan of steps for operator review, each dry-run through the guard pipeline server-side. Approved steps become scoped, expiring, single-use grants. A matching guard evaluation does not consume a grant; the atomic execution claim does.
 
 - `submit_plan(declared_goal, steps, ttl_minutes=None)` -- Submit a plan. `steps`: list of `{action_type, step_goal, act?}`.
 - `get_plan(plan_id)` -- Fetch a plan with per-step grant status.
 - `list_plans(status=None, agent_id=None, limit=None)` -- List submitted plans.
 - `resolve_plan(plan_id, verdict, step_overrides=None)` -- Operator verdict: `approve`, `deny`, or `revoke` (admin credential required).
 - `wait_for_plan_review(plan_id, timeout=300, interval=5)` -- Poll until the operator reviews the plan (status leaves `pending`).
-- `attest_plan(plan_id, plan_hash)` -- Prove a pinned plan is still approved, unexpired and unrevoked before acting on it. Raises on every other outcome (`403` with `reason` one of `not_approved | expired | revoked | hash_mismatch`, `404` for `not_found`); the stored hash is never echoed back on a mismatch.
+- `attest_plan(plan_id, plan_hash)` -- Confirm that a pinned plan remains approved, unexpired and unrevoked before preparing the live action. This is review evidence, not execution authority. Raises on every other outcome (`403` with `reason` one of `not_approved | expired | revoked | hash_mismatch`, `404` for `not_found`); the stored hash is never echoed back on a mismatch.
+
+Plan previews are review evidence, not execution authority. The server checks
+expiry, exact step scope, agent identity, and separation of duties again when
+the operator resolves the plan and when a claimed action consumes the grant.
 
 Fail closed before the first model call:
 
@@ -706,7 +715,7 @@ run_the_agent()                                # only now does a model get calle
 
 ## Containment Verdicts (RFC 2026-07-06)
 
-A provably file-scoped act can come back from `guard()` as `decision: "allow_contained"` — the server lets it proceed but holds it for an operator promote/discard verdict, **only when the caller declared `client_capabilities: ["allow_contained"]`** in the guard context. This SDK never sets that field, so it never sees `allow_contained` itself; these two methods manage rows that reached `awaiting_promotion` some other way (a capability-aware caller, or the dashboard).
+A provably file-scoped act can come back from `guard()` as `decision: "allow_contained"` — the server lets it proceed but holds it for an operator promote/discard verdict, **only when the caller declared `client_capabilities: ["allow_contained"]`** in the guard context. The SDK never adds that capability itself; `run_governed()` only adds `"execution_claims"` while preserving caller-supplied capabilities. These two methods manage rows that reached `awaiting_promotion` through an opted-in caller or the dashboard.
 
 - `resolve_containment(action_id, verdict)` -- `POST /api/actions/:id/containment`. Operator verdict on a contained action awaiting promotion (admin credential required). `verdict`: `"promote" | "discard"`, validated client-side before the request is sent. Returns `{"action": ..., "promotion_action_id": ...}` -- `promotion_action_id` is present only on `"promote"`.
 - `list_contained(status="awaiting_promotion", limit=None)` -- `GET /api/actions?containment_status=...`. List actions by containment status.
@@ -734,7 +743,7 @@ graph = claw.get_action_graph(action_id)
 
 ### Action Outcome (durable execution finality)
 
-Every approved action carries a terminal outcome: `pending`, `completed`, `partial`, `failed`, or `lost_confirmation`. Agents call `report_action_outcome` to record finality, and `get_action_outcome` before retry to avoid re-executing already-completed work. Outcomes are one-shot — once non-pending, they cannot be rewritten.
+Every approved action carries an outcome state: `pending`, `completed`, `partial`, `failed`, or `lost_confirmation`. Agents call `report_action_outcome` to record finality and `get_action_outcome` for reconciliation. Outcomes are one-shot — once non-pending, they cannot be rewritten. A non-completed outcome does not establish that the external effect never occurred.
 
 ```python
 # Report success
@@ -745,21 +754,21 @@ claw.report_action_success(action_id, summary="Deployed dashclaw 2.13.4")
 claw.report_action_failure(action_id, error_message="Downstream API returned 503")
 claw.report_action_partial(action_id, progress={"step": 2, "of": 5})
 
-# Retry-safe poll before re-trying any approved action
+# Reconcile before considering any retry
 outcome = claw.get_action_outcome(action_id)
 if outcome["status"] == "pending":
     pass  # still in flight, WAIT
 elif outcome["status"] == "completed":
     pass  # already executed, SKIP
 elif outcome["status"] in ("failed", "lost_confirmation"):
-    pass  # safe to RETRY
+    pass  # reconcile downstream side effects before retrying
 elif outcome["status"] == "partial":
-    pass  # clean up then retry
+    pass  # reconcile and clean up before retrying
 ```
 
 Pending outcomes that never get reported get swept to `lost_confirmation` by the `/api/cron/outcome-sweep` cron. The sweep fires a `signal.detected` webhook (event type `lost_confirmation`) for subscribers. Per-org timeout (minutes) is configurable via the `DASHCLAW_OUTCOME_TIMEOUT_MINUTES` setting (default 15). See `docs/architecture/durable-execution-finality.md`.
 
-**Idempotency keys.** `create_action()` and `guard(context, record=True)` automatically derive the same key from agent, action type, declared goal, session, and the current hour bucket when none is supplied. This also covers the recording path used by `run_governed()`. An explicit `idempotency_key` takes precedence; evaluation-only `guard()` calls do not derive one. Repeated recording with the same `(org_id, idempotency_key)` reuses the action row. This deduplicates records, not callback execution: calling `run_governed()` again can run `fn()` again after approval clears.
+**Idempotency keys.** `create_action()` and `guard(context, record=True)` automatically derive the same key from agent, action type, declared goal, session, and the current hour bucket when none is supplied. This also covers the recording path used by `run_governed()`. An explicit `idempotency_key` takes precedence; evaluation-only `guard()` calls do not derive one. Repeated recording with the same `(org_id, idempotency_key)` reuses the action row. This deduplicates records, not remote effects. A failed or missing outcome confirmation is not proof that the effect did not occur. Use the downstream system's idempotency key or reconciliation API before retrying an effect.
 
 The default key changes at the hour boundary and can group separate actions with the same intent within an hour. Supply your own key to distinguish separate attempts or keep retries stable across that boundary. Derive it from intent and your request id:
 

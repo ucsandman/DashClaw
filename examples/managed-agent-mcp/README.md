@@ -1,6 +1,13 @@
 # Claude Managed Agent + DashClaw MCP
 
-The **recommended** way to govern a Claude Managed Agent with DashClaw. Uses MCP (Model Context Protocol) so the agent gets governance tools automatically — no custom tool definitions, no HTTP boilerplate.
+The shortest way to give a Claude Managed Agent DashClaw policy, audit, and
+registered-capability tools through MCP, with no custom tool definitions or HTTP
+boilerplate.
+
+> **Trust boundary:** Ordinary MCP governance tools are cooperative. They do not
+> mechanically intercept the managed agent's built-in tools. For registered
+> capabilities, `dashclaw_invoke` is the bounded server-side effect seam and
+> claims one execution attempt immediately before the external call.
 
 Compare: the [custom tools example](../managed-agent-governed/) is ~410 lines. This MCP version is ~80 lines.
 
@@ -33,7 +40,7 @@ This gives the agent 17 governance tools and 3 resources automatically. The core
 
 ## MCP + Skill (Recommended)
 
-For even better governance behavior, attach the DashClaw governance skill. The skill teaches the agent the full governance protocol — when to guard, how to interpret decisions, how to record actions — so you don't need a detailed system prompt.
+For more consistent governance behavior, attach the DashClaw governance skill. The skill teaches the cooperative MCP protocol: when to guard, how to interpret decisions, when to use the registered-capability effect seam, and how to record actions. You do not need to duplicate those instructions in the system prompt.
 
 ### Upload the skill once:
 

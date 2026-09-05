@@ -37,6 +37,8 @@ const DOM_TESTS = [
   '__tests__/unit/widget-pulse.logic.test.js',
 ];
 
+const ROOT_TESTS = ['__tests__/**/*.test.{js,jsx,ts,tsx,mjs,cjs}'];
+
 // Exclude Playwright specs (tests/) — they use @playwright/test, not vitest.
 // Also skip the Playwright defaults, Vitest's own build outputs, and the
 // CLI's node:test suite under cli/test/ (run separately by `npm test -w
@@ -54,6 +56,7 @@ const EXCLUDE = [
   'mcp-server/test/**',
   'mcp-server/lib/**',
   'mcp-server/dist/**',
+  'plans/**',
   // Git worktrees may hold sibling-branch copies of the test suite with
   // their own divergent state; vitest should never walk into them. Cover
   // both a top-level `.worktrees/` and Claude Code's `.claude/worktrees/`.
@@ -68,7 +71,7 @@ export default defineConfig({
     // restates EXCLUDE alongside the DOM set it hands to jsdom.
     projects: [
       { extends: true, test: { name: 'dom', environment: 'jsdom', include: DOM_TESTS, exclude: EXCLUDE } },
-      { extends: true, test: { name: 'node', environment: 'node', exclude: [...EXCLUDE, ...DOM_TESTS] } },
+      { extends: true, test: { name: 'node', environment: 'node', include: ROOT_TESTS, exclude: [...EXCLUDE, ...DOM_TESTS] } },
     ],
     globals: true,
     // Automatically reset env-var mutations between tests so `vi.stubEnv`

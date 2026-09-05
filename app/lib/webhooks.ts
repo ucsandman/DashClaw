@@ -9,6 +9,7 @@ import net from 'node:net';
 import { fetch } from 'undici';
 import { scanSensitiveData } from './security';
 import { buildPinnedDispatcher } from './url-safety';
+import { decryptWebhookSecret } from './repositories/webhooks.repository';
 
 export { buildPinnedDispatcher };
 
@@ -780,7 +781,7 @@ export async function fireWebhooksForOrg(
       webhookId: wh.id,
       orgId,
       url: wh.url,
-      secret: wh.secret,
+      secret: decryptWebhookSecret(wh.secret, orgId, wh.id),
       eventType: 'signals.detected',
       payload,
       sql,
@@ -848,7 +849,7 @@ export async function fireWebhooksForApproval(
         webhookId: wh.id,
         orgId,
         url: wh.url,
-        secret: wh.secret,
+        secret: decryptWebhookSecret(wh.secret, orgId, wh.id),
         eventType,
         payload,
         sql,

@@ -101,7 +101,13 @@ describe('middleware bearer-vs-api-key precedence', () => {
 
   it('a live OAuth bearer is still honored (the opaque path is unchanged)', async () => {
     const future = new Date(Date.now() + 3600_000).toISOString();
-    sqlMock.mockResolvedValue([{ org_id: 'org_oauth', expires_at: future, revoked_at: null }]);
+    sqlMock.mockResolvedValue([{
+      org_id: 'org_oauth',
+      client_id: 'ocl_prec',
+      user_id: 'usr_prec',
+      expires_at: future,
+      revoked_at: null,
+    }]);
     const res = await middleware(req('/api/mcp', {
       method: 'POST', bearer: 'oat_live_prec', headers: { host: 'x.dashclaw.app' },
     }));

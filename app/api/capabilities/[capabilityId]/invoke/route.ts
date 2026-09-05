@@ -11,10 +11,12 @@ import { fireApprovalSurfaces } from '../../../../lib/approvalSurfaces';
 import {
   createActionRecord,
   createBlockedActionRecord,
+  updateActionOutcome,
 } from '../../../../lib/repositories/actions.repository';
 import { redactAny } from '../../../../lib/security';
 import { RISK_SCORE_MAP } from '../../../../lib/capability-invoke';
-import { resolveInputPlaceholders } from '../../../../lib/mapping';
+import { mapRequest, resolveInputPlaceholders, resolveSettingsInMapping } from '../../../../lib/mapping';
+import { assertPayloadMatchesSchema } from '../../../../lib/capability-contracts';
 import {
   executeCapabilityInvocation,
   prepareCapabilityInvocation,
@@ -23,7 +25,103 @@ import { checkCircuitBreaker } from '../../../../lib/capability-health';
 import { updateCapability } from '../../../../lib/repositories/capabilities.repository';
 import { evaluateAccess } from '../../../../lib/repositories/capability-access.repository';
 import { resolveAgentIdentity } from '../../../../lib/identity-resolution';
+import { authorizeActionExecution } from '../../../../lib/guard/execution';
+import { digestJson } from '../../../../lib/integrity/canonicalize';
 
+const SERVER_SETTING_PLACEHOLDER = '[server-setting]';
+const URL_QUERY_PLACEHOLDER = '[query-value]';
+const URL_FRAGMENT_PLACEHOLDER = '[fragment]';
+const OPAQUE_GOVERNANCE_URL = 'https://redacted.invalid/[server-setting]';
+
+function maskServerSettingsInMapping(mapping: unknown): unknown {
+  if (typeof mapping === 'string') {
+    return mapping.startsWith('$settings.') ? SERVER_SETTING_PLACEHOLDER : mapping;
+  }
+  if (Array.isArray(mapping)) return mapping.map(maskServerSettingsInMapping);
+  if (mapping && typeof mapping === 'object') {
+    return Object.fromEntries(Object.entries(mapping as Record<string, unknown>)
+      .map(([key, value]) => [key, maskServerSettingsInMapping(value)]));
+  }
+  return mapping;
+}
+
+function collectServerSettingNames(value: unknown, names = new Set<string>()): Set<string> {
+  if (typeof value === 'string' && value.startsWith('$settings.')) {
+    names.add(value.slice('$settings.'.length));
+  } else if (Array.isArray(value)) {
+    for (const item of value) collectServerSettingNames(item, names);
+  } else if (value && typeof value === 'object') {
+    for (const item of Object.values(value as Record<string, unknown>)) {
+      collectServerSettingNames(item, names);
+    }
+  }
+  return names;
+}
+
+function safeMappedBodyExcerpt(body: Record<string, unknown>, mapping: unknown): string {
+  const safeMapping = maskServerSettingsInMapping(mapping);
+  return JSON.stringify(mapRequest(body, safeMapping)).slice(0, 4096);
+}
+
+function sanitizeParsedUrl(rawUrl: string): string | null {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    if (parsed.username || parsed.password) {
+      parsed.username = 'server-setting';
+      parsed.password = '';
+    }
+    const safeSearch = new URLSearchParams();
+    for (const [key, value] of parsed.searchParams.entries()) {
+      safeSearch.append(key, value === SERVER_SETTING_PLACEHOLDER
+        ? SERVER_SETTING_PLACEHOLDER
+        : URL_QUERY_PLACEHOLDER);
+    }
+    parsed.search = safeSearch.toString();
+    if (parsed.hash) parsed.hash = URL_FRAGMENT_PLACEHOLDER;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function safeBaseUrlSetting(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    if (parsed.username || parsed.password) {
+      parsed.username = 'server-setting';
+      parsed.password = '';
+    }
+    if (parsed.pathname !== '/') parsed.pathname = `/${SERVER_SETTING_PLACEHOLDER}`;
+    if (parsed.search) parsed.search = `server-setting=${SERVER_SETTING_PLACEHOLDER}`;
+    if (parsed.hash) parsed.hash = URL_FRAGMENT_PLACEHOLDER;
+    const safe = parsed.toString();
+    return value.endsWith('/') ? safe : safe.replace(/\/$/, '');
+  } catch {
+    return null;
+  }
+}
+
+function safeEndpointForGovernance(
+  endpointTemplate: string,
+  settings: Record<string, unknown>,
+  input: Record<string, unknown>,
+  custodySettingNames: ReadonlySet<string>,
+): string {
+  const safeTemplate = endpointTemplate.replace(/\$\{([^}]+)\}/g, (match, settingName: string, offset: number) => {
+    if (settingName.startsWith('input.')) return match;
+    if (custodySettingNames.has(settingName)) return SERVER_SETTING_PLACEHOLDER;
+    if (offset === 0) {
+      const safeBase = safeBaseUrlSetting(settings[settingName]);
+      if (safeBase) return safeBase;
+    }
+    return SERVER_SETTING_PLACEHOLDER;
+  });
+  const withInput = resolveInputPlaceholders(safeTemplate, input);
+  return sanitizeParsedUrl(withInput) || OPAQUE_GOVERNANCE_URL;
+}
 
 export async function POST(request: Request, { params }: { params: Promise<{ capabilityId: string }> }) {
   try {
@@ -101,24 +199,58 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
     // for the evidence URL when the body carries them; otherwise the template
     // is graded as-is and the execute step reports the missing input.
     const riskScore = (RISK_SCORE_MAP as Record<string, number>)[(capability as Record<string, any>).risk_level] || 50;
-    let evidenceUrl = prepared.endpoint;
+    const capabilitySystems = [`capability:${capability.slug}`, `capability-id:${capabilityId}`];
+    const method = String(schema.method || 'POST').toUpperCase();
+    let evidenceUrl: string;
+    let requestBody: Record<string, unknown>;
     try {
+      assertPayloadMatchesSchema(body, schema.input_schema as Record<string, unknown> | null | undefined, 'input');
       evidenceUrl = resolveInputPlaceholders(prepared.endpoint, body);
-    } catch { /* best-effort: the body lacks the `${input.*}` field; the guard grades the endpoint template and the execute step reports the missing input */ }
-    const guardDecision = await evaluateGuard(
-      orgId,
-      {
-        action_type: 'capability_invoke',
-        risk_score: riskScore,
-        agent_id: identity.agent_id || null,
-        verification_status: identity.verification_status,
-        systems_touched: [`capability:${capability.slug}`],
-        reversible: true,
-        declared_goal: body.declared_goal || `Invoke capability: ${capability.name}`,
-        act: { kind: 'http', request: { method: String(schema.method || 'POST').toUpperCase(), url: evidenceUrl } },
-      },
-      sql,
+      const requestMapping = resolveSettingsInMapping(schema.request_mapping, prepared.settings || {});
+      requestBody = mapRequest(body as Record<string, unknown>, requestMapping);
+    } catch (err) {
+      return NextResponse.json({
+        success: false,
+        error: (err as { code?: string }).code || 'capability_input_invalid',
+        message: (err as Error).message,
+      }, { status: 400 });
+    }
+    const bodyless = method === 'GET' || method === 'HEAD';
+    const authTokenSetting = schema.auth && typeof schema.auth === 'object'
+      ? (schema.auth as Record<string, unknown>).token_setting
+      : null;
+    const custodySettingNames = collectServerSettingNames(schema.request_mapping);
+    if (typeof authTokenSetting === 'string' && authTokenSetting) custodySettingNames.add(authTokenSetting);
+    const safeEvidenceUrl = safeEndpointForGovernance(
+      typeof schema.endpoint === 'string' ? schema.endpoint : prepared.endpoint,
+      prepared.settings || {},
+      body as Record<string, unknown>,
+      custodySettingNames,
     );
+    const invocationAct = {
+      kind: 'http',
+      request: {
+        method,
+        url: safeEvidenceUrl,
+        url_digest: digestJson(evidenceUrl),
+        ...(bodyless ? {} : {
+          body_excerpt: safeMappedBodyExcerpt(body as Record<string, unknown>, schema.request_mapping),
+          body_digest: digestJson(requestBody),
+        }),
+      },
+    };
+    const guardContext = {
+      action_type: 'capability_invoke',
+      risk_score: riskScore,
+      agent_id: identity.agent_id || null,
+      verification_status: identity.verification_status,
+      systems_touched: capabilitySystems,
+      reversible: true,
+      declared_goal: body.declared_goal || `Invoke capability: ${capability.name}`,
+      act: invocationAct,
+      client_capabilities: ['execution_claims'],
+    };
+    const guardDecision = await evaluateGuard(orgId, guardContext, sql);
 
     // 3. DLP scan on input
     const dlpFindings: any[] = [];
@@ -129,13 +261,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
 
     const actionData = {
       agent_id: identity.agent_id || 'anonymous',
-      action_type: 'capability_invoke',
+      action_type: guardContext.action_type,
       declared_goal: body.declared_goal || `Invoke capability: ${capability.name}`,
-      systems_touched: [`capability:${capability.slug}`],
+      systems_touched: capabilitySystems,
       reversible: true,
       risk_score: riskScore,
       confidence: 50,
       input_summary: inputSummary,
+      act: invocationAct,
+      guard_decision_id: guardDecision.decision_id || null,
+      client_capabilities: ['execution_claims'],
     };
 
     // 4. Handle guard blocked
@@ -147,6 +282,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
         guardDecision,
         signature: null,
         verified: identity.verified,
+        identityVerified: identity.verified,
+        payloadSignatureStatus: 'missing',
         timestamp_start,
       });
 
@@ -180,6 +317,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
         costEstimate: 0,
         signature: null,
         verified: identity.verified,
+        identityVerified: identity.verified,
+        payloadSignatureStatus: 'missing',
         timestamp_start,
         // Separation of duties (drizzle/0055): trusted middleware principal.
         createdBy: getUserId(request) || null,
@@ -239,6 +378,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
         costEstimate: 0,
         signature: null,
         verified: identity.verified,
+        identityVerified: identity.verified,
+        payloadSignatureStatus: 'missing',
         timestamp_start,
         createdBy: getUserId(request) || null,
       });
@@ -267,11 +408,42 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
       costEstimate: (capability as Record<string, any>).pricing?.estimated_cost_usd || 0,
       signature: null,
       verified: identity.verified,
+      identityVerified: identity.verified,
+      payloadSignatureStatus: 'missing',
       timestamp_start,
       createdBy: getUserId(request) || null,
     });
 
-    // 7. Invoke the capability
+    // 7. Atomically claim this exact recorded attempt before any external call.
+    let executionClaim;
+    try {
+      executionClaim = await authorizeActionExecution(sql, {
+        orgId,
+        actionId: action_id,
+        principalId: getUserId(request),
+        attemptId: crypto.randomUUID(),
+        act: invocationAct,
+        identity,
+      });
+    } catch (err) {
+      console.error('[API] Capability execution claim unavailable:', (err as Error).message);
+      return NextResponse.json({
+        success: false,
+        error: 'execution_claim_unavailable',
+        action_id,
+        message: 'Execution authority could not be established. No capability call was made.',
+      }, { status: 503 });
+    }
+    if (!executionClaim) {
+      return NextResponse.json({
+        success: false,
+        error: 'execution_claim_conflict',
+        action_id,
+        message: 'This action is not eligible for a new execution attempt. Reconcile its state before retrying.',
+      }, { status: 409 });
+    }
+
+    // 8. Invoke the capability
     const result = (await executeCapabilityInvocation({
       endpoint: prepared.endpoint,
       authHeaders: prepared.authHeaders,
@@ -280,7 +452,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
       settings: prepared.settings,
     })) as Record<string, any>;
 
-    // 8. Update action outcome
+    // 9. Update action outcome through the canonical repository boundary.
     const timestamp_end = new Date().toISOString();
     const retryPrefix = result.retry_metadata?.retried
       ? `[retried: ${result.retry_metadata.total_attempts} attempts] `
@@ -289,15 +461,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
       ? retryPrefix + JSON.stringify(result.data).slice(0, 500 - retryPrefix.length)
       : retryPrefix + (result.message || result.error);
 
-    await sql`
-      UPDATE action_records
-      SET status = ${result.success ? 'completed' : 'failed'},
-          output_summary = ${outputSummary},
-          error_message = ${result.success ? null : result.message || result.error},
-          timestamp_end = ${timestamp_end},
-          duration_ms = ${result.elapsed_ms || 0}
-      WHERE action_id = ${action_id} AND org_id = ${orgId}
-    `;
+    try {
+      const recorded = await updateActionOutcome(sql, orgId, action_id, {
+        status: result.success ? 'completed' : 'failed',
+        output_summary: outputSummary,
+        error_message: result.success ? null : result.message || result.error,
+        timestamp_end,
+        duration_ms: result.elapsed_ms || 0,
+      }, { gateStatus: 'running', closeSource: 'outcome' });
+      if (!recorded) throw new Error('Action outcome update matched no running record');
+    } catch (err) {
+      console.error('[API] Capability outcome persistence failed after execution:', (err as Error).message);
+      return NextResponse.json({
+        success: false,
+        action_id,
+        error: 'execution_outcome_unknown',
+        execution_state: 'unknown',
+        retry_safe: false,
+        message: 'The capability call finished, but its outcome could not be recorded. Reconcile the external effect before retrying.',
+      }, { status: 500 });
+    }
 
     // Keep health_status in step with the invocation outcome so checkCircuitBreaker
     // can actually count consecutive failures — without this, the 'healthy' short-circuit
@@ -310,7 +493,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
         .catch((err) => console.warn('[API] Health status update failed:', err.message)));
     }
 
-    // 9. Return response
+    // 10. Return response
     if (!result.success) {
       const statusCode = result.error === 'capability_timeout'
         ? 504

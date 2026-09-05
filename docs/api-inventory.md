@@ -38,7 +38,7 @@ doc-type: architecture
 | `/api/approvals/bulk` | `POST` | `experimental` | `(default)` | `app/api/approvals/bulk/route.ts` |
 | `/api/approvals/floods` | `GET` | `experimental` | `(default)` | `app/api/approvals/floods/route.ts` |
 | `/api/approvals/{actionId}` | `POST` | `experimental` | `(default)` | `app/api/approvals/[actionId]/route.ts` |
-| `/api/approvals/{actionId}/grant` | `POST` | `experimental` | `(default)` | `app/api/approvals/[actionId]/grant/route.ts` |
+| `/api/approvals/{actionId}/grant` | `GET, POST` | `experimental` | `(default)` | `app/api/approvals/[actionId]/grant/route.ts` |
 | `/api/artifacts` | `GET, POST` | `experimental` | `(default)` | `app/api/artifacts/route.ts` |
 | `/api/artifacts/evidence-bundle` | `POST` | `experimental` | `(default)` | `app/api/artifacts/evidence-bundle/route.ts` |
 | `/api/artifacts/{artifactId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/artifacts/[artifactId]/route.ts` |

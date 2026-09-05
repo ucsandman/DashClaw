@@ -37,7 +37,7 @@ export default function SelfHostPage() {
             <div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Self-host your own governance control plane</h1>
               <p className="mt-2 text-text-secondary max-w-2xl leading-relaxed">
-                Free to deploy. You own the data. Run doctor, connect your first agent, and verify the first decision record in under 10 minutes.
+                Free to deploy. You own the data. Run doctor, connect your first agent, and inspect the first decision record.
               </p>
             </div>
           </div>
@@ -58,7 +58,7 @@ export default function SelfHostPage() {
             <Link href="/setup" className="hover:text-text-secondary transition-colors">Check instance status</Link>
           </div>
           <div className="mt-5 rounded-xl border border-border bg-surface-secondary p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">Expected proof after deploy</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">Expected evidence after deploy</p>
             <p className="mt-2 text-sm text-text-secondary leading-relaxed">
               <code className="font-mono text-text-primary">npm run doctor</code> or{' '}
               <code className="font-mono text-text-primary">dashclaw doctor</code> exits 0 or names the blocker. Your first governed action appears in{' '}
@@ -80,7 +80,7 @@ export default function SelfHostPage() {
                 <h3 className="text-sm font-semibold text-text-primary">Cloud (recommended)</h3>
               </div>
               <p className="text-sm text-text-secondary leading-relaxed">
-                Vercel + Neon free tiers. Zero cost, accessible from any device, auto-HTTPS. Takes ~10 minutes.
+                Vercel + Neon free tiers. Accessible from any device with managed HTTPS.
               </p>
             </div>
             <div className="rounded-xl bg-surface-secondary border border-border p-5">
@@ -111,7 +111,7 @@ export default function SelfHostPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-tertiary">Verify</p>
           <h2 className="mt-3 text-2xl font-bold tracking-tight text-text-primary">Confirm your deployment is healthy</h2>
           <p className="mt-2 text-text-secondary">
-            Doctor diagnoses database, configuration, auth, deployment, SDK reachability, governance staleness, data hygiene, shape drift, and write-path health (live canary writes that prove heartbeats, action records, and guard audit rows actually land: synthetic, isolated, self-cleaning). It reports by default; pass --fix to apply safe repairs. Run it as the first thing after your instance comes up.
+            Doctor diagnoses database, configuration, auth, deployment, SDK reachability, governance staleness, data hygiene, shape drift, and write-path health. Its synthetic, isolated canary writes exercise configured paths and confirm that heartbeats, action records, and guard audit rows land during that run. It reports by default; pass --fix to apply safe repairs. Run it as the first thing after your instance comes up.
           </p>
           <p className="mt-2 text-text-secondary">
             The live host canary covers the outside-in half: an hourly GitHub Actions cron probes your deployed hosts as a real unauthenticated client (pages render, trial mint stays fail-closed, OAuth discovery and the MCP handshake answer their contracts) and files its verdict to your instance; failures render on <code className="font-mono text-text-primary">/setup#live-canary</code> and raise a posture finding.
@@ -149,7 +149,7 @@ dashclaw doctor`}</pre>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-tertiary">Approve from anywhere</p>
           <h2 className="mt-3 text-2xl font-bold tracking-tight text-text-primary">Resolve pending actions without opening the dashboard</h2>
           <p className="mt-2 text-text-secondary">
-            Every instance exposes four approval surfaces against the same <code className="font-mono text-text-primary">/api/approvals/:id</code> endpoint. Pick whichever your on-call workflow prefers. <code className="font-mono text-text-primary">waitForApproval</code> unblocks the agent within about a second regardless of which surface resolved the action.
+            DashClaw can expose dashboard, CLI, mobile PWA, and optional Telegram approval surfaces against the same <code className="font-mono text-text-primary">/api/approvals/:id</code> endpoint. Pick whichever your on-call workflow supports. <code className="font-mono text-text-primary">waitForApproval</code> observes the same server-side decision from each surface.
           </p>
 
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -182,7 +182,7 @@ dashclaw doctor`}</pre>
         <div className="max-w-5xl mx-auto py-12">
           <h2 className="text-2xl font-bold tracking-tight mb-2">What you just deployed</h2>
           <p className="text-text-secondary mb-8">
-            Your DashClaw instance ships with the full governance API surface. Every feature works out of the box -- no LLM API key required.
+            Your DashClaw instance ships the core guard, policy, approval, and decision-recording surface without requiring an LLM API key. Optional integrations need their own configuration.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -190,18 +190,18 @@ dashclaw doctor`}</pre>
               {
                 category: 'Governance',
                 features: [
-                  'Decision audit trail with full action traces',
-                  'Behavior guard -- no-code policy decisions (mechanically enforced on hook and capability surfaces)',
-                  'Policy pack gallery on /policies/packs -- 18 curated packs (spend, outbound comms, unattended runs, infra, fleets, and more), each previewable against your own action history before a one-click install',
+                  'Decision audit trail with recorded action traces',
+                  'Behavior guard -- no-code policy decisions, mechanically enforced through installed hooks, OpenClaw, and bounded invocation helpers',
+                  'Policy pack gallery on /policies/packs -- curated packs for spend, outbound communications, unattended runs, infrastructure, fleets, and more, each previewable against recorded action history before installation',
                   'Human-in-the-loop approval gates with expiry (a lapsed approval can never release work)',
                   'Preflight plan authorization -- an agent submits its plan, you review one card with per-step verdicts, approved steps become single-use act-bound grants',
-                  'Plan attestation -- the plan\'s authority is pinned by a content hash at submission, and an unattended run proves at start-up that its pinned plan is still approved, unexpired and unrevoked before it spends its first model call, failing closed if it drifted',
-                  'Plan deviation events -- every governed action is diffed against the live approved plan; departures (substituted payloads, scope escapes, off-plan actions) are always recorded, and consequence is your explicit per-kind policy choice',
+                  'Plan attestation -- the plan\'s authority is pinned by a content hash at submission, and an unattended run checks at start-up that its pinned plan is still approved, unexpired and unrevoked before it spends its first model call, failing closed if it drifted',
+                  'Plan deviation events -- submitted governed actions are compared with the live approved plan; recorded departures can trigger your explicit per-kind policy choice',
                   'Scoped delegation constraints -- cap a spawned subagent\'s risk, action types, paths, and depth; attenuation only tightens',
-                  'Role constraints -- a named authority bundle per agent role (allowed action types, risk ceiling, path scope); anything outside the role escalates to your inbox',
+                  'Role constraints -- a named authority bundle per agent role (allowed action types, risk ceiling, path scope); submitted actions outside the role escalate to your inbox',
                   'Containment verdicts -- a file-scoped edit or a Postgres statement can proceed reversibly instead of freezing: staged in an isolated worktree or an ephemeral Neon branch, you promote or discard the evidence on your own time',
                   'Approval flood guard with bulk resolution',
-                  'Plain-English approvals -- every pending item leads with one sentence for what the command actually does, flags what cannot be undone, and shows the exact command underneath',
+                  'Plain-English approvals -- pending items lead with the declared purpose and show the canonical redacted act that the approval binds',
                   'One judgment queue on /policies -- tuning, tightening, loosening, and calibration proposals with ratify/dismiss/undo in one click',
                   'Calibrated interruption controller on /policies#calibration (Tuning) -- set a target false-interruption rate, hold it with a distribution-free bound; shadow first, then relief mode stops it asking about the things you keep approving (never past your own riskiest approval, and one deny takes the band back)',
                   'External decision provider -- plug one outside decision engine into the guard; its verdict joins stricter-wins (its deny is absolute, its allow never loosens), with an explicit fail-closed posture when it is unreachable and an optional action-type scope for domain-specific providers',
@@ -213,29 +213,29 @@ dashclaw doctor`}</pre>
                 category: 'Observability',
                 features: [
                   'Real-time SSE event stream',
-                  'Token usage and per-action cost recorded on every decision',
+                  'Token usage and per-action cost attached when clients report them',
                   'Risk signal monitoring (autonomy spikes, repeated failures, assumption drift, stale actions)',
                   'Coverage truth -- record-vs-recorded tool-use coverage with an explicit "no evidence" state, plus close_source outcome provenance',
                   'Fleet attribution -- multi-agent fan-outs joined from persisted lineage evidence',
-                  'Risk composition ledger -- every guard score itemized (risk_breakdown)',
+                  'Risk composition ledger -- recorded guard scores include an itemized risk_breakdown when available',
                   'Session retros -- evidence-based end-of-session defensibility review',
                 ],
               },
               {
                 category: 'Audit & Evidence',
                 features: [
-                  'Signed, replayable audit trail (Ed25519 receipts, JWKS export)',
+                  'Replayable audit trail with explicit receipt and signature status (Ed25519 receipts, JWKS export)',
                   'Evidence packaging (guard decisions + action records)',
-                  'Tamper-evident proof of what was blocked, approved, and by whom',
+                  'Tamper-evident receipts for the recorded content and verdict where receipts are issued',
                 ],
               },
               {
                 category: 'Security',
                 features: [
-                  'Verified agent identity (JWKS / JWT verification)',
+                  'Verified agent identity when JWKS / JWT verification succeeds, reported separately from payload-signature status',
                   'Per-harness composed identities (parent:sub) with fleet grouping',
-                  'agent_defense rollup -- the agent\'s advocate on every action detail',
-                  'Automatic secret redaction',
+                  'agent_defense rollup on recorded action details where supporting evidence is available',
+                  'Secret redaction for recognized sensitive values and patterns on supported paths',
                   'Assumption tracking with one-click invalidation and drift reports',
                   'Content scanning for sensitive data',
                 ],
@@ -265,9 +265,8 @@ dashclaw doctor`}</pre>
           </div>
 
           <p className="text-sm text-text-tertiary mt-6">
-            All features are free, self-hosted, and work without any external AI provider.
-            The governance core (guard, policies, approvals, and action recording) is pure
-            runtime logic with no LLM dependency.
+            The core runtime is MIT licensed, self-hosted, and does not require an external AI provider.
+            Optional semantic analysis and outside decision providers require their own services.
           </p>
         </div>
 
@@ -307,7 +306,7 @@ dashclaw doctor`}</pre>
           </p>
         </div>
 
-        {/* Verified agents */}
+        {/* Signed agents */}
         <div className="max-w-5xl mx-auto mt-5 rounded-xl bg-surface-secondary border border-border p-5">
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-lg bg-brand-subtle flex items-center justify-center shrink-0">
@@ -316,9 +315,9 @@ dashclaw doctor`}</pre>
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <span className="w-6 h-6 rounded-full bg-brand/20 text-brand text-xs font-bold flex items-center justify-center">6</span>
-                <h2 className="text-base font-semibold text-text-primary">Optional: enable verified agents</h2>
+                <h2 className="text-base font-semibold text-text-primary">Optional: require signed agent payloads</h2>
               </div>
-              <p className="text-sm text-text-secondary leading-relaxed">For cryptographic identity binding, set <code className="font-mono text-text-primary">ENFORCE_AGENT_SIGNATURES=true</code> on the dashboard host. The Python SDK&apos;s <code className="font-mono text-text-primary">create_pairing_from_private_jwk()</code> helper generates a keypair and registers the public key via <code className="font-mono text-text-primary">POST /api/pairings</code>; an admin then approves the pairing in the dashboard before the agent&apos;s signed actions are accepted.</p>
+              <p className="text-sm text-text-secondary leading-relaxed">To require cryptographic payload signatures, set <code className="font-mono text-text-primary">ENFORCE_AGENT_SIGNATURES=true</code> on the dashboard host. The Python SDK&apos;s <code className="font-mono text-text-primary">create_pairing_from_private_jwk()</code> helper generates a keypair and registers the public key via <code className="font-mono text-text-primary">POST /api/pairings</code>; an admin then approves the pairing before signed actions are accepted. DashClaw reports this payload-signature status separately from JWT/JWKS identity verification.</p>
             </div>
           </div>
         </div>

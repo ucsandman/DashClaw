@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.ucsandman/dashclaw",
-  "description": "MCP server for DashClaw governance — guard, record, invoke, and discover capabilities.",
+  "description": "Policy checks, approvals, records, and governed HTTP capabilities for unattended agents.",
   "repository": {
     "url": "https://github.com/ucsandman/DashClaw",
     "source": "github",
     "subfolder": "mcp-server"
   },
-  "version": "3.1.5",
+  "version": "3.1.6",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@dashclaw/mcp-server",
-      "version": "3.1.5",
+      "version": "3.1.6",
       "transport": {
         "type": "stdio"
       },

@@ -22,9 +22,10 @@ export const dynamic = 'force-dynamic';
 
 const RUNBOOK = `# DashClaw
 
-> DashClaw is the approval layer for unattended AI agents. It intercepts risky
-> actions before they run, routes them to a human Approvals inbox, and records
-> a replayable decision trail. MIT licensed, self-hosted, no account required.
+> DashClaw evaluates agent actions against policy, routes held work to a human
+> Approvals inbox, and records the decisions it receives. Installed hooks,
+> OpenClaw, and bounded invocation helpers can halt supported actions before
+> execution. Bare SDK and MCP calls are cooperative. MIT licensed and self-hosted.
 
 ## Setup runbook for AI agents
 
@@ -70,8 +71,26 @@ where their one-click approvals happen.
   instance and collect a key; headless runs need DASHCLAW_BASE_URL and
   DASHCLAW_API_KEY set, or --base-url/--api-key flags).
 - MCP (any MCP host): \`npx @dashclaw/mcp-server\` with env DASHCLAW_URL and
-  DASHCLAW_API_KEY (optional DASHCLAW_AGENT_ID).
+  DASHCLAW_API_KEY (optional DASHCLAW_AGENT_ID). The host must call the tools
+  and honor their decisions unless an installed hook enforces the call path.
 - SDKs: \`npm install dashclaw\` (Node) or \`pip install dashclaw\` (Python).
+  Bare methods are cooperative. \`runGoverned\` and \`run_governed\` require a
+  server that advertises execution-claim protocol 1 before invoking the supplied
+  callback. Upgrade the server and SDK together before using these helpers.
+
+## Enforcement contract
+
+- Installed hooks and the OpenClaw gateway mechanically enforce the supported
+  events that reach them. A missing protocol advertisement keeps the legacy hook
+  approval flow; malformed or unsupported advertisements fail closed.
+- Protocol 1 atomically grants one execution attempt only after a fresh policy
+  check binds the exact redacted act and principal. It does not make an external
+  side effect exactly once. Reconcile uncertain claim or outcome states before retrying.
+- Audit receipts protect the integrity of recorded content and verdicts where a
+  receipt was issued. They do not prove unobserved external reality or imply a
+  universal payload signature. Identity verification and payload-signature status
+  are reported separately.
+- Enforcement liveness is a point-in-time client report, not continuous attestation.
 
 ## What you cannot do headlessly
 

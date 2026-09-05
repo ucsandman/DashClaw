@@ -1,8 +1,7 @@
 /**
  * Vercel AI SDK + DashClaw Governance Example
  *
- * Wraps an AI SDK tool's execute function in the DashClaw 4-step loop:
- * guard → createAction → recordAssumption → updateOutcome.
+ * Wraps an AI SDK tool's execute function in DashClaw's persisted-action loop.
  *
  * Handles require_approval (HITL) and block decisions.
  * No LLM API key required — the demo invokes the governed tool directly,
@@ -23,9 +22,9 @@ const claw = new DashClaw({
 });
 
 // Each demo run is a distinct logical action. The SDK derives an idempotency
-// key from (agent, type, goal, session) so blind retries dedupe — without a
-// per-run session id, re-running this script inside an hour would replay the
-// previous (already-completed) action instead of creating a new one.
+// key from (agent, type, goal, session) to deduplicate the action record.
+// A per-run session keeps separate demo runs distinct; record deduplication
+// alone is not an exactly-once guarantee for external effects.
 const RUN_ID = `demo-${Date.now()}`;
 
 /**
@@ -33,63 +32,21 @@ const RUN_ID = `demo-${Date.now()}`;
  * The wrapper is generic: pass the action metadata once, reuse it for
  * every tool you define.
  */
-function governed({ actionType, riskScore, systemsTouched, goal }, execute) {
+function governed({ actionType, riskScore, systemsTouched, goal, act }, execute) {
   return async (input) => {
     const declaredGoal = typeof goal === 'function' ? goal(input) : goal;
-
-    // 1. GUARD: policy check before executing
-    const { decision, reasons } = await claw.guard({
-      action_type: actionType,
-      declared_goal: declaredGoal,
-      risk_score: riskScore,
-      systems_touched: systemsTouched,
-    });
-    console.log(`Guard decision: ${decision}`);
-
-    if (decision === 'block') {
-      return `BLOCKED: ${(reasons || []).join(', ')}`;
-    }
-
-    // 2. RECORD: declare intent
-    const { action } = await claw.createAction({
-      action_type: actionType,
-      declared_goal: declaredGoal,
-      risk_score: riskScore,
-      systems_touched: systemsTouched,
-      session_id: RUN_ID,
-    });
-    console.log(`Action recorded: ${action.action_id}`);
-
-    // 3. HITL: wait for approval if required
-    if (decision === 'require_approval') {
-      console.log(`Waiting for human approval of ${action.action_id}...`);
-      try {
-        await claw.waitForApproval(action.action_id, { timeout: 120000, interval: 5000 });
-        console.log('Approved!');
-      } catch (err) {
-        await claw.updateOutcome(action.action_id, {
-          status: 'cancelled',
-          error_message: String(err?.message || err),
-        });
-        return `DENIED: ${err?.message || err}`;
-      }
-    }
-
-    // 4. EXECUTE + OUTCOME
-    try {
-      const result = await execute(input);
-      await claw.updateOutcome(action.action_id, {
-        status: 'completed',
-        output_summary: typeof result === 'string' ? result : JSON.stringify(result),
-      });
-      return result;
-    } catch (err) {
-      await claw.updateOutcome(action.action_id, {
-        status: 'failed',
-        error_message: String(err?.message || err),
-      });
-      throw err;
-    }
+    const exactAct = typeof act === 'function' ? act(input) : act;
+    return claw.runGoverned(
+      exactAct,
+      {
+        action_type: actionType,
+        declared_goal: declaredGoal,
+        risk_score: riskScore,
+        systems_touched: systemsTouched,
+        session_id: RUN_ID,
+      },
+      () => execute(input),
+    );
   };
 }
 
@@ -107,6 +64,14 @@ const refundOrder = tool({
       riskScore: 70,
       systemsTouched: ['stripe'],
       goal: ({ orderId, amountUsd }) => `Refund $${amountUsd} for order ${orderId}`,
+      act: ({ orderId, amountUsd }) => ({
+        kind: 'http',
+        request: {
+          method: 'POST',
+          url: 'https://api.stripe.test/v1/refunds',
+          body_excerpt: JSON.stringify({ orderId, amountUsd }),
+        },
+      }),
     },
     async ({ orderId, amountUsd }) =>
       `Refunded $${amountUsd} for order ${orderId}.`, // simulated — no real charge
@@ -124,6 +89,13 @@ const lookupOrder = tool({
       riskScore: 10,
       systemsTouched: ['orders_db'],
       goal: ({ orderId }) => `Look up order ${orderId}`,
+      act: ({ orderId }) => ({
+        kind: 'http',
+        request: {
+          method: 'GET',
+          url: `https://orders.example.test/orders/${encodeURIComponent(orderId)}`,
+        },
+      }),
     },
     async ({ orderId }) => ({ orderId, status: 'shipped', totalUsd: 129.0 }), // simulated
   ),

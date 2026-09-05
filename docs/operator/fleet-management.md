@@ -60,25 +60,31 @@ If you suspect heartbeats are being sent but not received:
 
 ## Manual Approval Workflow
 
-Agents can request human approval for sensitive actions by explicitly setting the action status.
+Agents can request human approval for sensitive actions by submitting them
+through the normal guard flow. Prefer `runGoverned()` / `run_governed()` so
+approval release is followed by an exact-act execution claim.
 
 **Requirements:**
-1.  **Status:** Must be set to `pending_approval`.
-2.  **Risk Score:** Must be **below** the blocking threshold (default: 80). If the score is too high, the Guard will block the action (403) before it can be queued.
+1. **Policy result:** An active policy must return `require_approval`; clients
+   do not choose authorization by setting an action status.
+2. **Execution release:** Approval selection does not consume authority. A
+   protocol-1 execution claim rechecks current policy and consumes it only when
+   the exact act is ready to run.
 
 **Example (Node.js SDK):**
 
 ```javascript
-await claw.createAction({
+await claw.runGoverned({ kind: 'shell', command: 'rotate-backup --dry-run' }, {
   action_type: 'cleanup',
-  declared_goal: 'Delete production database backup',
-  status: 'pending_approval', // explicit request
-  risk_score: 50, // moderate risk (safe enough to queue)
+  declared_goal: 'Validate the backup rotation command',
+  risk_score: 50,
   metadata: { filename: 'backup.sql' }
-});
+}, () => validateBackupRotation());
 ```
 
-This action will appear in the Dashboard with a "Pending Approval" status, allowing an operator to Review and Approve/Reject it.
+If policy requires review, the action appears in the Dashboard with a "Pending
+Approval" status. The helper waits for the operator and claims execution before
+calling `validateBackupRotation()`.
 
 ## SDK Best Practices
 

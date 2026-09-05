@@ -8,7 +8,7 @@ import {
   Zap, KeyRound, Settings, Clock, PanelLeftClose,
   PanelLeft, Menu, X, Activity, Shield, Microscope, Plug,
   Fingerprint, Bell, FlaskConical, ChevronDown, Stethoscope,
-  ClipboardCheck, Crosshair, Users, Gauge,
+  ClipboardCheck, Users, Gauge,
 } from 'lucide-react';
 import DashClawLogo from './DashClawLogo';
 
@@ -36,7 +36,6 @@ const navGroups: NavGroup[] = [
       { href: '/approvals', icon: Clock, label: 'Approvals' },
       { href: '/decisions', icon: Zap, label: 'Decisions' },
       { href: '/policies', icon: Shield, label: 'Policies' },
-      { href: '/policies#calibration', icon: Crosshair, label: 'Tuning' },
       { href: '/team-tasks', icon: Users, label: 'Team Tasks' },
     ],
   },
@@ -118,12 +117,6 @@ export default function Sidebar() {
         aria-current={active ? 'page' : undefined}
         onClick={() => {
           setMobileOpen(false);
-          // Same-page hash link (Tuning → /policies#calibration): when the hash
-          // is already in the URL a click changes nothing, so scroll manually.
-          const hashIdx = item.href.indexOf('#');
-          if (hashIdx !== -1 && pathname === item.href.slice(0, hashIdx)) {
-            document.getElementById(item.href.slice(hashIdx + 1))?.scrollIntoView({ block: 'start' });
-          }
         }}
         title={collapsed ? item.label : undefined}
         className={`relative mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors duration-150 ${

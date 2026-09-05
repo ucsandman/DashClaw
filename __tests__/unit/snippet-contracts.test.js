@@ -70,23 +70,26 @@ describe('SDK validator commands (app/lib/readiness/sdkCheck.mjs)', () => {
 });
 
 describe('framework guide snippets promise the full loop', () => {
-  it('LangGraph guide snippet is self-contained and reports an outcome', () => {
+  it('LangGraph keeps the research callback behind the governed helper', () => {
     const source = readRepoFile('app/guides/langgraph/page.tsx');
     expect(source).toContain('import os');
-    expect(source).toContain('def research_node');
-    expect(source).toContain('update_outcome(');
+    expect(source).toContain('def governed_research_node');
+    expect(source).toContain('claw.run_governed(');
+    expect(source).toContain('execution claim');
   });
 
-  it('CrewAI guide snippet imports os and reports an outcome', () => {
+  it('CrewAI routes its tool callback through the governed helper', () => {
     const source = readRepoFile('app/guides/crewai/page.tsx');
     expect(source).toContain('import os');
-    expect(source).toContain('update_outcome(');
+    expect(source).toContain('return claw.run_governed(');
+    expect(source).toContain('lambda:');
   });
 
-  it('OpenAI Agents SDK guide snippet records and completes an action', () => {
+  it('OpenAI Agents SDK guide binds its export callback to the governed helper', () => {
     const source = readRepoFile('app/guides/openai-agents-sdk/page.tsx');
-    expect(source).toContain('createAction');
-    expect(source).toContain('updateOutcome');
+    expect(source).toContain('await claw.runGoverned(');
+    expect(source).toContain('async () =>');
+    expect(source).toContain('execution claim');
   });
 
   it('the shared guide component describes guardrails.yml as an importable template, not auto-discovered', () => {

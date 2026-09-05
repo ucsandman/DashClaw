@@ -137,6 +137,7 @@ function DecisionsLedgerInner() {
   const [stats, setStats] = useState<any>({});
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('');
   const [expandedId, setExpandedId] = useState<any>(null);
   const [expandedData, setExpandedData] = useState<Record<string, any>>({});
@@ -245,10 +246,12 @@ function DecisionsLedgerInner() {
       setStats(data.stats || {});
       setTotal(displayedTotal);
       setLastUpdated(new Date().toLocaleTimeString());
+      setLoadError(false);
       const seen = displayed.map((a: any) => a.swarm_id).filter(Boolean);
       if (seen.length) setKnownSwarms((prev) => Array.from(new Set([...prev, ...seen])));
     } catch (error) {
       console.error('Failed to fetch actions:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -603,17 +606,17 @@ function DecisionsLedgerInner() {
             </div>
           )}
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            <select value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(0); }} className={`${selectClass} md:flex-1`}>
+            <select aria-label="Filter by action type" value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(0); }} className={`${selectClass} md:flex-1`}>
               <option value="">All types</option>
               {['build','deploy','post','apply','security','message','api','calendar','research','review','fix','refactor','test','config','monitor','alert','cleanup','sync','migrate','other'].map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
-            <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(0); }} className={`${selectClass} md:flex-1`}>
+            <select aria-label="Filter by status" value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(0); }} className={`${selectClass} md:flex-1`}>
               <option value="">All statuses</option>
               {['running','pending','pending_approval','blocked','completed','failed','cancelled','unknown'].map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
             </select>
-            <select value={filterOutcome} onChange={(e) => { setFilterOutcome(e.target.value); setPage(0); }} className={`${selectClass} md:flex-1`}>
+            <select aria-label="Filter by outcome" value={filterOutcome} onChange={(e) => { setFilterOutcome(e.target.value); setPage(0); }} className={`${selectClass} md:flex-1`}>
               <option value="">All outcomes</option>
               <option value="pending">Pending outcome</option>
               <option value="completed">Completed</option>
@@ -629,7 +632,7 @@ function DecisionsLedgerInner() {
                 ))}
               </select>
             )}
-            <select value={filterRiskMin} onChange={(e) => { setFilterRiskMin(e.target.value); setPage(0); }} className={`${selectClass} md:flex-1`}>
+            <select aria-label="Filter by minimum risk" value={filterRiskMin} onChange={(e) => { setFilterRiskMin(e.target.value); setPage(0); }} className={`${selectClass} md:flex-1`}>
               <option value="">Any risk</option>
               <option value="1">Governed (1+)</option>
               <option value="40">Medium+ (40+)</option>
@@ -637,6 +640,8 @@ function DecisionsLedgerInner() {
               <option value="90">Critical (90+)</option>
             </select>
             <button
+              aria-pressed={hideRoutine}
+              aria-label="Hide routine running actions"
               onClick={() => { setHideRoutine(!hideRoutine); setPage(0); }}
               className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                 hideRoutine
@@ -686,13 +691,22 @@ function DecisionsLedgerInner() {
       >
       <Card hover={false}>
         <CardContent className="pt-5">
-          {loading ? (
+          {loadError && (
+            <div className="mb-4 rounded-lg border border-warning/30 bg-warning-subtle p-4 text-sm text-warning" role="alert">
+              <div className="font-semibold">Decision ledger unavailable</div>
+              <p className="mt-1 text-secondary">
+                {lastUpdated ? `Showing the last successful result from ${lastUpdated}.` : 'No successful decision read is available.'}
+              </p>
+              <button className="mt-3 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold" onClick={fetchActions}>Retry</button>
+            </div>
+          )}
+          {loading && actions.length === 0 ? (
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton key={i} className="h-16 w-full rounded-lg" />
               ))}
             </div>
-          ) : actions.length === 0 ? (
+          ) : actions.length === 0 && !loadError ? (
             <EmptyState
               icon={Inbox}
               title="No actions found"
@@ -706,7 +720,7 @@ function DecisionsLedgerInner() {
                 </Link>
               }
             />
-          ) : (
+          ) : actions.length > 0 ? (
             <div className="space-y-2">
               {/* Select all row (scoped to the currently visible/sorted rows) */}
               {isAdmin && decisionsControls.rows.length > 1 && (
@@ -787,17 +801,26 @@ function DecisionsLedgerInner() {
                         {/* 3. Outcome */}
                         <div className="flex items-center justify-between gap-4 md:min-w-[200px]">
                           <div className="mr-2 flex flex-col items-end gap-1">
-                            {action.verified ? (
-                              <div className="inline-flex items-center gap-1 rounded border border-success/20 bg-success-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-success" title="Cryptographically signed by agent">
-                                <ShieldCheck size={10} /> Verified
+                            {action.provenance?.identity_verified === true ? (
+                              <div className="inline-flex items-center gap-1 rounded border border-success/20 bg-success-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-success" title="The submitting identity was authenticated">
+                                <ShieldCheck size={10} /> Verified identity
                               </div>
-                            ) : action.signature ? (
+                            ) : action.provenance?.identity_verified === false ? (
+                              <div className="inline-flex items-center gap-1 rounded border border-error/20 bg-error-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-error" title="The submitting identity was not verified">
+                                <ShieldAlert size={10} /> Unverified identity
+                              </div>
+                            ) : null}
+                            {action.provenance?.payload_signature === 'verified' ? (
+                              <div className="inline-flex items-center gap-1 rounded border border-success/20 bg-success-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-success" title="The action payload signature was verified">
+                                <ShieldCheck size={10} /> Payload signed
+                              </div>
+                            ) : action.provenance?.payload_signature === 'invalid' ? (
                               <div className="inline-flex items-center gap-1 rounded border border-error/20 bg-error-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-error" title="Signature invalid or tampered">
-                                <ShieldAlert size={10} /> Invalid
+                                <ShieldAlert size={10} /> Invalid payload signature
                               </div>
                             ) : (
                               <div className="inline-flex items-center gap-1 rounded border border-border bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-tertiary" title="No cryptographic signature provided">
-                                <Info size={10} /> Unsigned
+                                <Info size={10} /> Payload signature {action.provenance?.payload_signature || 'unknown'}
                               </div>
                             )}
                             <div className="flex items-center gap-1.5">
@@ -891,7 +914,7 @@ function DecisionsLedgerInner() {
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm md:grid-cols-4">
                           <div className="flex items-baseline justify-between gap-2">
                             <span className="text-[11px] uppercase tracking-[0.14em] text-tertiary">Confidence</span>
-                            <span className="tabular-nums text-white">{action.confidence || 50}%</span>
+                            <span className="tabular-nums text-white">{action.confidence ?? 50}%</span>
                           </div>
                           <div className="flex items-baseline justify-between gap-2">
                             <span className="text-[11px] uppercase tracking-[0.14em] text-tertiary">Reversible</span>
@@ -988,7 +1011,7 @@ function DecisionsLedgerInner() {
                 );
               })}
             </div>
-          )}
+          ) : null}
         </CardContent>
       </Card>
       </CollapsibleSection>

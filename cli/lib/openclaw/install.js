@@ -449,7 +449,7 @@ function backupConfigOnce(configPath, knownKey = null) {
 }
 
 export const OPENCLAW_PLUGIN_SPEC = '@dashclaw/openclaw-plugin';
-export const OPENCLAW_PLUGIN_VERSION = '1.6.2';
+export const OPENCLAW_PLUGIN_VERSION = '1.6.4';
 
 /**
  * `dashclaw install openclaw` orchestrator.

@@ -6,6 +6,9 @@ import urllib.request
 import urllib.error
 import base64
 import warnings
+import queue
+import threading
+import uuid
 from datetime import datetime, timezone
 from contextlib import contextmanager
 
@@ -115,6 +118,22 @@ class ApprovalPendingError(DashClawError):
         )
         self.action_id = action_id
 
+class ExecutionClaimError(DashClawError):
+    """The server did not grant this exact execution attempt."""
+    def __init__(self, action_id, attempt_id, message):
+        super().__init__(message)
+        self.action_id = action_id
+        self.attempt_id = attempt_id
+
+class OutcomeConfirmationError(DashClawError):
+    """The callback succeeded but its completed outcome was not confirmed."""
+    def __init__(self, action_id):
+        super().__init__(
+            f"Action {action_id} ran successfully, but DashClaw did not confirm the completed outcome. "
+            "Reconcile the action outcome before deciding whether any retry is safe."
+        )
+        self.action_id = action_id
+
 class DashClaw:
     def __init__(
         self,
@@ -219,10 +238,9 @@ class DashClaw:
     def _is_restrictive_decision(self, decision):
         # 'allow_contained' is deliberately NOT restrictive here: it means the
         # server let the act proceed (held for operator promote/discard
-        # afterward), not that run_governed/execution should pause. A bare
-        # SDK caller never sees it anyway — this client never advertises
-        # client_capabilities, so the server negotiates 'allow_contained'
-        # down to 'require_approval' before it ever reaches this check.
+        # afterward), not that run_governed/execution should pause. The SDK
+        # never adds the 'allow_contained' capability itself, so a caller that
+        # does not opt in receives 'require_approval' before this check.
         return isinstance(decision, dict) and decision.get("decision") in ["block", "require_approval"]
 
     def _build_guard_context(self, action_def):
@@ -565,20 +583,64 @@ class DashClaw:
         raise TimeoutError(f"[DashClaw] Timed out waiting for approval of action {action_id}")
 
     def wait_for_approval(self, action_id, timeout=300, interval=5):
-        """Wait for human approval. Uses SSE for instant notification, falls back to polling."""
+        """Wait for approval using SSE plus concurrent authoritative polling."""
         start_time = time.time()
+        deadline = start_time + timeout
+        events = queue.Queue()
 
-        # Try SSE first
-        try:
-            resolved, value = self._wait_for_approval_via_sse(action_id, timeout, start_time)
-            if resolved:
-                return value
-        except ApprovalDeniedError:
-            raise
-        except Exception:
-            pass  # SSE failed — fall through to polling
+        def listen():
+            try:
+                events.put(("sse", self._connect_sse(action_id, timeout)))
+            except Exception as error:
+                events.put(("error", error))
 
-        return self._poll_for_approval(action_id, interval, start_time + timeout)
+        threading.Thread(target=listen, daemon=True).start()
+        was_pending = False
+        poll_interval = max(float(interval), 0.01)
+
+        while time.time() < deadline:
+            try:
+                kind, value = events.get_nowait()
+            except queue.Empty:
+                kind, value = None, None
+
+            if kind == "sse" and value is not None:
+                if value.get("approved_by"):
+                    return self.get_action(action_id)
+                if value.get("status") in ["failed", "cancelled", "expired"]:
+                    message = value.get("error_message") or (
+                        "Approval expired before a decision was made."
+                        if value.get("status") == "expired"
+                        else "Operator denied the action."
+                    )
+                    raise ApprovalDeniedError(message, decision=value.get("status"))
+
+            result = self.get_action(action_id)
+            resolved, was_pending = self._evaluate_wait_for_approval_action(
+                action_id, result, was_pending
+            )
+            if resolved is not None:
+                return resolved
+
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                break
+            try:
+                kind, value = events.get(timeout=min(poll_interval, remaining))
+                if kind == "sse" and value is not None:
+                    if value.get("approved_by"):
+                        return self.get_action(action_id)
+                    if value.get("status") in ["failed", "cancelled", "expired"]:
+                        message = value.get("error_message") or (
+                            "Approval expired before a decision was made."
+                            if value.get("status") == "expired"
+                            else "Operator denied the action."
+                        )
+                        raise ApprovalDeniedError(message, decision=value.get("status"))
+            except queue.Empty:
+                pass
+
+        raise TimeoutError(f"[DashClaw] Timed out waiting for approval of action {action_id}")
 
     def update_outcome(self, action_id, status=None, **kwargs):
         """Update the outcome of an action."""
@@ -619,12 +681,10 @@ class DashClaw:
         return self.get_actions(status="pending_approval", limit=limit, offset=offset)
 
     # --- Containment Verdicts (RFC 2026-07-06) ---
-    # This SDK never advertises client_capabilities, so a guard() call from
-    # this client can never receive decision "allow_contained" in the first
-    # place (the server negotiates it down to "require_approval" for
-    # non-advertising callers) — resolve_containment/list_contained only
-    # manage rows that reached "awaiting_promotion" some other way (e.g. a
-    # capability-aware caller, or the dashboard).
+    # This SDK never adds the allow_contained capability itself, so a caller
+    # that does not opt in cannot receive that verdict (the server negotiates
+    # it down to require_approval). These helpers manage rows that reached
+    # awaiting_promotion through an opted-in caller or the dashboard.
 
     def resolve_containment(self, action_id, verdict):
         """Operator verdict on a contained action awaiting promotion (admin
@@ -754,9 +814,9 @@ class DashClaw:
         file-scoped act the server will let proceed but hold for operator
         promote/discard via `resolve_containment` — ONLY when the caller
         declared `client_capabilities: ["allow_contained"]` in the guard
-        context. This SDK never sets that field, so a bare SDK caller
-        receives 'require_approval' in its place (version skew only ever
-        tightens, never silently loosens). When present, `containment`
+        context. This SDK never adds that capability itself, so a caller that
+        does not opt in receives 'require_approval' in its place (version skew
+        only tightens). When present, `containment`
         carries the eligibility basis.
 
         Phase 2 (#104): pass `auth_token` to the constructor to attach a JWT
@@ -815,7 +875,8 @@ class DashClaw:
         Node parity: sdk/dashclaw.js runGoverned. See
         docs/superpowers/specs/2026-07-05-evidence-first-guard.md.
 
-        guard(with act) -> optional create_action -> approval -> fn() -> outcome.
+        guard(with act) -> optional create_action -> approval -> protocol-1
+        execution claim -> fn() -> outcome.
         Minimal inputs use record=True to combine guard and recording. Richer
         fields, signing, configured guard/HITL modes, or a server that did not
         record use create_action. Either response can require approval.
@@ -834,12 +895,23 @@ class DashClaw:
         Raises GuardBlockedError when guard blocks the action,
         ApprovalDeniedError when an operator denies the pending approval,
         ApprovalPendingError when the action needs approval and
-        ``wait=False`` was passed (fn() was not executed).
+        ``wait=False`` was passed (fn() was not executed),
+        ExecutionClaimError when the server does not confirm the exact
+        one-shot claim (fn() was not executed), and OutcomeConfirmationError
+        when fn() succeeds but completion reporting is not confirmed.
         """
         context = dict(params or {})
         wait = context.pop("wait", None)
         scrubbed_act = scrub_act(act)
-        guard_context = {**context, "act": scrubbed_act}
+        capabilities = context.get("client_capabilities")
+        capabilities = list(capabilities) if isinstance(capabilities, list) else []
+        if "execution_claims" not in capabilities:
+            capabilities.append("execution_claims")
+        guard_context = {
+            **context,
+            "act": scrubbed_act,
+            "client_capabilities": capabilities,
+        }
 
         # In-guard recording does not preserve richer action metadata or run
         # create_action's signing and configured guard/HITL behavior.
@@ -859,8 +931,8 @@ class DashClaw:
         requires_approval = decision.get("decision") == "require_approval"
         if not record or decision.get("recorded") is not True or not action_id:
             # Server didn't record the action on the guard call — fall back
-            # to the previous two-call path so older self-hosted servers
-            # keep working.
+            # to the compatible two-call recording path. Governed execution
+            # still requires the protocol-1 claim endpoint below.
             action_type = context.get("action_type")
             declared_goal = context.get("declared_goal")
             extra = {k: v for k, v in context.items() if k not in ("action_type", "declared_goal")}
@@ -876,13 +948,62 @@ class DashClaw:
                 raise ApprovalPendingError(action_id)
             self.wait_for_approval(action_id)
 
+        self.claim_execution(action_id, scrubbed_act)
+
         try:
             value = fn()
-            self.report_action_outcome(action_id, "completed")
-            return value
         except Exception as e:
-            self.report_action_outcome(action_id, "failed", error_message=str(e))
+            try:
+                self.report_action_outcome(action_id, "failed", error_message=str(e))
+            except Exception as report_error:
+                e.outcome_report_error = report_error
+                e.action_id = getattr(e, "action_id", action_id)
             raise
+
+        try:
+            self.report_action_outcome(action_id, "completed")
+        except Exception as error:
+            raise OutcomeConfirmationError(action_id) from error
+        return value
+
+    def claim_execution(self, action_id, act):
+        """Claim one execution attempt; never retry an uncertain claim."""
+        attempt_id = str(uuid.uuid4())
+        payload = {
+            "claim_execution": True,
+            "attempt_id": attempt_id,
+            "agent_id": self.agent_id,
+            "act": act,
+        }
+        try:
+            response = self._request(
+                f"/api/actions/{action_id}", method="PATCH", body=payload
+            )
+        except Exception as error:
+            upgrade = (
+                " The server does not support required execution claims; upgrade DashClaw before running this callback."
+                if getattr(error, "status", None) == 404 else ""
+            )
+            raise ExecutionClaimError(
+                action_id,
+                attempt_id,
+                f"Execution claim for action {action_id} was not confirmed.{upgrade} "
+                "Reconcile the action before retrying.",
+            ) from error
+
+        if not (
+            isinstance(response, dict)
+            and response.get("claimed") is True
+            and response.get("action_id") == action_id
+            and response.get("attempt_id") == attempt_id
+        ):
+            raise ExecutionClaimError(
+                action_id,
+                attempt_id,
+                f"Execution claim for action {action_id} returned an invalid confirmation. "
+                "Reconcile the action before retrying.",
+            )
+        return response
 
     def get_guard_decisions(self, decision=None, limit=20, offset=0, agent_id=None):
         params = {
@@ -1150,8 +1271,9 @@ class DashClaw:
 
         Returns a dict with ``status`` (one of pending, completed, partial,
         failed, lost_confirmation), ``outcome_at``, ``summary``,
-        ``error_message``, ``progress``, ``elapsed_ms``. Call before retry
-        to avoid re-executing already-completed actions.
+        ``error_message``, ``progress``, ``elapsed_ms``. Use it for
+        reconciliation before considering a retry. A non-completed state is
+        not proof that an external effect did not occur.
         """
         return self._request(f"/api/actions/{action_id}/outcome", "GET")
 

@@ -3,10 +3,10 @@
     "generatedAt": "2026-09-05",
     "archiveNote": "UNREACHABLE at runtime, independent of auth/middleware. Next.js App Router treats any path segment starting with an underscore as a private folder (https://nextjs.org/docs/app/building-your-application/routing/colocation#private-folders) and excludes it from route generation entirely. So app/api/_archive/**/route.js files never become live endpoints — a request to /api/_archive/anything 404s before middleware.js or next.config.js are even consulted for that path. Confirmed by reading next.config.js (no rewrites() or redirects() entry references '_archive') and middleware.js in full (zero string matches for '_archive'; its matcher config only lists '/api/:path*' plus specific pages, and none of the demo-mode dispatch tables, PUBLIC_ROUTES, or hosted-public-path checks mention _archive). scripts/lib/route-sql-guard.mjs explicitly skips the '_archive' directory when walking route files, confirming the team already treats it as inert/excluded tooling-side. Net effect: these 48 archived route files are dead code from a routing standpoint — the handlers themselves are syntactically intact and mostly still reference live schema tables (verified goals, milestones, ideas, contacts, interactions, agent_messages, message_threads, shared_docs, context_points, context_entries, calendar_events, snippets, user_observations/preferences/moods/approaches, notification_preferences, workflows, executions, scheduled_jobs, agent_pairings, agent_identities, content, health_snapshots, entities, topics, and feedback all still exist in schema/schema.js), but none of that matters because the folder is never mounted as a route. Un-archiving (renaming _archive -> something routable) would make most of them functional again since they read live tables.",
     "counts": {
-      "total": 440,
-      "stable": 305,
+      "total": 474,
+      "stable": 338,
       "beta": 25,
-      "experimental": 109,
+      "experimental": 110,
       "archived": 0,
       "deprecated": 1
     }
@@ -1519,6 +1519,24 @@
           "errors": "403 Admin access required / APPROVER_IDENTITY_REQUIRED / SELF_APPROVAL_FORBIDDEN (creator approving own action, unless userId==='operator'); 404 Action not found; 400 invalid decision or action not pending_approval; 409 already resolved by another a…; SoD also covers deny and lifting a denial (a second principal or 'operator' required), and principal-less (NULL created_by) rows are operator-only",
           "gotchas": "Lazily expires overdue pending approvals on read (self-healing) before processing; clears external (Discord/Telegram) approval-request notifications via next/server `after()`.",
           "file": "app/api/approvals/[actionId]/route.ts"
+        },
+        {
+          "id": "get-api-approvals-actionid-grant",
+          "name": "GET /api/approvals/{actionId}/grant",
+          "kind": "api",
+          "status": "experimental",
+          "interface": "GET /api/approvals/{actionId}/grant",
+          "purpose": "Preview the scoped allow_grant and pending approvals that the POST grant operation would cover, without creating a policy or resolving any approval.",
+          "auth": "x-api-key resolved to org via middleware; requires x-org-role === 'admin'; requires attributable userId",
+          "inputs": {
+            "pathParams.actionId": "string",
+            "query.ttl_hours": "1 | 24 | 168 | 720, optional (default 24) — previews the grant lease"
+          },
+          "response": "{ scope: string, target: string, matching_count: number, release_ids: string[], truncated: boolean } — release_ids[0] is the clicked action",
+          "errors": "403 Admin access required / APPROVER_IDENTITY_REQUIRED / SELF_APPROVAL_FORBIDDEN; 403 GRANT_RISK_CEILING; 403 GRANT_REFUSED_BY_POLICY; 400 UNSCOPED_GRANT_REJECTED / INVALID_TTL / action not pending_approval; 404 Action not found; 410 APPROVAL_EXPIRED",
+          "gotchas": "GET and POST share prepareGrant, so preview scope and release_ids use the same grantMatches/grantCoversRisk calculation. GET is read-only: it does not create the grant or approve any returned action.",
+          "file": "app/api/approvals/[actionId]/grant/route.ts",
+          "liveVerified": false
         },
         {
           "id": "post-api-approvals-actionid-grant",
@@ -4518,9 +4536,9 @@
       "title": "Node / TypeScript SDK",
       "package": {
         "name": "dashclaw",
-        "version": "5.3.2",
+        "version": "5.33.9",
         "install": "npm install dashclaw",
-        "description": "Minimal governance runtime for AI agents. Intercept, govern, and verify agent actions.",
+        "description": "Govern agent callbacks with policy checks, remote approvals, execution claims, and outcome reporting.",
         "license": "MIT",
         "engines": "node >=18.0.0",
         "moduleSystem": "ESM-first (type: module). ESM entry: dashclaw.js; CJS entry: index.cjs (a lazy async bridge that dynamically imports the ESM module; error classes use a Symbol.hasInstance placeholder pattern so instanceof works across the ESM/CJS boundary). Zero runtime dependencies.",
@@ -4528,7 +4546,7 @@
           ".": {
             "import": "./dashclaw.js",
             "require": "./index.cjs",
-            "note": "Canonical client. Named exports: DashClaw, ApprovalDeniedError, GuardBlockedError, scrubAct."
+            "note": "Canonical client. Named exports: DashClaw, ApprovalDeniedError, GuardBlockedError, ApprovalPendingError, ExecutionClaimError, OutcomeConfirmationError, scrubAct."
           }
         },
         "bin": {
@@ -4536,7 +4554,7 @@
           "note": "npx dashclaw <args> is a pure forwarding shim: spawns npm exec --yes -- @dashclaw/cli <args>. The SDK package owns the bare npm name but the real CLI lives in @dashclaw/cli. Not a programmatic API surface."
         },
         "constructor": {
-          "signature": "new DashClaw({ baseUrl, apiKey, agentId, agentName?, authToken? })",
+          "signature": "new DashClaw({ baseUrl, apiKey, agentId, agentName?, authToken?, timeoutMs? })",
           "options": {
             "baseUrl": {
               "type": "string",
@@ -4562,27 +4580,43 @@
               "type": "string",
               "required": false,
               "meaning": "Phase 2 cryptographic attribution: a JWT from your OIDC provider, sent as Authorization: Bearer. Server verifies via JWKS; the JWT sub claim overrides agentId in the audit record when verification succeeds. Guard responses then carry verification_status (verified|unverified|expired|failed|unknown_issuer)."
+            },
+            "timeoutMs": {
+              "type": "number",
+              "required": false,
+              "meaning": "Per-request timeout in milliseconds; defaults to 30000."
             }
           },
-          "envConvention": "The SDK itself reads NO env vars — you wire them yourself. Conventional names used across README/docs/CLI: DASHCLAW_BASE_URL (or DASHCLAW_URL in MCP contexts), DASHCLAW_API_KEY, optional DASHCLAW_AGENT_ID. The @dashclaw/cli resolves env vars -> ~/.dashclaw/config.json -> interactive prompt.",
-          "namespaces": "constructor also builds claw.execution.capabilities.{list,create,get,update,invoke,test,getHealth,listHealth,getHistory} — thin arrows onto the flat listCapabilities/createCapability/... methods. The namespaced paths are the canonical target for new capability work."
+          "envConvention": "The SDK itself reads NO env vars — you wire them yourself. Conventional names used across README/docs/CLI: DASHCLAW_BASE_URL (or DASHCLAW_URL in MCP contexts), DASHCLAW_API_KEY, optional DASHCLAW_AGENT_ID. The @dashclaw/cli resolves env vars -> ~/.dashclaw/config.json -> interactive prompt."
         },
         "errorHandling": {
-          "model": "All HTTP calls go through a single _request helper. Non-OK responses throw. Two custom error classes are exported; everything else surfaces as a plain Error with extra fields.",
-          "GuardBlockedError": "Thrown by ANY SDK call when the server returns HTTP 403 with { decision: { decision: \"block\" } } — the request-level policy block. NOTE: a guard() call that returns { decision: \"block\" } in a 200 body does NOT throw; check decision.decision yourself and throw new GuardBlockedError(decision) to abort. Also thrown by runGoverned()/guardedFetch() when guard returns block. Fields: .name, .message (decision.reason), .decision.",
-          "ApprovalDeniedError": "Thrown by waitForApproval() (and runGoverned/guardedFetch when they wait) when an operator denies the action (status becomes failed or cancelled) or the approval expires server-side (status expired — check err.status to distinguish). Fields: .name, .message, .decision (the action).",
-          "genericErrors": "Other non-OK responses throw new Error(data.reason || data.error || \"Request failed with status N\") with .status (HTTP status), .details, and .decision (full body) attached. Non-JSON error bodies (gateway 502/504/413/429 pages) are parsed defensively to {} so the status-bearing error still throws instead of a SyntaxError.",
-          "timeouts": "waitForApproval throws a plain Error(\"Approval timeout after Nms\") after options.timeout (default 300000 ms). waitForPairing throws on expiry/timeout."
+          "model": "All HTTP calls use one request helper. Policy blocks normalize to GuardBlockedError; approval, claim, and outcome-finality failures have dedicated exported errors. Other non-OK responses throw Error with status, details, and the parsed response on decision.",
+          "GuardBlockedError": "A policy block. Carries the guard decision on .decision.",
+          "ApprovalDeniedError": "A denied, cancelled, or expired approval. Carries the terminal decision/status on .decision.",
+          "ApprovalPendingError": "runGoverned(..., { wait: false }, ...) found a required approval. Carries .actionId and guarantees the callback was not run.",
+          "ExecutionClaimError": "The one-shot execution claim failed or its acknowledgement did not exactly match action_id and attempt_id. Carries .actionId and .attemptId; reconcile before retrying.",
+          "OutcomeConfirmationError": "The callback succeeded but the completed outcome could not be confirmed. Carries .actionId; reconcile before retrying.",
+          "genericErrors": "Other non-OK responses throw Error(data.reason || data.error || status text) with .status, .details, and .decision. Non-JSON error bodies preserve the HTTP status.",
+          "timeouts": "JSON requests honor constructor timeoutMs (default 30000) and throw ETIMEDOUT. waitForApproval defaults to 300000 ms; waitForPairing and waitForPlanReview also have bounded timeouts."
         },
         "transportNotes": "waitForApproval prefers an SSE connection to GET /api/stream (event action.updated scoped to the actionId) and falls back to HTTP polling of GET /api/actions/:id every interval ms (default 5000). Query params with undefined/null values are skipped (never serialized as literal \"undefined\").",
         "helperExports": {
           "scrubAct": "Pure function (also applied automatically before any act payload is sent): returns a scrubbed deep copy of an act payload — drops Authorization/Cookie/x-api-key headers and masks common credential token shapes and password=/token=/secret= substrings in command/statement/body_excerpt/content_excerpt. Exported for unit testing; server still re-redacts (defense in depth)."
         },
-        "relatedPackagesNotInThisInventory": "@dashclaw/cli (terminal approvals, doctor, env injection), @dashclaw/mcp-server (17 MCP tools / 3 resources), @dashclaw/openclaw-plugin, @dashclaw/governance skill. Server-side agent-runtime route families (handoffs, operator secrets metadata, skill scan, posture) are deliberately NOT exposed as claw.* methods.",
+        "relatedPackagesNotInThisInventory": "@dashclaw/cli, @dashclaw/mcp-server (19 governed tools / 3 resources), and @dashclaw/openclaw-plugin are documented in their own guide areas.",
         "methodCounts": {
-          "canonical": 28,
-          "total": 28
-        }
+          "canonical": 41,
+          "total": 41
+        },
+        "topLevelExports": [
+          "DashClaw",
+          "ApprovalDeniedError",
+          "GuardBlockedError",
+          "ApprovalPendingError",
+          "ExecutionClaimError",
+          "OutcomeConfirmationError",
+          "scrubAct"
+        ]
       },
       "items": [
         {
@@ -4625,15 +4659,15 @@
           "status": "stable",
           "statusEvidence": "no explicit marker, method is unremarkable core surface",
           "interface": "runGoverned(act, params, fn): Promise<*>",
-          "purpose": "One-call full governance loop: guard (with act) then createAction, then waitForApproval if pending_approval and wait!==false, then run fn(), then report a one-shot completed/failed outcome. The recommended entry point for governing a single unit of work end-to-end.",
+          "purpose": "Runs guard and action recording, waits for required approval, consumes one exact execution claim, runs the callback, then confirms the terminal outcome.",
           "inputs": {
             "act": "object, required — { kind: 'shell'|'http'|'sql'|'file', ... } evidence payload; scrubbed client-side via scrubAct before send",
             "params": "object, optional — context/action fields (action_type, declared_goal, risk_score, ...); `wait` (default true) controls whether to block on pending approval",
             "fn": "function, required — the real work to run once guard/approval clears; its return value is the resolved value"
           },
           "response": "whatever fn() resolves to",
-          "endpoint": "N/A (local helper, no HTTP call) — internally calls POST /api/guard, POST /api/actions, GET/SSE /api/actions/:id (via waitForApproval), and POST /api/actions/:id/outcome",
-          "gotchas": "Throws GuardBlockedError immediately if guard() returns decision:'block' (createAction is never called in that case). If fn() throws, reportActionOutcome is called with status:'failed' and the error message, then the original error is re-thrown. Passing wait:false skips waitForApproval — caller must poll separately."
+          "endpoint": "Local orchestrator over POST /api/guard, POST /api/actions when needed, PATCH /api/actions/:id for the execution claim, approval reads, and POST /api/actions/:id/outcome.",
+          "gotchas": "wait:false raises ApprovalPendingError and never runs the callback. A failed or ambiguous claim raises ExecutionClaimError and is never auto-retried. A successful callback with an unconfirmed outcome raises OutcomeConfirmationError."
         },
         {
           "id": "sdknode-client-guardedfetch",
@@ -5023,6 +5057,142 @@
           "response": "{ summary: { total, matches, block, warn, require_approval, allow }, matches: Array, sample_size, window_days }",
           "endpoint": "POST /api/policies/simulate",
           "gotchas": "Side-effect-free per the JSDoc — does not create/modify any stored policy."
+        },
+        {
+          "id": "sdknode-client-claim-execution",
+          "name": "client.claimExecution",
+          "kind": "sdk-node",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "claimExecution(actionId, act): Promise<{ claimed: true, action_id, attempt_id }>",
+          "purpose": "Consumes exactly one execution authority for this action and act before governed work runs.",
+          "endpoint": "PATCH /api/actions/:id",
+          "inputs": {
+            "actionId": "required",
+            "act": "required; must match the act bound to the approval or plan grant"
+          },
+          "gotchas": "Generates a fresh attempt_id, requires an exact acknowledgement, and never retries an uncertain claim."
+        },
+        {
+          "id": "sdknode-client-resolve-containment",
+          "name": "client.resolveContainment",
+          "kind": "sdk-node",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "resolveContainment(actionId, verdict: 'promote'|'discard'): Promise<Object>",
+          "purpose": "Records the operator verdict for an action awaiting containment promotion.",
+          "endpoint": "POST /api/actions/:id/containment"
+        },
+        {
+          "id": "sdknode-client-list-contained",
+          "name": "client.listContained",
+          "kind": "sdk-node",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "listContained({ status = 'awaiting_promotion', limit } = {}): Promise<Object>",
+          "purpose": "Lists contained actions and their captured evidence state.",
+          "endpoint": "GET /api/actions?containment_status=..."
+        },
+        {
+          "id": "sdknode-client-create-delegation-constraint",
+          "name": "client.createDelegationConstraint",
+          "kind": "sdk-node",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "createDelegationConstraint(rules, options = {}): Promise<Object>",
+          "purpose": "Creates an active delegation_constraint policy for composed subagents.",
+          "endpoint": "POST /api/policies"
+        },
+        {
+          "id": "sdknode-client-create-team-task",
+          "name": "client.createTeamTask",
+          "kind": "sdk-node",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "createTeamTask(task): Promise<Object>",
+          "purpose": "Creates the ledger record for a multi-agent team task.",
+          "endpoint": "POST /api/team-tasks"
+        },
+        {
+          "id": "sdknode-client-append-team-task-event",
+          "name": "client.appendTeamTaskEvent",
+          "kind": "sdk-node",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "appendTeamTaskEvent(taskId, event): Promise<Object>",
+          "purpose": "Appends a delegation, reply, approval, result, or lifecycle event to a team task.",
+          "endpoint": "POST /api/team-tasks/:taskId/events"
+        },
+        {
+          "id": "sdknode-client-update-team-task",
+          "name": "client.updateTeamTask",
+          "kind": "sdk-node",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "updateTeamTask(taskId, patch): Promise<Object>",
+          "purpose": "Updates team-task status or stored transport session identifiers.",
+          "endpoint": "PATCH /api/team-tasks/:taskId"
+        },
+        {
+          "id": "sdknode-client-submit-plan",
+          "name": "client.submitPlan",
+          "kind": "sdk-node",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "submitPlan(plan): Promise<Object>",
+          "purpose": "Submits an ordered plan for server dry-run and operator review; approved steps become single-use grants.",
+          "endpoint": "POST /api/plans"
+        },
+        {
+          "id": "sdknode-client-get-plan",
+          "name": "client.getPlan",
+          "kind": "sdk-node",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "getPlan(planId): Promise<Object>",
+          "purpose": "Gets plan detail and per-step grant state.",
+          "endpoint": "GET /api/plans/:planId"
+        },
+        {
+          "id": "sdknode-client-attest-plan",
+          "name": "client.attestPlan",
+          "kind": "sdk-node",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "attestPlan(planId, planHash): Promise<Object>",
+          "purpose": "Fails closed unless an approved plan is current, unexpired, unrevoked, and still bound to planHash.",
+          "endpoint": "POST /api/plans/:planId/attest"
+        },
+        {
+          "id": "sdknode-client-list-plans",
+          "name": "client.listPlans",
+          "kind": "sdk-node",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "listPlans(options = {}): Promise<Object>",
+          "purpose": "Lists plans filtered by status, agent, or limit.",
+          "endpoint": "GET /api/plans"
+        },
+        {
+          "id": "sdknode-client-resolve-plan",
+          "name": "client.resolvePlan",
+          "kind": "sdk-node",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "resolvePlan(planId, verdict: 'approve'|'deny'|'revoke', options = {}): Promise<Object>",
+          "purpose": "Records an operator plan verdict; admin credentials are required.",
+          "endpoint": "POST /api/plans/:planId"
+        },
+        {
+          "id": "sdknode-client-wait-for-plan-review",
+          "name": "client.waitForPlanReview",
+          "kind": "sdk-node",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "waitForPlanReview(planId, { timeout = 300000, interval = 5000 } = {}): Promise<Object>",
+          "purpose": "Polls until the plan reaches an operator-review terminal state.",
+          "endpoint": "GET /api/plans/:planId",
+          "gotchas": "previewing is not terminal; the method waits for approved, partially_approved, denied, revoked, or expired."
         }
       ]
     },
@@ -5032,7 +5202,7 @@
       "title": "Python SDK",
       "package": {
         "name": "dashclaw",
-        "version": "5.3.2",
+        "version": "5.33.9",
         "install": "pip install dashclaw",
         "source": "sdk-python/pyproject.toml, sdk-python/dashclaw/client.py, sdk-python/README.md",
         "requires_python": ">=3.7",
@@ -5043,10 +5213,10 @@
           ],
           "cryptography (not declared as an extra, documented ad-hoc in README for identity signing/pairing)": []
         },
-        "method_count": 60,
-        "method_count_evidence": "59 public (non-underscore, non-__init__) methods on DashClaw counted via AST parse of client.py; matches README (59 methods).",
+        "method_count": 61,
+        "method_count_evidence": "61 public non-underscore DashClaw methods, excluding __init__, counted from sdk-python/dashclaw/client.py.",
         "constructor": {
-          "signature": "DashClaw(base_url, api_key, agent_id, agent_name=None, auth_token=None, swarm_id=None, guard_mode='off', guard_callback=None, hitl_mode='off', private_key=None, auto_recommend='off', recommendation_confidence_min=70, recommendation_callback=None)",
+          "signature": "DashClaw(base_url, api_key, agent_id, agent_name=None, auth_token=None, swarm_id=None, guard_mode='off', guard_callback=None, hitl_mode='off', private_key=None)",
           "params": {
             "base_url": "str, required (v2) - DashClaw instance URL. Warns (UserWarning) if not https:// and not localhost/127.0.0.1 - API key would go over plaintext.",
             "api_key": "str, required (v2) - sent as x-api-key header on every request.",
@@ -5057,12 +5227,9 @@
             "guard_mode": "'off'|'warn'|'enforce', default 'off' - constructor raises ValueError if not one of these three. NOT documented in README at all.",
             "guard_callback": "callable, optional - stored on the instance; not documented in README.",
             "hitl_mode": "'off'|'wait', default 'off' (v1 only per README) - when 'wait', create_action()/guard() flows block until human approval or raise ApprovalDeniedError.",
-            "private_key": "cryptography RSAPrivateKey object, optional - enables per-action RSASSA-PKCS1-v1_5/SHA-256 signing (_sign_payload); silently returns None (no signature, prints a warning) if the cryptography package is missing.",
-            "auto_recommend": "'off'|'warn'|'enforce', default 'off' - constructor raises ValueError if not one of these three. NOT documented in README's constructor examples.",
-            "recommendation_confidence_min": "float 0-100, default 70 - clamped via max(0,min(x,100)); falls back to 70 on any conversion error. NOT documented in README.",
-            "recommendation_callback": "callable, optional - invoked when auto_recommend applies/overrides a recommendation. NOT documented in README."
+            "private_key": "cryptography RSAPrivateKey object, optional - enables per-action RSASSA-PKCS1-v1_5/SHA-256 signing (_sign_payload); silently returns None (no signature, prints a warning) if the cryptography package is missing."
           },
-          "gotchas": "guard_mode, guard_callback, swarm_id, auto_recommend, recommendation_confidence_min, and recommendation_callback are all real constructor parameters in client.py (lines 100-148) but NONE of them appear in either the 'v2-compatible' or 'Full constructor (v1 extended)' README examples - the README undersells the constructor surface. auto_recommend does appear later in the README's Adaptive Recommendations code sample without ever being introduced as a constructor kwarg."
+          "gotchas": "guard_mode, guard_callback, swarm_id, hitl_mode, and private_key are real constructor parameters. The client validates guard_mode and warns when a non-loopback base URL is not HTTPS."
         },
         "environment_config": "No environment-variable auto-loading in client.py itself (unlike the CLI/MCP server) - base_url/api_key/agent_id must be passed explicitly by the calling application, typically read from os.environ by the CALLER (see README examples using os.environ['DASHCLAW_URL'] etc. inside application code, not inside the SDK).",
         "error_model": {
@@ -5084,15 +5251,33 @@
             "purpose": "Raised when a human operator denies a pending action, or when a pending approval expires (decision='expired'). status hardcoded 403.",
             "raised_by": "wait_for_approval() / run_governed() when the approval resolves to deny or expires."
           },
-          "notes": "No dedicated timeout/network-error class - urllib.error.URLError / socket timeouts propagate as raw Python exceptions (not wrapped in DashClawError). Only HTTPError responses go through _raise_normalized_http_error."
+          "notes": "HTTP and transport failures normalize to DashClawError; approval, policy-block, execution-claim, and outcome-confirmation paths use their dedicated subclasses.",
+          "ApprovalPendingError": {
+            "base": "DashClawError",
+            "signature": "ApprovalPendingError(action_id)",
+            "purpose": "run_governed(wait=False) found a required approval; the callback was not executed. Carries .action_id and status 202."
+          },
+          "ExecutionClaimError": {
+            "base": "DashClawError",
+            "signature": "ExecutionClaimError(action_id, attempt_id, message)",
+            "purpose": "The one-shot execution claim failed or returned an invalid acknowledgement. Carries .action_id and .attempt_id."
+          },
+          "OutcomeConfirmationError": {
+            "base": "DashClawError",
+            "signature": "OutcomeConfirmationError(action_id)",
+            "purpose": "The callback succeeded but its completed outcome could not be confirmed. Carries .action_id."
+          }
         },
         "top_level_exports": {
           "from dashclaw import ...": [
             "DashClaw",
             "DashClawError",
             "GuardBlockedError",
+            "OpenClawAgent",
             "ApprovalDeniedError",
-            "OpenClawAgent (module-level alias `OpenClawAgent = DashClaw` at client.py:2495 - identical class, kept for backward-compat naming from the project's earlier OpenClaw branding)",
+            "ApprovalPendingError",
+            "ExecutionClaimError",
+            "OutcomeConfirmationError",
             "scrub_act"
           ]
         },
@@ -5130,9 +5315,9 @@
           }
         ],
         "parity_gaps_vs_node_sdk": [
-          "Node SDK is a curated 39-method governance core; Python exposes 59 methods (the same core plus read/admin conveniences like webhooks, org management, and activity logs). Authoritative matrix lives in docs/sdk-parity.md."
+          "Node exposes a curated 41-method governance core; Python exposes 61 methods, including read/admin conveniences for webhooks, organizations, identities, and activity logs."
         ],
-        "undocumented_but_present_note": "All 59 public methods on DashClaw are documented in the README method reference. The previously-undocumented subsystems this note used to cite (Prompt Management, Evaluations/Scorers, Compliance Export/Schedule extras, Scoring Profiles + Risk Templates + Auto-Calibrate, Learning Analytics compute-variants) were removed with the v5.0.0 cull along with the methods themselves — there is no undocumented set left on the current surface."
+        "undocumented_but_present_note": "All 61 public methods on DashClaw are represented in this guide; source-to-guide parity is enforced by scripts/check-platform-guide-drift.mjs."
       },
       "items": [
         {
@@ -5393,14 +5578,15 @@
           "status": "stable",
           "statusEvidence": "Documented in README.md with a usage example and/or method table row.",
           "interface": "def run_governed(self, act, params, fn)",
-          "purpose": "guard (with `act`) -> `create_action` -> if pending_approval and `params.get(\"wait\") is not False`, `wait_for_approval` -> `fn()` -> one-shot outcome (`completed` on success, `failed` on exception). Raises `GuardBlockedError` on block, `ApprovalDeniedError` on denial. Pass `params={\"wait\": False, ...}` to skip blocking on approval.",
+          "purpose": "Runs guard and action recording, waits for required approval, consumes one exact execution claim, runs the callback, then confirms the terminal outcome.",
           "inputs": {
             "act": "required",
             "params": "required",
             "fn": "required"
           },
           "response": "dict (parsed JSON response body)",
-          "gotchas": "Only reports a one-shot outcome (completed/failed) — never 'partial'. wait defaults to True (blocks on pending_approval) unless params={'wait': False, ...}."
+          "gotchas": "wait=False raises ApprovalPendingError and never runs the callback. A failed or ambiguous claim raises ExecutionClaimError and is never auto-retried. A successful callback with an unconfirmed outcome raises OutcomeConfirmationError.",
+          "endpoint": "Local orchestrator over POST /api/guard, POST /api/actions when needed, PATCH /api/actions/:id for the execution claim, approval reads, and POST /api/actions/:id/outcome."
         },
         {
           "id": "sdkpy-client-get-guard-decisions",
@@ -5879,6 +6065,108 @@
           "response": "str (sha256 hex digest)",
           "endpoint": "N/A pure local hashlib.sha256 helper, no HTTP call",
           "gotchas": "@staticmethod — call as DashClaw.derive_idempotency_key(...), not instance-bound; reusing the key for a logically distinct action silently dedupes (agent's bug, not the server's)."
+        },
+        {
+          "id": "sdkpy-client-resolve-containment",
+          "name": "client.resolve_containment",
+          "kind": "sdk-python",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "def resolve_containment(self, action_id, verdict)",
+          "purpose": "Records the operator promote/discard verdict for an action awaiting containment promotion.",
+          "endpoint": "POST /api/actions/:id/containment"
+        },
+        {
+          "id": "sdkpy-client-list-contained",
+          "name": "client.list_contained",
+          "kind": "sdk-python",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "def list_contained(self, status='awaiting_promotion', limit=None)",
+          "purpose": "Lists contained actions and their captured evidence state.",
+          "endpoint": "GET /api/actions?containment_status=..."
+        },
+        {
+          "id": "sdkpy-client-claim-execution",
+          "name": "client.claim_execution",
+          "kind": "sdk-python",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "def claim_execution(self, action_id, act)",
+          "purpose": "Consumes exactly one execution authority for this action and act before governed work runs.",
+          "endpoint": "PATCH /api/actions/:id",
+          "gotchas": "Generates a fresh attempt_id, requires an exact acknowledgement, and never retries an uncertain claim."
+        },
+        {
+          "id": "sdkpy-client-create-delegation-constraint",
+          "name": "client.create_delegation_constraint",
+          "kind": "sdk-python",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "def create_delegation_constraint(self, rules, name=None, agent_ids=None)",
+          "purpose": "Creates an active delegation_constraint policy for composed subagents.",
+          "endpoint": "POST /api/policies"
+        },
+        {
+          "id": "sdkpy-client-submit-plan",
+          "name": "client.submit_plan",
+          "kind": "sdk-python",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "def submit_plan(self, declared_goal, steps, ttl_minutes=None)",
+          "purpose": "Submits an ordered plan for server dry-run and operator review; approved steps become single-use grants.",
+          "endpoint": "POST /api/plans"
+        },
+        {
+          "id": "sdkpy-client-get-plan",
+          "name": "client.get_plan",
+          "kind": "sdk-python",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "def get_plan(self, plan_id)",
+          "purpose": "Gets plan detail and per-step grant state.",
+          "endpoint": "GET /api/plans/:planId"
+        },
+        {
+          "id": "sdkpy-client-attest-plan",
+          "name": "client.attest_plan",
+          "kind": "sdk-python",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "def attest_plan(self, plan_id, plan_hash)",
+          "purpose": "Fails closed unless an approved plan is current, unexpired, unrevoked, and still bound to plan_hash.",
+          "endpoint": "POST /api/plans/:planId/attest"
+        },
+        {
+          "id": "sdkpy-client-list-plans",
+          "name": "client.list_plans",
+          "kind": "sdk-python",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "def list_plans(self, status=None, agent_id=None, limit=None)",
+          "purpose": "Lists submitted plans.",
+          "endpoint": "GET /api/plans"
+        },
+        {
+          "id": "sdkpy-client-resolve-plan",
+          "name": "client.resolve_plan",
+          "kind": "sdk-python",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "def resolve_plan(self, plan_id, verdict, step_overrides=None)",
+          "purpose": "Records an operator approve, deny, or revoke verdict; admin credentials are required.",
+          "endpoint": "POST /api/plans/:planId"
+        },
+        {
+          "id": "sdkpy-client-wait-for-plan-review",
+          "name": "client.wait_for_plan_review",
+          "kind": "sdk-python",
+          "status": "stable",
+          "statusEvidence": "Declared on the published DashClaw client and covered by the platform-guide source drift gate.",
+          "interface": "def wait_for_plan_review(self, plan_id, timeout=300, interval=5)",
+          "purpose": "Polls until the plan reaches an operator-review terminal state.",
+          "endpoint": "GET /api/plans/:planId",
+          "gotchas": "previewing is not terminal; the method waits for approved, partially_approved, denied, revoked, or expired."
         }
       ]
     },
@@ -5888,7 +6176,7 @@
       "title": "CLI (@dashclaw/cli)",
       "package": {
         "name": "@dashclaw/cli",
-        "version": "0.7.1",
+        "version": "0.13.1",
         "bin": {
           "dashclaw": "./bin/dashclaw.js"
         },
@@ -5898,6 +6186,8 @@
         "dependencies": {
           "dashclaw": "^2.2.1",
           "embedded-postgres": "18.4.0-beta.17",
+          "pg": "^8.22.0",
+          "smol-toml": "^1.8.0",
           "tar": "^7.4.0"
         },
         "type": "module",
@@ -5906,9 +6196,10 @@
           "1. Environment variables (DASHCLAW_BASE_URL, DASHCLAW_API_KEY, optional DASHCLAW_AGENT_ID)",
           "2. Saved config at ~/.dashclaw/config.json (mode 600, written by first interactive run or `dashclaw install claude`)",
           "3. Interactive prompt on first run (only when stdin is a TTY); offers to save to ~/.dashclaw/config.json",
-          "Env vars always override the saved file. `install`, `codex notify`, and `cost` resolve config non-interactively/optionally (COMMANDS_OPTIONAL_CONFIG) so provisioning doesn't require pre-existing keys."
+          "Env vars always override the saved file. `install`, `codex notify` resolve config non-interactively/optionally (COMMANDS_OPTIONAL_CONFIG) so provisioning doesn't require pre-existing keys."
         ],
-        "runInstructions": "Global: `npm install -g @dashclaw/cli` then `dashclaw <command>`. Zero-install bootstrap of a whole local instance: `npx dashclaw up`. Source: cli/bin/dashclaw.js is the single entrypoint; all commands route through COMMAND_HANDLERS in that file."
+        "runInstructions": "Global: `npm install -g @dashclaw/cli` then `dashclaw <command>`. Zero-install bootstrap of a whole local instance: `npx dashclaw up`. Source: cli/bin/dashclaw.js is the single entrypoint; all commands route through COMMAND_HANDLERS in that file.",
+        "description": "Install DashClaw runtime integrations, manage approvals, and diagnose your instance."
       },
       "items": [
         {
@@ -5976,11 +6267,11 @@
         },
         {
           "id": "cli-dashclaw-approve-actionid",
-          "name": "dashclaw approve <actionId>",
+          "name": "dashclaw approve <actionId> [--reason]",
           "kind": "cli",
           "status": "stable",
           "statusEvidence": "Uses the published `dashclaw` SDK's approveAction (not the direct-API fallback pattern used elsewhere), implying a stable SDK surface.",
-          "interface": "dashclaw approve <actionId>",
+          "interface": "dashclaw approve <actionId> [--reason]",
           "purpose": "Approves a single pending action by ID via the DashClaw SDK's approveAction(id, 'allow', reason). Prints the replay URL.",
           "inputs": {
             "--reason <text>": "Optional reason attached to the approval"
@@ -5994,11 +6285,11 @@
         },
         {
           "id": "cli-dashclaw-deny-actionid",
-          "name": "dashclaw deny <actionId>",
+          "name": "dashclaw deny <actionId> [--reason]",
           "kind": "cli",
           "status": "stable",
           "statusEvidence": "Mirrors dashclaw approve, same SDK call path.",
-          "interface": "dashclaw deny <actionId>",
+          "interface": "dashclaw deny <actionId> [--reason]",
           "purpose": "Denies a single pending action by ID via approveAction(id, 'deny', reason). Prints the replay URL.",
           "inputs": {
             "--reason <text>": "Optional reason attached to the denial"
@@ -6012,11 +6303,11 @@
         },
         {
           "id": "cli-dashclaw-halt-on-off-status",
-          "name": "dashclaw halt on|off|status",
+          "name": "dashclaw halt on|off|status [--reason]",
           "kind": "cli",
           "status": "stable",
           "statusEvidence": "README documents propagation time (~3s across instances) and links docs/architecture/enforcement-boundary.md; requires admin API key (401/403 handled explicitly).",
-          "interface": "dashclaw halt on|off|status",
+          "interface": "dashclaw halt on|off|status [--reason]",
           "purpose": "Org-wide kill switch via GET/POST /api/halt: `on` makes every governed action for the org resolve to block immediately, `off` resumes normal guard evaluation, `status` reports who halted, why, and since when.",
           "inputs": {
             "--reason <text>": "Reason recorded with `halt on` (ignored for off/status)"
@@ -6050,11 +6341,11 @@
         },
         {
           "id": "cli-dashclaw-install-claude",
-          "name": "dashclaw install claude",
+          "name": "dashclaw install claude [--trial]",
           "kind": "cli",
           "status": "stable",
           "statusEvidence": "Command is in COMMANDS_OPTIONAL_CONFIG deliberately so provisioning doesn't require pre-existing config; extensive documented flow in README and inline comments; used throughout onboarding docs (QUICK-START.md).",
-          "interface": "dashclaw install claude",
+          "interface": "dashclaw install claude [--trial]",
           "purpose": "Provisions DashClaw governance into Claude Code without cloning the repo: preflights health+auth, installs the Python hook scripts (from a repo checkout or downloaded hooks .zip from the instance), resolves python3/python, merges managed hook entries into ~/.claude/settings.json, and writes hook credentials to ~/.dashclaw/claude-hooks/.env (mode 6…",
           "inputs": {
             "--endpoint <url>": "Target DashClaw instance URL (or DASHCLAW_BASE_URL; --trial defaults to https://hosted.dashclaw.io)",
@@ -6134,6 +6425,61 @@
           "purpose": "Prints the full command/flag usage text.",
           "envVars": [],
           "gotchas": "None notable."
+        },
+        {
+          "id": "cli-dashclaw-contained-list",
+          "name": "dashclaw contained list",
+          "kind": "cli",
+          "status": "stable",
+          "statusEvidence": "Registered by cli/bin/dashclaw.js and included in its built-in help.",
+          "interface": "dashclaw contained list",
+          "purpose": "Lists actions awaiting containment promotion."
+        },
+        {
+          "id": "cli-dashclaw-contained-diff-actionid",
+          "name": "dashclaw contained diff <actionId>",
+          "kind": "cli",
+          "status": "stable",
+          "statusEvidence": "Registered by cli/bin/dashclaw.js and included in its built-in help.",
+          "interface": "dashclaw contained diff <actionId>",
+          "purpose": "Prints the captured patch evidence for a contained action."
+        },
+        {
+          "id": "cli-dashclaw-contained-apply-actionid",
+          "name": "dashclaw contained apply <actionId>",
+          "kind": "cli",
+          "status": "stable",
+          "statusEvidence": "Registered by cli/bin/dashclaw.js and included in its built-in help.",
+          "interface": "dashclaw contained apply <actionId>",
+          "purpose": "Runs the governed promotion merge using the action's single-use promotion grant."
+        },
+        {
+          "id": "cli-dashclaw-backfill",
+          "name": "dashclaw backfill",
+          "kind": "cli",
+          "status": "stable",
+          "statusEvidence": "Registered by cli/bin/dashclaw.js and included in its built-in help.",
+          "interface": "dashclaw backfill",
+          "purpose": "Posts orphaned actions recorded while the guard service was unavailable.",
+          "gotchas": "Reads ~/.dashclaw/orphan-actions.jsonl by default; --file selects another journal."
+        },
+        {
+          "id": "cli-dashclaw-install-openclaw",
+          "name": "dashclaw install openclaw",
+          "kind": "cli",
+          "status": "stable",
+          "statusEvidence": "Registered by cli/bin/dashclaw.js and included in its built-in help.",
+          "interface": "dashclaw install openclaw",
+          "purpose": "Installs and verifies the DashClaw governance plugin in OpenClaw."
+        },
+        {
+          "id": "cli-dashclaw-install-telegram",
+          "name": "dashclaw install telegram",
+          "kind": "cli",
+          "status": "stable",
+          "statusEvidence": "Registered by cli/bin/dashclaw.js and included in its built-in help.",
+          "interface": "dashclaw install telegram",
+          "purpose": "Runs the interactive Telegram approvals setup and round-trip smoke test."
         }
       ]
     },
@@ -6143,7 +6489,7 @@
       "title": "MCP Server",
       "package": {
         "name": "@dashclaw/mcp-server",
-        "version": "2.2.0",
+        "version": "3.1.6",
         "bin": {
           "dashclaw-mcp": "bin/dashclaw-mcp.js"
         },
@@ -6184,7 +6530,7 @@
           "RESEND_API_KEY",
           "TWILIO_AUTH_TOKEN"
         ],
-        "note": "org_id is NOT required for MCP. Governance tools (33) + the 3 DASHCLAW_GATED_TOOLS (dashclaw_status, dashclaw_recent_decisions, export_dashclaw_evidence) register only when both DASHCLAW_URL and DASHCLAW_API_KEY are set (registration.ts governanceEnabled()). Each provider's ~82 tools register only when that provider's credential env var(s) are present, OR a stored connection's custom envVar is present (registration.ts providerEnabled()/credentialEnvCandidates() — Stripe uniquely accepts either STRIPE_TEST_SECRET_KEY or STRIPE_LIVE_SECRET_KEY). All other local-context/policy/audit/launch-plan tools (~33) always register.",
+        "note": "org_id is not required for MCP. The public core surface is (17 MCP tools / 3 resources), sourced from TOOL_DEFINITIONS and RESOURCE_DEFINITIONS. dashclaw_status and export_dashclaw_evidence are two additional gated tools registered when both DASHCLAW_URL and DASHCLAW_API_KEY are configured, for 19 registered governed tools total. Provider tools register only when their credential or stored connection is available.",
         "registration": {
           "claude_code_stdio": "npx -y @dashclaw/mcp-server --url https://your-dashclaw.vercel.app --key oc_live_xxx --agent-id claude-code   — or in .mcp.json: { \"mcpServers\": { \"dashclaw\": { \"command\": \"npx\", \"args\": [\"-y\", \"@dashclaw/mcp-server\"], \"env\": { \"DASHCLAW_URL\": \"https://your-dashclaw.vercel.app\", \"DASHCLAW_API_KEY\": \"oc_live_xxx\", \"DASHCLAW_AGENT_ID\": \"claude-code\" } } } }",
           "claude_desktop": "stdio is NOT supported for Desktop main chat (crashes on Desktop's bundled Node; the old one-click .mcpb bundle is retired). Use the OAuth custom connector instead: Settings → Connectors → Add custom connector → paste https://<instance>/api/mcp; Claude discovers /.well-known/oauth-protected-resource, registers via DCR, and opens the DashClaw login + consent screen. No API key entered in the UI. Works on Free (capped at 1 custom connector)/Pro/Max/Team/Enterprise.",
@@ -6248,7 +6594,7 @@
           },
           "response": "created action row JSON, or {recorded:false, error, guidance} on transport failure",
           "endpoint": "POST /api/actions",
-          "gotchas": "Auto-stamps the ambient session_id set by dashclaw_session_start unless overridden. Fails LOUD (never silently drops) on transport failure — returns recorded:false with explicit guidance to surface the failure rather than continue silently. Deliberately NOT ?record=true semantics (that's the pretool/posttool hook's single-call path); this is a separate outcome-at-completion tool. Same idempotency…"
+          "gotchas": "For pending approval, pass the same act used at guard time so the operator grant is content-bound. Bare guard/record/wait is cooperative policy and audit; claim-aware SDK callbacks, dashclaw_invoke, and supported hooks consume authority before execution."
         },
         {
           "id": "mcp-dashclaw-invoke",
@@ -6257,7 +6603,7 @@
           "status": "stable",
           "statusEvidence": "no explicit status marker found",
           "interface": "dashclaw_invoke",
-          "purpose": "Invoke a DashClaw-governed external capability: guard (policy check) + execute (HTTP call) + record (audit trail), automatically.",
+          "purpose": "Guards, records, consumes the one-shot execution authority, invokes a registered HTTP capability, and records the outcome as one governed operation.",
           "inputs": {
             "capability_id": "string/required/The capability ID (e.g., cap_abc123)",
             "declared_goal": "string/required/What you're trying to accomplish",
@@ -6429,23 +6775,6 @@
           "gotchas": "Gated on DASHCLAW_URL + DASHCLAW_API_KEY, same as the governance set — even though it lives in the always-registered tools/index.ts file (DASHCLAW_GATED_TOOLS set in registration.ts)."
         },
         {
-          "id": "mcp-dashclaw-recent-decisions",
-          "name": "dashclaw_recent_decisions",
-          "kind": "mcp-tool",
-          "status": "stable",
-          "statusEvidence": "no explicit status marker found",
-          "interface": "dashclaw_recent_decisions",
-          "purpose": "Read recent DashClaw guard decisions scoped to project/environment when supported by DashClaw.",
-          "inputs": {
-            "project": "string/optional",
-            "environment": "string/optional",
-            "limit": "positive integer/optional"
-          },
-          "response": "recent DashClaw guard decisions",
-          "endpoint": "GET {DASHCLAW_URL}/api/guard/decisions",
-          "gotchas": "DASHCLAW_GATED_TOOLS — same gating as dashclaw_status."
-        },
-        {
           "id": "mcp-export-dashclaw-evidence",
           "name": "export_dashclaw_evidence",
           "kind": "mcp-tool",
@@ -6486,6 +6815,56 @@
           "status": "stable",
           "interface": "dashclaw://status",
           "purpose": "Instance health and operational summary metrics."
+        },
+        {
+          "id": "mcp-dashclaw-task-create",
+          "name": "dashclaw_task_create",
+          "kind": "mcp-tool",
+          "status": "stable",
+          "statusEvidence": "Declared in mcp-server/lib/tools.js and enforced by the platform-guide drift gate.",
+          "interface": "dashclaw_task_create",
+          "purpose": "Creates the ledger record for a multi-agent Team Task.",
+          "endpoint": "POST /api/team-tasks"
+        },
+        {
+          "id": "mcp-dashclaw-task-event",
+          "name": "dashclaw_task_event",
+          "kind": "mcp-tool",
+          "status": "stable",
+          "statusEvidence": "Declared in mcp-server/lib/tools.js and enforced by the platform-guide drift gate.",
+          "interface": "dashclaw_task_event",
+          "purpose": "Appends an attributed event to a Team Task timeline.",
+          "endpoint": "POST /api/team-tasks/:taskId/events"
+        },
+        {
+          "id": "mcp-dashclaw-task-update",
+          "name": "dashclaw_task_update",
+          "kind": "mcp-tool",
+          "status": "stable",
+          "statusEvidence": "Declared in mcp-server/lib/tools.js and enforced by the platform-guide drift gate.",
+          "interface": "dashclaw_task_update",
+          "purpose": "Updates Team Task lifecycle state or transport session identifiers.",
+          "endpoint": "PATCH /api/team-tasks/:taskId"
+        },
+        {
+          "id": "mcp-dashclaw-plan-submit",
+          "name": "dashclaw_plan_submit",
+          "kind": "mcp-tool",
+          "status": "stable",
+          "statusEvidence": "Declared in mcp-server/lib/tools.js and enforced by the platform-guide drift gate.",
+          "interface": "dashclaw_plan_submit",
+          "purpose": "Submits a preflight plan for server dry-run and operator review; approved steps become single-use execution authorities.",
+          "endpoint": "POST /api/plans"
+        },
+        {
+          "id": "mcp-dashclaw-plan-status",
+          "name": "dashclaw_plan_status",
+          "kind": "mcp-tool",
+          "status": "stable",
+          "statusEvidence": "Declared in mcp-server/lib/tools.js and enforced by the platform-guide drift gate.",
+          "interface": "dashclaw_plan_status",
+          "purpose": "Reads overall and per-step plan grant status after submission.",
+          "endpoint": "GET /api/plans/:planId"
         }
       ]
     },
@@ -6741,7 +7120,7 @@
           "name": "DashClaw plugin — Claude Code manifest",
           "kind": "plugin",
           "status": "stable",
-          "statusEvidence": "plugins/dashclaw/.claude-plugin/plugin.json pins version 3.0.0, lockstepped with the Codex and Hermes manifests via `npm run version:sync:check` (CI + pre-commit hook); CHANGELOG documents the sync guard shipping and enforcing it.",
+          "statusEvidence": "The Claude Code, Codex, and Hermes bundle manifests are lockstepped at version 3.2.1 by the version-sync gate.",
           "interface": "Claude Code plugin marketplace install; manifest fields `mcpServers: ./.mcp-claude.json`, `hooks: ./hooks/hooks.json`",
           "purpose": "Bundles the full governance hook set (PreToolUse/PostToolUse/Stop/SessionStart), the dashclaw MCP server (--agent-id claude-code), and the two shared skills for Claude Code sessions.",
           "gotchas": "Hooks fire automatically once the plugin is enabled — no per-folder trust gate, unlike a project-local hooks install. The .py hook scripts + dashclaw_agent_intel/ module under hooks/ are a generated mirror of the canonical hooks/ tree (kept in sync by `npm run bundles:refresh`); hooks.json itself is hand-authored, not generated. A standalone alternative installer (`node scripts/install-hooks.m…"
@@ -6937,17 +7316,18 @@
           "name": "@dashclaw/openclaw-plugin (OpenClaw gateway plugin)",
           "kind": "plugin",
           "status": "stable",
-          "statusEvidence": "package.json version 1.4.0 pins compat.pluginApi/minGatewayVersion to '>=2026.4.15'; extensive inline comments cite verification against the actual openclaw plugin SDK types (PluginHookBeforeToolCallResult uses blockReason not reason, PluginKind omi…",
+          "statusEvidence": "package.json and openclaw.plugin.json are version 1.6.4 and declare OpenClaw compatibility >=2026.4.15.",
           "interface": "packages/openclaw-plugin/src/index.ts, built via `tsc` to dist/index.js; registered in openclaw.plugin.json (id: dashclaw-governance) with a configSchema; OpenClaw hooks: before_tool_call, after_tool_call, llm_output, agent_end",
-          "purpose": "Routes every OpenClaw tool call through DashClaw governance: before_tool_call → classify (bash/write/review/message heuristics mirroring the Claude Code hook vocabulary) → guard() → optional waitForApproval() → createAction(); after_tool_call → updateOutcome().",
+          "purpose": "Routes each supported OpenClaw tool call through guard and optional approval, creates the action record, consumes the exact one-shot execution claim when protocol 1 is advertised, then records the outcome.",
           "envVars": [
             "DASHCLAW_BASE_URL",
             "DASHCLAW_URL",
             "DASHCLAW_API_KEY",
             "DASHCLAW_AGENT_ID",
-            "DASHCLAW_DEFAULT_MODEL"
+            "DASHCLAW_DEFAULT_MODEL",
+            "DASHCLAW_REQUIRE_EXECUTION_CLAIMS"
           ],
-          "gotchas": "Config precedence is plugin config > env: dashclawUrl/dashclawApiKey (canonical) or baseUrl/apiKey (SDK-style alias) beat DASHCLAW_BASE_URL/DASHCLAW_API_KEY. failClosed defaults true (blocks tool calls when DashClaw is unreachable) — a policy choice, not a fallback bug. defaultModel/DASHCLAW_DEFAULT_MODEL matters: without it, llm_output events with no model field can't be priced and cost_estimate…"
+          "gotchas": "Config precedence is plugin config over environment. failClosed defaults true. DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1 is an environment-only rollout pin: an absent or incomplete protocol-1 advertisement blocks execution. An advertised protocol is always validated even without the pin."
         },
         {
           "id": "plugin-dashclaw-demo",
@@ -6959,7 +7339,17 @@
           "purpose": "Pulls and runs ghcr.io/ucsandman/dashclaw-demo:latest via Docker on port 3000 with DASHCLAW_MODE=demo / NEXT_PUBLIC_DASHCLAW_MODE=demo, so a prospective user can see DashClaw's decision infrastructure without any setup.",
           "gotchas": "Hard-requires Docker (checks `docker info` first and exits with an install link if absent) — no non-Docker fallback path. Watches stdout for a `REPLAY_URL=` line to surface a direct deep link once the container is ready."
         }
-      ]
+      ],
+      "package": {
+        "bundle": {
+          "name": "dashclaw",
+          "version": "3.2.1"
+        },
+        "openclaw": {
+          "name": "@dashclaw/openclaw-plugin",
+          "version": "1.6.4"
+        }
+      }
     },
     {
       "id": "auth",

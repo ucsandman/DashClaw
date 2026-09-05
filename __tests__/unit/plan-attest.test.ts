@@ -84,9 +84,18 @@ describe('computePlanHash', () => {
 describe('createPlanWithSteps pins plan_hash at submission', () => {
   it('stores the hash of the act hashes it just computed', async () => {
     const sql = sqlMock([
-      (c) => [{ plan_id: c.v[0], plan_hash: c.v[6] }],
-      (c) => [{ step_id: c.v[0], seq: c.v[3], action_type: c.v[4], act_content_hash: c.v[7] }],
-      (c) => [{ step_id: c.v[0], seq: c.v[3], action_type: c.v[4], act_content_hash: c.v[7] }],
+      (c) => {
+        const steps = JSON.parse(String(c.v[11])) as Array<Record<string, unknown>>;
+        return [{
+          plan: { plan_id: c.v[1], plan_hash: c.v[7] },
+          steps: steps.map((step) => ({
+            step_id: step.step_id,
+            seq: step.seq,
+            action_type: step.action_type,
+            act_content_hash: step.act_content_hash,
+          })),
+        }];
+      },
     ]);
     const created = (await createPlanWithSteps(sql as never, 'org_1', {
       agentId: 'agent-a', declaredGoal: 'ship it', ttlMinutes: 60, maxPending: 10,

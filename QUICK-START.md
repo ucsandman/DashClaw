@@ -1,6 +1,6 @@
 # Quick Start
 
-DashClaw is a governance runtime for AI agents: policy before action, human approval where required, replayable evidence always. This guide gets you from zero to your first **governed agent action**.
+DashClaw gives unattended agents policy checks and remote human approvals. Installed runtime hooks enforce decisions before supported tool calls; SDK integrations govern only the callbacks your code passes through them. This guide gets you to your first **governed agent action**.
 
 New to the concepts (guard, actions, approvals, outcomes)? Skim [docs/concepts.md](./docs/concepts.md) first — five minutes, and every step below will make sense.
 
@@ -8,11 +8,17 @@ New to the concepts (guard, actions, approvals, outcomes)? Skim [docs/concepts.m
 
 | You want | Door | Time |
 |---|---|---|
-| Proof, zero install | **A. Hosted trial** — mint a workspace in the browser | ~3 min |
+| Try the operator workflow | **A. Hosted trial** — create a workspace in the browser | ~3 min |
 | A self-contained local demo | **B. `npx dashclaw-demo`** (needs Docker) | ~1 min |
 | Your own instance, governing your own agents | **C. Deploy** — local one-command or Vercel + Neon | ~8 min |
 
-If you're unsure: take door **A**, watch a governed action land, then come back for door C when you want your own instance.
+Start with **C1** for your own local instance. To explore the screens without connecting an agent, use the [interactive demo](https://www.dashclaw.io/demo). Demo records do not prove enforcement on your machine.
+
+## Upgrade order for existing installations
+
+The current Node `runGoverned` and Python `run_governed` helpers require execution claim protocol 1. Deploy the matching server and schema before upgrading those clients. They stop before the callback if the protocol is unavailable or a claim is uncertain.
+
+Hooks and OpenClaw preserve the earlier guard/approval flow when an older server advertises neither claim field. That path has no atomic claim guarantee. Partial, malformed, or unsupported advertisements fail closed. After the server upgrade, `DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1` makes claim support mandatory for those runtimes too.
 
 ---
 
@@ -60,9 +66,9 @@ npm install && npm run setup && npm run dev
 
 </details>
 
-### C2. Cloud (Vercel + Neon, $0 to deploy)
+### C2. Cloud (Vercel + Neon)
 
-1. Use the one-click deploy button in [`README.md`](./README.md#deploy) (or fork and connect the repo yourself).
+1. Use the one-click deploy button in [`README.md`](./README.md#quick-start) (or fork and connect the repo yourself). Provider pricing and limits apply.
 2. Add the [Neon Postgres](https://neon.tech) integration when Vercel prompts.
 3. Set the required env vars — the full annotated list is [`.env.example`](./.env.example). The required set:
    - `DATABASE_URL` (auto-populated when you add Neon)
@@ -73,11 +79,11 @@ npm install && npm run setup && npm run dev
    - `CRON_SECRET` (`openssl rand -hex 32`)
    - `DASHCLAW_LOCAL_ADMIN_PASSWORD` (so you can sign in without configuring OAuth first)
 
-The schema migration runs as part of the build (`scripts/auto-migrate.mjs`) — no manual migration step. The no-OAuth path in detail: [docs/deploy-without-oauth.md](./docs/deploy-without-oauth.md).
+The schema migration runs as part of the build (`scripts/auto-migrate.mjs`). Back up an existing database before upgrading. Checksum or schema errors must be resolved before serving the release. The no-OAuth path in detail: [docs/deploy-without-oauth.md](./docs/deploy-without-oauth.md).
 
 ### C3. Verify the instance
 
-Open `/setup` on your instance. It verifies the database connection and environment. All green checks → you are ready to govern agents. (Anything red: [docs/troubleshooting.md](./docs/troubleshooting.md) — the most common failure is `503 SCHEMA_NOT_INITIALIZED`, fixed by one migrate command.)
+Open `/setup` on your instance to verify the database connection and environment. Then install your runtime integration from `/connect` and check its enforcement. Green server checks do not prove a hook is installed or holding actions. The liveness card shows reported probe results and freshness, not independent machine attestation. For failures, use [docs/troubleshooting.md](./docs/troubleshooting.md).
 
 ---
 
@@ -94,23 +100,24 @@ cp .env.example .env   # set DASHCLAW_API_KEY (from /api-keys on your instance);
 node index.js
 ```
 
-The agent runs the full governance loop (`guard` → `createAction` → `recordAssumption` → outcome). Open the Approvals inbox at `/approvals` and watch the live decision stream, then click through to the Decision Replay to inspect the recorded evidence.
+The starter uses `runGoverned`: policy check, action record, approval when required, execution claim, simulation callback, and outcome report. It performs no real deployment. Without an OpenAI key, it makes no model call. Open `/decisions` to inspect the recorded evidence, or `/approvals` if your policy holds the simulation.
 
 ### See the approval gate fire
 
-A fresh self-hosted instance seeds the **catastrophe-only** pack at its first migrate, so the promise holds from action one: mass-destructive operations (`rm -rf`, `DROP TABLE`, force-push) are blocked outright, and secret-file writes are held for one-click approval at `/approvals`. Ask your agent to append a line to `.env` to see a hold fire, approve it, and watch the paused tool call resume — the full record lands at `/decisions`. Need broader gates (network calls, package installs)? The `claude-code-starter` pack stays available as a click-import at `/policies`. `node scripts/seed-demo-capabilities.mjs` adds a deploy-gating demo policy on top.
+A fresh self-hosted instance seeds the **catastrophe-only** pack. It holds classified protected-target destruction, real-money spend, force pushes, and secret-file writes. A high risk score or ordinary project deletion alone is not a protected-target event. For a harmless approval demonstration, configure a temporary Short List rule for the starter simulation in `/policies`, run it, and choose **Allow** or **Deny** at `/approvals`. Do not use real destructive operations or secret-file writes just to trigger a hold. Broader packs are available in `/policies/packs`; review their installed tier before expecting them to interrupt.
 
 ### Connect your own agent
 
 Open `/connect` on your instance — the golden path for any real agent (OpenAI, LangChain, CrewAI, custom). Once connected, its governed actions land in the decisions ledger at `/decisions`, and anything held waits for you in the Approvals inbox at `/approvals`.
 
-The loop your code implements (Node shown; Python is the same shape in snake_case):
+Prefer Node `runGoverned(act, params, callback)` or Python `run_governed`. Keep the external effect inside the callback and describe that same effect in `act`. The helper cannot stop code outside it or a client that lies about its act. Manual integrations must implement the complete lifecycle:
 
 1. **Guard** → `claw.guard()` checks intent against policy. Your code aborts on `block` — on the SDK path the decision is advisory and this `if` **is** the enforcement, so don't skip it. Attach the actual act (`act: { kind: 'shell', command }` — or `http` / `sql` / `file`) and the server classifies from evidence instead of trusting your declaration.
 2. **Record** → `claw.createAction()` logs the start. The server re-evaluates here and may gate with `action.status === 'pending_approval'`.
 3. **Wait (if held)** → `claw.waitForApproval(action_id)` — using **the `action_id` from step 2**, never the id from step 1.
-4. **Verify** → `claw.recordAssumption()` tracks reasoning basis.
-5. **Outcome** → `claw.reportActionSuccess(action_id, …)` / `reportActionFailure(…)` — one-shot, retry-safe (`409` on double-terminate). Poll `getActionOutcome()` before any retry to avoid double-execution: [docs/architecture/durable-execution-finality.md](./docs/architecture/durable-execution-finality.md).
+4. **Claim** → `claw.claimExecution(action_id, act)` requests one execution attempt bound to the action, credential principal, agent, exact act, and fresh policy evaluation. Operator and plan authority is consumed here. Stop if the claim is rejected or its response is uncertain.
+5. **Execute** → run the actual effect only after a confirmed successful claim. `recordAssumption()` can record a reasoning basis; it does not verify the external effect.
+6. **Report** → `reportActionSuccess` / `reportActionFailure` records the reported result. Terminal records are one-shot, but external effects are not exactly once. If a claim or outcome acknowledgement is lost, reconcile the target system and DashClaw record before retrying. Do not infer that execution failed from a missing outcome: [durable finality](./docs/architecture/durable-execution-finality.md).
 
 Full instrumentation guide with the working code: [docs/agent-bootstrap.md](./docs/agent-bootstrap.md). Canonical HITL flow including the action-id pitfall: [`sdk/README.md` → Human-in-the-Loop (HITL) Approval Flow](./sdk/README.md#human-in-the-loop-hitl-approval-flow).
 

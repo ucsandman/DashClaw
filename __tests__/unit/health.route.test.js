@@ -1,18 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeRequest } from '../helpers.js';
+import { CORE_TABLES } from '@/lib/schemaCheck';
+import { REQUIRED_SETUP_COLUMNS, REQUIRED_SETUP_INDEXES } from '@/lib/setup/runtime-prerequisites.mjs';
 
 const {
   mockSql,
   mockGetRealtimeHealth,
 } = vi.hoisted(() => ({
-  mockSql: Object.assign(vi.fn(async () => [
-    { table_name: 'action_records' },
-    { table_name: 'guard_decisions' },
-    { table_name: 'api_keys' },
-    { table_name: 'users' },
-    { table_name: 'settings' },
-    { table_name: 'guard_policies' },
-  ]), { query: vi.fn(async () => []) }),
+  mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockGetRealtimeHealth: vi.fn(),
 }));
 
@@ -29,12 +24,11 @@ beforeEach(() => {
   process.env.DATABASE_URL = 'postgres://unit-test';
   process.env.NEXTAUTH_SECRET = 'test-secret';
   mockSql.mockImplementation(async () => [
-    { table_name: 'action_records' },
-    { table_name: 'guard_decisions' },
-    { table_name: 'api_keys' },
-    { table_name: 'users' },
-    { table_name: 'settings' },
-    { table_name: 'guard_policies' },
+    {
+      present_tables: CORE_TABLES,
+      present_indexes: REQUIRED_SETUP_INDEXES.map((index) => index.name),
+      present_columns: REQUIRED_SETUP_COLUMNS.map((column) => `${column.table}.${column.name}`),
+    },
   ]);
   mockGetRealtimeHealth.mockResolvedValue({ status: 'healthy', backend: 'redis' });
 });

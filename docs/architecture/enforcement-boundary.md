@@ -25,13 +25,13 @@ product must say so.
 
 | Surface | Enforcement | Mechanism |
 |---|---|---|
-| Claude Code / Codex hooks, `enforce` mode | **Mechanical** | `PreToolUse` exit-2 halts the tool before it runs; unreachable instance fails closed (`docs/guard-enforcement-contract.md`) |
+| Claude Code / Codex hooks, `enforce` mode | **Mechanical** | `PreToolUse` exit-2 halts the tool before it runs; current servers require a protocol-1 execution claim immediately before release. If an older server does not advertise claims, hooks retain the old enforcement behavior unless `DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1`; an advertised malformed protocol always fails closed. |
 | Claude Code / Codex hooks, `observe` mode | Cooperative (by explicit operator choice) | Decisions logged, nothing blocked — `DASHCLAW_HOOK_MODE=enforce` flips it |
 | Hermes Agent plugin | **Mechanical** | `pre_tool_call` lifecycle veto |
-| OpenClaw gateway plugin | **Mechanical** | `before_tool_call` hard veto, fail-closed by default; tools the gateway never proxies fall back to self-report (cooperative) |
+| OpenClaw gateway plugin | **Mechanical** | `before_tool_call` hard veto, fail-closed by default; tools the gateway never proxies fall back to self-report (cooperative). Its absent-claim-field compatibility matches the hooks during rollout; compatibility does not provide atomic claim guarantees. |
 | OpenClaw embedded-codex runtime (`agentRuntime: codex`) | **Mechanical** (with codex ≥ 0.142 + trusted hooks) | Native codex app-server tools (`shell`, `apply_patch`) never cross the gateway hook bus; enforcement comes from the codex `PreToolUse` hooks that `dashclaw install codex` provisions into the agent's codex-home and auto-trusts via app-server `hooks/list` (see `docs/openclaw-codex-governance.md`). On the vendored 0.13x codex line no hooks execute — that lane stays cooperative (recording only) via the Codex `notify` → `dashclaw codex notify` bridge, one `agent_turn` ledger row per turn (`cli/README.md`). The `agent_turn` rows are exactly the activity evidence the silent-lane witness posture watches for a missing governance witness (`/setup#silent-lane-witness`, `docs/plans/2026-08-06-silent-lane-witness-spec.md`) |
-| `dashclaw_invoke` / `POST /api/capabilities/:id/invoke` | **Mechanical** | DashClaw is the executor: guard runs server-side, `block` → 403 and the call never happens, `require_approval` → execution withheld until an operator approves. Applies to capabilities registered as `http_api` |
-| SDK (`claw.guard()`) / direct API / bare MCP tools | Cooperative | Guard returns the decision; the calling code must honor it. The server records a blocked action and returns 403 on `record`, but cannot stop an out-of-band act. Since v4.63.0 these callers can attach the actual act (`act: {kind, …}`) so the server classifies from evidence instead of trusting the declaration — see "Evidence-graded intent" below |
+| `dashclaw_invoke` / `POST /api/capabilities/:id/invoke` | **Mechanical** | DashClaw is the executor: it guards, claims the exact act and authenticated principal under current policy, then performs the registered `http_api` call. Approval authority is selected during evaluation and consumed only by the claim. |
+| SDK (`claw.guard()`) / direct API / bare MCP tools | Cooperative | Low-level guard calls return a decision that calling code must honor. The SDK `runGoverned` / `run_governed` helper is stricter: it requires protocol-1 claim confirmation before invoking the callback. This grants one recorded attempt, not exactly-once external effects. |
 | Claude Desktop / consumer web chat (OAuth connector, `/api/mcp`) | Cooperative | The governance skill guides the model to call `dashclaw_guard` first; consumer chat exposes no tool-interception layer, so there is no mechanical backstop |
 | Org emergency halt | Decision-layer absolute | Every guard evaluation returns `block` within ~3s across instances; execution stops mechanically only on the mechanical rows above |
 
@@ -105,11 +105,12 @@ The honest framing, everywhere the product speaks:
 - **The hook seam is a seatbelt, not a cage.** It reliably stops the accident
   class — the destructive command a capable-but-fallible model emits mid-run —
   and it makes tampering *visible*: the tampering write is itself a governed,
-  recorded action, and the enforcement liveness probe reports that seam dead
-  on its next run. Each runtime reports its own seam (`runtime` on
-  `enforcement_liveness_runs`, drizzle/0072) and the fleet verdict is the
+  recorded action, and the enforcement liveness probe can report that seam dead
+  on its next run. Each runtime reports its own seam, runtime version, and source
+  hash (`runtime` on `enforcement_liveness_runs`, drizzle/0072), and the fleet verdict is the
   **worst** seam, so disabling one runtime's hook cannot hide behind another
-  runtime still reporting healthy. It does not stop a determined adversary executing at the
+  runtime still reporting healthy. These values are client-reported diagnostics,
+  not cryptographic attestation. It does not stop a determined adversary executing at the
   same privilege, because no control that lives inside the process it governs
   can.
 - **Software can raise the cost of self-disable; it cannot remove the

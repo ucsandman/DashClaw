@@ -1,6 +1,11 @@
 # AutoGen + DashClaw Governance Example
 
-A minimal example showing how to govern an AutoGen agent's tool calls with DashClaw using the 4-step governance loop.
+A minimal AutoGen example showing DashClaw policy, approval, and audit calls
+around simulated deploys.
+
+> **Trust boundary:** The source uses the lower-level cooperative SDK calls and
+> does not claim protocol-1 execution authority. Keep the deploy simulated, or
+> place a real effect inside `run_governed(act, params, callback)`.
 
 ## Prerequisites
 
@@ -35,13 +40,13 @@ A minimal example showing how to govern an AutoGen agent's tool calls with DashC
 
 ## What It Does
 
-This example creates a governed deploy tool that runs two deployments:
+This example creates a cooperatively instrumented deploy tool that runs two simulated deployments:
 1. **Staging deploy** (low risk) — guard allows, action recorded with assumptions
 2. **Production deploy** (high risk) — guard may require approval or block based on your policies
 
 No OPENAI_API_KEY is needed — the example runs the governance flow directly without requiring an LLM provider.
 
-## What's Governed
+## What's Recorded
 
 | DashClaw Feature | How It's Used |
 |---|---|
@@ -53,4 +58,4 @@ No OPENAI_API_KEY is needed — the example runs the governance flow directly wi
 
 ## Note
 
-This example calls the tool function directly. In a full AutoGen setup, a `ConversableAgent` would invoke the tool automatically. For production AutoGen integrations, see `sdk-python/dashclaw/integrations/autogen.py` which provides a `DashClawAutoGenIntegration` class with automatic message hooks.
+This example calls the tool function directly. In a full AutoGen setup, a `ConversableAgent` would invoke the tool automatically. `sdk-python/dashclaw/integrations/autogen.py` provides a `DashClawAutoGenIntegration` class with automatic message hooks for policy and audit calls. Put any consequential effect inside `run_governed` so the execution claim and callback stay in one operation.

@@ -1,25 +1,34 @@
 {
   "node": {
-    "current_version": "5.33.8",
+    "current_version": "5.33.9",
     "next_bump": "none",
-    "reason": "Platform-only 5.33.8: enforce current JWT identity restrictions before idempotent decision replay and preserve fresh-token recovery. No SDK source changed; do not republish SDK packages.",
+    "reason": "5.33.9 audit remediation: governed helpers require protocol-1 execution claims and distinguish callback failures from uncertain outcome acknowledgement. Publish both SDKs after the matching server and schema are live.",
     "domains": [
-      "platform",
-      "guard"
+      "guard",
+      "actions",
+      "approvals",
+      "identity",
+      "sdk"
     ]
   },
   "python": {
-    "current_version": "5.33.8",
+    "current_version": "5.33.9",
     "next_bump": "none",
-    "reason": "Platform-only 5.33.8: enforce current JWT identity restrictions before idempotent decision replay and preserve fresh-token recovery. No SDK source changed; do not republish SDK packages.",
+    "reason": "5.33.9 audit remediation: governed helpers require protocol-1 execution claims and distinguish callback failures from uncertain outcome acknowledgement. Publish both SDKs after the matching server and schema are live.",
     "domains": [
-      "platform",
-      "guard"
+      "guard",
+      "actions",
+      "approvals",
+      "identity",
+      "sdk"
     ]
   },
-  "reason": "Platform-only 5.33.8: enforce current JWT identity restrictions before idempotent decision replay and preserve fresh-token recovery. No SDK source changed; do not republish SDK packages.",
+  "reason": "5.33.9 audit remediation: governed helpers require protocol-1 execution claims and distinguish callback failures from uncertain outcome acknowledgement. Publish both SDKs after the matching server and schema are live.",
   "domains": [
-    "platform",
-    "guard"
+    "guard",
+    "actions",
+    "approvals",
+    "identity",
+    "sdk"
   ]
 }

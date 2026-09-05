@@ -1,9 +1,9 @@
 {
   "generatedAt": "2026-07-06",
   "note": "Maps every inventoried surface item to the /guides/platform section documenting it. liveVerified=true means the exact interface was exercised against a running instance during capture; everything else is documented from source code reads.",
-  "total": 1439,
+  "total": 1442,
   "liveVerified": 36,
-  "codeOnly": 1402,
+  "codeOnly": 1406,
   "items": [
     {
       "item": "/mission-control",
@@ -1064,6 +1064,13 @@
     },
     {
       "item": "POST /api/approvals/{actionId}",
+      "kind": "api",
+      "status": "experimental",
+      "section": "Approvals (#api-approvals)",
+      "liveVerified": false
+    },
+    {
+      "item": "GET /api/approvals/{actionId}/grant",
       "kind": "api",
       "status": "experimental",
       "section": "Approvals (#api-approvals)",

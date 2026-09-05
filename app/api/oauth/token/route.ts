@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getSql } from '../../../lib/db';
 import { consumeAuthCode, insertAccessToken, rotateRefreshToken } from '../../../lib/repositories/oauth.repository';
 import { newOpaqueToken, hashToken, verifyPkceS256 } from '../../../lib/oauth/crypto';
+import { normalizeOAuthScope } from '../scopes';
 export const dynamic = 'force-dynamic';
 
 const ACCESS_TTL_S = 60 * 60;          // 1 hour
@@ -13,6 +14,8 @@ function err(code: string, status = 400) {
 }
 
 async function issueTokenPair(sql: any, ctx: any) {
+  const scope = normalizeOAuthScope(ctx.scope);
+  if (!scope) return err('invalid_scope');
   const accessToken = newOpaqueToken('oat');
   const refreshToken = newOpaqueToken('ort');
   await insertAccessToken(sql, {
@@ -21,7 +24,7 @@ async function issueTokenPair(sql: any, ctx: any) {
     clientId: ctx.clientId,
     orgId: ctx.orgId,
     userId: ctx.userId || null,
-    scope: ctx.scope,
+    scope,
     agentId: ctx.agentId || 'claude-desktop',
     expiresAt: new Date(Date.now() + ACCESS_TTL_MS).toISOString(),
   });
@@ -30,7 +33,7 @@ async function issueTokenPair(sql: any, ctx: any) {
     token_type: 'Bearer',
     expires_in: ACCESS_TTL_S,
     refresh_token: refreshToken,
-    scope: ctx.scope,
+    scope,
   });
 }
 

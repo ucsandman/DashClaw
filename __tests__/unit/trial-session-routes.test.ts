@@ -106,7 +106,12 @@ describe('POST /api/hosted/workspaces — trial session cookie', () => {
 describe('GET /api/keys/reveal — hosted-trial refusal', () => {
   function revealRequest(orgId = 'org_reveal_cov') {
     return new Request('http://localhost:3000/api/keys/reveal', {
-      headers: { 'x-user-id': 'usr_1', 'x-org-role': 'admin', 'x-org-id': orgId },
+      headers: {
+        'x-user-id': 'usr_1',
+        'x-org-role': 'admin',
+        'x-org-id': orgId,
+        'x-auth-kind': 'session',
+      },
     });
   }
 

@@ -2,6 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { runContractsCheck } from '../../scripts/check-contracts.mjs';
 
 describe('runContractsCheck', () => {
+  it('fails ci mode when no validators execute and reports processed counts', async () => {
+    const result = await runContractsCheck({
+      mode: 'ci',
+      contracts: {
+        index: { validators: {} },
+        api: { capabilities: {} },
+        schema: {},
+        setup: {},
+        sdk: {},
+      },
+      validatorFns: [],
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.validatorsRun).toBe(0);
+    expect(result.contractsProcessed).toBe(1);
+    expect(result.findings).toEqual([
+      expect.objectContaining({ code: 'no_validators' }),
+    ]);
+  });
+
   it('returns non-zero in ci mode when a validator reports drift', async () => {
     const result = await runContractsCheck({
       mode: 'ci',

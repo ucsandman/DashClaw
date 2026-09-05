@@ -483,10 +483,10 @@ export default function IntegrationsPage() {
                     {healthData[key]?.status === 'healthy' && (
                       <span
                         className="inline-flex items-center gap-1 text-[11px] text-success"
-                        title={`Verified: ${healthData[key]?.message}`}
+                        title={`Last check: ${healthData[key]?.message}`}
                       >
                         <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-status-success" />
-                        Live
+                        Healthy at last check
                       </span>
                     )}
                     {healthData[key]?.status === 'error' && (

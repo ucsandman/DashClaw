@@ -8,20 +8,29 @@ const execFilePromise = promisify(execFileCallback);
 export const EXCLUDED_DIRS = new Set(['.git', '.next', 'node_modules', '.vercel', 'graphify-pilot']);
 export const DOC_EXT = '.md';
 
-export async function collectTrackedMarkdownFiles({ root, execFile = execFilePromise }) {
+export async function collectTrackedMarkdownFiles({
+  root,
+  execFile = execFilePromise,
+  fileExists = pathExists,
+}) {
   const { stdout } = await execFile(
     'git',
-    ['ls-files', '--', '*.md'],
+    ['ls-files', '--cached', '--others', '--exclude-standard', '--', '*.md'],
     { cwd: root, windowsHide: true },
   );
 
-  return stdout
+  const candidates = [...new Set(stdout
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
     .filter((file) => file.toLowerCase().endsWith(DOC_EXT))
-    .filter((file) => !file.split(/[\\/]/).some((segment) => EXCLUDED_DIRS.has(segment)))
-    .map((file) => path.join(root, file));
+    .filter((file) => !file.split(/[\\/]/).some((segment) => EXCLUDED_DIRS.has(segment))))];
+
+  const files = await Promise.all(candidates.map(async (file) => {
+    const absolute = path.join(root, file);
+    return await fileExists(absolute) ? absolute : null;
+  }));
+  return files.filter(Boolean);
 }
 
 function isExternalLink(link) {

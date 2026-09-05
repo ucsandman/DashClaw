@@ -53,14 +53,33 @@ export function startServer({ appDir, port, logger = console }) {
   return child;
 }
 
-export async function waitForHealth({ baseUrl, fetchImpl = fetch, timeoutMs = 60_000, intervalMs = 1000 }) {
+export async function probeServerHealth({ baseUrl, fetchImpl = fetch }) {
+  const res = await fetchImpl(`${baseUrl}/api/health`);
+  let body = null;
+  try { body = await res.json(); } catch { /* version verification reports the missing body */ }
+  return { status: res.status, body };
+}
+
+export async function waitForHealth({
+  baseUrl,
+  expectedVersion,
+  fetchImpl = fetch,
+  timeoutMs = 60_000,
+  intervalMs = 1000,
+}) {
   const deadline = Date.now() + timeoutMs;
   let lastStatus = 'no response';
   while (Date.now() < deadline) {
     try {
-      const res = await fetchImpl(`${baseUrl}/api/health`);
-      if (res.status === 200) return;
-      lastStatus = res.status;
+      const health = await probeServerHealth({ baseUrl, fetchImpl });
+      if (health.status === 200) {
+        if (!expectedVersion) return health.body;
+        const servedVersion = health.body?.version;
+        if (servedVersion === expectedVersion) return health.body;
+        lastStatus = `served version ${servedVersion ?? 'unknown'}; expected ${expectedVersion}`;
+      } else {
+        lastStatus = health.status;
+      }
     } catch { lastStatus = 'connection refused'; }
     await new Promise((r) => setTimeout(r, intervalMs));
   }

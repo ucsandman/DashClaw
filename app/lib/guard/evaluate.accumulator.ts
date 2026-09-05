@@ -83,6 +83,8 @@ export interface GuardAccumulator {
    *  the grant post-pass consults these so a rule marked ungrantable can
    *  never have its verdict cleared by an allow_grant. */
   gatingPolicies: Array<{ id: string; name: string; ungrantable: boolean }>;
+  /** Candidate authority; consumed only with an atomic execution claim. */
+  executionAuthorization?: { kind: 'operator' | 'plan'; id: string };
 }
 
 export function newAccumulator(): GuardAccumulator {

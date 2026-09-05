@@ -8,6 +8,13 @@ process owns the tool loop.
 It is the generalized version of `../anthropic-governed-agent`. That example
 governs one hardcoded tool. This one governs all of them automatically.
 
+> **Trust boundary:** This harness owns the tool loop but uses lower-level
+> cooperative guard and record calls. It does not claim protocol-1 execution
+> authority. Its local and network tools are real, so do not treat it as an
+> enforcement boundary for consequential effects. Put those effects behind
+> `runGoverned`, a host interception hook, or `dashclaw_invoke` for a registered
+> capability.
+
 ## Why this exists (read this first)
 
 Your Claude.ai chat actions never show up in DashClaw, and the reason is

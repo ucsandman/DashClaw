@@ -23,7 +23,9 @@ targeted policies, and agent-scoped x402 budgets through the base parent
 
 Identity is **additive** — DashClaw works without it (Phase 1 attributes actions
 by the `agent_id` body field, derived as above). Add verifiable identity when
-you want cryptographic proof of *who* acted. There are two enrollment paths:
+you want stronger identity evidence for the principal that submitted an action.
+Identity evidence does not independently prove that an external effect occurred.
+There are two enrollment paths:
 
 **A. Public-key pairing (no identity provider required).** The simplest path for
 self-hosters who don't run an OIDC issuer:
@@ -109,14 +111,12 @@ issuer's job — DashClaw only *verifies* it (covered in the rest of this docume
 | `unknown_issuer` | `iss` does not match `DASHCLAW_ALLOWED_ISSUER`            |
 | `exp_too_far`    | `exp` exceeds `DASHCLAW_JTI_MAX_TTL_SECONDS` (default 24h)|
 
-**Only a JWT-shaped Bearer is an identity claim** (three base64url segments).
-The `Authorization` header also carries plain credentials — the built-in OAuth
-authorization server issues opaque `oat_` access tokens, which `/api/mcp`
-forwards for the Claude consumer-app connector. A credential asserts no
-identity, so it resolves to `unverified` (self-asserted), never `failed`.
-`failed` stays reserved for a claim that was actually presented and rejected.
-Fixed in v5.17.1; decisions recorded through the OAuth lane before that carry
-`failed` and are not rewritten — the ledger is append-only.
+**Only a JWT-shaped Bearer can earn JWKS `verification_status: verified`**
+(three base64url segments). The built-in OAuth server issues opaque `oat_`
+tokens for `/api/mcp`. Middleware authenticates those against persisted token
+state and derives a stable OAuth client/user principal plus canonical read or
+write scope. That is authenticated OAuth attribution, not JWKS-verified agent
+identity, and it cannot satisfy human session/operator checks.
 
 ## Phase 2b: replay protection
 
@@ -313,8 +313,18 @@ DASHCLAW_ALLOWED_ISSUER=https://idp.example.com
 DASHCLAW_JWT_AUDIENCE=dashclaw.production.example.com
 ```
 
-Both env vars are optional. Without them DashClaw accepts tokens from any
-issuer and does not validate the audience — useful during development.
+Both env vars are optional. Without `DASHCLAW_ALLOWED_ISSUER`, no JWT can become
+`verified` because DashClaw has no trust anchor. Audience validation remains
+optional until `DASHCLAW_JWT_AUDIENCE` is configured.
+
+## Receipts and identity are separate evidence
+
+A valid DashClaw receipt proves that the configured DashClaw issuer signed the
+canonical payload and that it has not changed. It does not universally prove
+who performed an external action. Agent identity comes from the authenticated
+principal and its `verification_status`; public-key pairing additionally signs
+the submitted action payload. Consumers must inspect those fields rather than
+treating receipt validity alone as identity verification.
 
 ## JWT token schema
 

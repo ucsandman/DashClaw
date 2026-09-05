@@ -37,30 +37,18 @@ const claw = new DashClaw({
   agentId: 'my-openai-agent',
 });
 
-// 1. GUARD: Check policy before acting
-const decision = await claw.guard({
-  action_type: 'data_export',
-  declared_goal: 'Export customer report to CSV',
-  risk_score: 45,
-  systems_touched: ['customer_database'],
-});
-console.log('Guard decision:', decision.decision);
+const result = await claw.runGoverned(
+  { kind: 'file', file: { path: 'report.csv' } },
+  {
+    action_type: 'data_export',
+    declared_goal: 'Export customer report to CSV',
+    risk_score: 45,
+    systems_touched: ['customer_database'],
+  },
+  async () => 'Exported 150 customer records to report.csv',
+);
 
-// 2. RECORD: Declare intent
-const action = await claw.createAction({
-  action_type: 'data_export',
-  declared_goal: 'Export customer report to CSV',
-  risk_score: 45,
-});
-const actionId = action.action?.action_id || action.action_id;
-
-// 3. OUTCOME: Report result
-await claw.updateOutcome(actionId, {
-  status: 'completed',
-  output_summary: 'Exported 150 customer records to report.csv',
-});
-
-console.log('Decision recorded:', actionId);`;
+console.log(result);`;
 
   const guardrailsYaml = `version: 1
 project: my-openai-agent
@@ -111,12 +99,12 @@ DASHCLAW_API_KEY=oc_live_...`,
     },
     {
       number: 4,
-      title: 'Add the governance loop to your agent',
+      title: 'Put the export callback behind runGoverned',
       summary:
-        "Wrap your agent's tool execution in DashClaw's guard-record-outcome pattern. This annotated walkthrough shows the complete governance loop inline: each comment explains the purpose of that SDK call.",
+        "Pass the exact export act and callback to runGoverned. It binds current policy, one persisted action, approval, one execution claim, and outcome reporting.",
       codeTitle: 'governed-agent.js',
       codeBody: governanceLoopSnippet,
-      note: 'This inline walkthrough covers the complete guard-record-outcome governance loop. For a full example with OpenAI Agents SDK tools, scan, and delete operations, see examples/openai-agents-governed/ in the repo.',
+      note: 'The repository OpenAI Agents example uses an older cooperative guard-and-record loop around simulated data. Use this runGoverned pattern when the callback can cause a real effect.',
     },
     {
       number: 5,

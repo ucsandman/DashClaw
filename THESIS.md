@@ -20,27 +20,34 @@ framing. This document is that product, committed.
 
 ## What DashClaw is
 
-**When your AI coding agent tries something destructive, DashClaw catches it
-before it runs and asks you first — even when you're not at the keyboard.**
+**Give unattended AI agents useful work while keeping consequential calls
+subject to policy and remote human approval.**
 
-DashClaw is a fail-closed approval layer that sits between an agent *deciding*
-to call a tool and the tool *actually running*. It is not a dashboard that
-records what an agent did; it is the thing that stops the agent mid-action.
+DashClaw's supported enforcement integrations sit between an agent deciding
+to call a tool and that tool running. They can hold or cancel calls selected
+by policy. SDK/API integrations remain cooperative outside those seams: the
+caller must keep the effect inside the governed execution path.
 
 The whole product is one loop:
 
 1. **Intercept** — a PreToolUse hook in Claude Code / Codex / Hermes (plus
-   `dashclaw_invoke` and the OpenClaw gateway) catches a tool call before it
-   executes.
+   `dashclaw_invoke` and the OpenClaw gateway) catches an in-scope tool call
+   before it executes.
 2. **Decide** — the guard engine risk-scores the call against your policies
-   into the decision lattice `allow < warn < require_approval < block`
+   into the decision lattice `allow < warn < allow_contained < require_approval < block`
    (join = max; blocks are absolute).
 3. **Approve** — `require_approval` freezes the action and pages a human, who
    approves or denies **with one click, from anywhere** — the Approvals inbox,
-   a phone, not a terminal. Grants are single-use and act-hash-bound.
-4. **Prove** — every decision writes a durable, replayable, signed audit row
-   (Ed25519 receipts, JWKS export), and a liveness probe continuously proves
-   the governor is awake — because it once wasn't (v4.72.1) and nothing noticed.
+   a phone, not a terminal. Protocol-1 clients claim an attempt under current
+   policy before execution; operator and plan authority is consumed atomically
+   at that claim. Standing policy grants are separately scoped, leased, and
+   revocable. A plan step without a submitted act is a goal-bound wildcard,
+   not exact-act approval.
+4. **Prove** — preserve decision and reported-outcome evidence, with Ed25519
+   receipts where issued and public verification keys. A liveness probe tests
+   the installed seam and reports stale or unavailable evidence honestly.
+   A receipt does not prove external execution; a probe does not establish
+   continuous or tamper-proof enforcement.
 
 One primary human surface: the **Approvals inbox** — the live stream of what
 your agent just tried, the items waiting on you, two buttons per item. Support
@@ -57,36 +64,36 @@ hour run, cannot watch every tool call, and is one bad run away from an agent
 that force-pushes over main, wipes a directory, drops a table, or reads a
 secret.
 
-**Honesty about the incumbent:** Claude Code and Codex already ship native
-permission prompts for the at-keyboard user, for free. DashClaw does not
-compete with those. The wedge is the job native prompts structurally cannot
-do because they require your presence:
+**Where DashClaw fits:** local runtime permission prompts serve the operator
+who is at the keyboard. DashClaw focuses on unattended work and shared,
+remote governance:
 
 - **remote/async approval** — the agent freezes on the dangerous call and you
   approve from wherever you are, minutes or hours later;
-- **one central policy** across every runtime and every session, instead of
-  per-session allowlists;
-- **a tamper-evident audit trail** that proves what was blocked, approved, and
-  by whom;
+- **one central policy** across supported runtimes and recorded sessions,
+  instead of per-session allowlists;
+- **an auditable decision trail**, with signed evidence where issued, that
+  records what was blocked or approved and the authenticated principal
+  attributed to the resolution;
 - **calibrated interruptions** — a distribution-free controller
   (`app/lib/guard/calibration.ts`, v4.74.0) that tunes the interruption
   threshold from your approve/deny stream with a proven false-block bound,
   so governance earns its interruptions instead of nagging you into
   disabling it;
-- **enforcement liveness** — the governor proves it is still enforcing
-  (v4.75.0), rather than failing open silently.
+- **enforcement liveness** — a synthetic probe provides time-bounded,
+  client-reported evidence about the installed seam (v4.75.0), with stale and
+  unavailable states instead of silent green.
 
-Not compliance officers. Not enterprise RBAC buyers. Not observability
-shoppers (LangSmith/Langfuse record; DashClaw prevents). Not a marketplace,
-not an agent platform.
+Not compliance officers. Not enterprise RBAC buyers. Not general tracing or
+evaluation shoppers. Not a marketplace, not an agent platform.
 
 ## Why these pieces and not the others
 
 Every line of evidence converges on the enforcement vertical:
 
-- **It is what the code is objectively best at.** The guard engine is 11
-  clean modules (~3,100 lines); guard/policy/risk/approval/calibration tests
-  are the densest cluster in the suite; the tri-runtime hooks are the
+- **It is what the code is objectively best at.** The guard engine has
+  dedicated policy, risk, approval, and calibration modules and tests; the
+  runtime hooks are the
   hottest-churned core; the calibration controller is the one section of the
   theory doc marked "Implemented", with two proven theorems and a golden-vector
   corpus; the liveness probe is a hard-won answer to a real, named incident.
@@ -117,9 +124,11 @@ The only real usage event in the product's history is negative: the reference
 deployment ran with **all policies off for 18 days** because the default pack
 fired an approval roughly every ten seconds. Therefore:
 
-- **The default policy pack is catastrophe-only.** Out of the box, DashClaw
-  interrupts for the irreversible class (destructive filesystem/git/database
-  actions, secret reads/exfiltration) and lets everything else run.
+- **The default policy pack is narrowly scoped.** Its explicit rules hold
+  protected-target destruction, force pushes, secret-file writes, and
+  classified real-money purchases. A risk score or project cleanup command
+  alone is not a universal hold. The [pack source](app/lib/guardrails/packs/catastrophe-only/policies.yml)
+  and the instance's active Short List determine the actual interruption set.
 - **Calibration ships on, in its constitutional mode.** The controller runs
   from first use; anything that loosens enforcement is a proposal a human
   ratifies with one click in `/policies` (constitution §3 — no auto-applied
@@ -315,12 +324,12 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 | App pages | 53 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 17 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
-| Node SDK methods | 40 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
-| Python SDK methods | 60 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
+| Node SDK methods | 41 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
+| Python SDK methods | 61 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
 | CLI commands | 15 | `cli/bin/dashclaw.js` (`COMMAND_HANDLERS`) |
 | Guard policy types | 17 | `app/lib/guard/policy.ts` (`KNOWN_POLICY_TYPES`) |
 
-(This table mirrors `contracts/surface-budget.json` as of 2026-09-01; it had
+(This table mirrors `contracts/surface-budget.json` as of 2026-09-05; it had
 drifted from the JSON across several amendments — the JSON is the machine
 source of truth, the amendment log below is the history.)
 
@@ -329,6 +338,7 @@ Raising any ceiling requires amending this section **and**
 recorded, deliberate act that falsifier #3 (Regrowth) watches for.
 
 **Amendment log:**
+- **2026-09-05: Node SDK methods 40 to 41, Python SDK methods 60 to 61 (`claimExecution`, `claim_execution`).** The audit found that approval selection alone did not bind execution to a single attempt. These methods expose the existing action route's protocol-1 claim: exact act, credential principal, agent, current policy, and atomic authority consumption. The governed helpers call them before the effect callback. No new route or operator surface is added. This strengthens the execution boundary rather than expanding the agent's work capabilities.
 - **2026-09-01 — API routes 133 → 134, Node SDK methods 39 → 40, Python SDK
   methods 59 → 60 (`/api/plans/[planId]/attest`, `attestPlan`,
   `attest_plan`).** Plan Attestation (v5.28.0), the run-start seam for

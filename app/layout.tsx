@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     default: 'DashClaw, the governance runtime for AI agents',
     template: '%s - DashClaw',
   },
-  description: 'DashClaw intercepts agent actions before they reach the real world. Enforce policies, require human approval, and record verifiable evidence.',
+  description: 'DashClaw evaluates agent actions against policy, routes risky work to human approval, and records audit evidence. Installed hooks and supported gateways can halt calls before execution.',
   icons: {
     icon: [
       { url: '/favicons/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   manifest: '/config/site.webmanifest',
   openGraph: {
     title: 'DashClaw, the governance runtime for AI agents',
-    description: 'DashClaw intercepts agent actions before they reach the real world. Enforce policies, require human approval, and record verifiable evidence.',
+    description: 'DashClaw evaluates agent actions against policy, routes risky work to human approval, and records audit evidence. Installed hooks and supported gateways can halt calls before execution.',
     url: 'https://www.dashclaw.io',
     siteName: 'DashClaw',
     type: 'website',
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'DashClaw, the governance runtime for AI agents',
-    description: 'DashClaw intercepts agent actions before they reach the real world. Enforce policies, require human approval, and record verifiable evidence.',
+    description: 'DashClaw evaluates agent actions against policy, routes risky work to human approval, and records audit evidence. Installed hooks and supported gateways can halt calls before execution.',
     images: ['/social/twitter-card.png'],
   },
 }

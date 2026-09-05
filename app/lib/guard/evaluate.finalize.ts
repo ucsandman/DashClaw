@@ -5,6 +5,7 @@
  */
 
 import { EVENTS, publishOrgEvent } from '../events';
+import { computeActContentHash } from '../act-content-hash';
 import type { GuardEvalContext, GuardDecisionInsert } from './types';
 import type { ExternalVerdictEvidence } from './external-verdict';
 import type { CalibrationAssessment } from './calibration';
@@ -83,6 +84,12 @@ export function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionI
     // means "not recorded", never "clean".
     context: {
       ...(input.safeContextForLog as Record<string, unknown>),
+      // Always overwrite caller-supplied metadata. This is server-selected
+      // candidate authority, never permission to execute without a claim.
+      _execution_authorization: ['allow', 'warn'].includes(acc.highestDecision)
+        ? acc.executionAuthorization ?? null : null,
+      _execution_act_content_hash: computeActContentHash(context.act),
+      _execution_containment: input.containment,
       _risk_breakdown: input.riskBreakdown,
       // Grading source (evidence|declared) — posture reads this to weight the
       // enforcement dimension; the evidence sibling rides in _risk_breakdown.
@@ -150,6 +157,8 @@ export function buildGuardResult(input: GuardFinalizeInput) {
   return {
     decision: acc.highestDecision,
     decision_id: input.decisionId, // Canonical: the guard-evaluation id (act_gd_*).
+    execution_claim_required: true,
+    claim_protocol: 1,
     action_id: input.decisionId, // DEPRECATED alias of decision_id (the evaluation id, NOT action_records id).
     reason: acc.reasons.join('; ') || null,
     signals: [...acc.warnings, ...acc.reasons],

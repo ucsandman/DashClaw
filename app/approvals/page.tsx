@@ -28,7 +28,6 @@ import ApprovalFloodBanner from '../components/ApprovalFloodBanner';
 import ApprovalPauseBanner from '../components/ApprovalPauseBanner';
 import ObserveModeBanner from '../components/ObserveModeBanner';
 import { RISK_HIGH_MIN } from '../lib/riskThresholds';
-import { extractDecisionShape, grantCoversRisk, grantMatches, GRANT_DEFAULT_MAX_RISK } from '../lib/policy-shapes';
 import DontAskAgainPanel from './_components/DontAskAgainPanel';
 import ActiveGrantsStrip, { type GrantRow } from './_components/ActiveGrantsStrip';
 import PlanReviewCard from './_components/PlanReviewCard';
@@ -57,6 +56,11 @@ const resolvedColumns: ListColumn<any>[] = [
   { key: 'time', label: 'Requested', accessor: (a) => a.timestamp_start, sortable: true },
   { key: 'agent', label: 'Agent', accessor: (a) => a.agent_name || a.agent_id, sortable: true },
 ];
+
+function actionContext(action: any): Record<string, any> {
+  if (action?.context && typeof action.context === 'object') return action.context;
+  try { return JSON.parse(action?.context || '{}'); } catch { return {}; }
+}
 
 function Banner({ icon: Icon, tone, title, children, onDismiss }: BannerProps) {
   const tones: Record<BannerTone, string> = {
@@ -95,6 +99,8 @@ export default function ApprovalsPage() {
   const [livePlans, setLivePlans] = useState<Array<{ plan: any; steps: any[] }>>([]);
   const [awaitingContainment, setAwaitingContainment] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [queueError, setQueueError] = useState<string | null>(null);
+  const [lastSuccessfulRefresh, setLastSuccessfulRefresh] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [clearingExpired, setClearingExpired] = useState(false);
   // Bulk approve/deny fan out per-item requests (bulkAction); a partial
@@ -105,6 +111,9 @@ export default function ApprovalsPage() {
   // and the live grants shown in the revoke strip.
   const [grantingId, setGrantingId] = useState<string | null>(null);
   const [grantTtl, setGrantTtl] = useState(24);
+  const [grantPreview, setGrantPreview] = useState<{ actionId: string; target: string; matching_count: number; truncated: boolean } | null>(null);
+  const [grantPreviewError, setGrantPreviewError] = useState<string | null>(null);
+  const [grantPreviewLoading, setGrantPreviewLoading] = useState(false);
   const [grants, setGrants] = useState<GrantRow[]>([]);
   const { isAdmin, settled: sessionSettled } = useEffectiveRole();
 
@@ -116,6 +125,8 @@ export default function ApprovalsPage() {
       if (!res.ok) throw new Error('Failed to load pending actions');
       const json = await res.json();
       setPendingActions(json.actions || []);
+      setQueueError(null);
+      setLastSuccessfulRefresh(new Date().toLocaleTimeString());
       // Fetched AFTER the pending list on purpose: that request runs the
       // server's lazy expiry sweep, so rows it just flipped show up here.
       const expiredRes = await fetch(`/api/actions?status=expired&limit=20${agentQs}`, { cache: 'no-store' });
@@ -126,6 +137,7 @@ export default function ApprovalsPage() {
     } catch (error) {
       // The list stays as-is and the user can retry with the refresh button
       console.warn('Failed to fetch pending actions:', error);
+      setQueueError('Approval queue unavailable');
     } finally {
       setLoading(false);
     }
@@ -217,6 +229,26 @@ export default function ApprovalsPage() {
     return () => clearInterval(interval);
   }, [fetchPending, fetchPendingPlans, fetchAwaitingContainment, fetchGrants]);
 
+  useEffect(() => {
+    if (!grantingId) {
+      setGrantPreview(null);
+      setGrantPreviewError(null);
+      return;
+    }
+    let cancelled = false;
+    setGrantPreviewLoading(true);
+    setGrantPreviewError(null);
+    fetch(`/api/approvals/${grantingId}/grant?ttl_hours=${grantTtl}`, { cache: 'no-store' })
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || 'Preview unavailable');
+        if (!cancelled) setGrantPreview({ actionId: grantingId, target: json.target, matching_count: json.matching_count, truncated: Boolean(json.truncated) });
+      })
+      .catch((error) => { if (!cancelled) setGrantPreviewError(error.message); })
+      .finally(() => { if (!cancelled) setGrantPreviewLoading(false); });
+    return () => { cancelled = true; };
+  }, [grantingId, grantTtl]);
+
   // Realtime: clear instantly when an approval is resolved anywhere (another
   // channel, /approve) rather than waiting up to 10s for the poll.
   // Plan lists don't change on guard.decision.created — only fetchPending
@@ -268,29 +300,6 @@ export default function ApprovalsPage() {
     } finally {
       setProcessingId(null);
     }
-  };
-
-  /**
-   * Preview of how many pending approvals a grant on this action would cover,
-   * computed from the already-loaded list with the SAME predicates the guard
-   * uses. The server recomputes it authoritatively on confirm; this exists so
-   * the confirm button can name the blast radius BEFORE the click.
-   */
-  const grantMatchCount = (action: any): number => {
-    const shape = extractDecisionShape({ action_type: action.action_type, context: action.context });
-    if (!shape.target_prefix) return 1;
-    const rules = {
-      action_type: shape.action_type,
-      target_prefix: shape.target_prefix,
-      max_risk: GRANT_DEFAULT_MAX_RISK,
-    };
-    return pendingActions.filter((a) => {
-      if (a.action_id === action.action_id) return true;
-      if (!grantCoversRisk(rules, Number(a.risk_score) || 0)) return false;
-      let ctx: Record<string, unknown> = {};
-      try { ctx = JSON.parse(a.context || '{}'); } catch { ctx = {}; }
-      return grantMatches(rules, { ...ctx, action_type: a.action_type });
-    }).length;
   };
 
   const handleDecision = async (actionId: string, decision: string) => {
@@ -442,6 +451,13 @@ export default function ApprovalsPage() {
             you". Refetches the queue on resume so the two agree immediately. */}
         <ApprovalPauseBanner onResumed={() => fetchPending({ silent: true })} />
         <ApprovalFloodBanner onResolved={() => fetchPending({ silent: true })} />
+        {queueError && (
+          <Banner icon={AlertTriangle} tone="warning" title={queueError}>
+            {lastSuccessfulRefresh
+              ? `Showing the last successful result from ${lastSuccessfulRefresh}. Retry before assuming the queue is clear.`
+              : 'No successful approval read is available. Retry before assuming the queue is clear.'}
+          </Banner>
+        )}
         {isDemo && (
           <Banner icon={Info} tone="neutral" title="Demo Mode">
             Approvals are read-only in the demo. Self-host to approve or deny actions for real agents.
@@ -517,7 +533,9 @@ export default function ApprovalsPage() {
             ) : undefined
           }
         >
-        {pendingActions.length === 0 ? (
+        {loading && !lastSuccessfulRefresh ? (
+          <div className="py-12 text-center text-sm text-secondary" role="status">Loading approvals…</div>
+        ) : pendingActions.length === 0 && !queueError ? (
           <div className="py-12">
             <EmptyState
               icon={Check}
@@ -617,38 +635,24 @@ export default function ApprovalsPage() {
                                     <span>{action.plain.reassurance}</span>
                                   </p>
                                 )}
-                                {/* The literal command is never hidden or replaced. An
-                                    operator who does not trust the sentence can always
-                                    drop to the exact text, with no click.
-                                    The one exception hides nothing: unlabelled prose is
-                                    passed through as the headline verbatim, so rendering
-                                    it again below would print the identical string twice
-                                    under a heading that misnames it. */}
-                                {action.declared_goal !== action.plain.headline && (
-                                  <div className="mt-3">
-                                    <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
-                                      Exact command
-                                    </div>
-                                    <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-surface-tertiary px-3 py-2 font-mono text-xs leading-relaxed text-secondary">
-                                      {action.declared_goal}
-                                    </pre>
-                                  </div>
-                                )}
                               </>
-                            ) : (
-                              /* No plain description to show: previous behaviour,
-                                 unchanged. Short goals read as a headline; long ones
-                                 render as a scrollable mono block so the operator can
-                                 judge the WHOLE command. There is nothing to fall back
-                                 from here, so the command never renders twice. */
-                              (action.declared_goal || '').length > 160 ? (
+                            ) : null}
+                            <div className="mt-3">
+                              <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+                                Bound act {actionContext(action).act ? '(redacted)' : '(unavailable)'}
+                              </div>
+                              {actionContext(action).act ? (
                                 <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-surface-tertiary px-3 py-2 font-mono text-xs leading-relaxed text-secondary">
-                                  {action.declared_goal}
+                                  {JSON.stringify(actionContext(action).act, null, 2)}
                                 </pre>
                               ) : (
-                                <h3 className="break-words text-lg font-semibold text-white">{action.declared_goal}</h3>
-                              )
-                            )}
+                                <p className="text-xs text-warning">The canonical act was not recorded for this historical action.</p>
+                              )}
+                            </div>
+                            <div className="mt-3">
+                              <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Recorded request</div>
+                              <p className="break-words text-sm text-secondary">{action.declared_goal || 'No request supplied'}</p>
+                            </div>
                           </div>
                           <div className="shrink-0 text-right">
                             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
@@ -756,12 +760,15 @@ export default function ApprovalsPage() {
                     {grantingId === action.action_id && (
                       <DontAskAgainPanel
                         actionType={action.action_type}
-                        targetLabel={extractDecisionShape({ action_type: action.action_type, context: action.context }).target_prefix || 'no target'}
+                        targetLabel={grantPreview?.actionId === action.action_id ? (grantPreview?.target ?? 'No target') : 'Loading scope…'}
                         ttlHours={grantTtl}
                         onTtlChange={setGrantTtl}
                         onConfirm={() => handleGrant(action.action_id)}
                         onCancel={() => setGrantingId(null)}
-                        matchCount={grantMatchCount(action)}
+                        matchCount={grantPreview?.actionId === action.action_id ? (grantPreview?.matching_count ?? 1) : 1}
+                        truncated={Boolean(grantPreview?.actionId === action.action_id && grantPreview?.truncated)}
+                        previewError={grantPreviewError}
+                        previewPending={grantPreviewLoading || !grantPreview}
                         busy={isProcessing}
                       />
                     )}

@@ -18,6 +18,7 @@ import { fireActionAlert } from '../../lib/actionAlerts';
 import { fireNewConnectAlert } from '../../lib/notification-adapters/discord';
 import { fireApprovalSurfaces } from '../../lib/approvalSurfaces';
 import { redactAny } from '../../lib/security';
+import { actionProvenance } from '../../lib/repositories/actions.repository.shared';
 import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository';
 import { describeAction } from '../../lib/plain-language';
 import {
@@ -76,6 +77,8 @@ export async function enrichWithPlainLanguage(
       | undefined;
     return {
       ...row,
+      context: context ? redactAny(context, []) : null,
+      provenance: actionProvenance(row),
       ...(xv
         ? {
             external_verdict: {
@@ -296,6 +299,8 @@ export async function POST(request: Request) {
     // create in observe mode. Persisting it is what lets the ledger render an
     // unenforced block differently from an enforced one.
     data.enforcement_mode = enforcementModeField(body.enforcement_mode);
+    data.client_capabilities = Array.isArray(body.client_capabilities)
+      ? body.client_capabilities.filter((cap: unknown) => typeof cap === 'string') : [];
 
     // Idempotency short-circuit. If the caller supplied an idempotency_key and
     // we already have a row for (org_id, idempotency_key), return that row
@@ -406,6 +411,7 @@ export async function POST(request: Request) {
     // Seed from the shared resolver: a JWKS-verified JWT already established
     // verified identity above. The optional RSA signature path can also set it.
     let verified = identity.verified;
+    let payloadSignatureStatus: 'verified' | 'invalid' | 'missing' = 'missing';
     // Opt-in: set ENFORCE_AGENT_SIGNATURES=true to require signed agent actions.
     // Default OFF — signatures are an advanced feature, not a setup prerequisite.
     // Check DB setting first (runtime-toggleable), fall back to env var
@@ -427,6 +433,7 @@ export async function POST(request: Request) {
       // verify against the exact payload received (minus signature)
       const { _signature: s, ...payload } = body;
       const sigVerified = await verifyAgentSignature(orgId, data.agent_id, payload, signature, sql);
+      payloadSignatureStatus = sigVerified ? 'verified' : 'invalid';
       // Either a verified JWT or a valid signature counts as verified identity.
       verified = verified || sigVerified;
 
@@ -467,6 +474,9 @@ export async function POST(request: Request) {
       agent_id: data.agent_id
     };
     const guardDecision = await evaluateGuard(orgId, guardContext, sql);
+    // Execution authority always references THIS server evaluation. A caller
+    // cannot attach a different decision's grants to the newly created row.
+    data.guard_decision_id = guardDecision.decision_id;
     // The evidence-first fold may swap the evaluation onto the evidence-
     // derived action_type. Persist THAT type — it keeps the ledger consistent
     // with guard_decisions AND with the guard?record=true path (which mutates
@@ -497,6 +507,8 @@ export async function POST(request: Request) {
         guardDecision,
         signature,
         verified,
+        identityVerified: identity.verified,
+        payloadSignatureStatus,
         timestamp_start,
         riskScore: authoritativeRisk,
       });
@@ -546,6 +558,8 @@ export async function POST(request: Request) {
       // Separation of duties (drizzle/0055): trusted middleware principal,
       // never the body — approvals reject approver === created_by.
       createdBy: getUserId(request) || null,
+      identityVerified: identity.verified,
+      payloadSignatureStatus,
     });
 
     // Hosted-trial counter: no-ops silently for non-hosted orgs via WHERE hosted_mode = TRUE.

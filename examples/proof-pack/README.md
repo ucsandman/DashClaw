@@ -11,6 +11,10 @@ It uses no model provider and makes no external business-side effect. Its only
 work is a deterministic connection proof, so a successful run means the SDK,
 credentials, action ledger, and outcome path all worked together.
 
+This is a cooperative connectivity and evidence proof. It intentionally does
+not claim protocol-1 execution authority. Use `runGoverned` or `run_governed`
+when a callback can cause an external effect.
+
 ## Setup
 
 Start DashClaw, create a workspace API key, then set the two environment

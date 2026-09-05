@@ -65,44 +65,21 @@ claw = DashClaw(
 def governed_run_migration(migration_name: str, production: bool) -> str:
     """Run a database migration. Governed by DashClaw policies."""
     risk = 75 if production else 25
-    goal = f"Run migration {migration_name} on {'production' if production else 'staging'}"
+    environment = "production" if production else "staging"
+    goal = f"Run migration {migration_name} on {environment}"
+    command = f"db-migrate --name {migration_name} --environment {environment}"
 
-    # 1. GUARD: Check policy before executing
-    result = claw.guard({
-        "action_type": "database_migration",
-        "declared_goal": goal,
-        "risk_score": risk,
-        "systems_touched": ["postgres"],
-        "reversible": not production,
-    })
-    decision = result.get("decision", "allow")
-    if decision == "block":
-        return f"BLOCKED: {', '.join(result.get('reasons', []))}"
-
-    # 2. RECORD: Declare intent
-    action = claw.create_action(
-        "database_migration", goal,
-        risk_score=risk, systems_touched=["postgres"],
-    )
-    action_id = action["action_id"]
-
-    # 3. HITL: Wait for approval if required
-    if decision == "require_approval":
-        try:
-            claw.wait_for_approval(action_id, timeout=120, interval=5)
-        except Exception as e:
-            claw.update_outcome(action_id, status="cancelled", error_message=str(e))
-            return f"DENIED: {e}"
-
-    # 4. ASSUMPTION + EXECUTE + OUTCOME
-    claw.register_assumption(
-        action_id,
-        f"Migration {migration_name} is idempotent",
-        basis="Migration uses IF NOT EXISTS guards throughout",
-    )
-    migration_result = f"Migration {migration_name} applied successfully."
-    claw.update_outcome(action_id, status="completed", output_summary=migration_result)
-    return migration_result`;
+    return claw.run_governed(
+        {"kind": "shell", "command": command},
+        {
+            "action_type": "database_migration",
+            "declared_goal": goal,
+            "risk_score": risk,
+            "systems_touched": ["postgres"],
+            "reversible": not production,
+        },
+        lambda: f"Migration {migration_name} applied successfully.",
+    )`;
 
   const registerToolCode = `# Register the governed function as a Pydantic AI tool — the governance
 # loop runs identically when the model invokes it.
@@ -151,12 +128,12 @@ DASHCLAW_API_KEY=oc_live_...`,
     },
     {
       number: 4,
-      title: 'Wrap your tool in the 4-step governance loop',
+      title: 'Wrap the migration effect with run_governed',
       summary:
-        'The tool checks DashClaw guard before executing, records the action, waits for approval when required, and reports the outcome.',
+        'The helper binds the exact migration command to one persisted action, waits when required, claims one execution attempt, runs the callback, and reports the outcome.',
       codeTitle: 'main.py',
       codeBody: governedToolCode,
-      note: "The guard decision drives the flow: 'block' returns early, 'require_approval' pauses for a human click on /approvals, 'allow' proceeds straight to execution.",
+      note: 'The callback runs only after DashClaw confirms protocol-1 execution authority for this action, agent, and scrubbed act.',
     },
     {
       number: 5,

@@ -1,4 +1,4 @@
-# Production Readiness
+# Release and deployment checks
 
 **Last regenerated:** 2026-07-10 · **Commit:** `eb9e6ecc`
 
@@ -16,8 +16,10 @@ single sources of truth are:
 
 ## The release gate — `npm run release:check`
 
-`npm run release:check` (alias: `npm run production:check`) is the one authoritative
-gate. A green **static** run means CI's `build-and-test` job will be green: the script
+`npm run release:check` (alias: `npm run production:check`) is the repository's
+release gate. A green **static** run means the checked revision passed the listed
+local gates; it does not establish an uptime SLA, external-system behavior, or
+production readiness for a specific deployment. The script
 runs every static check CI runs, with the same flags. It writes a machine-readable
 `release-check-report.json` (gitignored) with per-gate pass/fail, duration, and the
 commit SHA, and prints its path.

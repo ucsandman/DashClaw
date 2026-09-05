@@ -88,7 +88,11 @@ def _make_handler(log):
             log.add("POST", self.path, body)
             bare = self.path.partition("?")[0]
             if bare == "/api/guard":
-                self._send(log.guard_response)
+                payload = dict(log.guard_response)
+                if payload.get("decision") != "block":
+                    payload.setdefault("execution_claim_required", True)
+                    payload.setdefault("claim_protocol", 1)
+                self._send(payload)
             elif bare == "/api/actions":
                 self._send({"action_id": "test-action-fallback"})
             elif bare == "/api/artifacts":
@@ -104,7 +108,14 @@ def _make_handler(log):
         def do_PATCH(self):
             body = self._body()
             log.add("PATCH", self.path, body)
-            self._send({"ok": True})
+            if body and body.get("claim_execution"):
+                self._send({
+                    "claimed": True,
+                    "action_id": self.path.rstrip("/").split("/")[-1],
+                    "attempt_id": body.get("attempt_id"),
+                })
+            else:
+                self._send({"ok": True})
 
         def do_GET(self):
             log.add("GET", self.path, None)
@@ -180,6 +191,7 @@ class TestDbContainmentHooks(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown()
         cls.server_thread.join(timeout=5)
+        cls.server.server_close()
 
     def setUp(self):
         self.log.clear()
@@ -270,17 +282,15 @@ class TestDbContainmentHooks(unittest.TestCase):
 
     def test_no_neon_api_key_means_no_db_capability(self):
         self._run_pretool_bash('psql -c "select 1"', {"NEON_API_KEY": ""})
-        self.assertIsNone(self._guard_capabilities(),
-                          "without a Neon key the hook advertises nothing and the "
-                          "verdict lands as require_approval, today's behavior")
+        self.assertEqual(self._guard_capabilities(), ["execution_claims"])
 
     def test_db_kill_switch_removes_the_capability(self):
         self._run_pretool_bash('psql -c "select 1"', {"DASHCLAW_DB_CONTAINMENT": "0"})
-        self.assertIsNone(self._guard_capabilities())
+        self.assertEqual(self._guard_capabilities(), ["execution_claims"])
 
     def test_non_database_command_never_advertises_the_db_capability(self):
         self._run_pretool_bash("ls -la")
-        self.assertIsNone(self._guard_capabilities())
+        self.assertEqual(self._guard_capabilities(), ["execution_claims"])
 
     def test_inline_connection_string_never_advertises_the_db_capability(self):
         # The ledger's sensitive-data scan redacts a connection string inside
@@ -288,14 +298,14 @@ class TestDbContainmentHooks(unittest.TestCase):
         # literal-carrying command stays on the approval rail even with a Neon
         # key set and a resolvable target.
         self._run_pretool_bash("psql " + _PROD_URL + " -c 'select 1'")
-        self.assertIsNone(self._guard_capabilities())
+        self.assertEqual(self._guard_capabilities(), ["execution_claims"])
 
     def test_non_neon_database_url_never_advertises_the_db_capability(self):
         self._run_pretool_bash(
             'psql -c "select 1"',
             {"DATABASE_URL": "postgresql://u:p@db.internal.example.com:5432/app"},
         )
-        self.assertIsNone(self._guard_capabilities())
+        self.assertEqual(self._guard_capabilities(), ["execution_claims"])
 
     # -----------------------------------------------------------------------
     # handle_allow_contained, basis db_branch

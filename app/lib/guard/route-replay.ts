@@ -136,6 +136,10 @@ export async function tryIdempotentReplay(
   ]);
   const prior = haltState?.halted ? null : priorRow;
   if (!prior) return null;
+  // A prior permissive receipt is historical evidence, not authority for a
+  // new execution attempt after policies may have changed. Action-record
+  // idempotency still deduplicates the corresponding row.
+  if (prior.decision === 'allow' || prior.decision === 'warn' || prior.decision === 'allow_contained') return null;
 
   // The key alone is not enough: the cached verdict may only be served to the
   // same act it was made about (see buildReplayBinding). A mismatch is not an
@@ -156,6 +160,8 @@ export async function tryIdempotentReplay(
     agent_name: prior.agent_name,
     evaluated_at: prior.created_at,
     idempotent_replay: true,
+    execution_claim_required: true,
+    claim_protocol: 1,
   };
   if (opts.secretScan) replay.secret_scan = opts.secretScan;
   await attachAssumptionAlerts(sql, orgId, data, replay);

@@ -5,6 +5,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -28,6 +29,7 @@ function makeDeps(overrides = {}) {
     startServer: 0,
     installClaude: 0,
     openBrowser: 0,
+    stopServer: 0,
     stopDb: 0,
   };
   const deps = {
@@ -56,6 +58,7 @@ function makeDeps(overrides = {}) {
     logger: { error() {}, log() {} },
     dockerAvailable: false,
     processAlive: () => false,
+    stopServer: async () => { calls.stopServer++; },
     ...overrides,
   };
   return { deps, calls };
@@ -186,6 +189,101 @@ describe('runUp — --update flag', () => {
 
     assert.strictEqual(calls.downloadAndExtract, 1);
     assert.strictEqual(calls.runSetupScript, 1);
+  });
+
+  test('stops its live recorded process before rebuilding and verifies the served target version', async () => {
+    const baseDir = tempBase();
+    const previousAppDir = join(baseDir, 'app', '9.9.8');
+    const oldProcess = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+    await new Promise((resolve, reject) => {
+      oldProcess.once('spawn', resolve);
+      oldProcess.once('error', reject);
+    });
+    saveInstance(baseDir, {
+      version: '9.9.8', port: 3000, dbMode: 'embedded',
+      appDir: previousAppDir, apiKey: 'oc_live_old', pid: oldProcess.pid,
+      completed: [...STEPS],
+    });
+
+    const order = [];
+    let oldRunning = true;
+    const { deps, calls } = makeDeps({
+      processAlive: (pid) => pid === oldProcess.pid ? oldRunning : false,
+      stopServer: async ({ pid, appDir, expectedVersion }) => {
+        calls.stopServer++;
+        assert.strictEqual(pid, oldProcess.pid);
+        assert.strictEqual(appDir, previousAppDir);
+        assert.strictEqual(expectedVersion, '9.9.8');
+        order.push('stop');
+        oldRunning = false;
+        oldProcess.kill();
+        await new Promise((resolve) => oldProcess.once('exit', resolve));
+      },
+      buildApp: () => { calls.buildApp++; order.push('build'); },
+      startServer: () => { calls.startServer++; order.push('start'); return { pid: 4242, on: () => {} }; },
+      waitForHealth: async ({ expectedVersion }) => {
+        order.push(`health:${expectedVersion}`);
+        assert.strictEqual(expectedVersion, '9.9.9');
+      },
+    });
+
+    try {
+      await runUp({ args: { update: true, yes: true, db: 'embedded', noBrowser: true }, baseDir, deps });
+      assert.deepStrictEqual(order, ['stop', 'build', 'start', 'health:9.9.9']);
+      assert.strictEqual(calls.stopServer, 1);
+      assert.strictEqual(calls.startServer, 1);
+      const inst = loadInstance(baseDir);
+      assert.strictEqual(inst.pid, 4242);
+      assert.strictEqual(inst.version, '9.9.9');
+      assert.strictEqual(inst.update, null);
+    } finally {
+      if (oldRunning) oldProcess.kill();
+    }
+  });
+
+  test('a stop failure leaves the previous instance state intact and aborts the update', async () => {
+    const baseDir = tempBase();
+    const previous = {
+      version: '9.9.8', port: 3000, dbMode: 'embedded',
+      appDir: join(baseDir, 'app', '9.9.8'), apiKey: 'oc_live_old', pid: 4242,
+      completed: [...STEPS],
+    };
+    saveInstance(baseDir, previous);
+    const { deps, calls } = makeDeps({
+      processAlive: (pid) => pid === 4242,
+      stopServer: async () => { calls.stopServer++; throw new Error('ownership could not be proven'); },
+    });
+
+    await assert.rejects(
+      () => runUp({ args: { update: true, yes: true, db: 'embedded', noBrowser: true }, baseDir, deps }),
+      /ownership could not be proven/,
+    );
+    assert.strictEqual(calls.downloadAndExtract, 0);
+    assert.strictEqual(calls.buildApp, 0);
+    assert.strictEqual(calls.startServer, 0);
+    assert.deepStrictEqual(loadInstance(baseDir), previous);
+  });
+
+  test('a failed new start preserves an explicit manual rollback path without claiming rollback succeeded', async () => {
+    const baseDir = tempBase();
+    const previousAppDir = join(baseDir, 'app', '9.9.8');
+    saveInstance(baseDir, {
+      version: '9.9.8', port: 3000, dbMode: 'embedded',
+      appDir: previousAppDir, apiKey: 'oc_live_old', completed: [...STEPS],
+    });
+    const { deps } = makeDeps({
+      startServer: () => { throw new Error('new server crashed'); },
+    });
+
+    await assert.rejects(
+      () => runUp({ args: { update: true, yes: true, db: 'embedded', noBrowser: true }, baseDir, deps }),
+      /Update failed: new server crashed.*Previous build remains.*--update --source-dir/s,
+    );
+    const inst = loadInstance(baseDir);
+    assert.strictEqual(inst.pid, null);
+    assert.strictEqual(inst.update.state, 'failed');
+    assert.strictEqual(inst.update.previousVersion, '9.9.8');
+    assert.strictEqual(inst.update.previousAppDir, previousAppDir);
   });
 });
 

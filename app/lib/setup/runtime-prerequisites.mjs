@@ -41,6 +41,32 @@ export const CORE_SETUP_TABLES = [
   'guard_policies',
 ];
 
+export const REQUIRED_SETUP_TABLES = [
+  ...CORE_SETUP_TABLES,
+  'schema_migrations',
+];
+
+// Required physical invariants that table-name checks alone cannot prove.
+// The migration runner validates the full definition, not just this name.
+export const REQUIRED_SETUP_INDEXES = [
+  {
+    name: 'action_records_idempotency_idx',
+    table: 'action_records',
+    unique: true,
+    columns: ['org_id', 'idempotency_key'],
+    predicate: 'idempotency_key IS NOT NULL',
+  },
+];
+
+export const REQUIRED_SETUP_COLUMNS = [
+  { table: 'action_records', name: 'execution_claimed_at' },
+  { table: 'action_records', name: 'execution_attempt_id' },
+  { table: 'action_records', name: 'execution_protocol' },
+  { table: 'action_records', name: 'execution_guard_decision_id' },
+  { table: 'action_records', name: 'identity_verified' },
+  { table: 'action_records', name: 'payload_signature_status' },
+];
+
 export function buildSetupMigrationCommands(scripts = SETUP_MIGRATION_SCRIPTS) {
   return scripts.map((script) => `node scripts/_run-with-env.mjs ${script}`);
 }

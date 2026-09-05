@@ -10,8 +10,8 @@ type SqlClient = {
 
 // Preflight Plan Authorization (docs/rfcs/2026-07-06-preflight-plan-authorization.md).
 // All SQL for the feature lives here — routes must not embed SQL (route-sql:check).
-// Grants are single-use: consumption is one atomic UPDATE ... WHERE grant_used_at
-// IS NULL RETURNING, the same race-safety shape as applyOperatorApprovalGrant.
+// Plan authority selection stays read-only here. claimActionExecution consumes
+// the selected step and claims the action in one atomic statement.
 
 const mintId = (prefix: string) => `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
 
@@ -90,12 +90,11 @@ export async function createPlanWithSteps(
   const planHash = computePlanHash({
     agentId: input.agentId, declaredGoal: input.declaredGoal, steps: preparedSteps,
   });
-  // R3: the pending-plan cap is enforced HERE, not only via the route's
-  // countPendingPlans pre-read — that read-then-insert has a TOCTOU window
-  // (two concurrent submissions can both pass the pre-read before either
-  // INSERT lands). Folding the count into the INSERT's WHERE makes the
-  // count-and-insert a single atomic statement: a losing race yields zero
-  // rows instead of writing an (org_id, 'pending') row over the cap.
+  // R3/F13: create the header and every step in one statement. A failed step
+  // insert rolls the header back automatically on both Neon HTTP and direct
+  // Postgres. pg_try_advisory_xact_lock makes concurrent submissions for the
+  // same org fail this attempt instead of both reading the same cap count;
+  // the caller's existing 409 path is replay-safe.
   // T3: the cap query ignores pending plans older than
   // PENDING_PLAN_CAP_WINDOW_MINUTES — a stale pending plan nobody reviewed
   // must not permanently occupy a slot.
@@ -103,30 +102,53 @@ export async function createPlanWithSteps(
   // markPlanPending once the preview loop finishes. The cap counts BOTH
   // 'previewing' and 'pending' (each consumes a slot for the same reason:
   // an in-flight or unreviewed submission still occupies the org's cap).
-  const planRows = await sql`
-    INSERT INTO plan_authorizations (plan_id, org_id, agent_id, declared_goal, status, ttl_minutes, created_by, plan_hash)
-    SELECT ${planId}, ${orgId}, ${input.agentId}, ${input.declaredGoal}, 'previewing', ${input.ttlMinutes}, ${input.createdBy ?? null}, ${planHash}
-    WHERE (SELECT COUNT(*) FROM plan_authorizations WHERE org_id = ${orgId} AND status IN ('previewing', 'pending')
-      AND created_at > now() - make_interval(mins => ${PENDING_PLAN_CAP_WINDOW_MINUTES})) < ${input.maxPending}
-    RETURNING *
-  `;
-  if (!planRows[0]) return null;
-  const steps: Record<string, unknown>[] = [];
-  for (const step of preparedSteps) {
-    const rows = await sql`
+  const serializedSteps = JSON.stringify(preparedSteps.map((step) => ({
+    step_id: step.step_id,
+    seq: step.seq,
+    action_type: step.action_type,
+    step_goal: step.step_goal,
+    act: step.redacted_act === null ? null : JSON.parse(step.redacted_act),
+    act_content_hash: step.act_content_hash,
+    declared_paths: step.declared_paths ?? null,
+    declared_systems: step.declared_systems ?? null,
+  })));
+  const rows = await sql`
+    WITH org_lock AS (
+      SELECT pg_try_advisory_xact_lock(hashtextextended(${orgId}, 0)) AS acquired
+    ), inserted_plan AS (
+      INSERT INTO plan_authorizations
+        (plan_id, org_id, agent_id, declared_goal, status, ttl_minutes, created_by, plan_hash)
+      SELECT ${planId}, ${orgId}, ${input.agentId}, ${input.declaredGoal}, 'previewing',
+             ${input.ttlMinutes}, ${input.createdBy ?? null}, ${planHash}
+      FROM org_lock
+      WHERE acquired
+        AND (SELECT COUNT(*) FROM plan_authorizations
+             WHERE org_id = ${orgId} AND status IN ('previewing', 'pending')
+               AND created_at > now() - make_interval(mins => ${PENDING_PLAN_CAP_WINDOW_MINUTES})) < ${input.maxPending}
+      RETURNING *
+    ), step_input AS (
+      SELECT * FROM jsonb_to_recordset(${serializedSteps}::text::jsonb) AS step(
+        step_id text, seq integer, action_type text, step_goal text, act jsonb,
+        act_content_hash text, declared_paths jsonb, declared_systems jsonb
+      )
+    ), inserted_steps AS (
       INSERT INTO plan_authorization_steps
         (step_id, plan_id, org_id, seq, action_type, step_goal, act, act_content_hash,
          declared_paths, declared_systems)
-      VALUES
-        (${step.step_id}, ${planId}, ${orgId}, ${step.seq}, ${step.action_type}, ${step.step_goal},
-         ${step.redacted_act}, ${step.act_content_hash},
-         ${step.declared_paths ? JSON.stringify(step.declared_paths) : null},
-         ${step.declared_systems ? JSON.stringify(step.declared_systems) : null})
+      SELECT step.step_id, plan.plan_id, plan.org_id, step.seq, step.action_type,
+             step.step_goal, step.act, step.act_content_hash, step.declared_paths,
+             step.declared_systems
+      FROM step_input step
+      CROSS JOIN inserted_plan plan
       RETURNING *
-    `;
-    steps.push(rows[0]!);
-  }
-  return { plan: planRows[0], steps };
+    )
+    SELECT to_jsonb(plan) AS plan,
+           COALESCE((SELECT jsonb_agg(to_jsonb(step) ORDER BY step.seq) FROM inserted_steps step), '[]'::jsonb) AS steps
+    FROM inserted_plan plan
+  `;
+  const result = rows[0] as { plan?: Record<string, unknown>; steps?: Record<string, unknown>[] } | undefined;
+  if (!result?.plan) return null;
+  return { plan: result.plan, steps: result.steps ?? [] };
 }
 
 export async function stampStepPreview(
@@ -318,8 +340,8 @@ export async function reviewPlan(
       : ['previewing', 'pending', 'approved', 'partially_approved'];
     if (!revocable.includes(plan.status)) return null;
     // Revoke ends everything about the plan immediately: unconsumed grants
-    // via the status exclusion in consumePlanStepGrant (which only matches
-    // approved/partially_approved), and explicit step denials via
+    // via the status exclusion in findPlanExecutionAuthority (consumed only
+    // inside claimActionExecution), and explicit step denials via
     // expires_at — forced into the past here so findDeniedStepMatch's
     // p.expires_at > now() check excludes them the same instant. It does
     // NOT rewrite step grant_status: grant_status records operator intent
@@ -353,29 +375,34 @@ export async function reviewPlan(
     return { plan: updated[0], steps };
   }
 
-  if (plan.status !== 'pending') return null;
+  if (plan.status !== 'pending' && !(input.verdict === 'deny' && plan.status === 'denied')) return null;
   const clampedTtl = Math.min(Number(plan.ttl_minutes) || 60, input.ttlClampMinutes);
 
   if (input.verdict === 'deny') {
     // expires_at uses the org clamp directly (input.ttlClampMinutes), NOT
     // min(ttl_minutes, ttlClampMinutes): a denial's duration is set by the
     // operator, not by the TTL the constrained agent originally requested.
-    const updated = await sql`
-      UPDATE plan_authorizations
-      SET status = 'denied', reviewed_by = ${input.reviewedBy}, reviewed_at = now(),
-          expires_at = now() + make_interval(mins => ${input.ttlClampMinutes})
-      WHERE org_id = ${orgId} AND plan_id = ${planId} AND status = 'pending'
-      RETURNING *
+    const rows = await sql`
+      WITH updated_plan AS (
+        UPDATE plan_authorizations
+        SET status = 'denied', reviewed_by = ${input.reviewedBy}, reviewed_at = now(),
+            expires_at = now() + make_interval(mins => ${input.ttlClampMinutes})
+        WHERE org_id = ${orgId} AND plan_id = ${planId} AND status IN ('pending', 'denied')
+        RETURNING *
+      ), updated_steps AS (
+        UPDATE plan_authorization_steps step
+        SET grant_status = 'denied'
+        FROM updated_plan plan
+        WHERE step.org_id = plan.org_id AND step.plan_id = plan.plan_id
+        RETURNING step.*
+      )
+      SELECT to_jsonb(plan) AS plan,
+             COALESCE((SELECT jsonb_agg(to_jsonb(step) ORDER BY step.seq) FROM updated_steps step), '[]'::jsonb) AS steps
+      FROM updated_plan plan
     `;
-    if (!updated[0]) return null;
-    await sql`
-      UPDATE plan_authorization_steps SET grant_status = 'denied'
-      WHERE org_id = ${orgId} AND plan_id = ${planId}
-    `;
-    const steps = await sql`
-      SELECT * FROM plan_authorization_steps WHERE org_id = ${orgId} AND plan_id = ${planId} ORDER BY seq ASC
-    `;
-    return { plan: updated[0], steps };
+    const result = rows[0] as { plan?: Record<string, unknown>; steps?: Record<string, unknown>[] } | undefined;
+    if (!result?.plan) return null;
+    return { plan: result.plan, steps: result.steps ?? [] };
   }
 
   // approve (with optional per-step overrides). Compute verdicts up front
@@ -399,73 +426,30 @@ export async function reviewPlan(
   // rather than the agent-requested clampedTtl. Only the all-approved case
   // (denied === 0) gets the agent's own clamped TTL.
   const ttlMinutes = denied === 0 ? clampedTtl : input.ttlClampMinutes;
-  const updated = await sql`
-    UPDATE plan_authorizations
-    SET status = ${status}, reviewed_by = ${input.reviewedBy}, reviewed_at = now(),
-        expires_at = now() + make_interval(mins => ${ttlMinutes})
-    WHERE org_id = ${orgId} AND plan_id = ${planId} AND status = 'pending'
-    RETURNING *
-  `;
-  if (!updated[0]) return null;
-  for (const v of stepVerdicts) {
-    await sql`
-      UPDATE plan_authorization_steps SET grant_status = ${v.verdict}
-      WHERE org_id = ${orgId} AND step_id = ${v.step_id}
-    `;
-  }
-  const steps = await sql`
-    SELECT * FROM plan_authorization_steps WHERE org_id = ${orgId} AND plan_id = ${planId} ORDER BY seq ASC
-  `;
-  return { plan: updated[0], steps };
-}
-
-/**
- * Single-use atomic consumption — the plan-grant twin of the operator-grant
- * UPDATE in evaluate.ts. Matching: org + agent + action_type + live plan
- * (approved/partially_approved, unexpired) + approved unconsumed step + act
- * binding (step hash must equal the live hash when the step is act-bound;
- * hashless steps match on step_goal = live declared_goal instead).
- */
-export async function consumePlanStepGrant(
-  sql: SqlClient,
-  orgId: string,
-  input: { agentId: string; actionType: string; declaredGoal: string; actHash: string | null; matchedActionId: string | null },
-) {
+  const serializedVerdicts = JSON.stringify(Object.fromEntries(
+    stepVerdicts.map((step) => [step.step_id, step.verdict]),
+  ));
   const rows = await sql`
-    UPDATE plan_authorization_steps s
-    SET grant_used_at = now(), matched_action_id = ${input.matchedActionId}
-    WHERE s.step_id = (
-      SELECT st.step_id
-      FROM plan_authorization_steps st
-      JOIN plan_authorizations p ON p.plan_id = st.plan_id AND p.org_id = st.org_id
-      WHERE st.org_id = ${orgId}
-        AND p.agent_id = ${input.agentId}
-        AND st.action_type = ${input.actionType}
-        AND p.status IN ('approved', 'partially_approved')
-        AND p.expires_at > now()
-        AND st.grant_status = 'approved'
-        AND st.grant_used_at IS NULL
-        -- S4: act-bound grants also require declared_goal equality — parity
-        -- with applyOperatorApprovalGrant, which requires goal equality on
-        -- its act-bound branch too. An act hash alone is not sufficient
-        -- proof the running action is the one the operator approved.
-        AND (
-          (st.act_content_hash IS NOT NULL AND st.act_content_hash = ${input.actHash} AND st.step_goal = ${input.declaredGoal})
-          OR (st.act_content_hash IS NULL AND st.step_goal = ${input.declaredGoal})
-        )
-      ORDER BY st.seq ASC
-      LIMIT 1
+    WITH updated_plan AS (
+      UPDATE plan_authorizations
+      SET status = ${status}, reviewed_by = ${input.reviewedBy}, reviewed_at = now(),
+          expires_at = now() + make_interval(mins => ${ttlMinutes})
+      WHERE org_id = ${orgId} AND plan_id = ${planId} AND status = 'pending'
+      RETURNING *
+    ), updated_steps AS (
+      UPDATE plan_authorization_steps step
+      SET grant_status = COALESCE(${serializedVerdicts}::text::jsonb ->> step.step_id, 'approved')
+      FROM updated_plan plan
+      WHERE step.org_id = plan.org_id AND step.plan_id = plan.plan_id
+      RETURNING step.*
     )
-      AND s.org_id = ${orgId}
-      AND s.grant_used_at IS NULL
-    RETURNING s.step_id, s.plan_id, s.seq, s.act_content_hash, s.preview_decision,
-      (SELECT reviewed_by FROM plan_authorizations WHERE plan_id = s.plan_id AND org_id = s.org_id) AS reviewed_by,
-      (SELECT COUNT(*)::int FROM plan_authorization_steps WHERE plan_id = s.plan_id AND org_id = s.org_id) AS total_steps
+    SELECT to_jsonb(plan) AS plan,
+           COALESCE((SELECT jsonb_agg(to_jsonb(step) ORDER BY step.seq) FROM updated_steps step), '[]'::jsonb) AS steps
+    FROM updated_plan plan
   `;
-  return (rows[0] as {
-    step_id: string; plan_id: string; seq: number; reviewed_by: string | null;
-    act_content_hash: string | null; preview_decision: string | null; total_steps: number;
-  } | undefined) ?? null;
+  const result = rows[0] as { plan?: Record<string, unknown>; steps?: Record<string, unknown>[] } | undefined;
+  if (!result?.plan) return null;
+  return { plan: result.plan, steps: result.steps ?? [] };
 }
 
 /**
@@ -477,8 +461,9 @@ export async function consumePlanStepGrant(
  * asserted name. A denial binds the ACT for the whole org, not one claimed
  * identity — over-matching a denial (raising for more callers than strictly
  * necessary) is the safe direction; under-matching (letting a denied act
- * back through) is not. consumePlanStepGrant keeps its agent_id scoping —
- * grants must fail safe by under-matching, the opposite asymmetry.
+ * back through) is not. findPlanExecutionAuthority keeps its agent_id scoping
+ * and claimActionExecution revalidates it while consuming the grant; grants
+ * must fail safe by under-matching, the opposite asymmetry.
  * This lookup runs once per guard evaluation (any non-block decision), so it
  * must stay a single indexed probe.
  */
@@ -496,7 +481,7 @@ export async function findDeniedStepMatch(
       -- does the real work: reviewPlan's revoke branch also sets
       -- expires_at = now(), so a revoked plan's explicit step denials are
       -- excluded by the p.expires_at > now() check below the same instant
-      -- its unconsumed grants are excluded from consumePlanStepGrant.
+      -- its unconsumed grants are excluded from findPlanExecutionAuthority.
       -- Revoke ends everything about the plan immediately; an operator who
       -- wants denials to persist keeps the plan un-revoked instead.
       AND p.status IN ('approved', 'partially_approved', 'denied', 'revoked')
@@ -518,8 +503,8 @@ export async function findDeniedStepMatch(
       -- action_type the denial was actually recorded against. NULL
       -- act_content_hash never equals a non-null actHash in SQL, so a
       -- hashless step naturally falls through to the goal branch. Grants
-      -- (consumePlanStepGrant) keep the strict match — only denials need to
-      -- be fail-closed.
+      -- (findPlanExecutionAuthority, then claimActionExecution) keep the
+      -- strict match — only denials need to be fail-closed.
       AND (st.act_content_hash = ${input.actHash} OR (st.action_type = ${input.actionType} AND st.step_goal = ${input.declaredGoal}))
     ORDER BY st.seq ASC
     LIMIT 1
@@ -620,8 +605,8 @@ export async function attestPlan(
   const rows = await sql`
     SELECT plan_id, status, plan_hash, expires_at,
       -- Liveness is decided by the DATABASE clock, the same one that stamped
-      -- expires_at and that every enforcement path (consumePlanStepGrant,
-      -- findDeniedStepMatch) compares against. Deciding it from the app's
+      -- expires_at and that every enforcement path (findPlanExecutionAuthority,
+      -- claimActionExecution, findDeniedStepMatch) compares against. Deciding it from the app's
       -- Date.now() would let clock skew hand out an attestation for a grant
       -- the guard would refuse a millisecond later.
       (expires_at IS NULL OR expires_at <= now()) AS is_expired,

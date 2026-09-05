@@ -4,8 +4,9 @@
 MAINTAINER.md delegation · **Context:** the 2026-07-03 pre-implementation
 architecture review (see `docs/maintainer-log.md`, v4.38.1 entry) surfaced four
 design questions the codebase had been answering implicitly. This ADR answers
-them explicitly. Change these decisions by superseding this file, not by
-drifting from it.
+them explicitly. Later sections stamp compatible boundary clarifications found
+by implementation audits. Change these decisions by superseding this file, not
+by drifting from it.
 
 ## D1 — Descriptor trust: attestation by default, corroboration where the server knows the fact
 
@@ -80,6 +81,56 @@ of the 30-second settings cache: cross-instance propagation is bounded at
 path stays at ≤1 halt query per org per 3s per instance. **Invariant: the
 halt read is never served from the long settings cache.** *(Shipped:
 v4.39.0.)*
+
+## D5 — Enforcement and execution claims: distinguish authority from effects
+
+DashClaw has two enforcement classes. The Claude Code, Codex, and Hermes
+PreToolUse hooks, the OpenClaw gateway, and `dashclaw_invoke` sit on an
+execution seam and can mechanically stop or hold the operation they mediate.
+The bare Node and Python SDKs, ordinary MCP tools, direct REST calls, and
+desktop chat integrations are cooperative: they return and record governance,
+but the integrating caller must keep the effect behind the verdict. An audit
+row does not prove that a cooperative caller obeyed it. Mechanical hooks also
+run at the governed process's privilege level; stronger tamper resistance is a
+deployment boundary.
+
+Protocol-1 execution claims narrow one approval to one newly authorized
+attempt. Before releasing a non-blocked operation, a claim-aware path asks the
+server to atomically bind the stored action, organization, agent, act hash, and
+fresh attempt ID. The same transaction consumes any operator or plan authority
+and permits only one winner. A rejected, lost, or malformed claim response does
+not authorize execution and is never retried automatically.
+
+This is an authority guarantee, not an exactly-once guarantee for an external
+effect. Record idempotency deduplicates ledger rows. Outcome idempotency makes
+the first terminal outcome write win. Neither can establish whether a payment,
+deployment, message, or other remote effect completed before a response was
+lost. Once an execution claim may have been consumed, an unknown result
+requires reconciliation with the action and the external system, or the
+external system's own idempotency primitive. It must not automatically receive
+new execution authority.
+
+Claim rollout is explicitly versioned:
+
+- Current servers advertise `execution_claim_required: true` with
+  `claim_protocol: 1`. Once advertised, missing, malformed, or unsupported
+  claim fields fail closed. Claim acknowledgement must echo the exact action
+  and attempt IDs.
+- Current hooks and OpenClaw clients preserve their older guard and approval
+  behavior when a legacy server omits the advertisement. That compatibility
+  mode has no atomic one-attempt claim guarantee. Set
+  `DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1` after the server upgrade to reject
+  unadvertised responses as well.
+- `runGoverned()` and `run_governed()` always require the claim endpoint before
+  invoking their callback. Against an older server they stop with an execution
+  claim error rather than running under the legacy contract. Lower-level SDK
+  guard and record methods remain cooperative primitives.
+
+`dashclaw_invoke` is the bounded server-mediated exception among MCP tools: the
+server owns the registered credential, governance decision, claim, HTTP call,
+and audit result. Other MCP calls do not become mechanically enforced merely
+because they use the same transport. *(Clarified by the 2026-09-05 F04/F10/F46
+audit remediation.)*
 
 ## Phase 2 queue (decided 2026-07-03; delivery stamped as it ships)
 

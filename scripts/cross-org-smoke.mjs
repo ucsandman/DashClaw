@@ -13,7 +13,8 @@
  *
  * Requirements:
  *   - DATABASE_URL pointing at the SAME database the target server uses
- *     (.env.local locally; the job env in CI).
+ *     (explicit process/CI configuration wins; the canonical loader fills
+ *     only values that are unset).
  *   - The server must resolve DB-minted keys: Neon HTTP path on hosted, the
  *     internal resolve-key route on self-host Postgres (both are the default).
  *
@@ -22,28 +23,13 @@
  * org_id column, discovered from information_schema).
  */
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import './_load-env.mjs';
 import { createHash, randomBytes } from 'node:crypto';
 import { createSqlFromEnv } from './_db.mjs';
 
 // --- env (same contract as policy-smoke.mjs) ---
-// .env.local wins over inherited machine env locally; CI has no .env.local and
-// uses the job env. Machine-level DASHCLAW_* vars can point at prod — drop them.
-const inheritedEnv = { ...process.env };
-for (const k of Object.keys(process.env)) {
-  if (k.startsWith('DASHCLAW_')) delete process.env[k];
-}
-try {
-  const envFile = readFileSync(resolve(process.cwd(), '.env.local'), 'utf8');
-  for (const line of envFile.split(/\r?\n/)) {
-    const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (m) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-  }
-} catch {
-  console.log('note: no .env.local — using the inherited environment (CI mode)');
-  process.env.DATABASE_URL = process.env.DATABASE_URL || inheritedEnv.DATABASE_URL;
-}
+// Explicit process/CI configuration is authoritative. The canonical loader
+// fills only unset values and honors DASHCLAW_ENV_FILE_DISABLE=1.
 
 const BASE = process.argv[2] || 'http://localhost:3000';
 const RUN = Date.now().toString(36);

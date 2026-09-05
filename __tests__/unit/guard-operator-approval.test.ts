@@ -61,6 +61,7 @@ const CTX = {
   action_type: 'apply',
   declared_goal: 'Write: C:\\Projects\\demo\\.env.example',
   risk_score: 40,
+  client_capabilities: ['execution_claims'],
 };
 
 const APPROVAL_ROW = {
@@ -165,13 +166,9 @@ describe('operator-approval post-pass', () => {
     expect(res.decision).toBe('require_approval');
   });
 
-  // ADR Phase 2: a grant is consumed, not a 15-minute season pass. The
-  // consuming statement is an atomic UPDATE (stamp approval_grant_used_at
-  // WHERE ... IS NULL), so one approval covers exactly one retry even under
-  // concurrent identical calls — Postgres row-locking picks the single winner.
-  // Exact idempotent retries still replay the resulting allow via the
-  // idempotency short-circuit, so the flow's UX is unchanged.
-  it('consumes the grant atomically — single-use, stamped via UPDATE ... approval_grant_used_at IS NULL', async () => {
+  // Guard evaluation selects authority without spending it. The later
+  // execution claim consumes the selected row atomically with the attempt.
+  it('selects one eligible grant without updating or consuming it', async () => {
     const sql = routedSqlMock([
       { match: 'FROM guard_policies', rows: policyRows([
         { policy_type: 'require_approval', rules: { action_types: ['apply'] } },
@@ -180,11 +177,13 @@ describe('operator-approval post-pass', () => {
     ]);
     const res = await evaluateGuard(freshOrg(), CTX, sql);
     expect(res.decision).toBe('allow');
-    const consume = sql.taggedCalls.find((c) => c.text.includes('approval_grant_used_at'));
-    expect(consume).toBeDefined();
-    expect(consume!.text).toContain('UPDATE action_records');
-    expect(consume!.text).toContain('SET approval_grant_used_at');
-    expect(consume!.text).toContain('approval_grant_used_at IS NULL');
+    const lookup = sql.taggedCalls.find((c) => c.text.includes('approved_by IS NOT NULL'));
+    expect(lookup).toBeDefined();
+    expect(lookup!.text).toContain('SELECT action_id');
+    expect(lookup!.text).toContain('approval_grant_used_at IS NULL');
+    expect(lookup!.text).toContain('execution_claimed_at IS NULL');
+    expect(lookup!.text).toContain('execution_protocol = 1');
+    expect(sql.taggedCalls.some((c) => /UPDATE action_records/i.test(c.text))).toBe(false);
   });
 
   it('binds the grant to the approved action_type, not just the goal string', async () => {
@@ -195,9 +194,9 @@ describe('operator-approval post-pass', () => {
       { match: 'FROM action_records', rows: [APPROVAL_ROW] },
     ]);
     await evaluateGuard(freshOrg(), CTX, sql);
-    const consume = sql.taggedCalls.find((c) => c.text.includes('approved_by IS NOT NULL'));
-    expect(consume).toBeDefined();
-    expect(consume!.text).toContain('action_type');
+    const lookup = sql.taggedCalls.find((c) => c.text.includes('approved_by IS NOT NULL'));
+    expect(lookup).toBeDefined();
+    expect(lookup!.text).toContain('action_type');
   });
 
   // Act-content grant binding (drizzle/0056): the grant only covers a retry
@@ -220,7 +219,7 @@ describe('operator-approval post-pass', () => {
       await evaluateGuard(freshOrg(), { ...CTX, act: ACT }, sql);
       const lookup = sql.taggedCalls.find((c) => c.text.includes('approved_by IS NOT NULL'));
       expect(lookup).toBeDefined();
-      expect(lookup!.text).toContain('act_content_hash IS NULL OR act_content_hash =');
+      expect(lookup!.text).toContain('act_content_hash IS NOT DISTINCT FROM');
       expect(lookup!.values).toContain(computeActContentHash(ACT));
     });
 
@@ -234,13 +233,13 @@ describe('operator-approval post-pass', () => {
       await evaluateGuard(freshOrg(), CTX, sql);
       const lookup = sql.taggedCalls.find((c) => c.text.includes('approved_by IS NOT NULL'));
       expect(lookup).toBeDefined();
-      expect(lookup!.text).toContain('act_content_hash IS NULL OR act_content_hash =');
-      // The hash slot is bound as NULL; SQL equality with NULL never matches a
-      // stamped row, so an act-stamped approval cannot be consumed act-blind.
+      expect(lookup!.text).toContain('act_content_hash IS NOT DISTINCT FROM');
+      // `IS NOT DISTINCT FROM NULL` matches only an unstamped NULL row, so an
+      // act-stamped approval cannot be selected act-blind.
       expect(lookup!.values).toContain(null);
     });
 
-    it('marks the consumed grant act-bound in the decision warning', async () => {
+    it('marks the selected grant act-bound in the decision warning', async () => {
       const sql = routedSqlMock([
         { match: 'FROM guard_policies', rows: policyRows([
           { policy_type: 'require_approval', rules: { action_types: ['apply'] } },
@@ -291,6 +290,18 @@ describe('operator-approval post-pass', () => {
       { match: 'FROM action_records', rows: [APPROVAL_ROW] },
     ]);
     const res = await evaluateGuard(freshOrg(), { ...CTX, agent_id: undefined }, sql);
+    expect(res.decision).toBe('require_approval');
+    expect(sql.taggedCalls.some((c) => c.text.includes('approved_by IS NOT NULL'))).toBe(false);
+  });
+
+  it('does not expose approval authority to clients that cannot claim execution', async () => {
+    const sql = routedSqlMock([
+      { match: 'FROM guard_policies', rows: policyRows([
+        { policy_type: 'require_approval', rules: { action_types: ['apply'] } },
+      ]) },
+      { match: 'FROM action_records', rows: [APPROVAL_ROW] },
+    ]);
+    const res = await evaluateGuard(freshOrg(), { ...CTX, client_capabilities: [] }, sql);
     expect(res.decision).toBe('require_approval');
     expect(sql.taggedCalls.some((c) => c.text.includes('approved_by IS NOT NULL'))).toBe(false);
   });

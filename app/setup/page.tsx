@@ -435,6 +435,28 @@ export default async function SetupPage() {
       : 'No issuer configured. Bearer tokens never reach verified status (fail-closed). Set this to your IdP to enable verified identity.',
   });
 
+  // Operator-facing protection contract. Every field below comes from the
+  // existing liveness/readiness records; unavailable evidence stays explicit.
+  const protectionState: 'mechanical' | 'cooperative' | 'degraded' | 'unknown' =
+    enforcementLiveness.error || !livenessRun
+      ? 'unknown'
+      : livenessState !== 'holding' || enforcementRows.some((row) => row.weakened)
+        ? 'degraded'
+        : livenessRun.hook.installed
+          ? 'mechanical'
+          : 'cooperative';
+  const firstWorkflowStep = view.workflow.find((step: any) => !['pass', 'complete', 'completed', 'verified'].includes(step.status));
+  const hasReadinessFailure = view.sections.some((section: any) =>
+    section.status === 'fail' || section.checks?.some((check: any) => check.status === 'fail'));
+  const needsConnection = Boolean(firstWorkflowStep && /connect|sdk|integration/i.test(`${firstWorkflowStep.id} ${firstWorkflowStep.title}`));
+  const primaryAction = hasReadinessFailure || canaryStatus === 'fail' || protectionState === 'degraded'
+    ? { href: '/doctor', label: 'Repair setup' }
+    : needsConnection
+      ? { href: '/connect', label: 'Connect an agent' }
+      : !overall.fullyVerified
+        ? { href: '/connect#first-action', label: 'Verify protection' }
+        : { href: '/approvals', label: 'Open Approvals' };
+
   const body = (
       <div className="mx-auto max-w-6xl space-y-8">
         {/* Anonymous visitors get the standalone header: this page is the
@@ -481,17 +503,19 @@ export default async function SetupPage() {
           </div>
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <Link
-              href="/approvals"
+              href={primaryAction.href}
               className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-surface-primary transition-colors hover:bg-brand-hover"
             >
-              Open Approvals
+              {primaryAction.label}
             </Link>
-            <Link
-              href="/connect"
-              className="rounded-lg border border-border-hover bg-surface-tertiary px-4 py-2 text-sm font-medium text-secondary transition-colors hover:bg-surface-elevated hover:text-primary"
-            >
-              Connect an agent
-            </Link>
+            {primaryAction.href !== '/approvals' && (
+              <Link
+                href="/approvals"
+                className="rounded-lg border border-border-hover bg-surface-tertiary px-4 py-2 text-sm font-medium text-secondary transition-colors hover:bg-surface-elevated hover:text-primary"
+              >
+                View approvals
+              </Link>
+            )}
           </div>
           <p className="text-sm text-secondary">
             Your Short List is live — review it on <Link href="/policies" className="text-brand transition-colors hover:text-brand-hover">/policies</Link>. Add a{' '}
@@ -500,7 +524,7 @@ export default async function SetupPage() {
           </p>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-3">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <div className="text-sm text-secondary">Readiness</div>
             <div className="mt-2 text-2xl font-semibold text-primary">{overall.readiness}</div>
@@ -515,6 +539,19 @@ export default async function SetupPage() {
             <div className="text-sm text-secondary">Proof artifact</div>
             <div className="mt-2 text-2xl font-semibold text-primary">Ready</div>
             <p className="mt-2 text-sm text-secondary">Use <code>/api/setup/status</code> for machine checks and this page for operator truth.</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="text-sm text-secondary">Protection state</div>
+            <div className={`mt-2 text-2xl font-semibold ${checkTone(protectionState === 'mechanical' ? 'pass' : protectionState === 'degraded' ? 'fail' : protectionState === 'unknown' ? 'warn' : 'info')}`}>
+              {protectionState}
+            </div>
+            <dl className="mt-3 space-y-1 text-xs text-secondary">
+              <div className="flex justify-between gap-3"><dt>Runtime</dt><dd><code>{livenessRun?.runtime ?? 'unknown'}</code></dd></div>
+              <div className="flex justify-between gap-3"><dt>Probe-reported runtime version</dt><dd className="break-all text-right"><code>{livenessRun?.hook.runtime_version ?? 'unavailable'}</code></dd></div>
+              <div className="flex justify-between gap-3"><dt>Probe-reported hook fingerprint</dt><dd className="break-all text-right"><code>{livenessRun?.hook.hook_fingerprint ?? 'unavailable'}</code></dd></div>
+              <div className="flex justify-between gap-3"><dt>Negative canary</dt><dd>{livenessRun?.verdict === 'held' && !livenessRun.witness.executed ? 'verified' : 'unverified'}</dd></div>
+              <div className="flex justify-between gap-3"><dt>Last successful report</dt><dd>{livenessRun?.verdict === 'held' ? `${relativeAgo(livenessRun.finished_at)} ago` : 'unavailable'}</dd></div>
+            </dl>
           </div>
         </section>
 

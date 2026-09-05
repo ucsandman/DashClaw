@@ -32,7 +32,15 @@ const VALID_BODY = {
   source: 'manual',
   verdict: 'held',
   detail: 'probe action was blocked by require_approval',
-  hook: { installed: true, timeout_seconds: 30, mode: 'enforced', exit_code: 0, cancelled: false },
+  hook: {
+    installed: true,
+    timeout_seconds: 30,
+    mode: 'enforced',
+    exit_code: 0,
+    cancelled: false,
+    runtime_version: 'codex-cli 0.153.4',
+    hook_fingerprint: `sha256:${'a'.repeat(64)}`,
+  },
   witness: { path: '/tmp/enforcement-liveness-witness.json', executed: false },
   decision: 'require_approval',
   checks: [
@@ -63,6 +71,8 @@ describe('POST /api/enforcement-liveness', () => {
     expect(orgId).toBe('org_1');
     expect(input.verdict).toBe('held');
     expect(input.hook.installed).toBe(true);
+    expect(input.hook.runtime_version).toBe('codex-cli 0.153.4');
+    expect(input.hook.hook_fingerprint).toBe(`sha256:${'a'.repeat(64)}`);
     expect(input.witness.executed).toBe(false);
     expect(input.checks).toHaveLength(2);
   });
@@ -74,6 +84,18 @@ describe('POST /api/enforcement-liveness', () => {
     const [, , input] = mockInsert.mock.calls[0];
     expect(input.source).toBe('manual');
     expect(input.decision).toBeNull();
+  });
+
+  it('accepts legacy reports without runtime metadata', async () => {
+    const legacy = {
+      ...VALID_BODY,
+      hook: { installed: true, timeout_seconds: 30, mode: 'enforced' },
+    };
+    const res = await POST(postRequest(legacy));
+    expect(res.status).toBe(201);
+    const [, , input] = mockInsert.mock.calls[0];
+    expect(input.hook.runtime_version).toBeUndefined();
+    expect(input.hook.hook_fingerprint).toBeUndefined();
   });
 
   it('rejects a verdict outside held|executed|unprovable', async () => {
@@ -101,6 +123,22 @@ describe('POST /api/enforcement-liveness', () => {
     expect((await POST(postRequest({
       ...VALID_BODY,
       hook: { installed: true, timeout_seconds: 'thirty' },
+    }))).status).toBe(400);
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed probe-reported runtime metadata', async () => {
+    expect((await POST(postRequest({
+      ...VALID_BODY,
+      hook: { ...VALID_BODY.hook, runtime_version: 'not a version' },
+    }))).status).toBe(400);
+    expect((await POST(postRequest({
+      ...VALID_BODY,
+      hook: { ...VALID_BODY.hook, hook_fingerprint: 'sha256:not-a-digest' },
+    }))).status).toBe(400);
+    expect((await POST(postRequest({
+      ...VALID_BODY,
+      hook: { ...VALID_BODY.hook, runtime_version: `codex-cli 1.2.3${'a'.repeat(120)}` },
     }))).status).toBe(400);
     expect(mockInsert).not.toHaveBeenCalled();
   });

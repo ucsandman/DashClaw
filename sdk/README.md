@@ -2,7 +2,7 @@
 
 **Minimal governance runtime for AI agents.**
 
-The DashClaw SDK provides the infrastructure to intercept, govern, and verify agent actions before they reach production systems.
+The DashClaw SDK binds an exact action description to policy, approval, one persisted record, an execution claim, a callback, and outcome reporting. Lower-level guard and record methods are cooperative; use `runGoverned` or a host enforcement seam for consequential effects.
 
 ## Installation
 
@@ -18,16 +18,17 @@ pip install dashclaw
 
 ## The Governance Loop
 
-DashClaw v2 is designed around a 4-step loop, with an optional
-human-in-the-loop (HITL) branch when policy requires approval.
+DashClaw's governed helper binds one scrubbed act to the persisted action,
+waits when policy requires approval, claims one execution attempt, invokes the
+callback, and reports its outcome.
 
 ```
-guard ─▶ createAction ─▶ (if pending_approval: waitForApproval) ─▶ updateOutcome
+guard + record ─▶ approval (when required) ─▶ claim execution ─▶ callback ─▶ outcome
 ```
 
 ### Node.js
 ```javascript
-import { DashClaw, GuardBlockedError, ApprovalDeniedError } from 'dashclaw';
+import { DashClaw } from 'dashclaw';
 
 const claw = new DashClaw({
   baseUrl: process.env.DASHCLAW_BASE_URL,
@@ -41,58 +42,22 @@ const claw = new DashClaw({
   // timeoutMs: 30000,  // optional — per-request timeout (default 30000ms)
 });
 
-// 1. Ask permission
-const decision = await claw.guard({
-  action_type: 'deploy',
-  declared_goal: 'Ship v2.4.0 to production',
-  risk_score: 90,
-  confidence: 75, // stated BEFORE acting; scored against the outcome on /decisions
-});
-if (decision.decision === 'block') {
-  throw new GuardBlockedError(decision);
-}
-
-// 2. Log intent. Server may gate this if policy requires approval —
-//    check action.status before assuming you're clear to execute.
-const { action, action_id } = await claw.createAction({
-  action_type: 'deploy',
-  declared_goal: 'Ship v2.4.0 to production',
-  risk_score: 90,
-  // session_id: 'sess_…'  // optional: link to a started session for exact attribution (else server correlates by agent + time window)
-});
-
-// 3. If the server flagged this for human review, wait for an operator.
-if (action?.status === 'pending_approval') {
-  try {
-    await claw.waitForApproval(action_id);
-  } catch (err) {
-    if (err instanceof ApprovalDeniedError) return; // operator denied
-    throw err;
-  }
-}
-
-// 4. Execute the real work, then record the outcome
-await claw.recordAssumption({ action_id, assumption: 'Staging tests passed' });
-try {
-  const result = await myLlmCall();
-  await claw.updateOutcome(action_id, {
-    status: 'completed',
-    // Optional — populate Analytics cost/token charts. Cost is derived
-    // server-side from the configured pricing table when model + tokens
-    // are provided without an explicit cost_estimate.
-    tokens_in: result.usage.input_tokens,
-    tokens_out: result.usage.output_tokens,
-    model: result.model,
-  });
-} catch (err) {
-  await claw.updateOutcome(action_id, { status: 'failed', error_message: err.message });
-}
+await claw.runGoverned(
+  { kind: 'shell', command: 'deploy-service --version 2.4.0 --environment production' },
+  {
+    action_type: 'deploy',
+    declared_goal: 'Ship v2.4.0 to production',
+    risk_score: 90,
+    confidence: 75,
+  },
+  () => deployService(),
+);
 ```
 
 ### Python
 ```python
 import os
-from dashclaw import DashClaw, GuardBlockedError, ApprovalDeniedError
+from dashclaw import DashClaw
 
 claw = DashClaw(
     base_url=os.environ["DASHCLAW_BASE_URL"],
@@ -101,33 +66,15 @@ claw = DashClaw(
     agent_name="My Agent",  # optional — stored in audit trail for attribution
 )
 
-# 1. Ask permission
-decision = claw.guard({
-    "action_type": "deploy",
-    "declared_goal": "Ship v2.4.0 to production",
-    "risk_score": 90,
-})
-if decision["decision"] == "block":
-    raise GuardBlockedError(decision)
-
-# 2. Log intent
-action = claw.create_action(
-    action_type="deploy",
-    declared_goal="Ship v2.4.0 to production",
-    risk_score=90,
+claw.run_governed(
+    {"kind": "shell", "command": "deploy-service --version 2.4.0 --environment production"},
+    {
+        "action_type": "deploy",
+        "declared_goal": "Ship v2.4.0 to production",
+        "risk_score": 90,
+    },
+    deploy_service,
 )
-action_id = action["action_id"]
-
-# 3. If the server flagged this for human review, wait for an operator.
-if action.get("action", {}).get("status") == "pending_approval":
-    try:
-        claw.wait_for_approval(action_id)
-    except ApprovalDeniedError:
-        pass  # operator denied — stop here
-
-# 4. Execute and record outcome
-claw.record_assumption({"action_id": action_id, "assumption": "Staging tests passed"})
-claw.update_outcome(action_id, status="completed")
 ```
 
 ---
@@ -163,57 +110,31 @@ real bug in an early version of the OpenClaw plugin — don't reproduce it.
 ### Correct sequence
 
 ```javascript
-// 1. Guard — advisory on the SDK path: your code honoring the decision IS the
-//    enforcement (hook surfaces halt mechanically — see docs/architecture/enforcement-boundary.md).
-//    May return 'allow', 'warn', 'allow_contained', 'require_approval', or 'block'.
-//    'allow_contained' (Containment Verdicts) is negotiated: it only ever
-//    reaches a caller that declared client_capabilities: ['allow_contained'].
-//    This SDK never does, so old/non-advertising clients receive
-//    'require_approval' in its place — see the Containment Verdicts section.
-const decision = await claw.guard({
-  action_type: 'post_message',
-  declared_goal: 'Notify #ops of deploy start',
-  risk_score: 40,
-});
-if (decision.decision === 'block') {
-  throw new GuardBlockedError(decision);
-}
-
-// 2. Create the action. The server re-evaluates policy at this point and is
-//    the authoritative source for whether human review is required. Even if
-//    guard returned 'allow', the server may still set status='pending_approval'
-//    (for example, if a capability has requires_approval=true).
-const { action, action_id } = await claw.createAction({
-  action_type: 'post_message',
-  declared_goal: 'Notify #ops of deploy start',
-  risk_score: 40,
-});
-
-// 3. Check the SERVER's verdict, not the guard decision.
-if (action?.status === 'pending_approval') {
-  try {
-    // Use createAction's action_id, never the guard decision's action_id.
-    await claw.waitForApproval(action_id, { timeout: 600_000 });
-  } catch (err) {
-    if (err instanceof ApprovalDeniedError) {
-      // Operator denied — do NOT execute the action
-      return { denied: true, reason: err.message };
-    }
-    throw err;
-  }
-}
-
-// 4. Execute and record outcome
-await doTheWork();
-await claw.updateOutcome(action_id, { status: 'completed' });
+await claw.runGoverned(
+  {
+    kind: 'http',
+    request: { method: 'POST', url: 'https://chat.example.test/messages' },
+  },
+  {
+    action_type: 'api',
+    declared_goal: 'Notify #ops of deploy start',
+    risk_score: 40,
+  },
+  () => doTheWork(),
+);
 ```
+
+`runGoverned()` keeps the same persisted `action_id` through guard recording,
+approval, the protocol-1 execution claim, and outcome reporting. The callback
+does not run unless the server confirms the exact action, attempt, agent, and
+scrubbed act.
 
 ### What `waitForApproval()` does under the hood
 
 - Opens an SSE connection to `/api/stream` and watches for
   `action.updated` events scoped to the given `actionId`.
-- Falls back to HTTP polling of `GET /api/actions/:id` every 5 seconds if
-  SSE is unavailable.
+- Reconciles against `GET /api/actions/:id` every 5 seconds while SSE remains
+  connected, so a lost event cannot leave the callback paused indefinitely.
 - Resolves when `action.approved_by` is set (operator approved).
 - Throws `ApprovalDeniedError` when `action.status` becomes `failed` or
   `cancelled` (operator denied), or `expired` (the server expired the
@@ -227,13 +148,12 @@ context/action to override). If the decision is `require_approval`, the
 pending row expires server-side once that window plus a 15-minute retry grace
 passes — approving a dead request would release nothing, so the server
 refuses with `410 APPROVAL_EXPIRED` instead. If an operator approves before
-expiry but after your wait timed out, retrying the identical call within
-15 minutes of the approval is auto-allowed (operator-approval grant). When
-the action was created with an `act` payload (as `runGoverned` does), the
-grant is additionally **act-bound**: the server hashes the act at record
-time and the retry only rides the approval if it presents the same act —
-approving one command never authorizes a different one that shares the
-same goal string.
+expiry but after your wait timed out, a later identical call can match the
+operator-approval grant during a fresh policy evaluation. Evaluation does not
+consume the grant. `runGoverned()` consumes it only when the server atomically
+accepts the protocol-1 execution claim for the same action, principal, and act.
+A lost claim response is unknown authority and must be reconciled; the SDK does
+not automatically retry it or the callback.
 
 ### Why guard and the server can disagree
 
@@ -309,6 +229,12 @@ await claw.runGoverned(
 );
 ```
 
+Before the callback runs, the SDK advertises `execution_claims` and requires an
+exact server confirmation for a fresh attempt ID, the persisted action ID, and
+the same scrubbed act. A lost, rejected, or malformed claim response throws
+`ExecutionClaimError` and the callback does not run. Servers without the claim
+protocol must be upgraded; the SDK does not fall back to unclaimed execution.
+
 Declare the `action_type` the server derives for the act (it is returned as
 `derived_action_type`): the decision grades `intent_source: 'evidence'` only
 when the derived type is the type the evaluation ran under, so an unrelated
@@ -327,7 +253,7 @@ const res = await claw.guardedFetch(
 - `runGoverned(act, params, fn)` -- guard (with `act`, `?record=true`, one
   HTTP call for supported guard fields; uses `createAction` for richer action
   metadata or if the server didn't record) → if
-  either response requires approval, `waitForApproval` → `fn()` → one-shot outcome
+  either response requires approval, `waitForApproval` → execution claim → `fn()` → one-shot outcome
   (`completed` on success, `failed` on throw). Throws `GuardBlockedError` on
   block, `ApprovalDeniedError` on denial. Pass `wait: false` to get an
   `ApprovalPendingError` instead of blocking — `fn()` is never run while the
@@ -344,19 +270,20 @@ The pure helper is exported for testing: `import { scrubAct } from 'dashclaw'`.
 The server still re-redacts — this is defense in depth, not the only layer.
 
 **Forward compatibility.** `act` is an additive field on `POST /api/guard`.
-Sending it to a DashClaw instance that predates evidence-first guard is safe —
-unrecognized keys are silently ignored by the server's validator, not
-rejected, so no fallback or retry-without-`act` is needed.
+The evidence field itself is backward-compatible with servers that predate
+evidence-first guard. `runGoverned()` still requires protocol-1 execution
+claims and refuses to run its callback on an older server that cannot confirm
+the claim.
 
 ---
 
 ## SDK Tiers
 
-Both SDKs expose the governance core (intercept → decide → approve → prove). The Python SDK is slightly broader, adding a few read/admin conveniences and framework integrations:
+Both SDKs expose policy, action recording, approval, execution claims, and outcome reporting. The Python SDK is slightly broader, adding a few read/admin conveniences and framework integrations:
 
 | | Node SDK | Python SDK |
 |---|---|---|
-| **Focus** | Governance-core surface (39 methods) | Governance core + conveniences (59 methods) |
+| **Focus** | Curated agent governance surface (41 methods) | Agent governance + conveniences (61 methods) |
 | **Guard / actions / approvals** | ✅ | ✅ |
 | **Assumptions / signals** | ✅ | ✅ |
 | **Sessions / action graph** | ✅ | ✅ |
@@ -366,7 +293,7 @@ Both SDKs expose the governance core (intercept → decide → approve → prove
 | **Framework integrations** | — | CrewAI, AutoGen |
 | **Webhooks / org / activity reads** | — | ✅ |
 
-**Node** is designed for most agents — fast, minimal, the full governance loop. **Python** adds webhook/org/activity reads and framework-native integrations. The legacy `dashclaw/legacy` compatibility layer was **removed in v5.0.0**.
+**Node** is designed for most agents and includes the claimed `runGoverned` callback boundary. **Python** provides the equivalent `run_governed` boundary plus webhook/org/activity reads and framework-native integrations. The legacy `dashclaw/legacy` compatibility layer was **removed in v5.0.0**.
 
 See the [SDK Parity Matrix](../docs/sdk-parity.md) for the domain-by-domain surface.
 
@@ -381,7 +308,7 @@ The v2 SDK exposes the stable governance runtime plus promoted execution domains
 - `createAction(action)` -- Lifecycle tracking ("I am doing X"). Accepts optional `idempotency_key`; on collision returns the existing row with `{ idempotent_replay: true }` instead of inserting a duplicate.
 - `updateOutcome(id, outcome)` -- Result recording ("X finished with Y"). `outcome` accepts `status`, `output_summary`, `side_effects`, `artifacts_created`, `error_message`, `duration_ms`, `tokens_in`, `tokens_out`, `model`, `cost_estimate`. When `tokens_in` / `tokens_out` are reported without an explicit `cost_estimate`, the server derives cost from `model` using the configured pricing table.
 - `recordAssumption(assumption)` -- Integrity tracking ("I believe Z while doing X")
-- `waitForApproval(id)` -- Real-time SSE listener for human-in-the-loop approvals (automatic polling fallback)
+- `waitForApproval(id)` -- Human-in-the-loop wait using SSE plus concurrent authoritative polling
 - `approveAction(id, decision, reasoning?)` -- Submit approval decisions from code
 - `getPendingApprovals(limit = 20, offset = 0)` -- List actions awaiting human review (paginated)
 - `runGoverned(act, params, fn)` -- Evidence-first guard: runs guard with `act` and records in the same HTTP call for supported guard fields; uses `createAction` for richer action metadata or if the server didn't record. If either response requires approval, waits before `fn()` (or raises `ApprovalPendingError` with `wait: false`), then reports the outcome. See [Evidence-first guard](#evidence-first-guard) above.
@@ -391,11 +318,11 @@ The v2 SDK exposes the stable governance runtime plus promoted execution domains
 - `simulatePolicy({ policy_type, rules, days })` -- Side-effect-free dry-run of a proposed policy against recent historical actions before committing it (pairs with `guard()` for live enforcement). `policy_type` and `rules` are required; `days` is optional. Returns `{ summary: { total, matches, block, warn, require_approval, allow }, matches, sample_size, window_days }`. Persists nothing.
 - `createDelegationConstraint(rules, opts?)` -- Create a `delegation_constraint` policy: caps what a composed subagent (`parent:child` identity) may do — risk ceiling, action-type allow/block lists, path scope, spawn depth, optional verified-identity requirement. Thin wrapper over `POST /api/policies`. `opts` accepts `{ name?, agent_ids? }`. The sibling `role_constraint` type (v5.17.0, a named per-role authority bundle for top-level agents) has no dedicated wrapper by design — create it with the same `POST /api/policies` shape (`policy_type: 'role_constraint'`) or in the `/policies` UI.
 
-### Durable Execution Finality (v2.13.3+)
-Terminal outcome reporting that is one-shot, retry-safe, and immutable once non-pending. Separate from `updateOutcome`, which remains the lifecycle-PATCH path. Full spec: [`docs/architecture/durable-execution-finality.md`](../docs/architecture/durable-execution-finality.md). Detailed examples in the [Action Outcome](#action-outcome-durable-execution-finality) subsection of Execution Studio below.
+### Durable Execution Finality
+Terminal outcome reporting is one-shot and immutable once non-pending. This is separate from `updateOutcome`, which remains the lifecycle-PATCH path. Outcome state supports reconciliation; it does not make external effects exactly once. Full spec: [`docs/architecture/durable-execution-finality.md`](../docs/architecture/durable-execution-finality.md). Detailed examples are in the [Action Outcome](#action-outcome-durable-execution-finality) subsection of Execution Studio below.
 
 - `reportActionOutcome(id, { status, summary?, error_message?, progress? })` -- Record the terminal outcome. `status` must be `completed`, `partial`, or `failed`; `lost_confirmation` is reserved for the system sweep. First call wins; subsequent POSTs return 409 with `current_status`.
-- `getActionOutcome(id)` -- Read the current outcome state. Returns `status` (one of `pending` / `completed` / `partial` / `failed` / `lost_confirmation`), `outcome_at`, `summary`, `error_message`, `progress`, `elapsed_ms`. Poll this before retrying any approved action.
+- `getActionOutcome(id)` -- Read the current outcome state. Returns `status` (one of `pending` / `completed` / `partial` / `failed` / `lost_confirmation`), `outcome_at`, `summary`, `error_message`, `progress`, `elapsed_ms`. Use it to reconcile before considering a retry; a non-completed state does not prove the external effect did not occur.
 - `reportActionSuccess(id, summary?)` -- Convenience wrapper for `completed`.
 - `reportActionFailure(id, errorMessage, summary?)` -- Convenience wrapper for `failed`. `error_message` is required.
 - `reportActionPartial(id, progress, summary?)` -- Convenience wrapper for `partial`. `progress` (object) is required.
@@ -412,12 +339,16 @@ Terminal outcome reporting that is one-shot, retry-safe, and immutable once non-
 - `getSessionEvents(sessionId)` -- Fetch the event stream for a session.
 
 ### Plans (preflight authorization)
-- `submitPlan(plan)` -- `POST /api/plans`. Submit an ordered plan of steps for operator review; each step is dry-run through the guard pipeline server-side, and approved steps become single-use grants consumed automatically when the matching action runs. `plan`: `{ declared_goal, ttl_minutes?, steps: [{ action_type, step_goal, act? }] }`.
+- `submitPlan(plan)` -- `POST /api/plans`. Submit an ordered plan of steps for operator review; each step is dry-run through the guard pipeline server-side. Approved steps become scoped, expiring, single-use grants. A matching guard evaluation does not consume a grant; the atomic execution claim does. `plan`: `{ declared_goal, ttl_minutes?, steps: [{ action_type, step_goal, act? }] }`.
 - `getPlan(planId)` -- `GET /api/plans/:planId`. Plan detail with per-step grant status.
 - `listPlans(opts?)` -- `GET /api/plans`. List plans. `opts`: `{ status?, agent_id?, limit? }`.
 - `resolvePlan(planId, verdict, opts?)` -- `POST /api/plans/:planId`. Operator verdict (admin credential required). `verdict`: `'approve' | 'deny' | 'revoke'`; `opts`: `{ step_overrides? }`.
 - `waitForPlanReview(planId, opts?)` -- Poll `getPlan()` until the operator reviews it (status leaves `pending`) or the timeout elapses. Same polling shape as `waitForApproval`. `opts`: `{ timeout = 300000, interval = 5000 }`.
-- `attestPlan(planId, planHash)` -- `POST /api/plans/:planId/attest`. Prove a pinned plan is still approved, unexpired and unrevoked before acting on it. Throws on every other outcome (`403` with `reason` one of `not_approved | expired | revoked | hash_mismatch`, `404` for `not_found`), and the stored hash is never echoed back on a mismatch.
+- `attestPlan(planId, planHash)` -- `POST /api/plans/:planId/attest`. Confirm that a pinned plan remains approved, unexpired and unrevoked before preparing the live action. This is review evidence, not execution authority. Throws on every other outcome (`403` with `reason` one of `not_approved | expired | revoked | hash_mismatch`, `404` for `not_found`), and the stored hash is never echoed back on a mismatch.
+
+Plan previews are review evidence, not execution authority. The server checks
+expiry, exact step scope, agent identity, and separation of duties again when
+the operator resolves the plan and when a claimed action consumes the grant.
 
 Fail closed before the first model call:
 
@@ -429,7 +360,7 @@ await runTheAgent();                                  // only now does a model g
 ```
 
 ### Containment Verdicts (RFC 2026-07-06)
-A provably file-scoped act can come back from `guard()` as `decision: 'allow_contained'` — the server lets it proceed but holds it for an operator promote/discard verdict, **only when the caller declared `client_capabilities: ['allow_contained']`** in the guard context. This SDK never sets that field, so it never sees `allow_contained` itself; these two methods manage rows that reached `awaiting_promotion` some other way (a capability-aware caller, or the dashboard).
+A provably file-scoped act can come back from `guard()` as `decision: 'allow_contained'` — the server lets it proceed but holds it for an operator promote/discard verdict, **only when the caller declared `client_capabilities: ['allow_contained']`** in the guard context. The SDK never adds that capability itself; `runGoverned()` only adds `execution_claims` while preserving caller-supplied capabilities. These two methods manage rows that reached `awaiting_promotion` through an opted-in caller or the dashboard.
 - `resolveContainment(actionId, verdict)` -- `POST /api/actions/:id/containment`. Operator verdict on a contained action awaiting promotion (admin credential required). `verdict`: `'promote' | 'discard'`, validated client-side before the request is sent. Returns `{ action, promotion_action_id? }` — `promotion_action_id` is present only on `'promote'`.
 - `listContained(opts?)` -- `GET /api/actions?containment_status=...`. List actions by containment status. `opts`: `{ status = 'awaiting_promotion', limit? }`.
 
@@ -581,6 +512,8 @@ DashClaw uses standard HTTP status codes and custom error classes:
 - `GuardBlockedError` -- Thrown by **any** SDK call when the server returns HTTP 403 with `{ decision: { decision: 'block' } }`. Note that a successful `guard()` call returning `{ decision: 'block' }` in a **200** body does **not** throw — it just returns the decision object. Always check `decision.decision === 'block'` after `guard()` and throw `new GuardBlockedError(decision)` yourself if you want to abort early, as shown in the governance loop above.
 - `ApprovalDeniedError` -- Thrown by `waitForApproval()` when an operator denies the action (server sets `status` to `failed` or `cancelled`) or when the approval expires server-side (`status` becomes `expired`; check `err.status`).
 - `ApprovalPendingError` -- Thrown by `runGoverned(..., { wait: false })` when the decision is `require_approval`: the governed `fn()` is **never** executed while the approval is pending (`err.actionId` carries the action to poll). Call `waitForApproval(err.actionId)` and re-run once approved.
+- `ExecutionClaimError` -- The server did not confirm the exact execution claim. The callback did not run. Inspect `err.actionId`, reconcile server state, and upgrade the server when the cause is a 404. Do not automatically retry the claim or callback.
+- `OutcomeConfirmationError` -- The callback returned successfully, but reporting `completed` was not confirmed. The SDK does not report `failed` in this case. Inspect `err.actionId` and reconcile both DashClaw and the affected system before deciding whether a retry is safe.
 - Request timeout -- Every SDK call aborts and throws a plain `Error` (`err.code === 'ETIMEDOUT'`) if the server doesn't respond within `timeoutMs` (default 30000ms, configurable in the constructor). Distinguish it from other request failures via `err.code` rather than `err.status`, which is unset for a timeout.
 
 ---
@@ -666,7 +599,7 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 
 ## OpenClaw Plugin (`@dashclaw/openclaw-plugin`)
 
-For teams using the OpenClaw agent framework, the governance plugin intercepts `PreToolUse` / `PostToolUse` lifecycle hooks and runs guard → record → wait-for-approval automatically. Tool classification vocabulary aligns with DashClaw's guard action types. Install via the openclaw CLI which picks up the bundled `HOOK.md` pack.
+For teams using the OpenClaw agent framework, the governance plugin intercepts `PreToolUse` / `PostToolUse` lifecycle hooks and runs current policy → record → optional approval → execution claim → outcome automatically. Tool classification vocabulary aligns with DashClaw's guard action types. Install via the openclaw CLI which picks up the bundled `HOOK.md` pack.
 
 ## Governance Skill for Claude (Anthropic)
 
@@ -715,7 +648,7 @@ const { rootActionId, nodes, edges } = await claw.getActionGraph(actionId);
 
 ### Action Outcome (durable execution finality)
 
-Every approved action carries a terminal outcome: `pending`, `completed`, `partial`, `failed`, or `lost_confirmation`. Agents call `reportActionOutcome` to record finality, and `getActionOutcome` before retry to avoid re-executing already-completed work. Outcomes are one-shot — once non-pending, they cannot be rewritten.
+Every approved action carries an outcome state: `pending`, `completed`, `partial`, `failed`, or `lost_confirmation`. Agents call `reportActionOutcome` to record finality and `getActionOutcome` for reconciliation. Outcomes are one-shot — once non-pending, they cannot be rewritten. A non-completed outcome does not establish that the external effect never occurred.
 
 ```javascript
 // Report success
@@ -741,14 +674,14 @@ await claw.reportActionOutcome(actionId, {
   progress: { step: 2, of: 5 }
 });
 
-// Retry-safe poll before re-trying any approved action
+// Reconcile before considering any retry
 const outcome = await claw.getActionOutcome(actionId);
 switch (outcome.status) {
   case 'pending':            /* still in flight, WAIT */ break;
   case 'completed':          /* already executed, SKIP */ break;
-  case 'failed':             /* safe to RETRY */ break;
-  case 'lost_confirmation':  /* sweep gave up, safe to RETRY */ break;
-  case 'partial':            /* clean up then retry */ break;
+  case 'failed':             /* reconcile side effects before retry */ break;
+  case 'lost_confirmation':  /* effect is unknown; reconcile first */ break;
+  case 'partial':            /* reconcile/clean up before retry */ break;
 }
 ```
 
@@ -764,7 +697,7 @@ curl -X POST "$BASE_URL/api/actions/$ACTION_ID/outcome" \
 
 Pending outcomes that never get reported get swept to `lost_confirmation` by `/api/cron/outcome-sweep`. Vercel runs it daily on Hobby; the `lost_confirmation` event fires a `signal.detected` webhook so subscribers can see and recover. Per-org timeout (minutes) is configurable via the `DASHCLAW_OUTCOME_TIMEOUT_MINUTES` setting (default 15).
 
-**Idempotency keys.** `createAction()` and `guard(context, { record: true })` automatically derive the same key from agent, action type, declared goal, session, and the current hour bucket when none is supplied. This also covers the recording path used by `runGoverned()`. An explicit `idempotency_key` takes precedence; evaluation-only `guard()` calls do not derive one. Repeated recording with the same `(org_id, idempotency_key)` reuses the action row. This deduplicates records, not callback execution: calling `runGoverned()` again can run `fn()` again after approval clears.
+**Idempotency keys.** `createAction()` and `guard(context, { record: true })` automatically derive the same key from agent, action type, declared goal, session, and the current hour bucket when none is supplied. This also covers the recording path used by `runGoverned()`. An explicit `idempotency_key` takes precedence; evaluation-only `guard()` calls do not derive one. Repeated recording with the same `(org_id, idempotency_key)` reuses the action row. This deduplicates records, not remote effects. A failed or missing outcome confirmation is not proof that the effect did not occur. Use the downstream system's idempotency key or reconciliation API before retrying an effect.
 
 The default key changes at the hour boundary and can group separate actions with the same intent within an hour. Supply your own key to distinguish separate attempts or keep retries stable across that boundary. Derive it from intent and your request id:
 

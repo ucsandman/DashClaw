@@ -1,7 +1,7 @@
 {
   "name": "dashclaw",
-  "version": "3.2.0",
-  "description": "DashClaw governance, integration, troubleshooting, and platform intelligence for Claude Code.",
+  "version": "3.2.1",
+  "description": "DashClaw tool governance hooks, remote approvals, execution evidence, and setup guidance for Claude Code.",
   "author": {
     "name": "DashClaw",
     "email": "team@dashclaw.io",

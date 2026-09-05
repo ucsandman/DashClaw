@@ -4,16 +4,15 @@
  * payload the row was created with, so the operator-approval grant can bind
  * a retry to the exact approved act.
  *
- * Position pin: act_content_hash binds directly BEFORE created_by in the
- * insert's VALUES tail. Since v5.7.0 (enforcement_mode at .at(-3), F0):
- * .at(-7) = act_content_hash, .at(-6) = created_by, fleet-attribution -5/-4,
- * close_source -2, approval-lifecycle -1.
+ * The insert assertions resolve bound values by column name so adding an
+ * unrelated column cannot silently retarget a security assertion.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createActionRecord } from '../../app/lib/repositories/actions.repository.js';
 import { computeActContentHash } from '../../app/lib/act-content-hash.js';
 import { digestJson } from '../../app/lib/integrity/canonicalize.js';
 import { validateActionRecord } from '../../app/lib/validate.js';
+import { actionInsertValuesByColumn } from './helpers/action-insert-values.js';
 
 function makeCapturingSqlMock(responses) {
   const queue = [...responses];
@@ -93,15 +92,15 @@ describe('createActionRecord — act_content_hash stamp', () => {
     await createActionRecord(sql, payload({
       data: { agent_id: 'a1', action_type: 'build', declared_goal: 'Run lint', act: ACT },
     }));
-    const { text, values } = sql.calls[0];
+    const { text } = sql.calls[0];
     expect(text).toContain('act_content_hash');
-    expect(values.at(-7)).toBe(computeActContentHash(ACT));
+    expect(actionInsertValuesByColumn(sql.calls[0]).act_content_hash).toBe(computeActContentHash(ACT));
   });
 
   it('binds NULL when no act was supplied (grant keeps the tuple match)', async () => {
     const sql = makeCapturingSqlMock([[{ action_id: 'act_new_1' }]]);
     await createActionRecord(sql, payload());
-    expect(sql.calls[0].values.at(-7)).toBeNull();
+    expect(actionInsertValuesByColumn(sql.calls[0]).act_content_hash).toBeNull();
   });
 
   it('never trusts a client-supplied hash — the stamp is computed from the act', async () => {
@@ -112,17 +111,17 @@ describe('createActionRecord — act_content_hash stamp', () => {
         act: ACT, act_content_hash: 'sha256:forged',
       },
     }));
-    const { values } = sql.calls[0];
-    expect(values.at(-7)).toBe(computeActContentHash(ACT));
-    expect(values).not.toContain('sha256:forged');
+    const insert = actionInsertValuesByColumn(sql.calls[0]);
+    expect(insert.act_content_hash).toBe(computeActContentHash(ACT));
+    expect(sql.calls[0].values).not.toContain('sha256:forged');
   });
 
-  it('keeps the existing position pins intact (created_by still .at(-6))', async () => {
+  it('keeps the created_by stamp intact', async () => {
     const sql = makeCapturingSqlMock([[{ action_id: 'act_new_1' }]]);
     await createActionRecord(sql, payload({
       createdBy: 'key_abc123',
       data: { agent_id: 'a1', action_type: 'build', declared_goal: 'Run lint', act: ACT },
     }));
-    expect(sql.calls[0].values.at(-6)).toBe('key_abc123');
+    expect(actionInsertValuesByColumn(sql.calls[0]).created_by).toBe('key_abc123');
   });
 });

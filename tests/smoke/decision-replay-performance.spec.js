@@ -16,7 +16,7 @@ test('decision renders before delayed graph evidence and graph remains usable', 
     await expect(page.getByRole('heading', { name: 'Decision Replay', exact: true })).toBeVisible();
     expect(graphRequested).toBe(true);
     await expect(page.getByText('Goal Declared', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Graph', exact: true }).click();
+    await page.getByRole('tab', { name: 'Graph', exact: true }).click();
     const graphResponse = page.waitForResponse(response => response.url().endsWith('/ar_demo_deploy_block_001/graph'));
     releaseGraph();
     expect((await graphResponse).ok()).toBe(true);

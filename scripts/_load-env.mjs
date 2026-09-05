@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '..');
 
-function loadEnvFile(filePath, force = false) {
+function loadEnvFile(filePath, { force = false, protectedKeys = new Set() } = {}) {
   if (!existsSync(filePath)) {
     return;
   }
@@ -23,17 +23,44 @@ function loadEnvFile(filePath, force = false) {
 
     if (key && value) {
       const trimmedKey = key.trim();
-      // Overwrite if force is true OR if the current value is a placeholder
+      // Values present before this loader ran came from the invoking process
+      // (shell, CI, or provider configuration) and are authoritative. A
+      // deliberate override is available for the rare script that explicitly
+      // wants repository files to win.
       const currentValue = process.env[trimmedKey];
       const isPlaceholder = currentValue && currentValue.includes('<YOUR_');
       
-      if (!currentValue || force || isPlaceholder) {
+      if (!currentValue || (!protectedKeys.has(trimmedKey) && (force || isPlaceholder))) {
         process.env[trimmedKey] = value;
       }
     }
   });
 }
 
-// Load .env first (placeholders), then .env.local (actual values)
-loadEnvFile(resolve(projectRoot, '.env'));
-loadEnvFile(resolve(projectRoot, '.env.local'), true);
+const protectedProcessKeys = new Set(
+  Object.keys(process.env).filter((key) => Boolean(process.env[key])),
+);
+const allowFileOverride = process.env.DASHCLAW_ENV_FILE_OVERRIDE === '1';
+const disableEnvFiles = process.env.DASHCLAW_ENV_FILE_DISABLE === '1';
+
+// Load .env first (defaults), then .env.local (local refinements). Values
+// explicitly supplied by the process win unless the caller deliberately sets
+// DASHCLAW_ENV_FILE_OVERRIDE=1.
+if (!disableEnvFiles) {
+  loadEnvFile(resolve(projectRoot, '.env'), {
+    force: allowFileOverride,
+    protectedKeys: allowFileOverride ? new Set() : protectedProcessKeys,
+  });
+  loadEnvFile(resolve(projectRoot, '.env.local'), {
+    force: true,
+    protectedKeys: allowFileOverride ? new Set() : protectedProcessKeys,
+  });
+}
+
+export const ENV_LOAD_REPORT = Object.freeze({
+  databaseSource: protectedProcessKeys.has('DATABASE_URL') && !allowFileOverride
+    ? 'process'
+    : (process.env.DATABASE_URL && !disableEnvFiles ? 'file' : 'unset'),
+  fileOverride: allowFileOverride,
+  filesDisabled: disableEnvFiles,
+});

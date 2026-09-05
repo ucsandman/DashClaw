@@ -85,25 +85,35 @@ a reason.
 > **Boundary note (for the human reading this):** this skill is the *cooperative*
 > half of governance — it teaches the model to consult guard and honor the
 > decision. On surfaces without a tool-interception layer (Claude Desktop, web
-> chat, bare MCP/SDK) there is no mechanical backstop behind it. The mechanical
+> chat, bare MCP, or lower-level SDK guard/record calls) there is no mechanical
+> backstop behind it. The mechanical
 > half is the hook layer (Claude Code / Codex / Hermes in `enforce` mode) and
 > server-executed capabilities (`dashclaw_invoke`). Per-surface table:
 > `docs/architecture/enforcement-boundary.md`.
+> An approval returned through the cooperative tools is policy state, not an
+> atomic execution claim.
 
 **`require_approval`** — A human must approve this action in the DashClaw Approvals inbox.
 1. Record the pending action: `dashclaw_record` with `status: 'pending_approval'`
 2. Inform the user: "This action requires human approval in Approvals."
 3. Wait: call `dashclaw_wait_for_approval` with the action ID
-4. Inspect the response — `approved` is true only when the action reaches `status: 'completed'` AND has an `approved_by` operator. Anything else (denied, cancelled, failed, or `timed_out: true`) means do not proceed:
-   - `approved: true` → proceed and PATCH the outcome.
-   - `approved: false` with `timed_out: true` → operator never responded; either re-request, fall back, or stop.
+4. Inspect the response. `approved` is true only when the record carries an operator in `approved_by` and remains in an eligible running/completed state. Anything else (denied, cancelled, failed, expired, or `timed_out: true`) means do not proceed:
+   - `approved: true` → the operator approved the recorded request. For a registered external effect, repeat the exact `dashclaw_invoke`; its server-side execution claim consumes the grant before the effect. For an ordinary MCP tool, this remains cooperative unless the host interception hook provides the execution boundary.
+   - `approved: false` with `timed_out: true` → operator never responded; re-request or stop.
    - `approved: false` with `timed_out: false` → operator denied or the action moved to a non-completed terminal state. Stop and report `error_message` from the action record.
 
 ### External API Calls
 
 Never make direct HTTP calls to external APIs that are registered as DashClaw capabilities.
-Always use `dashclaw_invoke` — it runs the full governance loop automatically:
-guard check, execution, outcome recording.
+Always use `dashclaw_invoke`. Do not pre-guard or pre-record the same invocation. The server
+evaluates the exact invocation against current policy, records it, enforces approval,
+atomically claims one attempt, makes the call with the server-held configuration, and
+records the outcome. A guard decision or action id is never execution authority by itself.
+
+When the first invocation returns `pending_approval`, wait on its `action_id`, then repeat
+the exact capability id and payload after approval. A matching evaluation can select the
+scoped approval, but only the atomic claim consumes it and releases the external call. Do
+not automatically retry an unknown invocation outcome; reconcile the external system first.
 
 Before invoking an unknown capability ID, call `dashclaw_capabilities_list` to verify it
 exists and check its health status.
@@ -149,7 +159,7 @@ in Approvals and the Decisions ledger.
 Every governed session has a clean lifecycle:
 
 1. `dashclaw_session_start` — Register at the beginning
-2. Governance loop — Guard, act, record for each action
+2. Governance loop — use a claimed boundary for each consequential effect and record significant cooperative actions
 3. `dashclaw_session_end` — Close when done (status: `completed`, `failed`, or `cancelled`)
 
 Include a `summary` in `dashclaw_session_end` describing what was accomplished.
@@ -171,8 +181,9 @@ Include a `summary` in `dashclaw_session_end` describing what was accomplished.
 5. **Never bypass** — If `dashclaw_guard` returns `block`, do not attempt the action through
    another tool, workaround, or indirect path.
 
-6. **Fail loudly** — Record failures with `status: 'failed'` and a clear `output_summary`.
-   Never silently retry without recording the failure first.
+6. **Fail loudly** — For a cooperative action you recorded up front, close that same record
+   with `status: 'failed'` and a clear `output_summary`. `dashclaw_invoke` records its own
+   result; never create a duplicate failure row. Reconcile ambiguous effects before retrying.
 
 7. **Be honest about risk** — Use accurate `risk_score` values. Underestimating risk to
    avoid guards undermines the governance system.
@@ -229,15 +240,22 @@ status leaves `pending`. Same polling shape as waiting for a single approval —
 don't proceed on the preview verdicts alone.
 
 ### Executing against an approved plan
-Once reviewed, execute normally — guard, act, record for each step. Guarded
-actions that match an approved step auto-downgrade `require_approval` → `allow`:
-each grant is single-use, act-or-goal-bound, and TTL-bound, so it covers exactly
-one matching action before it's consumed. Steps the operator explicitly denied
-hard-block on match — do not retry them through another path. Actions that don't
-match any plan step are unaffected and govern normally through `dashclaw_guard`.
+An approved plan is not authority for a bare MCP caller. `dashclaw_guard` does
+not advertise `execution_claims`, so it cannot select or consume operator or
+plan grants. Its result remains a cooperative policy check.
+
+For a registered external effect, call `dashclaw_invoke` with the exact
+capability and payload. For an effect owned by your process, put the exact act
+and callback inside SDK `runGoverned` / `run_governed`. Those claimed paths
+re-evaluate current policy, select a matching act-or-goal-bound, agent-scoped,
+TTL-bound grant when eligible, and consume it only at the atomic execution
+claim. Selection is not consumption. An explicitly denied plan step hard-blocks
+on match; do not retry it through another path.
 
 ### Never treat a preview as authorization
-The dry-run verdicts shown at submission are previews, not decisions. Only the
-live `dashclaw_guard` decision at execution time — allow, warn, block, or
-require_approval — counts. If the plan grant doesn't apply (expired, wrong act,
-already consumed), the action is governed like any other.
+The dry-run verdicts shown at submission are previews, not decisions or
+attestations. Review rechecks expiry, grantability, and separation of duties. A
+claimed execution path performs the authoritative live evaluation against the
+exact action and principal. If a plan grant does not apply (expired, wrong agent
+or act, already consumed), current policy governs the action normally. A bare
+MCP guard can inspect policy but cannot turn plan review into execution authority.

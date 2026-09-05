@@ -3,10 +3,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Task 8 (RFC 2026-07-06-containment-verdicts): the promote → merge grant is
 // act-hash-bound and single-use (invariant 3). This proves the FULL server
 // path — builtin:containment_promote raise, then applyOperatorApprovalGrant's
-// consuming lookup — through the REAL evaluateGuard, before any hook/UI work
-// builds on top of it. Harness copied from guard-plan-grant.test.js; the
-// action_records mocking (a single UPDATE ... RETURNING, matched on query
-// TEXT not call order) is copied from guard-operator-approval.test.ts, which
+// read-only authority lookup — through the REAL evaluateGuard. Atomic claim
+// tests cover single-use consumption separately. Harness copied from
+// guard-plan-grant.test.js; action_records mocking is matched on query
+// TEXT rather than call order, like guard-operator-approval.test.ts, which
 // already exercises the same seam this test needs for the containment case.
 const { mockDeliverGuardWebhook, mockCheckSemantic, mockScanSensitiveData } =
   vi.hoisted(() => ({
@@ -34,10 +34,8 @@ const REF = 'dashclaw/contained-1';
 /**
  * SQL mock routed by query TEXT (not call order) — same shape as
  * guard-plan-grant.test.js / guard-operator-approval.test.ts. The
- * operator-approval grant lookup is a single `UPDATE action_records ...
- * RETURNING` statement whose text contains both 'FROM action_records' (the
- * inner SELECT) and 'UPDATE action_records' — matching on 'FROM
- * action_records' catches it. Unmatched queries (guard_policies,
+ * operator-approval grant lookup is a read-only SELECT from action_records.
+ * Unmatched queries (guard_policies,
  * guard_decisions insert, risk_templates, org halt, etc.) resolve to [].
  */
 function makeSql({ grantRows = [], policyRows = [] } = {}) {
@@ -60,6 +58,8 @@ function guardCall(act) {
     action_type: 'containment_promote',
     declared_goal: buildPromotionGoal(CONTAINED_ACTION_ID),
     act,
+    client_capabilities: ['execution_claims'],
+    _execution_principal_id: 'key_claimant_1',
   };
 }
 
@@ -77,6 +77,8 @@ describe('containment promotion grant — single-use, act-hash-bound (via evalua
       action_id: 'act_promo_1',
       approved_by: 'user_admin_1',
       act_content_hash: computeActContentHash(act),
+      execution_protocol: 1,
+      parent_action_id: CONTAINED_ACTION_ID,
     };
     const sql = makeSql({ grantRows: [grantRow] });
 
@@ -90,7 +92,10 @@ describe('containment promotion grant — single-use, act-hash-bound (via evalua
     // not a vacuous pass from an unconditional [] → require_approval branch.
     const lookup = sql.taggedCalls.find((c) => c.text.includes('approved_by IS NOT NULL'));
     expect(lookup).toBeDefined();
-    expect(lookup.text).toContain('act_content_hash IS NULL OR act_content_hash =');
+    expect(lookup.text).toContain('act_content_hash IS NOT DISTINCT FROM');
+    expect(lookup.text).toContain('execution_protocol = 1');
+    expect(lookup.text).toContain('parent_action_id');
+    expect(lookup.text).toContain('origin.created_by');
     expect(lookup.values).toContain(computeActContentHash(act));
     // Pin the action_type bound param too: a partial regression that deletes
     // the fold-guard (d4a99405) but keeps the OR-clause's action_type check
@@ -102,12 +107,10 @@ describe('containment promotion grant — single-use, act-hash-bound (via evalua
     expect(lookup.values).not.toContain('apply');
   });
 
-  it('case 2: the grant is single-use — a second identical call with no matching row (consumed) stays require_approval', async () => {
+  it('case 2: a grant already consumed by atomic claim is no longer selectable', async () => {
     const act = buildPromotionAct(REF);
-    // The grant has already been consumed server-side (approval_grant_used_at
-    // stamped by the first retry) — the SELECT inside the UPDATE's subquery
-    // no longer finds an unconsumed row, so the mock returns [] exactly as
-    // Postgres would for the second concurrent/replayed retry.
+    // The claim has already stamped approval_grant_used_at, so the read-only
+    // authority query finds no remaining candidate.
     const sql = makeSql({ grantRows: [] });
 
     const res = await evaluateGuard('org_1', guardCall(act), sql);
@@ -132,8 +135,7 @@ describe('containment promotion grant — single-use, act-hash-bound (via evalua
     // this test would vacuously pass no matter what the mock does.
     expect(mutatedHash).not.toBe(approvedHash);
 
-    // Emulate the real SQL predicate exactly: `act_content_hash IS NULL OR
-    // act_content_hash = <retryHash>`. The row is stamped with approvedHash,
+    // Emulate the real SQL exact-hash predicate. The row is stamped with approvedHash,
     // so it only "matches" when the incoming retry hash equals approvedHash.
     // This mock doesn't just return [] unconditionally — it recomputes the
     // predicate from the query's own bound values, so the test fails the
@@ -167,7 +169,7 @@ describe('containment promotion grant — single-use, act-hash-bound (via evalua
     expect(res.decision).toBe('require_approval');
     const lookup = taggedCalls.find((c) => c.text.includes('approved_by IS NOT NULL'));
     expect(lookup).toBeDefined();
-    expect(lookup.text).toContain('act_content_hash IS NULL OR act_content_hash =');
+    expect(lookup.text).toContain('act_content_hash IS NOT DISTINCT FROM');
     // Pin that the guard actually bound the MUTATED act's hash into the
     // query (not the originally-approved one, and not a blind NULL) — the
     // test would fail here if evaluateGuard stopped recomputing the hash
@@ -269,6 +271,8 @@ describe('containment_promote is excluded from allow_grant and plan-step grants'
       action_id: 'act_promo_1',
       approved_by: 'user_admin_1',
       act_content_hash: computeActContentHash(act),
+      execution_protocol: 1,
+      parent_action_id: CONTAINED_ACTION_ID,
     };
     const sql = makeSql({ grantRows: [grantRow], policyRows: [] });
 
@@ -286,13 +290,15 @@ describe('containment_promote is excluded from allow_grant and plan-step grants'
     const DB_REF = 'dashclaw/contained-db-1';
     const ORIGINAL_ACT = { kind: 'shell', command: 'psql -c "alter table users add column tier text"' };
 
-    it('the grant minted from the original act is consumed by a retry presenting that same act', async () => {
+    it('the grant minted from the original act is selectable by a retry presenting that same act', async () => {
       const act = buildPromotionAct(DB_REF, ORIGINAL_ACT);
       expect(act).toEqual(ORIGINAL_ACT);
       const grantRow = {
         action_id: 'act_promo_db_1',
         approved_by: 'user_admin_1',
         act_content_hash: computeActContentHash(act),
+        execution_protocol: 1,
+        parent_action_id: CONTAINED_ACTION_ID,
       };
       const sql = makeSql({ grantRows: [grantRow] });
 

@@ -22,11 +22,9 @@ import { denyTrialPrincipal } from '../../../lib/hosted/trial-principal';
  * response.
  *
  * Auth:
- *   - `x-user-id` must be set by middleware. That header is only set
- *     for NextAuth / local-admin cookie sessions, never for API-key
- *     authenticated agent traffic or the dev-mode fallback path.
- *   - `x-org-role` must be `admin`. Members and readonly roles cannot
- *     reveal the bootstrap key.
+ *   - middleware must attest `x-auth-kind` as a human session
+ *     (`session` or `local-admin`), never an API key or OAuth token.
+ *   - the caller must be an attributable admin in the configured operator org.
  *
  * Response shape:
  *   200 { key: "oc_live_...", source: "env" }
@@ -43,9 +41,25 @@ export async function GET(request: Request) {
     );
   }
 
+  const authKind = request.headers.get('x-auth-kind');
+  if (authKind !== 'session' && authKind !== 'local-admin') {
+    return NextResponse.json(
+      { error: 'Human operator session required' },
+      { status: 403 }
+    );
+  }
+
   if (getOrgRole(request) !== 'admin') {
     return NextResponse.json(
       { error: 'Admin access required' },
+      { status: 403 }
+    );
+  }
+
+  const operatorOrgId = process.env.DASHCLAW_API_KEY_ORG || 'org_default';
+  if (request.headers.get('x-org-id') !== operatorOrgId) {
+    return NextResponse.json(
+      { error: 'Operator organization required' },
       { status: 403 }
     );
   }
@@ -69,5 +83,8 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.json({ key: bootstrapKey, source: 'env' });
+  return NextResponse.json(
+    { key: bootstrapKey, source: 'env' },
+    { headers: { 'Cache-Control': 'no-store' } }
+  );
 }

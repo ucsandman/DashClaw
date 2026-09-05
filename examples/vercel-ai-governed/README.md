@@ -1,6 +1,8 @@
 # Vercel AI SDK + DashClaw Governance Example
 
-A minimal example showing how to govern Vercel AI SDK tool calls with DashClaw using the 4-step governance loop. A generic `governed()` wrapper turns any AI SDK tool's `execute` function into a governed one.
+A minimal example showing how to put Vercel AI SDK tool callbacks behind
+DashClaw's canonical `runGoverned()` helper. A generic `governed()` wrapper
+binds each tool's exact act to its `execute` function.
 
 ## Prerequisites
 
@@ -30,14 +32,16 @@ A minimal example showing how to govern Vercel AI SDK tool calls with DashClaw u
 ## What It Does
 
 Two AI SDK tools (`lookupOrder`, `refundOrder`) get governed `execute` functions:
-1. **Order lookup** (low risk) — guard allows, action recorded
-2. **Refund** (high risk) — guard may require approval or block based on your policies
+1. **Order lookup** (low risk): current policy is evaluated and one action is recorded.
+2. **Refund** (high risk): policy may require approval or block the callback.
 
-The governance flow is real; the refund itself is simulated, so no LLM API key is required — the demo invokes the tools' `execute` directly, exactly the way `generateText`'s tool-call step would. The commented `generateText` block in `index.mjs` shows the production wiring (`tools: { refundOrder, lookupOrder }`).
+The governance flow is real. The lookup and refund are simulated, so no LLM API
+key is required and no external effect occurs. The demo invokes the tools'
+`execute` functions directly, the same entry point used by `generateText`.
 
-## The 4-Step Governance Loop
+## The Governed Helper
 
-1. **guard** — policy check before execution (allow / warn / require_approval / block)
-2. **createAction** — declare intent in the decision ledger
-3. **recordAssumption / waitForApproval** — evidence and HITL when required
-4. **updateOutcome** — close the loop with the result
+1. Evaluate current policy against the exact tool act and persist one action.
+2. Wait if policy requires approval.
+3. Claim one protocol-1 execution attempt for the action, agent, and act.
+4. Run the callback and report its outcome. Completion uncertainty is not reported as callback failure.

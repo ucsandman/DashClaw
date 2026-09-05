@@ -103,6 +103,154 @@ export async function claimWebhookEvent(
   return rows.length > 0;
 }
 
+type StripeEventIdentity = {
+  eventId: string;
+  eventType: string;
+  orgId: string | null;
+};
+
+export type StripeEventResult = {
+  claimed: boolean;
+  applied: boolean;
+  orgId: string | null;
+};
+
+function mapStripeEventResult(rows: Record<string, unknown>[]): StripeEventResult {
+  const row = rows[0];
+  return {
+    claimed: row?.claimed === true,
+    applied: row?.applied === true,
+    orgId: row?.org_id ? String(row.org_id) : null,
+  };
+}
+
+/**
+ * Each process*Event query couples the unique event claim to its local
+ * billing mutation in one PostgreSQL statement. If the mutation throws, the
+ * claim rolls back with it; if a concurrent delivery owns the event id, the
+ * UPDATE sees no claimed row and performs no work. This statement-level
+ * transaction works on both Neon HTTP and direct postgres tagged clients.
+ */
+export async function processCheckoutCompletedEvent(
+  sql: SqlTag,
+  input: StripeEventIdentity & { orgId: string; plan: string; customerId: string; subscriptionId: string },
+): Promise<StripeEventResult> {
+  if (!PAID_PLANS.has(input.plan)) {
+    throw new Error(`processCheckoutCompletedEvent: unknown paid plan ${JSON.stringify(input.plan)}`);
+  }
+  const rows = await sql`
+    WITH claimed AS (
+      INSERT INTO stripe_webhook_events (event_id, event_type, org_id)
+      VALUES (${input.eventId}, ${input.eventType}, ${input.orgId})
+      ON CONFLICT (event_id) DO NOTHING
+      RETURNING event_id
+    ), updated AS (
+      UPDATE organizations
+      SET plan = ${input.plan},
+          stripe_customer_id = COALESCE(stripe_customer_id, ${input.customerId}),
+          stripe_subscription_id = ${input.subscriptionId},
+          subscription_status = 'active',
+          trial_action_cap = NULL,
+          updated_at = NOW()
+      WHERE id = ${input.orgId} AND EXISTS (SELECT 1 FROM claimed)
+      RETURNING id
+    )
+    SELECT EXISTS (SELECT 1 FROM claimed) AS claimed,
+           EXISTS (SELECT 1 FROM updated) AS applied,
+           (SELECT id FROM updated LIMIT 1) AS org_id
+  `;
+  return mapStripeEventResult(rows);
+}
+
+export async function processSubscriptionUpdatedEvent(
+  sql: SqlTag,
+  input: StripeEventIdentity & {
+    subscriptionId: string;
+    plan: string | null;
+    status: string;
+    currentPeriodEnd: string | null;
+  },
+): Promise<StripeEventResult> {
+  if (input.plan !== null && !PAID_PLANS.has(input.plan)) {
+    throw new Error(`processSubscriptionUpdatedEvent: unknown paid plan ${JSON.stringify(input.plan)}`);
+  }
+  const rows = await sql`
+    WITH claimed AS (
+      INSERT INTO stripe_webhook_events (event_id, event_type, org_id)
+      VALUES (${input.eventId}, ${input.eventType}, ${input.orgId})
+      ON CONFLICT (event_id) DO NOTHING
+      RETURNING event_id
+    ), updated AS (
+      UPDATE organizations
+      SET plan = COALESCE(${input.plan}, plan),
+          subscription_status = ${input.status},
+          current_period_end = ${input.currentPeriodEnd},
+          trial_action_cap = NULL,
+          updated_at = NOW()
+      WHERE stripe_subscription_id = ${input.subscriptionId}
+        AND EXISTS (SELECT 1 FROM claimed)
+      RETURNING id
+    )
+    SELECT EXISTS (SELECT 1 FROM claimed) AS claimed,
+           EXISTS (SELECT 1 FROM updated) AS applied,
+           (SELECT id FROM updated LIMIT 1) AS org_id
+  `;
+  return mapStripeEventResult(rows);
+}
+
+export async function processSubscriptionDeletedEvent(
+  sql: SqlTag,
+  input: StripeEventIdentity & { subscriptionId: string },
+): Promise<StripeEventResult> {
+  const rows = await sql`
+    WITH claimed AS (
+      INSERT INTO stripe_webhook_events (event_id, event_type, org_id)
+      VALUES (${input.eventId}, ${input.eventType}, ${input.orgId})
+      ON CONFLICT (event_id) DO NOTHING
+      RETURNING event_id
+    ), updated AS (
+      UPDATE organizations
+      SET plan = 'free',
+          subscription_status = 'canceled',
+          stripe_subscription_id = NULL,
+          current_period_end = NULL,
+          trial_action_cap = CASE WHEN hosted_mode = TRUE THEN ${FREE_TIER_ACTION_CAP} ELSE trial_action_cap END,
+          updated_at = NOW()
+      WHERE stripe_subscription_id = ${input.subscriptionId}
+        AND EXISTS (SELECT 1 FROM claimed)
+      RETURNING id
+    )
+    SELECT EXISTS (SELECT 1 FROM claimed) AS claimed,
+           EXISTS (SELECT 1 FROM updated) AS applied,
+           (SELECT id FROM updated LIMIT 1) AS org_id
+  `;
+  return mapStripeEventResult(rows);
+}
+
+export async function processPaymentFailedEvent(
+  sql: SqlTag,
+  input: StripeEventIdentity & { customerId: string },
+): Promise<StripeEventResult> {
+  const rows = await sql`
+    WITH claimed AS (
+      INSERT INTO stripe_webhook_events (event_id, event_type, org_id)
+      VALUES (${input.eventId}, ${input.eventType}, ${input.orgId})
+      ON CONFLICT (event_id) DO NOTHING
+      RETURNING event_id
+    ), updated AS (
+      UPDATE organizations
+      SET subscription_status = 'past_due', updated_at = NOW()
+      WHERE stripe_customer_id = ${input.customerId}
+        AND EXISTS (SELECT 1 FROM claimed)
+      RETURNING id
+    )
+    SELECT EXISTS (SELECT 1 FROM claimed) AS claimed,
+           EXISTS (SELECT 1 FROM updated) AS applied,
+           (SELECT id FROM updated LIMIT 1) AS org_id
+  `;
+  return mapStripeEventResult(rows);
+}
+
 export async function applyCheckoutCompleted(
   sql: SqlTag,
   { orgId, plan, customerId, subscriptionId }: { orgId: string; plan: string; customerId: string; subscriptionId: string },

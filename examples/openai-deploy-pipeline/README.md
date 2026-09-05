@@ -1,8 +1,12 @@
 # OpenAI Deploy Pipeline
 
-An OpenAI-powered agent simulating a CI/CD pipeline. It runs pre-flight checks, evaluates deployment readiness with GPT-4o-mini, and attempts to trigger a production deploy. The deploy step always triggers `require_approval` because it has `risk_score: 85` and `reversible: false`.
+An OpenAI-powered agent simulating a CI/CD pipeline. It runs pre-flight checks, evaluates deployment readiness with GPT-4o-mini, and attempts to trigger a production deploy. The deploy step has `risk_score: 85` and `reversible: false`, so your policies may require approval or block it.
 
 This is the "terminal-first DevOps" governance scenario. The entire approval flow happens in the terminal without opening a browser.
+
+> **Trust boundary:** The source uses lower-level cooperative SDK calls and does
+> not claim protocol-1 execution authority. The rolling deploy stays simulated.
+> Put any real deployment inside `runGoverned(act, params, callback)`.
 
 ## What happens
 
@@ -38,7 +42,7 @@ node index.js
 
 ## Two-terminal demo
 
-This is the recommended way to demonstrate the full governance loop:
+This is the recommended way to demonstrate the cooperative approval and evidence loop:
 
 **Terminal 1** (the agent):
 ```bash

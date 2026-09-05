@@ -62,8 +62,11 @@ filed); 1 otherwise.
 """
 
 import argparse
+import hashlib
 import json
 import os
+import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -72,6 +75,20 @@ import urllib.error
 import urllib.request
 import uuid
 from datetime import datetime, timezone
+
+VERSION_PROBE_TIMEOUT_SECONDS = 2.0
+UNAVAILABLE_METADATA = "unavailable"
+_RUNTIME_VERSION_COMMANDS = {
+    "claude-code": ("claude", "--version"),
+    "codex": ("codex", "--version"),
+    "hermes": ("hermes", "--version"),
+}
+_RUNTIME_VERSION_PATTERNS = {
+    "claude-code": re.compile(r"^\d+(?:\.\d+){1,3}[0-9A-Za-z._+-]* \(Claude Code\)$"),
+    "codex": re.compile(r"^codex-cli \d+(?:\.\d+){1,3}[0-9A-Za-z._+-]*$"),
+    "hermes": re.compile(r"^Hermes Agent v\d+(?:\.\d+){1,3}[0-9A-Za-z._+-]*(?: \([0-9.]+\))?$"),
+}
+_HOOK_SOURCE_NAMES = {"dashclaw_pretool.py", "dashclaw_pretool_hermes.py"}
 
 # Codex declares its hooks in TOML, Claude Code in JSON. tomllib is stdlib from
 # 3.11; older interpreters need the tomli backport. A missing parser is
@@ -396,6 +413,114 @@ def find_pretool_entries(settings_paths):
     return entries, problems
 
 
+def _installed_command_argv(command):
+    """Parse a managed hook command for inspection only.
+
+    This argv is never passed through a shell. The live seam still executes
+    the exact configured command in run_seam; metadata measurement uses it
+    only to locate a recognized hook source. Host versions use the separate,
+    fixed runtime command map above.
+    """
+    try:
+        argv = shlex.split(command, posix=os.name != "nt")
+    except (TypeError, ValueError):
+        return []
+    return [part[1:-1] if len(part) >= 2 and part[0] == part[-1] and part[0] in "\"'" else part
+            for part in argv]
+
+
+def _resolve_hook_source(argv, entry, project_root):
+    """Resolve the known DashClaw enforcement source named by this entry.
+
+    A launcher/shim is not sufficient evidence: only the recognized Python
+    delegate is hashed. Relative candidates are checked against the seam's
+    execution cwd and the settings directory. Failure stays unavailable rather
+    than implying that an unchanged shim proves the delegated hook unchanged.
+    """
+    settings_dir = os.path.dirname(os.path.abspath(entry.get("settings_path") or project_root))
+    for raw in reversed(argv[1:]):
+        expanded = os.path.expanduser(os.path.expandvars(raw))
+        expanded = expanded.replace("$CLAUDE_PROJECT_DIR", project_root)
+        expanded = expanded.replace("${CLAUDE_PROJECT_DIR}", project_root)
+        expanded = expanded.replace("%CLAUDE_PROJECT_DIR%", project_root)
+        if os.path.basename(expanded).lower() not in _HOOK_SOURCE_NAMES:
+            continue
+        candidates = [expanded] if os.path.isabs(expanded) else [
+            os.path.join(project_root, expanded),
+            os.path.join(settings_dir, expanded),
+        ]
+        for candidate in candidates:
+            if os.path.isfile(candidate):
+                return os.path.abspath(candidate)
+    return None
+
+
+def _measure_runtime_version(runtime):
+    command = _RUNTIME_VERSION_COMMANDS.get(runtime)
+    if not command:
+        return UNAVAILABLE_METADATA
+    executable = shutil.which(command[0])
+    if not executable:
+        return UNAVAILABLE_METADATA
+    try:
+        proc = subprocess.run(
+            [executable, *command[1:]],
+            capture_output=True,
+            timeout=VERSION_PROBE_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return UNAVAILABLE_METADATA
+    if proc.returncode != 0:
+        return UNAVAILABLE_METADATA
+    raw = (proc.stdout or b"") + b"\n" + (proc.stderr or b"")
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", "replace")
+    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    first = lines[0] if lines else ""
+    pattern = _RUNTIME_VERSION_PATTERNS[runtime]
+    if len(first) > 120 or not pattern.fullmatch(first):
+        return UNAVAILABLE_METADATA
+    return first
+
+
+def _fingerprint_sources(hook_source):
+    sources = [hook_source]
+    if os.path.basename(hook_source).lower() == "dashclaw_pretool_hermes.py":
+        repo_root = os.path.dirname(os.path.dirname(os.path.dirname(hook_source)))
+        delegate = os.path.join(repo_root, "hooks", "dashclaw_pretool.py")
+        if not os.path.isfile(delegate):
+            return []
+        sources.append(delegate)
+    return sources
+
+
+def measure_hook_metadata(entry, project_root):
+    """Measure version and source bytes for the selected installed hook entry.
+
+    Values are probe-reported operational evidence, not runtime attestation.
+    No command string or local path is included in the returned metadata.
+    """
+    argv = _installed_command_argv(entry.get("command") or "")
+    runtime_version = _measure_runtime_version(entry.get("harness"))
+    fingerprint = UNAVAILABLE_METADATA
+    hook_source = _resolve_hook_source(argv, entry, project_root) if argv else None
+    if hook_source:
+        try:
+            digest = hashlib.sha256()
+            sources = _fingerprint_sources(hook_source)
+            for source_path in sources:
+                if len(sources) > 1:
+                    digest.update((os.path.basename(source_path) + "\0").encode("utf-8"))
+                with open(source_path, "rb") as source:
+                    for chunk in iter(lambda: source.read(64 * 1024), b""):
+                        digest.update(chunk)
+            if sources:
+                fingerprint = "sha256:%s" % digest.hexdigest()
+        except OSError:
+            pass
+    return {"runtime_version": runtime_version, "hook_fingerprint": fingerprint}
+
+
 def codex_home():
     return os.environ.get("CODEX_HOME") or os.path.join(os.path.expanduser("~"), ".codex")
 
@@ -436,7 +561,6 @@ def command_with_probe_identity(command):
     probe's guard rows would be recorded under the REAL harness agent and leak
     into every aggregate. Identity is orthogonal to the enforcement mechanics
     being probed, so the rewrite does not reduce seam fidelity."""
-    import re
     if re.search(r"--agent-id(=|\s+)\S+", command):
         return re.sub(r"--agent-id(=|\s+)\S+", "--agent-id %s" % PROBE_AGENT_ID, command)
     return "%s --agent-id %s" % (command, PROBE_AGENT_ID)
@@ -686,6 +810,8 @@ def main():
         "mode": os.environ.get("DASHCLAW_HOOK_MODE") or "enforce",
         "exit_code": None,
         "cancelled": False,
+        "runtime_version": UNAVAILABLE_METADATA,
+        "hook_fingerprint": UNAVAILABLE_METADATA,
     }
 
     verdict = None
@@ -712,8 +838,18 @@ def main():
 
         held = next(((e, r) for e, r in results if r["outcome"] == "held"), None)
         hung = next(((e, r) for e, r in results if r["outcome"] == "hung"), None)
+        cancelled = next(((e, r) for e, r in results if r["cancelled"]), None)
         last_entry, last_result = results[-1]
-        hook_report["exit_code"] = last_result["exit_code"]
+        selected_entry = held[0] if held else hung[0] if hung else cancelled[0] if cancelled else last_entry
+        selected_result = held[1] if held else hung[1] if hung else cancelled[1] if cancelled else last_result
+        hook_report.update({
+            "settings_path": selected_entry["settings_path"],
+            "timeout_seconds": selected_entry["timeout_seconds"],
+            "effective_timer_ms": selected_entry["effective_timer_ms"],
+            "overflowed": selected_entry["overflowed"],
+            **measure_hook_metadata(selected_entry, project_root),
+        })
+        hook_report["exit_code"] = selected_result["exit_code"]
         hook_report["cancelled"] = any(r["cancelled"] for _, r in results)
 
         if held:

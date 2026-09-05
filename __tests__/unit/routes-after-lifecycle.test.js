@@ -48,6 +48,8 @@ const m = vi.hoisted(() => ({
   updateCapability: vi.fn(),
   evaluateAccess: vi.fn(),
   resolveAgentIdentity: vi.fn(),
+  authorizeActionExecution: vi.fn(),
+  updateActionOutcome: vi.fn(),
 }));
 
 // Capture the deferred callbacks instead of running them — the point of
@@ -83,12 +85,14 @@ vi.mock('@/lib/repositories/actions.repository.js', async (importOriginal) => {
     expireOverdueApproval: (...a) => m.expireOverdueApproval(...a),
     createActionRecord: (...a) => m.createActionRecord(...a),
     createBlockedActionRecord: (...a) => m.createBlockedActionRecord(...a),
+    updateActionOutcome: (...a) => m.updateActionOutcome(...a),
   };
 });
 vi.mock('@/lib/webhooks.js', () => ({ fireWebhooksForApproval: (...a) => m.fireWebhooksForApproval(...a) }));
 vi.mock('@/lib/approvalNotifications.js', () => ({ clearApprovalNotifications: (...a) => m.clearApprovalNotifications(...a) }));
 vi.mock('@/lib/guard/calibration-feedback.js', () => ({ ingestApprovalAdjudication: (...a) => m.ingestApprovalAdjudication(...a) }));
 vi.mock('@/lib/guard.js', () => ({ evaluateGuard: (...a) => m.evaluateGuard(...a) }));
+vi.mock('@/lib/guard/execution.js', () => ({ authorizeActionExecution: (...a) => m.authorizeActionExecution(...a) }));
 vi.mock('@/lib/approvalSurfaces.js', () => ({ fireApprovalSurfaces: (...a) => m.fireApprovalSurfaces(...a) }));
 vi.mock('@/lib/capability-runtime.js', () => ({
   prepareCapabilityInvocation: (...a) => m.prepareCapabilityInvocation(...a),
@@ -193,6 +197,8 @@ describe('POST /api/capabilities/[capabilityId]/invoke — health_status write d
     m.resolveAgentIdentity.mockResolvedValue({ agent_id: 'agt_x', verification_status: 'unverified', verified: false });
     m.evaluateAccess.mockResolvedValue({ access: 'allow', rule: null });
     m.createActionRecord.mockResolvedValue({ action_id: 'act_1' });
+    m.authorizeActionExecution.mockResolvedValue({ action_id: 'act_1', execution_claimed_at: 'now' });
+    m.updateActionOutcome.mockResolvedValue({ action_id: 'act_1', status: 'completed' });
     m.executeCapabilityInvocation.mockResolvedValue({ success: true, data: { ok: true }, elapsed_ms: 5 });
   });
 

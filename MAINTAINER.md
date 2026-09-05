@@ -7,12 +7,14 @@ constitution for that arrangement. The roadmap it governs lives in
 
 ## Thesis
 
-DashClaw is a **fail-closed approval layer that catches an AI coding agent's
-destructive tool calls before they run and asks a human first** — even when
-that human is not at the keyboard. It protects the world from agents, and it
-protects agents from being weaponized or blamed unfairly: every governed
-decision writes a durable, signed, replayable audit row, so "the agent did
-it" is answerable with evidence rather than assumption. (The third original
+DashClaw is an **approval layer for unattended AI coding agents, with fail-closed
+enforcement at supported tool-execution seams**. Calls selected by policy can
+wait for a human who is not at the keyboard. Decision and outcome records,
+plus signed receipts where issued, support review of what was authorized and
+reported. They do not independently prove an external effect or make a
+caller-controlled integration impossible to bypass. The implementation contract
+is [documented here](docs/architecture/trust-and-failure-model.md).
+(The third original
 direction — protecting agents from being *bankrupted*, i.e. spend governance —
 is a separate product and is out of scope for this codebase as of the v5.0.0
 thesis; see `THESIS.md`.)

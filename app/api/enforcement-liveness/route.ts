@@ -32,6 +32,8 @@ import {
 const MAX_CHECKS = 50;
 const MAX_SHORT = 200;
 const MAX_LONG = 1000;
+const RUNTIME_VERSION_RE = /^(?:\d+(?:\.\d+){1,3}[0-9A-Za-z._+-]* \(Claude Code\)|codex-cli \d+(?:\.\d+){1,3}[0-9A-Za-z._+-]*|Hermes Agent v\d+(?:\.\d+){1,3}[0-9A-Za-z._+-]*(?: \([0-9.]+\))?)$/;
+const HOOK_FINGERPRINT_RE = /^sha256:[0-9a-f]{64}$/;
 
 function invalid(field: string, reason: string): NextResponse {
   return NextResponse.json({ error: `invalid ${field}: ${reason}` }, { status: 400 });
@@ -82,6 +84,20 @@ export async function POST(request: Request) {
     const h = hook as Record<string, unknown>;
     if (typeof h.installed !== 'boolean') return invalid('hook.installed', 'expected a boolean');
     const cleanHook: EnforcementLivenessHook = { installed: h.installed };
+    if (h.runtime_version !== undefined) {
+      if (h.runtime_version !== 'unavailable' &&
+          (typeof h.runtime_version !== 'string' || h.runtime_version.length > 120 || !RUNTIME_VERSION_RE.test(h.runtime_version))) {
+        return invalid('hook.runtime_version', "expected a measured runtime version, or 'unavailable'");
+      }
+      cleanHook.runtime_version = h.runtime_version;
+    }
+    if (h.hook_fingerprint !== undefined) {
+      if (h.hook_fingerprint !== 'unavailable' &&
+          (typeof h.hook_fingerprint !== 'string' || !HOOK_FINGERPRINT_RE.test(h.hook_fingerprint))) {
+        return invalid('hook.hook_fingerprint', "expected a sha256 digest, or 'unavailable'");
+      }
+      cleanHook.hook_fingerprint = h.hook_fingerprint;
+    }
     if (h.settings_path !== undefined) {
       if (!isLongString(h.settings_path)) return invalid('hook.settings_path', `expected a string of 1..${MAX_LONG} chars`);
       cleanHook.settings_path = h.settings_path;

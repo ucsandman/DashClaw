@@ -7,7 +7,7 @@
  * read it at runtime via `import pkg from 'dashclaw/package.json'`.
  */
 
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 
 class ApprovalDeniedError extends Error {
   constructor(message, decision) {
@@ -29,6 +29,27 @@ class ApprovalPendingError extends Error {
   constructor(actionId) {
     super(`Action ${actionId} is pending approval — the governed work was NOT executed. Poll waitForApproval('${actionId}') and re-run once approved.`);
     this.name = 'ApprovalPendingError';
+    this.actionId = actionId;
+  }
+}
+
+class ExecutionClaimError extends Error {
+  constructor(actionId, attemptId, message, cause) {
+    super(message, cause ? { cause } : undefined);
+    this.name = 'ExecutionClaimError';
+    this.actionId = actionId;
+    this.attemptId = attemptId;
+  }
+}
+
+class OutcomeConfirmationError extends Error {
+  constructor(actionId, cause) {
+    super(
+      `Action ${actionId} ran successfully, but DashClaw did not confirm the completed outcome. ` +
+      'Reconcile the action outcome before deciding whether any retry is safe.',
+      cause ? { cause } : undefined,
+    );
+    this.name = 'OutcomeConfirmationError';
     this.actionId = actionId;
   }
 }
@@ -152,6 +173,27 @@ function scrubAct(act) {
     clone.file.content_excerpt = scrubActText(clone.file.content_excerpt);
   }
   return clone;
+}
+
+function withExecutionClaimCapability(capabilities) {
+  const current = Array.isArray(capabilities) ? capabilities : [];
+  return current.includes('execution_claims') ? current : [...current, 'execution_claims'];
+}
+
+function waitForDelay(ms, signal) {
+  if (signal?.aborted) return Promise.resolve(false);
+  if (ms <= 0) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve(true);
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve(false);
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 /**
@@ -390,8 +432,8 @@ class DashClaw {
    * file-scoped act the server will let proceed but hold for operator
    * promote/discard via `resolveContainment` — ONLY when the caller declared
    * `client_capabilities: ['allow_contained']` in the guard context. This SDK
-   * never sets that field, so a bare SDK caller receives `require_approval`
-   * in its place (version skew only ever tightens, never silently loosens).
+   * never adds that capability itself, so a caller that does not opt in
+   * receives `require_approval` in its place (version skew only tightens).
    * When present, `containment` carries the eligibility basis.
    *
    * `verification_status` reflects whether the JWT bearer token (if provided
@@ -478,7 +520,8 @@ class DashClaw {
 
   /**
    * One call that runs the full governance loop with evidence attached:
-   * guard (with act) → optional createAction → approval → fn() → outcome.
+   * guard (with act) → optional createAction → approval → execution
+   * claim → fn() → outcome.
    * Minimal inputs use `?record=true` to combine guard and recording. Richer
    * action fields or a server that did not record use createAction. Either
    * response can require approval; params.wait=false raises instead of waiting.
@@ -496,11 +539,19 @@ class DashClaw {
    * @throws {ApprovalDeniedError} when an operator denies the pending approval.
    * @throws {ApprovalPendingError} when the action needs approval and
    *   `wait: false` was passed (fn() was not executed).
+   * @throws {ExecutionClaimError} when the server does not confirm the exact
+   *   one-shot execution claim (fn() was not executed).
+   * @throws {OutcomeConfirmationError} when fn() succeeds but the completed
+   *   outcome cannot be confirmed.
    */
   async runGoverned(act, params, fn) {
     const { wait, ...context } = params || {};
     const scrubbedAct = scrubAct(act);
-    const guardContext = { ...context, act: scrubbedAct };
+    const guardContext = {
+      ...context,
+      act: scrubbedAct,
+      client_capabilities: withExecutionClaimCapability(context.client_capabilities),
+    };
 
     // Only use in-guard recording for fields that route preserves. Richer
     // action metadata needs createAction's validation, persistence and pricing.
@@ -518,7 +569,8 @@ class DashClaw {
     let requiresApproval = decision.decision === 'require_approval';
     if (!record || decision.recorded !== true || !action_id) {
       // Server didn't record the action on the guard call — fall back to the
-      // previous two-call path so older self-hosted servers keep working.
+      // compatible two-call recording path. Governed execution still requires
+      // the protocol-1 claim endpoint below.
       const created = await this.createAction(guardContext);
       action_id = created.action_id;
       requiresApproval ||= created.action?.status === 'pending_approval';
@@ -533,14 +585,69 @@ class DashClaw {
       await this.waitForApproval(action_id);
     }
 
+    await this.claimExecution(action_id, scrubbedAct);
+
+    let result;
     try {
-      const result = await fn();
-      await this.reportActionOutcome(action_id, { status: 'completed' });
-      return result;
+      result = await fn();
     } catch (err) {
-      await this.reportActionOutcome(action_id, { status: 'failed', error_message: err?.message || String(err) });
+      try {
+        await this.reportActionOutcome(action_id, { status: 'failed', error_message: err?.message || String(err) });
+      } catch (reportError) {
+        if (err && (typeof err === 'object' || typeof err === 'function')) {
+          err.outcomeReportError = reportError;
+          err.actionId ??= action_id;
+        }
+      }
       throw err;
     }
+
+    try {
+      await this.reportActionOutcome(action_id, { status: 'completed' });
+    } catch (err) {
+      throw new OutcomeConfirmationError(action_id, err);
+    }
+    return result;
+  }
+
+  /**
+   * Claim one execution attempt before running governed work. A lost or
+   * mismatched response never grants authority to execute and is not retried.
+   */
+  async claimExecution(actionId, act) {
+    const attemptId = randomUUID();
+    let response;
+    try {
+      response = await this._patch(`/api/actions/${actionId}`, {
+        claim_execution: true,
+        attempt_id: attemptId,
+        agent_id: this.agentId,
+        act,
+      });
+    } catch (cause) {
+      const upgrade = cause?.status === 404
+        ? ' The server does not support required execution claims; upgrade DashClaw before running this callback.'
+        : '';
+      throw new ExecutionClaimError(
+        actionId,
+        attemptId,
+        `Execution claim for action ${actionId} was not confirmed.${upgrade} Reconcile the action before retrying.`,
+        cause,
+      );
+    }
+
+    if (
+      response?.claimed !== true
+      || response.action_id !== actionId
+      || response.attempt_id !== attemptId
+    ) {
+      throw new ExecutionClaimError(
+        actionId,
+        attemptId,
+        `Execution claim for action ${actionId} returned an invalid confirmation. Reconcile the action before retrying.`,
+      );
+    }
+    return response;
   }
 
   /**
@@ -614,10 +721,9 @@ class DashClaw {
 
   // ---------------------------------------------------------------------------
   // Containment Verdicts (RFC 2026-07-06) — operator verdict on a contained
-  // action awaiting promotion. This SDK never advertises
-  // `client_capabilities`, so a guard() call from this client can never
-  // receive `decision: 'allow_contained'` in the first place (the server
-  // negotiates it down to `require_approval` for non-advertising callers) —
+  // action awaiting promotion. This SDK never adds the `allow_contained`
+  // capability itself, so a bare guard() call from this client cannot receive
+  // that decision (the server negotiates it down to `require_approval`) —
   // resolveContainment/listContained only manage rows that already reached
   // `awaiting_promotion` some other way (e.g. a capability-aware caller, or
   // the dashboard).
@@ -695,8 +801,8 @@ class DashClaw {
    * GET response on approval, null when the stream ends unresolved, and
    * throws on denial or timeout.
    */
-  async _waitForApprovalViaSSE(actionId, timeout, startTime) {
-    const controller = new AbortController();
+  async _waitForApprovalViaSSE(actionId, timeout, startTime, sharedController) {
+    const controller = sharedController || new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     const wait = { actionId, timeout, startTime, controller, timeoutId };
 
@@ -754,11 +860,14 @@ class DashClaw {
   }
 
   /** @private Polling fallback for waitForApproval. */
-  async _pollForApproval(actionId, timeout, interval, startTime) {
+  async _pollForApproval(actionId, timeout, interval, startTime, { initialDelay = false, signal } = {}) {
     let wasPending = false;
     let printedBanner = false;
 
+    if (initialDelay && !await waitForDelay(interval, signal)) return null;
+
     while (Date.now() - startTime < timeout) {
+      if (signal?.aborted) return null;
       // Return the full GET response (action + open_loops + assumptions +
       // message_summary) so the polling fallback resolves to the same shape as
       // the SSE fast-path above and the Python SDK. Returning only { action }
@@ -776,24 +885,42 @@ class DashClaw {
       if (state.error) throw state.error;
       if (state.done) return state.result;
 
-      await new Promise(r => setTimeout(r, interval));
+      if (!await waitForDelay(interval, signal)) return null;
     }
+    if (signal?.aborted) return null;
     throw approvalTimeoutError(actionId);
   }
 
   /**
-   * Wait for human approval. SSE-first with polling fallback.
+   * Wait for human approval using SSE plus concurrent authoritative polling.
    */
   async waitForApproval(actionId, { timeout = 300000, interval = 5000 } = {}) {
     const startTime = Date.now();
+    const controller = new AbortController();
 
-    // Try SSE first
     try {
-      const confirmed = await this._waitForApprovalViaSSE(actionId, timeout, startTime);
-      if (confirmed) return confirmed;
-    } catch (err) {
-      if (isApprovalWaitFatal(err)) throw err;
-      // SSE failed — fall through to polling
+      const sse = this._waitForApprovalViaSSE(actionId, timeout, startTime, controller)
+        .then((value) => value
+          ? { kind: 'resolved', value }
+          : { kind: 'fallback' })
+        .catch((err) => {
+          if (isApprovalWaitFatal(err)) throw err;
+          return { kind: 'fallback' };
+        });
+      const reconciliation = this._pollForApproval(
+        actionId,
+        timeout,
+        interval,
+        startTime,
+        { initialDelay: true, signal: controller.signal },
+      ).then((value) => value
+        ? { kind: 'resolved', value }
+        : new Promise(() => {}));
+
+      const winner = await Promise.race([sse, reconciliation]);
+      if (winner.kind === 'resolved') return winner.value;
+    } finally {
+      controller.abort();
     }
 
     return this._pollForApproval(actionId, timeout, interval, startTime);
@@ -969,7 +1096,8 @@ class DashClaw {
    *
    * Returns `{ action_id, status, outcome_at, summary, error_message, progress, elapsed_ms }`.
    * Status is one of: pending, completed, partial, failed, lost_confirmation.
-   * Use this BEFORE retrying any approved action to avoid double-execution.
+   * Use this for reconciliation before considering a retry. A non-completed
+   * state is not proof that an external effect did not occur.
    */
   async getActionOutcome(actionId) {
     return this._get(`/api/actions/${actionId}/outcome`);
@@ -1183,4 +1311,12 @@ class DashClaw {
 
 }
 
-export { DashClaw, ApprovalDeniedError, GuardBlockedError, ApprovalPendingError, scrubAct };
+export {
+  DashClaw,
+  ApprovalDeniedError,
+  GuardBlockedError,
+  ApprovalPendingError,
+  ExecutionClaimError,
+  OutcomeConfirmationError,
+  scrubAct,
+};

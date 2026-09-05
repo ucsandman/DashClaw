@@ -10,6 +10,8 @@ This is the **single canonical guide** for standing up the hosted DashClaw insta
 
 > The older copy at `docs/ops/hosted-deployment.md` is retired — it had drifted (missing `ENCRYPTION_KEY`, Google sign-in, the trial cap) and is now just a pointer here. The post-deploy flip checklist lives in [`HOSTED_TRIAL_RUNBOOK.md`](./HOSTED_TRIAL_RUNBOOK.md).
 
+Key custody and recovery are separate operating duties. Read [`key-custody-and-rotation.md`](./key-custody-and-rotation.md) and [`recovery-and-retention-contract.md`](./recovery-and-retention-contract.md) before treating the instance as recoverable. Provider backup features alone do not establish a tested RPO or RTO.
+
 **Credentials are referenced by NAME only. Never paste secret values into this file, commits, or chat.**
 
 ---
@@ -160,7 +162,7 @@ Two things to NOT do:
 vercel --prod --yes
 ```
 
-The build runs `node scripts/auto-migrate.mjs && next build` (`vercel.json:4`): the migration script is idempotent (safe to run every deploy), applies everything in `drizzle/` including `0027` (the hot `action_records` indexes), seeds the `org_default` organization, and seeds the admin `DASHCLAW_API_KEY` into the database. **Success looks like:** the command prints a `https://….vercel.app` URL and Vercel shows the deployment as Ready.
+The build runs `node scripts/auto-migrate.mjs && next build` (`vercel.json:4`). The migration runner uses an advisory lock and a checksummed ledger, applies each file transactionally, and rejects checksum drift. An explicit process `DATABASE_URL` wins over repository dotenv loading. It applies everything in `drizzle/`, seeds the `org_default` organization, and seeds the admin `DASHCLAW_API_KEY` into the database. **Success looks like:** the command prints a `https://….vercel.app` URL and Vercel shows the deployment as Ready. Ready is a deployment-state check, not an SLA or production-readiness certification.
 
 ### B5. Custom domain — hosted.dashclaw.io
 
@@ -280,8 +282,9 @@ Monitoring, minimal: watch Vercel function logs for `[HOSTED]` lines after each 
 
 1. **Bad deploy:** Vercel dashboard → Deployments → pick the last known-good one → **Promote to Production** (env stays as-is). Or kill-switch the trial alone: remove `DASHCLAW_HOSTED` and redeploy — provisioning 404s, existing trial keys keep working until expiry.
 2. **Bad env change:** revert the env var and redeploy; don't roll code back for an env problem.
-3. **Destructive schema accident:** Neon creates automatic restore points — Neon console → Branches → Restore.
-4. Reproduce locally with `DASHCLAW_HOSTED=true npm run dev`.
+3. **Database recovery:** use a restore point whose existence and age the operator has verified in the provider console. Restore it to a disposable branch first and run the recovery drill in [`recovery-and-retention-contract.md`](./recovery-and-retention-contract.md). Do not overwrite the source database to test recovery.
+4. **Key recovery:** restore the matching `ENCRYPTION_KEY` from separate escrow. Follow [`key-custody-and-rotation.md`](./key-custody-and-rotation.md); replacing it without re-encrypting stored material makes DB-backed signing keys and webhook secrets unreadable.
+5. Reproduce locally with `DASHCLAW_HOSTED=true npm run dev`.
 
 ---
 
@@ -296,4 +299,6 @@ Monitoring, minimal: watch Vercel function logs for `[HOSTED]` lines after each 
 - [ ] `hosted.dashclaw.io` resolves with a valid certificate; `NEXTAUTH_URL` updated + redeployed
 - [ ] `gh` repo secrets set; "Hosted cleanup" manual run green
 - [ ] Google sign-in works (if configured) — including from a second Google account to confirm workspace isolation
+- [ ] Key custody owner and separate `ENCRYPTION_KEY` escrow are recorded
+- [ ] A disposable restore drill has measured the deployment's chosen RPO/RTO objectives
 - [ ] Continue with [`HOSTED_TRIAL_RUNBOOK.md`](./HOSTED_TRIAL_RUNBOOK.md) for the activation-funnel flip checks

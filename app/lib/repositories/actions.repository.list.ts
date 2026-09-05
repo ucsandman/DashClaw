@@ -162,7 +162,7 @@ async function listActionsViaQueryMock(
   // irreversibility band never renders and the same action reads differently
   // here than on /decisions/[id]. Keep it in step with the tagged-sql path
   // below; plain-language-review-regressions.test.js asserts both.
-  const listCols = 'action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error, containment_status, containment_ref, containment_resolved_by, containment_resolved_at, guard_decision_id';
+  const listCols = 'action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error, containment_status, containment_ref, containment_resolved_by, containment_resolved_at, guard_decision_id, approval_expires_at, act_content_hash, created_by, identity_verified, payload_signature_status, execution_claimed_at, execution_attempt_id, execution_protocol, enforcement_mode, executed_despite';
   const query = `SELECT ${listCols} FROM action_records ${where} ORDER BY timestamp_start DESC LIMIT $${params.push(filters.parsedLimit)} OFFSET $${params.push(filters.parsedOffset)}`;
   const countQuery = `SELECT COUNT(*) as total FROM action_records ${where}`;
   const statsQuery = `
@@ -219,7 +219,7 @@ async function listActionsViaTaggedSql(
   const [actions, countResult, stats] = await Promise.all([
     sql`
       SELECT
-        action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error, approval_expires_at, act_content_hash, containment_status, containment_ref, containment_resolved_by, containment_resolved_at, enforcement_mode, executed_despite, guard_decision_id
+        action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error, approval_expires_at, act_content_hash, containment_status, containment_ref, containment_resolved_by, containment_resolved_at, enforcement_mode, executed_despite, guard_decision_id, created_by, identity_verified, payload_signature_status, execution_claimed_at, execution_attempt_id, execution_protocol
       FROM action_records
       ${where}
       ORDER BY timestamp_start DESC

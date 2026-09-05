@@ -6,6 +6,7 @@ import { isSelfHostModeEnabled } from './app/lib/selfHost';
 import { addSecurityHeaders } from './app/lib/security-headers';
 import { actionCeilingExceeded, entitlementsForPlan } from './app/lib/entitlements';
 import { getGovernedActionsThisPeriod } from './app/lib/repositories/usage.repository';
+import { normalizeOAuthScope, oauthScopeAllows } from './app/api/oauth/scopes';
 import {
   getCorsHeaders,
   withCors,
@@ -552,16 +553,18 @@ async function resolveApiKey(keyHash, request) {
   }
 }
 
-// In-memory cache mirrors resolveApiKey (5-min TTL).
+// Positive OAuth token entries are rechecked within ten seconds so revocation
+// has a documented upper bound on a warm instance. Entries also carry the
+// credential's absolute expiry and are never served past it.
 const oauthTokenCache = new Map();
-const OAUTH_TOKEN_CACHE_TTL = 5 * 60 * 1000;
+const OAUTH_TOKEN_CACHE_TTL = 10 * 1000;
 const OAUTH_TOKEN_CACHE_MAX_ENTRIES = 10000;
 
 // Bound cache growth under adversarial token probing (mirrors pruneApiKeyCache).
 function pruneOAuthTokenCache(now) {
   if (oauthTokenCache.size <= OAUTH_TOKEN_CACHE_MAX_ENTRIES) return;
   for (const [k, v] of oauthTokenCache.entries()) {
-    if (!v || now - v.timestamp >= OAUTH_TOKEN_CACHE_TTL) oauthTokenCache.delete(k);
+    if (!v || now >= v.validUntil) oauthTokenCache.delete(k);
   }
   if (oauthTokenCache.size > OAUTH_TOKEN_CACHE_MAX_ENTRIES) {
     let toDelete = oauthTokenCache.size - OAUTH_TOKEN_CACHE_MAX_ENTRIES;
@@ -573,15 +576,25 @@ function pruneOAuthTokenCache(now) {
   }
 }
 
+function oauthPrincipalId(row) {
+  const clientId = typeof row?.client_id === 'string' ? row.client_id.trim() : '';
+  if (!clientId) return null;
+  const userId = typeof row?.user_id === 'string' ? row.user_id.trim() : '';
+  const clientPart = encodeURIComponent(clientId);
+  return userId
+    ? `oauth:client:${clientPart}:user:${encodeURIComponent(userId)}`
+    : `oauth:client:${clientPart}`;
+}
+
 async function resolveOAuthToken(tokenHash) {
   const now = Date.now();
   pruneOAuthTokenCache(now);
   const cached = oauthTokenCache.get(tokenHash);
-  if (cached && now - cached.timestamp < OAUTH_TOKEN_CACHE_TTL) return cached.result;
+  if (cached && now < cached.validUntil) return cached.result;
   try {
     const sql = neon(process.env.DATABASE_URL);
     const rows = await sql`
-      SELECT org_id, expires_at, revoked_at
+      SELECT org_id, client_id, user_id, scope, agent_id, expires_at, revoked_at
       FROM oauth_access_tokens
       WHERE token_hash = ${tokenHash}
       LIMIT 1
@@ -589,13 +602,25 @@ async function resolveOAuthToken(tokenHash) {
     let result = null;
     if (rows.length > 0) {
       const r = rows[0];
-      const live = !r.revoked_at && new Date(r.expires_at).getTime() > now;
+      const expiresAt = new Date(r.expires_at).getTime();
+      const principalId = oauthPrincipalId(r);
+      const live = !r.revoked_at && r.org_id && principalId && Number.isFinite(expiresAt) && expiresAt > now;
       if (live) {
-        result = { orgId: r.org_id, role: 'member' };
+        result = {
+          orgId: r.org_id,
+          role: 'member',
+          scope: r.scope,
+          agentId: r.agent_id,
+          principalId,
+          expiresAt,
+        };
         sql`UPDATE oauth_access_tokens SET last_used_at = NOW() WHERE token_hash = ${tokenHash}`.catch(() => {});
       }
     }
-    oauthTokenCache.set(tokenHash, { timestamp: now, result });
+    const validUntil = result
+      ? Math.min(now + OAUTH_TOKEN_CACHE_TTL, result.expiresAt)
+      : now + OAUTH_TOKEN_CACHE_TTL;
+    oauthTokenCache.set(tokenHash, { validUntil, result });
     return result;
   } catch (err) {
     console.error('[AUTH] OAuth token lookup failed:', err.message);
@@ -603,6 +628,70 @@ async function resolveOAuthToken(tokenHash) {
     // Throw (classified) so handleBearerAuth answers 503; nothing is cached.
     throw new AuthLookupUnavailableError(classifyAuthLookupFailure(err), err);
   }
+}
+
+const OAUTH_MCP_PROTOCOL_READS = new Set([
+  'initialize',
+  'notifications/initialized',
+  'tools/list',
+  'resources/list',
+  'resources/read',
+  'ping',
+]);
+
+const OAUTH_MCP_TOOL_ACCESS = new Map([
+  ['dashclaw_guard', 'governance:write'],
+  ['dashclaw_record', 'governance:write'],
+  ['dashclaw_invoke', 'governance:write'],
+  ['dashclaw_capabilities_list', 'governance:read'],
+  ['dashclaw_policies_list', 'governance:read'],
+  ['dashclaw_wait_for_approval', 'governance:read'],
+  ['dashclaw_session_start', 'governance:write'],
+  ['dashclaw_session_end', 'governance:write'],
+  ['dashclaw_session_retro', 'governance:read'],
+  ['dashclaw_task_create', 'governance:write'],
+  ['dashclaw_task_event', 'governance:write'],
+  ['dashclaw_task_update', 'governance:write'],
+  ['dashclaw_assumption_record', 'governance:write'],
+  ['dashclaw_decisions_recent', 'governance:read'],
+  ['dashclaw_pair', 'governance:write'],
+  ['dashclaw_plan_submit', 'governance:write'],
+  ['dashclaw_plan_status', 'governance:read'],
+]);
+
+async function requiredOAuthScope(request, pathname) {
+  if (pathname !== '/api/mcp') {
+    return request.method === 'GET' || request.method === 'HEAD'
+      ? 'governance:read'
+      : 'governance:write';
+  }
+  if (request.method !== 'POST') return null;
+  let body;
+  try {
+    body = await request.clone().json();
+  } catch {
+    return null;
+  }
+  if (!body || Array.isArray(body) || typeof body !== 'object') return null;
+  if (OAUTH_MCP_PROTOCOL_READS.has(body.method)) return 'governance:read';
+  if (body.method !== 'tools/call') return null;
+  const toolName = body.params?.name;
+  return typeof toolName === 'string' ? OAUTH_MCP_TOOL_ACCESS.get(toolName) || null : null;
+}
+
+async function enforceOAuthScope(request, pathname, oauth) {
+  const scope = normalizeOAuthScope(oauth.scope);
+  const required = await requiredOAuthScope(request, pathname);
+  if (!scope || !required || !oauthScopeAllows(scope, required)) {
+    return {
+      response: securedJson(request, { error: 'insufficient_scope' }, {
+        status: 403,
+        headers: { 'WWW-Authenticate': 'Bearer error="insufficient_scope"' },
+      }),
+      scope: null,
+    };
+  }
+  return { response: null, scope };
 }
 
 function mcpAuthChallenge(request) {
@@ -731,15 +820,14 @@ async function handleWellKnownAlias(request, pathname) {
 // so `headers().get('x-org-id')` returns the authenticated org instead of
 // falling back to 'org_default'. Strip any inbound values first to prevent
 // spoofing — only this middleware should set these.
-function buildPageOrgHeaders(request, session) {
+function buildPageOrgHeaders(request, session, authKind) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.delete('x-org-id');
   requestHeaders.delete('x-org-role');
   requestHeaders.delete('x-user-id');
-  requestHeaders.set('x-org-id', session.orgId || 'org_default');
-  requestHeaders.set('x-org-role', session.role || 'member');
-  requestHeaders.set('x-user-id', session.userId || (session.sub === 'local-admin' ? 'usr_local_admin' : session.sub || ''));
-  return requestHeaders;
+  requestHeaders.delete('x-auth-kind');
+  requestHeaders.delete('x-oauth-scope');
+  return setSessionPrincipalHeaders(requestHeaders, session, authKind) ? requestHeaders : null;
 }
 
 // Landing page and the setup flow are always public.
@@ -819,7 +907,9 @@ async function handlePageRequest(request, pathname, clearStaleDemoCookie) {
 
   // /login — redirect to the hero surface if already logged in
   if (pathname === '/login') {
-    if (token) return NextResponse.redirect(new URL('/approvals', request.url));
+    if (token && resolveSessionPrincipal(token, 'session')) {
+      return NextResponse.redirect(new URL('/approvals', request.url));
+    }
     const trial = await authenticateTrialPage(request);
     if (trial.session) return NextResponse.redirect(new URL('/approvals', request.url));
     // A visitor who lands on /login carrying a DEFINITIVELY-dead trial cookie
@@ -836,13 +926,16 @@ async function handlePageRequest(request, pathname, clearStaleDemoCookie) {
 
   // All other matched page routes — require session
   let session = token;
+  let authKind = 'session';
   if (!session) {
     session = await getLocalAdminSession(request);
+    authKind = 'local-admin';
   }
   if (!session) {
     const trial = await authenticateTrialPage(request);
     if (trial.session) {
       session = trial.session;
+      authKind = 'trial';
     } else if (trial.expired) {
       return trialExpiredRedirect(request);
     } else {
@@ -850,7 +943,9 @@ async function handlePageRequest(request, pathname, clearStaleDemoCookie) {
     }
   }
 
-  const response = NextResponse.next({ request: { headers: buildPageOrgHeaders(request, session) } });
+  const pageHeaders = buildPageOrgHeaders(request, session, authKind);
+  if (!pageHeaders) return NextResponse.redirect(new URL('/login', request.url));
+  const response = NextResponse.next({ request: { headers: pageHeaders } });
   // Best-effort: an authenticated visitor still carrying the stale dashclaw_demo
   // cookie (kicked the tires, then signed in) gets it cleared here, on the first
   // page request. API requests already bypass demo via the principal check, so
@@ -874,6 +969,8 @@ function stripUntrustedApiHeaders(request) {
   h.delete('x-org-id');
   h.delete('x-org-role');
   h.delete('x-user-id');
+  h.delete('x-auth-kind');
+  h.delete('x-oauth-scope');
   h.delete('x-client-ip');
   return h;
 }
@@ -952,8 +1049,13 @@ async function handleBearerAuth(request, pathname, requestHeaders) {
     return authLookupUnavailableResponse(request, kind);
   }
   if (oauth) {
+    const authorization = await enforceOAuthScope(request, pathname, oauth);
+    if (authorization.response) return authorization.response;
     requestHeaders.set('x-org-id', oauth.orgId);
     requestHeaders.set('x-org-role', oauth.role);
+    requestHeaders.set('x-user-id', oauth.principalId);
+    requestHeaders.set('x-auth-kind', 'oauth');
+    requestHeaders.set('x-oauth-scope', authorization.scope);
     // Authorization passes through (not stripped) so the /api/mcp proxy can
     // forward it to its own internal callbacks.
     return forwardWithHeaders(request, requestHeaders);
@@ -985,6 +1087,7 @@ function handleNoConfiguredKey(request, requestHeaders) {
   // Dev-only path (NODE_ENV=development, no key configured) — attribute the
   // implicit principal so approvals/audit rows never carry an empty actor.
   requestHeaders.set('x-user-id', 'dev');
+  requestHeaders.set('x-auth-kind', 'development');
   return forwardWithHeaders(request, requestHeaders);
 }
 
@@ -1008,9 +1111,11 @@ async function handleSessionAuth(request, pathname, requestHeaders) {
 
   // Resolve org from NextAuth session token
   let sessionToken = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  let authKind = 'session';
 
   if (!sessionToken) {
     sessionToken = await getLocalAdminSession(request);
+    authKind = 'local-admin';
   }
 
   if (!sessionToken) {
@@ -1044,23 +1149,37 @@ async function handleSessionAuth(request, pathname, requestHeaders) {
       }
     }
     sessionToken = trialSession;
+    authKind = 'trial';
   }
 
-  setSessionPrincipalHeaders(requestHeaders, sessionToken);
+  if (!setSessionPrincipalHeaders(requestHeaders, sessionToken, authKind)) {
+    return securedJson(request, { error: 'Unauthorized - Session membership unresolved' }, { status: 401 });
+  }
   // Use the canonical helper so HSTS in prod, the /replay/ frame-ancestors
   // exception, and any future header policy live in one place. The
   // inline triple-set was missing HSTS for same-origin dashboard calls.
   return forwardWithHeaders(request, requestHeaders);
 }
 
-function setSessionPrincipalHeaders(requestHeaders, sessionToken) {
-  const orgId = sessionToken.orgId || 'org_default';
-  const role = sessionToken.role || 'member';
-  const userId = sessionToken.userId || (sessionToken.sub === 'local-admin' ? 'usr_local_admin' : '');
+function resolveSessionPrincipal(sessionToken, authKind) {
+  const orgId = typeof sessionToken?.orgId === 'string' ? sessionToken.orgId.trim() : '';
+  const role = typeof sessionToken?.role === 'string' ? sessionToken.role.trim() : '';
+  const userId = typeof sessionToken?.userId === 'string' && sessionToken.userId.trim()
+    ? sessionToken.userId.trim()
+    : (authKind === 'local-admin' && sessionToken?.sub === 'local-admin' ? 'usr_local_admin' : '');
+  if (!orgId || !role || !userId) return null;
+  return { orgId, role, userId };
+}
 
-  requestHeaders.set('x-org-id', orgId);
-  requestHeaders.set('x-org-role', role);
-  requestHeaders.set('x-user-id', userId);
+function setSessionPrincipalHeaders(requestHeaders, sessionToken, authKind) {
+  const principal = resolveSessionPrincipal(sessionToken, authKind);
+  if (!principal) return false;
+
+  requestHeaders.set('x-org-id', principal.orgId);
+  requestHeaders.set('x-org-role', principal.role);
+  requestHeaders.set('x-user-id', principal.userId);
+  requestHeaders.set('x-auth-kind', authKind);
+  return true;
 }
 
 // Fast path: DASHCLAW_API_KEY matches → configured org (default: org_default)
@@ -1093,6 +1212,7 @@ async function handleOperatorKey(request, requestHeaders) {
   // empty actor. The approve routes reject an empty x-user-id outright, so
   // without this the single-admin self-host operator could not approve at all.
   requestHeaders.set('x-user-id', 'operator');
+  requestHeaders.set('x-auth-kind', 'operator-key');
 
   return forwardWithHeaders(request, requestHeaders);
 }
@@ -1126,6 +1246,7 @@ async function handleDatabaseKey(request, pathname, requestHeaders, apiKey) {
   // routes then reject with APPROVER_IDENTITY_REQUIRED until the 5-min
   // cache entry rolls over — fail closed, never a blank approved_by.
   if (resolved.keyId) requestHeaders.set('x-user-id', String(resolved.keyId));
+  requestHeaders.set('x-auth-kind', 'api-key');
 
   const trialBlock = enforceHostedTrial(resolved);
   if (trialBlock) {

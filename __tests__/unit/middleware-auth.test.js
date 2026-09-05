@@ -329,7 +329,13 @@ describe('middleware API-key auth', () => {
   it('accepts a valid OAuth Bearer token (passes through, not 401)', async () => {
     const future = new Date(Date.now() + 3600_000).toISOString();
     // resolveOAuthToken SELECT (and the fire-and-forget last_used_at UPDATE) hit sqlMock.
-    sqlMock.mockResolvedValue([{ org_id: 'org_1', expires_at: future, revoked_at: null }]);
+    sqlMock.mockResolvedValue([{
+      org_id: 'org_1',
+      client_id: 'ocl_1',
+      user_id: 'usr_1',
+      expires_at: future,
+      revoked_at: null,
+    }]);
     const res = await middleware(req('/api/mcp', {
       method: 'POST', headers: { host: 'x.dashclaw.app', authorization: 'Bearer oat_valid' },
     }));

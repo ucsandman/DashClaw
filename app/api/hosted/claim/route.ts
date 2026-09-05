@@ -26,6 +26,7 @@ import { getSql } from '../../../lib/db';
  */
 
 function humanUserId(request: Request): string | null {
+  if (request.headers.get('x-auth-kind') !== 'session') return null;
   const userId = request.headers.get('x-user-id') || '';
   // Only NextAuth humans claim. Trial principals are `trial:<org>`, API-key
   // principals are `key_<uuid>`, the self-host bootstrap key is `operator`.

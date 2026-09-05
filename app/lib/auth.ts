@@ -220,15 +220,11 @@ export const authOptions: any = {
             token.role = rows[0]?.role;
             token.plan = rows[0]?.plan;
           } else {
-            token.orgId = 'org_default';
-            token.role = 'member';
-            token.plan = 'free';
+            throw new Error('No authoritative membership found for the authenticated account');
           }
         } catch (err) {
           if ((err as Error).message !== 'No DB') console.error('[AUTH] jwt callback error:', (err as Error).message);
-          token.orgId = 'org_default';
-          token.role = 'member';
-          token.plan = 'free';
+          throw err;
         }
         token.orgRefreshedAt = Date.now();
       } else if (token.userId) {
@@ -262,9 +258,12 @@ export const authOptions: any = {
     },
 
     async session({ session, token }: { session: any; token: any }) {
-      session.user.id = token.userId || null;
-      session.user.orgId = token.orgId || 'org_default';
-      session.user.role = token.role || 'member';
+      if (!token.userId || !token.orgId || !token.role) {
+        throw new Error('Authenticated session has no authoritative membership');
+      }
+      session.user.id = token.userId;
+      session.user.orgId = token.orgId;
+      session.user.role = token.role;
       session.user.plan = token.plan || 'free';
       return session;
     },

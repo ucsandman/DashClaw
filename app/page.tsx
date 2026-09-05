@@ -32,7 +32,7 @@ import JsonLd from './components/JsonLd';
 export const metadata: Metadata = marketingPageMetadata({
   title: 'DashClaw, the approval layer for unattended AI agents',
   description:
-    'When your coding agent tries something destructive, DashClaw catches it before it runs and asks you first, with one click, from anywhere. A fail-closed approval layer for long, unattended agent runs.',
+    'Put a policy checkpoint in front of destructive agent calls. Installed hooks, OpenClaw, and bounded capability invocation can halt work for human approval before execution.',
   path: '/',
 });
 
@@ -40,35 +40,24 @@ export const metadata: Metadata = marketingPageMetadata({
 
 const GOVERNANCE_LOOP = `const claw = new DashClaw();
 
-// 1. guard: policy decides before anything runs
-const g = await claw.guard({
-  action_type: 'shell',
-  act: { kind: 'shell', command: 'git push --force origin main' },
-});
+// Requires a server that advertises execution claim protocol 1.
+await claw.runGoverned(
+  { kind: 'shell', command: 'git push --force origin main' },
+  {
+    action_type: 'shell',
+    declared_goal: 'Force-push the rebased branch',
+  },
+  () => run(),
+);
 
-// 2. createAction: open the decision record
-const action = await claw.createAction({
-  action_type: 'shell',
-  declared_goal: 'Force-push the rebased branch',
-});
-
-// 3. waitForApproval: freeze until a human resolves it
-if (g.decision === 'require_approval') {
-  await claw.waitForApproval(action.action_id);
-}
-
-// 4. close the record: one-shot, durable, retry-safe
-try {
-  await run();
-  await claw.reportActionSuccess(action.action_id, 'Pushed');
-} catch (err) {
-  await claw.reportActionFailure(action.action_id, err.message);
-}`;
+// runGoverned checks current policy, waits if needed, claims one
+// exact act and principal-bound attempt, then records its outcome.
+// An uncertain claim or outcome must be reconciled, not retried blindly.`;
 
 const LOOP_STEPS = [
   {
     stage: 'Intercept',
-    text: 'A PreToolUse hook in Claude Code, Codex, or Hermes (plus dashclaw_invoke and the OpenClaw gateway) catches a tool call before it executes.',
+    text: 'A PreToolUse hook in Claude Code, Codex, or Hermes, the OpenClaw gateway, or bounded dashclaw_invoke can halt a supported tool call before it executes.',
   },
   {
     stage: 'Decide',
@@ -76,19 +65,19 @@ const LOOP_STEPS = [
   },
   {
     stage: 'Approve',
-    text: 'require_approval freezes the action and pages a human, who approves or denies with one click, from the Approvals inbox or a phone. Grants are single-use and bound to the exact action. Long runs can submit their whole plan upfront: one review card, per-step verdicts, and each approved step becomes a single-use grant the run draws down without waking you again. An unattended run re-attests that pinned plan at start-up, before its first model call, so drift, expiry, or revocation is caught before it spends anything. Mid-band risk on a file edit or a database statement can skip the freeze entirely: allow_contained lets the agent keep moving, staged in an isolated git worktree or an ephemeral Neon branch, and you promote or discard the evidence whenever you get to it.',
+    text: 'require_approval holds the action for a human verdict. Protocol 1 consumes approval or plan authority in the same database statement that claims one fresh, exact-act, principal-bound attempt. This prevents duplicate authority inside DashClaw; it does not make an external effect exactly once. Containment can stage supported file or Postgres work for later promotion or discard.',
   },
   {
-    stage: 'Prove',
-    text: 'Every decision writes a durable, replayable, signed audit row. A liveness probe keeps proving the governor is still enforcing.',
+    stage: 'Record',
+    text: 'Recorded decisions and outcomes form a replayable audit trail with explicit identity and payload-signature status. The liveness probe is a timestamped client report from an installed seam, not continuous attestation.',
   },
 ];
 
 const WEDGE_ROWS = [
   { dim: 'Who it protects', native: 'You, while you watch each prompt', dashclaw: 'The run you walked away from' },
-  { dim: 'When you must be present', native: 'Every prompt, in real time', dashclaw: 'Never; approve later, from a phone' },
-  { dim: 'Policy scope', native: 'Per session, per machine allowlist', dashclaw: 'One policy across every runtime and session' },
-  { dim: 'Audit trail', native: 'None you can export', dashclaw: 'Signed, replayable ledger (Ed25519, JWKS)' },
+  { dim: 'When you must be present', native: 'Each prompt, in real time', dashclaw: 'Only when a policy holds work; resolve from a phone' },
+  { dim: 'Policy scope', native: 'Per session, per machine allowlist', dashclaw: 'Shared policy service across integrated runtimes' },
+  { dim: 'Audit trail', native: 'No shared export', dashclaw: 'Replayable records with explicit signature status' },
   { dim: 'Interruption rate', native: 'Fixed prompts, no tuning', dashclaw: 'Calibrated to a target false-block bound' },
 ];
 
@@ -96,19 +85,19 @@ const SUPPORT_SURFACES = [
   {
     icon: Inbox,
     title: 'Approvals inbox',
-    desc: 'The one primary human surface: what your agent just tried, what is frozen and waiting on you, and per item — allow, deny, or stop being asked about that exact target — plus whole-plan review cards with per-step approve/deny. Every item leads with a plain-English sentence for what the command actually does and flags what cannot be undone, with the exact command always shown underneath. Resolve from a browser, the CLI, a phone, Telegram, or Discord.',
+    desc: 'The primary human surface for recorded work waiting on you. Each item shows the redacted act bound to the decision, its risk, and the available allow or deny controls. Resolve from a browser, CLI, phone, Telegram, or Discord when that channel is configured.',
     href: '/approvals',
   },
   {
     icon: Scale,
     title: 'Decisions ledger',
-    desc: 'Every governed action, replayable: declared goal, risk composition, matched policies, the approver, and the terminal outcome. Signed rows, exportable.',
+    desc: 'Recorded governed actions with their declared goal, bound act, risk composition, matched policies, approver, outcome, verified-identity state, and payload-signature state.',
     href: '/decisions',
   },
   {
     icon: SlidersHorizontal,
     title: 'Policies',
-    desc: 'A short list of things that stop your agent — at most ten lines — and everything else watched and measured. Catastrophe-only by default.',
+    desc: 'A short list of things that stop your agent, with other recorded traffic measured. The default pack holds only its explicit evidence-matched catastrophes.',
     href: '/policies',
   },
   {
@@ -120,7 +109,7 @@ const SUPPORT_SURFACES = [
   {
     icon: HeartPulse,
     title: 'Enforcement liveness',
-    desc: 'A probe drives a synthetic held action through the real hook seam and verdicts by whether it executed, never by reading the ledger. A healthy ledger can hide a dead hook; a silent probe never renders green.',
+    desc: 'An installed client can drive a synthetic held action through its hook seam and report whether it executed. Setup shows the report time and renders missing or stale evidence explicitly; it is not continuous attestation.',
     href: '/setup#enforcement-liveness',
   },
   {
@@ -153,7 +142,7 @@ export default function LandingPage() {
               '@type': 'SoftwareApplication',
               name: 'DashClaw',
               description:
-                'A fail-closed approval layer for unattended AI coding agents: it catches a destructive tool call before it runs, freezes it for one-click human approval from anywhere, and writes a signed, replayable audit row.',
+                'A governance runtime that evaluates agent actions, records audit evidence, and can halt supported hook, OpenClaw, and bounded capability calls for human approval before execution.',
               url: 'https://www.dashclaw.io',
               applicationCategory: 'DeveloperApplication',
               operatingSystem: 'Any',
@@ -177,13 +166,11 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-16 items-center">
             <div>
               <h1 className="text-4xl sm:text-5xl xl:text-[3.25rem] font-bold tracking-tight leading-[1.08] text-text-primary [text-wrap:balance]">
-                When your coding agent tries something destructive, DashClaw catches it before it runs.
+                Remote approvals for unattended agent runs.
               </h1>
               <p className="mt-6 text-lg text-text-secondary leading-relaxed max-w-xl">
-                It freezes the action and asks you first, with one click, from
-                anywhere. A fail-closed approval layer for the long, unattended
-                runs where your agent&apos;s native permission prompts cannot
-                help, because they need you at the keyboard.
+                Let the routine work continue. Review the actions your policies
+                hold, then allow or deny them from the dashboard or phone.
               </p>
 
               <div className="mt-8 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -237,33 +224,6 @@ export default function LandingPage() {
             </div>
 
             <HeroDecisionRecord />
-          </div>
-        </section>
-
-        {/* ── 1b. The whole loop, on film ── */}
-        <section aria-labelledby="film-heading" className="pb-16 px-6">
-          <div className="max-w-4xl mx-auto">
-            <h2
-              id="film-heading"
-              className="mb-4 text-[10px] font-mono uppercase tracking-[0.18em] text-text-tertiary font-semibold"
-            >
-              The whole loop, on film &middot; 55 seconds
-            </h2>
-            <div className="rounded-xl border border-border bg-surface-secondary overflow-hidden shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_30px_90px_rgba(0,0,0,0.55)]">
-              <video
-                controls
-                preload="none"
-                poster="/media/marketing/launch-poster.jpg"
-                className="w-full block aspect-video"
-                aria-label="DashClaw launch video: an agent action intercepted, held for a one-click approval, and recorded in the decision ledger"
-              >
-                <source src="/media/marketing/launch.mp4" type="video/mp4" />
-              </video>
-            </div>
-            <p className="mt-3 text-xs text-text-tertiary">
-              Sound on. An agent action intercepted, held for a one-click
-              approval, and recorded in the ledger.
-            </p>
           </div>
         </section>
 
@@ -335,8 +295,8 @@ export default function LandingPage() {
 
             <p className="mt-8 text-sm text-text-secondary leading-relaxed text-center max-w-2xl mx-auto">
               This is not observability either. LangSmith and Langfuse record
-              what an agent did, after it did it. DashClaw decides what it is
-              allowed to do, before it runs.
+              what an agent did after it ran. On an enforcing integration,
+              DashClaw evaluates policy before the supported call runs.
             </p>
           </div>
         </section>
@@ -349,9 +309,10 @@ export default function LandingPage() {
                 The whole product is one loop
               </h2>
               <p className="mt-3 text-text-secondary leading-relaxed">
-                Intercept, decide, approve, prove. The hook seam runs it for you
-                in Claude Code, Codex, and Hermes; the SDK, MCP server, and REST
-                run the same four calls when you want explicit control.
+                Intercept, decide, approve, record. Hooks and OpenClaw own an
+                enforcing seam. Node and Python <code className="font-mono text-xs">runGoverned</code>{' '}
+                require a confirmed protocol-1 execution claim before the callback.
+                Bare MCP and REST integrations must honor decisions cooperatively.
               </p>
             </div>
 
@@ -411,8 +372,8 @@ export default function LandingPage() {
               </h2>
               <p className="mt-3 text-text-secondary leading-relaxed">
                 A governor you disable is worse than none. These three keep it
-                earning its interruptions, prove it is still awake, and score
-                what the agent claimed against what it delivered.
+                earning its interruptions, report whether an installed seam held
+                a probe, and compare agent confidence with reported outcomes.
               </p>
             </div>
 
@@ -438,11 +399,10 @@ export default function LandingPage() {
                   <h3 className="text-base font-semibold text-text-primary">Enforcement liveness</h3>
                 </div>
                 <p className="text-sm text-text-secondary leading-relaxed">
-                  Once, the governor stopped enforcing and nothing noticed,
-                  because the ledger kept looking healthy. Now a probe drives a
-                  synthetic held action through the real hook seam and verdicts
-                  by whether it executed, not by reading the ledger. Stale never
-                  renders green.
+                  An installed client periodically drives a synthetic held action
+                  through its hook seam and reports whether it executed. The report
+                  is point-in-time evidence from that client. Missing or stale
+                  reports never render green.
                 </p>
               </div>
               <div className="p-6 rounded-xl border border-border bg-surface-secondary">
@@ -451,10 +411,10 @@ export default function LandingPage() {
                   <h3 className="text-base font-semibold text-text-primary">Predicted vs actual</h3>
                 </div>
                 <p className="text-sm text-text-secondary leading-relaxed">
-                  Every action carries the agent&apos;s stated confidence. The
-                  ledger scores it against what actually completed, per agent,
-                  over 30 days. Autonomy stays a number you set with checks, not
-                  a prompt.
+                  Recorded actions can carry the agent&apos;s stated confidence. The
+                  ledger compares it with agent-reported terminal outcomes over
+                  30 days. That outcome is an audit assertion; consequential
+                  external state still needs reconciliation.
                 </p>
               </div>
             </div>
@@ -482,10 +442,10 @@ export default function LandingPage() {
                 It meets your agent where it already runs
               </h2>
               <p className="mt-3 text-text-secondary leading-relaxed">
-                One command wires Claude Code, Codex, or Hermes. A plugin covers
-                OpenClaw. The MCP server gives any MCP client the same loop
-                through {'17 tools and 3 resources'}, no SDK and no code changes.
-                Everything else takes the Node or Python SDK.
+                Installers wire supported Claude Code, Codex, and Hermes hook
+                events. OpenClaw has a gateway plugin. The MCP server exposes
+                17 tools and 3 resources to MCP clients, which still need to call them
+                and honor the result. Custom runtimes can use the Node or Python SDK.
               </p>
             </div>
             <StackQuickstarts />
@@ -523,12 +483,11 @@ export default function LandingPage() {
                 </div>
                 <p className="text-sm text-text-secondary leading-relaxed">
                   Bare SDK, MCP, and chat-based callers consult guard and honor
-                  the decision cooperatively. Every call is still recorded, a
-                  block is never downgraded in the ledger, and any gap between
-                  decision and behavior is visible evidence, not silence. SDK
-                  callers can attach the actual command or request, so the server
-                  classifies risk from evidence instead of trusting the
-                  declaration.
+                  the decision cooperatively. Calls submitted to DashClaw are
+                  recorded, and a block is never downgraded in the ledger. The
+                  server cannot observe a cooperative caller that skips the
+                  protocol. SDK callers can attach the actual command or request
+                  so policy binds to evidence instead of only a declaration.
                 </p>
               </div>
             </div>
@@ -536,8 +495,9 @@ export default function LandingPage() {
             <p className="mt-6 text-sm text-text-secondary leading-relaxed">
               One more honest line: the hook runs at your agent&apos;s own
               privilege level. It is a seatbelt against accidents, not a cage
-              against intent — tampering with the hook is blocked by policy and
-              loudly visible, but a tamper-proof boundary comes from your
+              against intent. DashClaw can record attempted edits and later probe
+              failures, but a same-user process can tamper with its own hook. A
+              stronger boundary comes from your
               deployment (a container, a separate OS user, or a read-only hook
               path), not from software running inside the agent&apos;s reach.
             </p>

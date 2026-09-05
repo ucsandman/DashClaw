@@ -1,5 +1,13 @@
 export type Row = Record<string, unknown>;
 
+export function actionProvenance(row: Row) {
+  return {
+    identity_verified: typeof row.identity_verified === 'boolean' ? row.identity_verified : null,
+    payload_signature: ['verified', 'invalid', 'missing'].includes(String(row.payload_signature_status))
+      ? row.payload_signature_status : 'unknown',
+  };
+}
+
 /**
  * SQL executor used by this repository. Supports the Neon/postgres tagged
  * template form AND the `.query(text, params)` form. The optional

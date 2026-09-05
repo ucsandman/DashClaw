@@ -115,20 +115,20 @@ export async function resolveAccessToken(
   return { orgId: r.org_id, scope: r.scope, agentId: r.agent_id, plan: r.plan };
 }
 
-// Rotation: read the row for a refresh token, then revoke it (caller issues a new pair).
+// Atomic rotation: only the request that changes revoked_at receives the row
+// needed to mint a replacement pair. Concurrent replays get no row.
 export async function rotateRefreshToken(
   sql: SqlTag,
   refreshTokenHash: string
 ): Promise<{ clientId: unknown; orgId: unknown; userId: unknown; scope: unknown; agentId: unknown } | null> {
   const rows = await sql`
-    SELECT client_id, org_id, user_id, scope, agent_id
-    FROM oauth_access_tokens
+    UPDATE oauth_access_tokens
+    SET revoked_at = NOW()
     WHERE refresh_token_hash = ${refreshTokenHash} AND revoked_at IS NULL
       AND created_at > NOW() - INTERVAL '30 days'
-    LIMIT 1
+    RETURNING client_id, org_id, user_id, scope, agent_id
   `;
   if (rows.length === 0) return null;
-  await sql`UPDATE oauth_access_tokens SET revoked_at = NOW() WHERE refresh_token_hash = ${refreshTokenHash}`;
   const r = rows[0]!;
   return { clientId: r.client_id, orgId: r.org_id, userId: r.user_id, scope: r.scope, agentId: r.agent_id };
 }

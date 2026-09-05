@@ -8,6 +8,7 @@ export {
   APPROVAL_RETRY_GRACE_SECONDS,
   DEFAULT_APPROVAL_WAIT_SECONDS,
   computeApprovalExpiry,
+  createApprovalGrant,
   expireOverdueApproval,
   findUnconsumedPromotionGrant,
   getActionForGrant,

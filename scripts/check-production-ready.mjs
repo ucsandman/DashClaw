@@ -45,12 +45,15 @@ const STATIC_STEPS = [
   ['guide-drift', npmCmd, [...npmPrefix, 'run', 'guide:drift:check']],
   // CI: `node scripts/security-scan.js`
   ['security-scan', process.execPath, ['scripts/security-scan.js']],
+  ['script-syntax', npmCmd, [...npmPrefix, 'run', 'scripts:check-syntax']],
   ['vitest', npxCmd, [...npxPrefix, 'vitest', 'run']],
+  ['cli-tests', npmCmd, [...npmPrefix, 'test', '--prefix', 'cli']],
+  ['mcp-tests', npmCmd, [...npmPrefix, 'test', '--prefix', 'mcp-server']],
+  ['mcp-typecheck', npmCmd, [...npmPrefix, 'run', 'typecheck', '--prefix', 'mcp-server']],
   // CI: `npm run sdk:integration` + `npm run sdk:integration:python`
   ['sdk-integration', npmCmd, [...npmPrefix, 'run', 'sdk:integration']],
   ['sdk-integration-python', npmCmd, [...npmPrefix, 'run', 'sdk:integration:python']],
   ['build', npmCmd, [...npmPrefix, 'run', 'build']],
-  ['script-syntax', npmCmd, [...npmPrefix, 'run', 'scripts:check-syntax']],
   ['smoke', npmCmd, [...npmPrefix, 'run', 'test:smoke']],
   ['prod-audit', npmCmd, [...npmPrefix, 'audit', '--omit=dev', '--audit-level=moderate']],
 ];
