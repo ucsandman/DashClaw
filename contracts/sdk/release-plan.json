@@ -1,22 +1,28 @@
 {
   "node": {
-    "current_version": "5.33.6",
+    "current_version": "5.33.7",
     "next_bump": "none",
-    "reason": "v5.33.6 (guard_policies org/active index, drizzle/0076). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.33.5.",
+    "reason": "Both SDKs changed: preserve fallback approvals and action metadata, and auto-derive recorded guard retry keys. Republish Node and Python SDKs with this release.",
     "domains": [
-      "platform"
+      "platform",
+      "actions",
+      "guard"
     ]
   },
   "python": {
-    "current_version": "5.33.6",
+    "current_version": "5.33.7",
     "next_bump": "none",
-    "reason": "v5.33.6 (guard_policies org/active index, drizzle/0076). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.33.5.",
+    "reason": "Both SDKs changed: preserve fallback approvals and action metadata, and auto-derive recorded guard retry keys. Republish Node and Python SDKs with this release.",
     "domains": [
-      "platform"
+      "platform",
+      "actions",
+      "guard"
     ]
   },
-  "reason": "v5.33.6 (guard_policies org/active index, drizzle/0076). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.33.5.",
+  "reason": "Both SDKs changed: preserve fallback approvals and action metadata, and auto-derive recorded guard retry keys. Republish Node and Python SDKs with this release.",
   "domains": [
-    "platform"
+    "platform",
+    "actions",
+    "guard"
   ]
 }

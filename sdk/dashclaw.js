@@ -403,7 +403,7 @@ class DashClaw {
    *   unknown_issuer — issuer not in DASHCLAW_ALLOWED_ISSUER (server config)
    */
   async guard(context, { record = false } = {}) {
-    return this._post('/api/guard', {
+    const payload = {
       // Approvals lifecycle: declare the wait window this client will poll if
       // the decision is require_approval, so the pending row gets a truthful
       // approval_expires_at stamp. Matches the waitForApproval default
@@ -413,7 +413,19 @@ class DashClaw {
       agent_id: context.agent_id || this.agentId,
       // Include agent_name for audit attribution if not already provided by caller
       ...(context.agent_name == null && this.agentName ? { agent_name: this.agentName } : {}),
-    }, record ? { record: true } : null);
+    };
+    // Recording uses the same retry identity as createAction. Evaluation-only
+    // calls remain untouched, and an explicit caller key always wins.
+    if (record && !payload.idempotency_key) {
+      payload.idempotency_key = this.deriveIdempotencyKey({
+        agent_id: payload.agent_id ?? '',
+        action_type: payload.action_type ?? '',
+        declared_goal: payload.declared_goal ?? '',
+        session_id: payload.session_id ?? '',
+        ts_bucket: Math.floor(Date.now() / 3600000),
+      });
+    }
+    return this._post('/api/guard', payload, record ? { record: true } : null);
   }
 
   /**
@@ -466,12 +478,10 @@ class DashClaw {
 
   /**
    * One call that runs the full governance loop with evidence attached:
-   * guard (with act, `?record=true`) → (if the server didn't record —
-   * `recorded !== true` or no `action_id`, e.g. an older self-hosted server
-   * that ignores the param — fall back to createAction) → (if decision is
-   * require_approval and params.wait !== false) waitForApproval → fn() →
-   * one-shot outcome report. The single-call path is one HTTP round trip
-   * instead of two; the fallback keeps older servers working unchanged.
+   * guard (with act) → optional createAction → approval → fn() → outcome.
+   * Minimal inputs use `?record=true` to combine guard and recording. Richer
+   * action fields or a server that did not record use createAction. Either
+   * response can require approval; params.wait=false raises instead of waiting.
    *
    * @param {Object} act - { kind: 'shell'|'http'|'sql'|'file', ... } — see the
    *   wire contract in the spec above. Scrubbed client-side before send.
@@ -492,17 +502,29 @@ class DashClaw {
     const scrubbedAct = scrubAct(act);
     const guardContext = { ...context, act: scrubbedAct };
 
-    const decision = await this.guard(guardContext, { record: true });
+    // Only use in-guard recording for fields that route preserves. Richer
+    // action metadata needs createAction's validation, persistence and pricing.
+    const recordFields = new Set([
+      'action_type', 'declared_goal', 'risk_score', 'agent_name', 'systems_touched',
+      'reversible', 'target', 'content', 'source_of_truth', 'intel', 'tool',
+      'write_paths', 'trigger', 'swarm_id', 'idempotency_key',
+      'approval_wait_seconds', 'client_capabilities', 'metadata', 'confidence',
+    ]);
+    const record = Object.keys(context).every((key) => recordFields.has(key));
+    const decision = await this.guard(guardContext, { record });
     if (decision.decision === 'block') throw new GuardBlockedError(decision);
 
     let action_id = decision.action_id;
-    if (decision.recorded !== true || !action_id) {
+    let requiresApproval = decision.decision === 'require_approval';
+    if (!record || decision.recorded !== true || !action_id) {
       // Server didn't record the action on the guard call — fall back to the
       // previous two-call path so older self-hosted servers keep working.
-      ({ action_id } = await this.createAction(guardContext));
+      const created = await this.createAction(guardContext);
+      action_id = created.action_id;
+      requiresApproval ||= created.action?.status === 'pending_approval';
     }
 
-    if (decision.decision === 'require_approval') {
+    if (requiresApproval) {
       // `wait: false` must not become a silent approval bypass: the previous
       // behavior fell through and executed fn() with the approval still
       // pending — an ungoverned run of exactly the work a human was asked to

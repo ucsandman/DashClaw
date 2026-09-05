@@ -37,12 +37,10 @@ export const SECURITY_PATTERNS: SecurityPattern[] = [
   { name: 'password_field', pattern: /(?:password|passwd|pwd)\s*[:=]\s*['"]([^'"]{6,})['"]?/gi, category: 'password', severity: 'high' },
   { name: 'bearer_token', pattern: /Bearer\s+[A-Za-z0-9_\-\.]{20,}/g, category: 'token', severity: 'high' },
   { name: 'database_url', pattern: /(?:postgres|mysql|mongodb|redis):\/\/[^\s'"]{10,}/gi, category: 'connection_string', severity: 'critical' },
-  // The userinfo class excludes ,;# too: "example.com,wes@example.com" and
-  // "example.com#contact-wes@example.com" are a comma/hash-joined address,
-  // not a scheme://user@ credential. The host after the @ must look like one
-  // (a dotted name, localhost, an IPv4, or a bracketed IPv6) - same lookahead
-  // as bare_userinfo below, for the same reason.
-  { name: 'url_userinfo', pattern: /[A-Za-z][A-Za-z0-9+.\-]{0,19}:\/\/[^\/\s@'"?&,;#]+@(?=(?:[A-Za-z0-9\-]+\.)+[A-Za-z0-9\-]+|localhost\b|\[)/g, category: 'url_credential', severity: 'critical' },
+  // An explicit user:password allows URI sub-delimiters in the password
+  // and single-label hosts. Keep the stricter token-only alternative so
+  // comma/semicolon-joined contact addresses are not treated as secrets.
+  { name: 'url_userinfo', pattern: /[A-Za-z][A-Za-z0-9+.\-]{0,19}:\/\/(?:[^\/:\s@'"?&,;#]+:[^\/\s@'"?#]*@(?=[A-Za-z0-9\[])|[^\/\s@'"?&,;#]+@(?=(?:[A-Za-z0-9\-]+\.)+[A-Za-z0-9\-]+|localhost\b|\[))/g, category: 'url_credential', severity: 'critical' },
   // The host after the @ must look like one (a dotted name, localhost, an
   // IPv4, or a bracketed IPv6): "10:30@HQ" and "3:4@scale" are prose, not
   // credentials, and with DASHCLAW_AUTOSCAN_BLOCK on a critical false

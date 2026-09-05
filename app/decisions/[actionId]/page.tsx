@@ -54,6 +54,7 @@ export default function DecisionReplayPage() {
   const [reissuing, setReissuing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadController = useRef<AbortController | null>(null);
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -62,40 +63,52 @@ export default function DecisionReplayPage() {
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   const fetchData = useCallback(async () => {
+    loadController.current?.abort();
+    const controller = new AbortController();
+    loadController.current = controller;
+    const { signal } = controller;
+    setError(null);
+    setTrace(null);
+    setGraph(null);
+    setGuardDecision(null);
+    setContainmentPatch(null);
     try {
-      // Graph depends only on actionId, not on the base response, so it
-      // starts alongside the base fetch instead of waiting behind it. A
-      // network failure on the graph fetch stays isolated (caught to null)
-      // so it can't turn into the outer catch's generic "failed to load"
-      // error the way a rejected Promise.all element would.
-      const [res, graphRes] = await Promise.all([
-        fetch(`/api/actions/${actionId}`),
-        fetch(`/api/actions/${actionId}/graph`).catch(() => null),
-      ]);
+      // Optional graph evidence must never hold the primary decision open.
+      void fetch(`/api/actions/${actionId}/graph`, { signal })
+        .then(async res => {
+          if (res.ok) {
+            const graphData = await res.json();
+            if (!signal.aborted) setGraph(graphData);
+          }
+        }).catch(() => { /* graph is optional */ });
+      const res = await fetch(`/api/actions/${actionId}`, { signal });
+      if (signal.aborted) return;
       if (!res.ok) {
         if (res.status === 404) { setError('Decision not found'); return; }
         throw new Error('Failed to fetch');
       }
       const data = await res.json();
+      if (signal.aborted) return;
       setAction(data.action);
       setAssumptions(data.assumptions || []);
       setDefense(data.agent_defense || null);
       // Exact FK-linked guard decision (action_records.guard_decision_id) —
       // when present it supersedes the legacy time-window correlation below.
       if (data.guard_decision) setGuardDecision(data.guard_decision);
+      setLoading(false);
 
       // trace/artifacts/guard each depend only on fields of `data` above, not
       // on each other — run them together instead of a sequential waterfall.
       // Each keeps its own condition, try/catch isolation, and state set.
-      await Promise.allSettled([
+      void Promise.allSettled([
         (async () => {
           // Fetch trace data for failed/completed actions
           if (data.action.status === 'failed' || data.action.status === 'completed') {
             try {
-              const traceRes = await fetch(`/api/actions/${actionId}/trace`);
+              const traceRes = await fetch(`/api/actions/${actionId}/trace`, { signal });
               if (traceRes.ok) {
                 const traceData = await traceRes.json();
-                setTrace(traceData.trace);
+                if (!signal.aborted) setTrace(traceData.trace);
               }
             } catch { /* trace is optional */ }
           }
@@ -106,11 +119,11 @@ export default function DecisionReplayPage() {
           // status — every other decision pays nothing.
           if (data.action.containment_status) {
             try {
-              const artifactsRes = await fetch(`/api/actions/${actionId}/artifacts`);
+              const artifactsRes = await fetch(`/api/actions/${actionId}/artifacts`, { signal });
               if (artifactsRes.ok) {
                 const artifactsData = await artifactsRes.json();
                 const patch = (artifactsData.artifacts || []).find((a: any) => a && a.artifact_type === 'patch');
-                setContainmentPatch(patch?.content ?? null);
+                if (!signal.aborted) setContainmentPatch(patch?.content ?? null);
               }
             } catch { /* containment evidence is optional */ }
           }
@@ -120,7 +133,7 @@ export default function DecisionReplayPage() {
           // heuristic, only for rows written before guard_decision_id stamping.
           if (data.action.agent_id && !data.guard_decision) {
             try {
-              const guardRes = await fetch(`/api/guard?agent_id=${encodeURIComponent(data.action.agent_id)}&limit=10`);
+              const guardRes = await fetch(`/api/guard?agent_id=${encodeURIComponent(data.action.agent_id)}&limit=10`, { signal });
               if (guardRes.ok) {
                 const guardData = await guardRes.json();
                 const actionStart = new Date(data.action.timestamp_start).getTime();
@@ -128,29 +141,27 @@ export default function DecisionReplayPage() {
                   gd.action_type === data.action.action_type &&
                   Math.abs(new Date(gd.created_at).getTime() - actionStart) <= 60000
                 );
-                if (match) setGuardDecision(match);
+                if (match && !signal.aborted) setGuardDecision(match);
               }
             } catch { /* guard correlation is optional */ }
           }
         })(),
       ]);
 
-      try {
-        if (graphRes && graphRes.ok) {
-          const graphData = await graphRes.json();
-          setGraph(graphData);
-        }
-      } catch { /* graph is optional */ }
     } catch (err) {
+      if (signal.aborted) return;
       console.error('Failed to fetch decision:', err);
       setError('Failed to load decision details');
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, [actionId]);
 
   useEffect(() => {
+    setLoading(true);
+    setReissuing(false);
     if (actionId) fetchData();
+    return () => loadController.current?.abort();
   }, [actionId, fetchData]);
 
   // Re-issue merge grant (CRITICAL 1, final fix wave 2026-07-27): the
@@ -161,6 +172,7 @@ export default function DecisionReplayPage() {
   // verdict 'promote' — legal now for a 'promoted' action — to re-stamp or
   // re-mint the grant.
   const handleReissue = async () => {
+    const controller = loadController.current;
     setReissuing(true);
     try {
       const res = await fetch(`/api/actions/${actionId}/containment`, {
@@ -168,6 +180,7 @@ export default function DecisionReplayPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ verdict: 'promote' }),
       });
+      if (controller?.signal.aborted) return;
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.error || `Re-issue failed (${res.status})`);
@@ -175,9 +188,9 @@ export default function DecisionReplayPage() {
       showToast('Merge grant re-issued — a fresh 15-minute approval window is open.');
       fetchData();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Re-issue failed');
+      if (!controller?.signal.aborted) showToast(err instanceof Error ? err.message : 'Re-issue failed');
     } finally {
-      setReissuing(false);
+      if (!controller?.signal.aborted) setReissuing(false);
     }
   };
 
@@ -325,16 +338,18 @@ export default function DecisionReplayPage() {
 
           {/* Dominant Decision Signal */}
           <div className={`flex items-center gap-2 px-3 py-1 rounded-lg border font-black text-xs tracking-tighter ${
+            !guardDecision ? 'bg-white/5 border-white/10 text-secondary' :
             guardDecision?.decision === 'block' ? 'bg-error-subtle border-error/40 text-error' :
             guardDecision?.decision === 'require_approval' ? 'bg-warning-subtle border-warning/40 text-warning' :
             'bg-success-subtle border-success/40 text-success'
           }`}>
             <div className={`w-2 h-2 rounded-full motion-safe:animate-pulse ${
+              !guardDecision ? 'bg-current' :
               guardDecision?.decision === 'block' ? 'bg-status-error' :
               guardDecision?.decision === 'require_approval' ? 'bg-status-warning' :
               'bg-status-success'
             }`} />
-            {(guardDecision?.decision || 'allow').toUpperCase()}
+            {(guardDecision?.decision || 'Decision unavailable').toUpperCase()}
           </div>
 
           <button

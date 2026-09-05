@@ -279,3 +279,12 @@ What happened: while verifying the installer fix below, a `node -e` drill passed
 - Regression tests in `__tests__/unit/cli-codex-install.test.js` ("mergeConfigToml corruption regressions (2026-08-14)") replay the incident file shape — manual dashclaw table + file ending on `[tui.model_availability_nux]` — and were confirmed to FAIL against the pre-fix installer.
 
 **Lesson:** a text-templating merge into a structured format needs a real parser as an exit gate. The markers-only merge was "safe" for content inside the markers and blind to every conflict outside them.
+## 2026-09-05 — Replay waited on optional evidence
+
+The base action was held behind graph and trace requests, so slow optional evidence kept the whole replay on its loading screen. Independently resolving each request restored early rendering. A request controller prevents old responses from replacing a newer decision. The browser test also found that the demo graph endpoint had no fixture handler. Prevention: keep a browser check that holds graph delivery until the primary decision is visible, then exercises the Graph tab. Missing guard data now has a neutral label instead of assuming ALLOW.
+
+## 2026-09-05 — Fast-path recording lost action semantics
+
+The SDK speed pass discarded the fallback action status: an initial allow followed by a pending-approval create response still ran the callback, including with wait:false. Guard validation also stripped richer action metadata, and Python's single-call path skipped signing. Reproductions caught both SDK bypasses while all 5,388 existing tests passed. The fix keeps the fast path only for preserved fields, retains Python's configured creation behavior, and honors pending approval from either response.
+
+What worked: checking the actual route validators and executing adversarial callbacks. What did not: treating fewer requests as equivalent because happy-path mocks passed. Prevention: every fast-path review must compare validation, persistence, signing, idempotency and approval transitions with the canonical path, including a stricter fallback verdict.

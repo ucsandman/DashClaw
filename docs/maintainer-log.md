@@ -14,6 +14,16 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-05 - Finish the performance review
+
+Codex prepared this patch release at Wes's request. The SDK fast path now keeps retry identity without losing action metadata or skipping an approval required by fallback recording. Decision Replay shows the base decision as soon as it arrives, while optional evidence loads independently. A delayed-response browser check also found and closed a missing demo graph handler.
+
+The human path remains Decisions, then a decision's replay and Graph tab. Approval controls stay in Approvals. SDK retry behavior is documented for integration authors; it deduplicates action records and does not promise exactly-once execution of arbitrary callbacks.
+
+What worked: testing pending network responses and conflicting approval results before trusting the faster path. What did not: the old internal checks missed the fallback approval and an ungated parity count. Prevention: regression checks now exercise those boundaries and the parity document's four method counts are part of the strict checker.
+
+The release keeps the action-ceiling cache's documented 30-second approximation. Local production build succeeded, but release-prep's optional live guide capture could not pass the local database health probe. The guide checker permits patch-version drift; existing captured examples remain subject to that check.
+
 ## 2026-09-05 - Ship everything: the index, and someone else's scanner
 
 Wes's answer to the speed-pass report was two words, so the two things I

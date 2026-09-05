@@ -233,6 +233,10 @@ const COUNT_CHECKS = [
   S.sdk && { file: 'sdk-python/README.md', label: 'Node SDK methods (parity)', re: /curated subset of \*\*(\d+) methods\*\*/, expected: [S.sdk.node] },
   S.sdk && { file: 'PROJECT_DETAILS.md', label: 'SDK method counts', re: /exposes \*\*(\d+) public methods\*\* in `sdk\/dashclaw\.js` and the Python SDK \*\*(\d+)\*\*/, expected: [S.sdk.node, S.sdk.python] },
   S.sdk && { file: 'docs/sdk-reference.md', label: 'Node SDK methods (catalogue)', re: /Full v2 method catalogue \((\d+) methods\)/, expected: [S.sdk.node] },
+  S.sdk && { file: 'docs/sdk-parity.md', label: 'Node SDK methods (intro)', re: /canonical SDK: \*\*(\d+) governance-core methods\*\*/, expected: [S.sdk.node] },
+  S.sdk && { file: 'docs/sdk-parity.md', label: 'Python SDK methods (intro)', re: /read\/admin conveniences:\s*\*\*(\d+) methods\*\*/, expected: [S.sdk.python] },
+  S.sdk && { file: 'docs/sdk-parity.md', label: 'Node SDK methods (table)', re: /Canonical governance-core SDK \((\d+) methods\)/, expected: [S.sdk.node] },
+  S.sdk && { file: 'docs/sdk-parity.md', label: 'Python SDK methods (table)', re: /Governance core \+ read\/admin conveniences \((\d+) methods\)/, expected: [S.sdk.python] },
   S.sdk && { file: 'docs/architecture/runtime-api.md', label: 'Node SDK methods (runtime-api)', re: /exposes (\d+) public methods across the core runtime/, expected: [S.sdk.node] },
   // V10: platform-guide-data.json's MCP-server package summary restates the
   // tool count in two ungated prose forms that had drifted to a pre-cull "12"

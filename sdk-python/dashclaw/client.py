@@ -795,6 +795,16 @@ class DashClaw:
         # for audit attribution if the caller didn't supply one in `context`.
         if context.get("agent_name") is None and self.agent_name:
             payload["agent_name"] = self.agent_name
+        # Match create_action retry identity without changing evaluation-only
+        # calls or overriding an explicit caller key.
+        if record and not payload.get("idempotency_key"):
+            payload["idempotency_key"] = self.derive_idempotency_key({
+                "agent_id": payload.get("agent_id") or "",
+                "action_type": payload.get("action_type") or "",
+                "declared_goal": payload.get("declared_goal") or "",
+                "session_id": payload.get("session_id") or "",
+                "ts_bucket": int(time.time() // 3600),
+            })
         params = {"record": "true"} if record else None
         return self._request("/api/guard", "POST", json=payload, params=params)
 
@@ -805,14 +815,10 @@ class DashClaw:
         Node parity: sdk/dashclaw.js runGoverned. See
         docs/superpowers/specs/2026-07-05-evidence-first-guard.md.
 
-        guard(with act, record=True) -> (if the server didn't record —
-        ``recorded`` is not True or no ``action_id``, e.g. an older
-        self-hosted server that ignores the param — fall back to
-        create_action) -> (if decision is require_approval and
-        params.get("wait") is not False) wait_for_approval -> fn() ->
-        one-shot outcome report (completed on success, failed on exception).
-        The single-call path is one HTTP round trip instead of two; the
-        fallback keeps older servers working unchanged.
+        guard(with act) -> optional create_action -> approval -> fn() -> outcome.
+        Minimal inputs use record=True to combine guard and recording. Richer
+        fields, signing, configured guard/HITL modes, or a server that did not
+        record use create_action. Either response can require approval.
 
         ``act``: {"kind": "shell"|"http"|"sql"|"file", ...} — see the wire
         contract. Scrubbed client-side before send.
@@ -835,12 +841,23 @@ class DashClaw:
         scrubbed_act = scrub_act(act)
         guard_context = {**context, "act": scrubbed_act}
 
-        decision = self.guard(guard_context, record=True)
+        # In-guard recording does not preserve richer action metadata or run
+        # create_action's signing and configured guard/HITL behavior.
+        record_fields = {
+            "action_type", "declared_goal", "risk_score", "agent_name", "systems_touched",
+            "reversible", "target", "content", "source_of_truth", "intel", "tool",
+            "write_paths", "trigger", "swarm_id", "idempotency_key",
+            "approval_wait_seconds", "client_capabilities", "metadata", "confidence",
+        }
+        record = (context.keys() <= record_fields and self.private_key is None
+                  and self.guard_mode == "off" and self.hitl_mode == "off")
+        decision = self.guard(guard_context, record=record)
         if decision.get("decision") == "block":
             raise GuardBlockedError(decision)
 
         action_id = decision.get("action_id")
-        if not decision.get("recorded") or not action_id:
+        requires_approval = decision.get("decision") == "require_approval"
+        if not record or decision.get("recorded") is not True or not action_id:
             # Server didn't record the action on the guard call — fall back
             # to the previous two-call path so older self-hosted servers
             # keep working.
@@ -849,8 +866,9 @@ class DashClaw:
             extra = {k: v for k, v in context.items() if k not in ("action_type", "declared_goal")}
             result = self.create_action(action_type, declared_goal, act=scrubbed_act, **extra)
             action_id = result.get("action_id")
+            requires_approval = requires_approval or (result.get("action") or {}).get("status") == "pending_approval"
 
-        if decision.get("decision") == "require_approval":
+        if requires_approval:
             # wait=False must not become a silent approval bypass: the previous
             # behavior fell through and executed fn() with the approval still
             # pending. Fail loud instead; the caller polls and re-runs.

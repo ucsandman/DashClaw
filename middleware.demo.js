@@ -276,6 +276,31 @@ function handleDemoActionDetail({ request, fixtures, segments }) {
   return demoJson(request, detail);
 }
 
+function handleDemoActionGraph({ request, fixtures, segments }) {
+  const detail = demoActionDetail(fixtures, segments[2]);
+  if (!detail) return demoJson(request, { error: 'Action not found' }, 404);
+  const { action, assumptions = [], open_loops = [] } = detail;
+  const rootId = `action:${action.action_id}`;
+  const nodes = [{
+    id: rootId, type: 'action', label: action.declared_goal,
+    status: action.status, actionType: action.action_type,
+    riskScore: action.risk_score, meta: { action_id: action.action_id, isRoot: true },
+  }];
+  const edges = [];
+  for (const assumption of assumptions) {
+    const id = `assumption:${assumption.assumption_id}`;
+    const status = assumption.invalidated ? 'invalidated' : assumption.validated ? 'validated' : 'unresolved';
+    nodes.push({ id, type: 'assumption', label: assumption.assumption, status, meta: assumption });
+    edges.push({ id: `edge:${id}`, source: id, target: rootId, type: 'assumption_of', label: status });
+  }
+  for (const loop of open_loops) {
+    const id = `loop:${loop.loop_id}`;
+    nodes.push({ id, type: 'loop', label: loop.description || loop.loop_type, status: loop.status, meta: loop });
+    edges.push({ id: `edge:${id}`, source: id, target: rootId, type: 'loop_from', label: loop.priority || 'open' });
+  }
+  return demoJson(request, { rootActionId: action.action_id, nodes, edges });
+}
+
 function handleDemoRelationships({ request, fixtures }) {
   const contacts = fixtures.contacts;
   const today = new Date().toISOString().slice(0, 10);
@@ -480,6 +505,7 @@ const DEMO_API_ROUTES = [
   [(pathname) => pathname === '/api/actions/assumptions' || pathname === '/api/assumptions', demoFixtureUrlRoute(demoAssumptions)],
   ['/api/actions/stats', demoFixtureRoute(demoDecisionMetrics)],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'actions', '*', 'trace']), handleDemoActionTrace],
+  [(pathname, segments) => segmentsMatch(segments, ['api', 'actions', '*', 'graph']), handleDemoActionGraph],
   // Containment Verdicts (v5.6.0): the card's lazy diff load and its
   // promote/discard POST. The verdict answers an honest demo 403 (static
   // fixtures cannot transition; symmetric with the plans entries).

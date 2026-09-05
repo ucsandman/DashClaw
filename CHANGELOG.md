@@ -13,6 +13,17 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.33.7] - 2026-09-05
+
+### Fixed
+
+- Governed SDK execution respects pending approval returned by fallback action creation. Rich action metadata and Python signing/configured governance retain canonical action creation.
+- Recorded guard requests automatically derive the same hourly idempotency key as action creation. Explicit caller keys still take precedence. This deduplicates ledger rows, not callback execution.
+- Decision replay renders its primary record without waiting for graph, trace, or optional evidence. Superseded requests cannot replace the current decision, and missing guard evidence no longer displays an assumed ALLOW.
+- Demo decision replay serves execution graphs from its existing action fixtures.
+- Batched plan reads retain the 200-deviations-per-plan bound. Credential scanning catches URL passwords containing comma, semicolon or ampersand and credentials on single-label hosts.
+- SDK parity documentation reports 40 Node and 60 Python methods, with all four claims checked against source.
+
 ### Added
 
 - **URL-credential patterns in the redactor** (`app/lib/security.ts`): `url_userinfo` (`https://user:pass@host`), `bare_userinfo` (`user:token@host`) and `url_query_secret` (`?api_key=` / `?token=` style) join the rule list, so all 22 `redactAny` callers inherit them. Tuned against real prose: comma/semicolon/hash-delimited addresses, `09:30@zoom.us` meeting times and bare `key=`/`sig=` query params do not fire. Overlapping matches of different rules now both count as findings (only a match fully inside an already-redacted span is dropped).

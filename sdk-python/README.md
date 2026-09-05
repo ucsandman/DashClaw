@@ -314,7 +314,7 @@ act can't satisfy an Evidence Required policy.
 
 | Method | Description |
 |--------|-------------|
-| `run_governed(act, params, fn)` | guard (with `act`) -> `create_action` -> if pending_approval, `wait_for_approval` -> `fn()` -> one-shot outcome (`completed` on success, `failed` on exception). Raises `GuardBlockedError` on block, `ApprovalDeniedError` on denial. Pass `params={"wait": False, ...}` to raise `ApprovalPendingError` instead of blocking — `fn()` is never run while the approval is pending; poll and re-run once approved. |
+| `run_governed(act, params, fn)` | guard (with `act`, `record=True`) records in the same HTTP call for supported guard fields. Uses `create_action` for richer action metadata, configured signing/guard/HITL behavior, or if the server didn't record. If either response requires approval, `wait_for_approval` -> `fn()` -> one-shot outcome (`completed` on success, `failed` on exception). Raises `GuardBlockedError` on block, `ApprovalDeniedError` on denial. Pass `params={"wait": False, ...}` to raise `ApprovalPendingError` instead of blocking — `fn()` is never run while the approval is pending; poll and re-run once approved. |
 
 **Client-side scrub.** Before an `act` is sent, `Authorization`/`Cookie`/`x-api-key`
 header values are stripped and `oc_live_*`/`sk-*`/`ghp_*`/`Bearer …` tokens and
@@ -759,7 +759,9 @@ elif outcome["status"] == "partial":
 
 Pending outcomes that never get reported get swept to `lost_confirmation` by the `/api/cron/outcome-sweep` cron. The sweep fires a `signal.detected` webhook (event type `lost_confirmation`) for subscribers. Per-org timeout (minutes) is configurable via the `DASHCLAW_OUTCOME_TIMEOUT_MINUTES` setting (default 15). See `docs/architecture/durable-execution-finality.md`.
 
-**Idempotency keys.** Pass `idempotency_key` on `create_action` to make creates retry-safe. A second create with the same `(org_id, idempotency_key)` returns the original row with `idempotent_replay=True` instead of inserting a duplicate. Derive keys from intent (agent_id + action_type + scope + your own request id), not timestamps:
+**Idempotency keys.** `create_action()` and `guard(context, record=True)` automatically derive the same key from agent, action type, declared goal, session, and the current hour bucket when none is supplied. This also covers the recording path used by `run_governed()`. An explicit `idempotency_key` takes precedence; evaluation-only `guard()` calls do not derive one. Repeated recording with the same `(org_id, idempotency_key)` reuses the action row. This deduplicates records, not callback execution: calling `run_governed()` again can run `fn()` again after approval clears.
+
+The default key changes at the hour boundary and can group separate actions with the same intent within an hour. Supply your own key to distinguish separate attempts or keep retries stable across that boundary. Derive it from intent and your request id:
 
 ```python
 key = DashClaw.derive_idempotency_key({

@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: SDK Lead
-last-verified: 2026-09-04
+last-verified: 2026-09-05
 doc-type: architecture
 ---
 
@@ -13,9 +13,9 @@ As of v5.0.0, both SDKs converge on the **governance core** — the intercept �
 decide → approve → prove loop and its directly supporting calls. The SDKs are no
 longer an agent-platform surface.
 
-- `dashclaw` (Node) is the canonical SDK: **39 governance-core methods**.
+- `dashclaw` (Node) is the canonical SDK: **40 governance-core methods**.
 - `dashclaw` (Python) exposes the same core plus a few read/admin conveniences:
-  **59 methods**.
+  **60 methods**.
 - The `dashclaw/legacy` Node compatibility subpath was **removed in v5.0.0**
   (its removal was announced with the v4.4.x deprecation notice).
 
@@ -26,8 +26,8 @@ and `_`-private methods) and gated by `scripts/check-doc-counts.mjs --strict`.
 
 | Surface | Entry point | Role |
 |---|---|---|
-| Node SDK | `sdk/dashclaw.js` / `import { DashClaw } from 'dashclaw'` | Canonical governance-core SDK (39 methods) |
-| Python SDK | `sdk-python/dashclaw/client.py` | Governance core + read/admin conveniences (59 methods) |
+| Node SDK | `sdk/dashclaw.js` / `import { DashClaw } from 'dashclaw'` | Canonical governance-core SDK (40 methods) |
+| Python SDK | `sdk-python/dashclaw/client.py` | Governance core + read/admin conveniences (60 methods) |
 
 ## Governance-core surface (both SDKs)
 
