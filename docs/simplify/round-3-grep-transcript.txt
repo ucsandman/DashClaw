@@ -1,0 +1,581 @@
+=== SYMBOL: getFeedbackStats  (declared in app/lib/feedback.ts) ===
+$ git grep -nw getFeedbackStats -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/feedback.ts:173:export async function getFeedbackStats(
+$ git grep -nw getFeedbackStats -- docs README.md PROJECT_DETAILS.md
+docs/platform-guide-coverage.json:5966:      "item": "legacy.client.getFeedbackStats",
+
+=== SYMBOL: listFeedback  (declared in app/lib/feedback.ts) ===
+$ git grep -nw listFeedback -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/feedback.ts:93:export async function listFeedback(
+$ git grep -nw listFeedback -- docs README.md PROJECT_DETAILS.md
+docs/platform-guide-coverage.json:5938:      "item": "legacy.client.listFeedback",
+
+=== SYMBOL: createFeedback  (declared in app/lib/feedback.ts) ===
+$ git grep -nw createFeedback -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/feedback.ts:64:export async function createFeedback(
+$ git grep -nw createFeedback -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: resolveFeedback  (declared in app/lib/feedback.ts) ===
+$ git grep -nw resolveFeedback -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/feedback.ts:148:export async function resolveFeedback(
+$ git grep -nw resolveFeedback -- docs README.md PROJECT_DETAILS.md
+docs/platform-guide-coverage.json:5952:      "item": "legacy.client.resolveFeedback",
+
+=== SYMBOL: deleteFeedback  (declared in app/lib/feedback.ts) ===
+$ git grep -nw deleteFeedback -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/feedback.ts:162:export async function deleteFeedback(request: Request, feedbackId: string): Promise<{ deleted: true }> {
+$ git grep -nw deleteFeedback -- docs README.md PROJECT_DETAILS.md
+docs/platform-guide-coverage.json:5959:      "item": "legacy.client.deleteFeedback",
+
+=== SYMBOL: createAccessRule  (declared in app/lib/repositories/capability-access.repository.ts) ===
+$ git grep -nw createAccessRule -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/repositories/capability-access.repository.ts:115:export async function createAccessRule(
+$ git grep -nw createAccessRule -- docs README.md PROJECT_DETAILS.md
+docs/superpowers/specs/2026-04-09-capability-access-policies-design.md:67:### createAccessRule(sql, orgId, data)
+
+=== SYMBOL: listAccessRules  (declared in app/lib/repositories/capability-access.repository.ts) ===
+$ git grep -nw listAccessRules -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/repositories/capability-access.repository.ts:102:export async function listAccessRules(
+$ git grep -nw listAccessRules -- docs README.md PROJECT_DETAILS.md
+docs/superpowers/specs/2026-04-09-capability-access-policies-design.md:71:### listAccessRules(sql, orgId, capabilityId)
+
+=== SYMBOL: deleteAccessRule  (declared in app/lib/repositories/capability-access.repository.ts) ===
+$ git grep -nw deleteAccessRule -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/repositories/capability-access.repository.ts:148:export async function deleteAccessRule(
+$ git grep -nw deleteAccessRule -- docs README.md PROJECT_DETAILS.md
+docs/superpowers/specs/2026-04-09-capability-access-policies-design.md:75:### deleteAccessRule(sql, orgId, ruleId)
+
+=== SYMBOL: listCapabilityHealthSummaries  (declared in app/lib/capability-health.ts) ===
+$ git grep -nw listCapabilityHealthSummaries -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/capability-health.ts:303:export async function listCapabilityHealthSummaries(
+$ git grep -nw listCapabilityHealthSummaries -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: printApprovalBlock  (declared in cli/lib/render.js) ===
+$ git grep -nw printApprovalBlock -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+cli/lib/render.js:54:export function printApprovalBlock(action, baseUrl) {
+$ git grep -nw printApprovalBlock -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: actionTypeIcons  (declared in app/lib/colors.ts) ===
+$ git grep -nw actionTypeIcons -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/colors.ts:28:export const actionTypeIcons: Record<string, string> = {
+$ git grep -nw actionTypeIcons -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: GuardContext  (declared in app/lib/types/governance.ts) ===
+$ git grep -nw GuardContext -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/governance.ts:76:export interface GuardContext {
+$ git grep -nw GuardContext -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/typescript-migration.md:416:* `GuardContext`
+docs/superpowers/plans/2026-08-11-plain-language-action-translation.md:66:- Produces: `PlainDescription`, `Confidence`, `CALM_RULE_IDS`, `unknownDescription(ruleId: string): PlainDescription`, `applySafetyFloor(desc: PlainDescription, riskScore: number): PlainDescription`. Extended `GuardContext['intel']` with `bash` and `file` members.
+
+=== SYMBOL: GuardDecisionRow  (declared in app/lib/types/governance.ts) ===
+$ git grep -nw GuardDecisionRow -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/governance.ts:115:export interface GuardDecisionRow {
+$ git grep -nw GuardDecisionRow -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: GuardPolicyRow  (declared in app/lib/types/governance.ts) ===
+$ git grep -nw GuardPolicyRow -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/governance.ts:62:export interface GuardPolicyRow {
+$ git grep -nw GuardPolicyRow -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: PromptInjectionFinding  (declared in app/lib/types/governance.ts) ===
+$ git grep -nw PromptInjectionFinding -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/governance.ts:141:export interface PromptInjectionFinding {
+$ git grep -nw PromptInjectionFinding -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/typescript-migration.md:424:* `PromptInjectionFinding`
+
+=== SYMBOL: SensitiveDataFinding  (declared in app/lib/types/governance.ts) ===
+$ git grep -nw SensitiveDataFinding -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/governance.ts:147:export interface SensitiveDataFinding {
+$ git grep -nw SensitiveDataFinding -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/typescript-migration.md:425:* `SensitiveDataFinding`
+
+=== SYMBOL: AuditReceipt  (declared in app/lib/types/governance.ts) ===
+$ git grep -nw AuditReceipt -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/governance.ts:153:export interface AuditReceipt {
+$ git grep -nw AuditReceipt -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/typescript-migration.md:426:* `AuditReceipt`
+
+=== SYMBOL: RiskScore  (declared in app/lib/types/governance.ts) ===
+$ git grep -nw RiskScore -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/governance.ts:18:export type RiskScore = Brand<number, 'RiskScore'>;
+$ git grep -nw RiskScore -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/dashclaw-hardening-report.md:234:**Recommended TypeScript-migration follow-up (per `docs/plans/typescript-migration.md`):** type the now-shared identity/risk/x402 contracts (`AuthenticatedAgentContext`, `RiskScore`, `X402PurchaseInput`, `SpendAmount`, `CurrencyCode`); make `verification_status` a typed enum persisted on `action_records` (the migration that closes the deferred column item); unify pricing behind `@claw/engine`; convert `guard.js`/`x402.repository.js`/`finops.repository.js` first (pure, high-value).
+docs/plans/archive/typescript-migration.md:422:* `RiskScore`
+
+=== SYMBOL: CardSkeleton  (declared in app/components/ui/Skeleton.tsx) ===
+$ git grep -nw CardSkeleton -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/components/ui/Skeleton.tsx:35:export function CardSkeleton() {
+$ git grep -nw CardSkeleton -- docs README.md PROJECT_DETAILS.md
+docs/decisions/2026-02-19-dashboard-redesign-visibility.md:33:1.  **ScoringProfileCard Structural Fix:** Corrected a bug where the card would render `null` during loading, causing the grid cell to collapse and the resize handle to float. It now uses `CardSkeleton` for proper layout preservation and `h-full` to correctly fill the grid cell.
+docs/superpowers/plans/2026-04-14-messages-in-governance-surfaces.md:185:import { CardSkeleton } from '../../components/ui/Skeleton';
+docs/superpowers/plans/2026-04-14-messages-in-governance-surfaces.md:217:    return <CardSkeleton />;
+docs/superpowers/specs/2026-06-04-dashclaw-product-sweep-design.md:48:- `Skeleton` / `ListSkeleton{rows}` / `CardSkeleton` / `StatSkeleton` — `app/components/ui/Skeleton.jsx`.
+
+=== SYMBOL: StatSkeleton  (declared in app/components/ui/Skeleton.tsx) ===
+$ git grep -nw StatSkeleton -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/components/ui/Skeleton.tsx:9:export function StatSkeleton() {
+$ git grep -nw StatSkeleton -- docs README.md PROJECT_DETAILS.md
+docs/superpowers/specs/2026-06-04-dashclaw-product-sweep-design.md:48:- `Skeleton` / `ListSkeleton{rows}` / `CardSkeleton` / `StatSkeleton` — `app/components/ui/Skeleton.jsx`.
+
+=== SYMBOL: getCapabilityBySlug  (declared in app/lib/repositories/capabilities.repository.ts) ===
+$ git grep -nw getCapabilityBySlug -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/repositories/capabilities.repository.ts:227:export async function getCapabilityBySlug(
+$ git grep -nw getCapabilityBySlug -- docs README.md PROJECT_DETAILS.md
+docs/superpowers/plans/2026-04-06-capability-invoke-research.md:24:| `app/lib/repositories/capabilities.repository.js` | Modify | Add `getCapabilityBySlug()` helper |
+docs/superpowers/plans/2026-04-06-capability-invoke-research.md:764:- [ ] **Step 2: Add getCapabilityBySlug function**
+docs/superpowers/plans/2026-04-06-capability-invoke-research.md:769:export async function getCapabilityBySlug(sql, orgId, slug) {
+docs/superpowers/plans/2026-04-06-capability-invoke-research.md:787:git commit -m "feat(capabilities): add getCapabilityBySlug repository helper
+docs/superpowers/plans/2026-04-06-capability-invoke-research.md:822:  getCapabilityBySlug,
+docs/superpowers/plans/2026-04-06-capability-invoke-research.md:876:  const existing = await getCapabilityBySlug(sql, ORG_ID, 'research-agent');
+
+=== SYMBOL: deleteCapability  (declared in app/lib/repositories/capabilities.repository.ts) ===
+$ git grep -nw deleteCapability -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/repositories/capabilities.repository.ts:305:export async function deleteCapability(
+$ git grep -nw deleteCapability -- docs README.md PROJECT_DETAILS.md
+docs/DECISIONS.md:2628:- Node SDK surface unchanged at 104 methods (syncState removed, deleteCapability added)
+docs/platform-guide-coverage.json:4454:      "item": "client.deleteCapability",
+
+=== SYMBOL: getIdentity  (declared in app/lib/repositories/identities.repository.ts) ===
+$ git grep -nw getIdentity -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/repositories/identities.repository.ts:82:export async function getIdentity(
+$ git grep -nw getIdentity -- docs README.md PROJECT_DETAILS.md
+docs/superpowers/plans/2026-03-23-agent-identity-settings.md:209:export async function getIdentity(sql, orgId, agentId) {
+
+=== SYMBOL: validateAssumptionUpdate  (declared in app/lib/validate.js) ===
+$ git grep -nw validateAssumptionUpdate -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/validate.js:281:export function validateAssumptionUpdate(body) {
+$ git grep -nw validateAssumptionUpdate -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: listTestRuns  (declared in app/lib/repositories/guardrails.repository.ts) ===
+$ git grep -nw listTestRuns -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/repositories/guardrails.repository.ts:61:export async function listTestRuns(
+$ git grep -nw listTestRuns -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: ActionCreateInput  (declared in app/lib/types/actions.ts) ===
+$ git grep -nw ActionCreateInput -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/actions.ts:74:export interface ActionCreateInput {
+$ git grep -nw ActionCreateInput -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/typescript-migration.md:443:* `ActionCreateInput`
+
+=== SYMBOL: ExecutionOutcome  (declared in app/lib/types/actions.ts) ===
+$ git grep -nw ExecutionOutcome -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/actions.ts:90:export interface ExecutionOutcome {
+$ git grep -nw ExecutionOutcome -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/typescript-migration.md:440:* `ExecutionOutcome`
+
+=== SYMBOL: ApprovalDecision  (declared in app/lib/types/actions.ts) ===
+$ git grep -nw ApprovalDecision -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/actions.ts:98:export interface ApprovalDecision {
+$ git grep -nw ApprovalDecision -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/typescript-migration.md:438:* `ApprovalDecision`
+
+=== SYMBOL: ActionCreateResult  (declared in app/lib/types/actions.ts) ===
+$ git grep -nw ActionCreateResult -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/actions.ts:85:export interface ActionCreateResult {
+$ git grep -nw ActionCreateResult -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/typescript-migration.md:444:* `ActionCreateResult`
+
+=== SYMBOL: ActionId  (declared in app/lib/types/actions.ts) ===
+$ git grep -nw ActionId -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/actions.ts:10:export type ActionId = Brand<string, 'ActionId'>; // ar_ prefix
+$ git grep -nw ActionId -- docs README.md PROJECT_DETAILS.md
+docs/DECISIONS.md:3217:- Branded ID types (OrganizationId, AgentId, ActionId, X402ProviderId, X402EndpointId) provide compile-time safety against identifier confusion
+docs/plans/archive/typescript-migration.md:434:* `ActionId`
+
+=== SYMBOL: IdempotencyKey  (declared in app/lib/types/actions.ts) ===
+$ git grep -nw IdempotencyKey -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/actions.ts:11:export type IdempotencyKey = Brand<string, 'IdempotencyKey'>;
+$ git grep -nw IdempotencyKey -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/typescript-migration.md:442:* `IdempotencyKey`
+
+=== SYMBOL: ActionType  (declared in app/lib/types/actions.ts) ===
+$ git grep -nw ActionType -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/actions.ts:14:export type ActionType = string;
+$ git grep -nw ActionType -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/typescript-migration.md:435:* `ActionType`
+
+=== SYMBOL: ActionStatus  (declared in app/lib/types/actions.ts) ===
+$ git grep -nw ActionStatus -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/actions.ts:17:export type ActionStatus = Nullable<string>;
+$ git grep -nw ActionStatus -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/typescript-migration.md:436:* `ActionStatus`
+
+=== SYMBOL: JwtClaims  (declared in app/lib/types/identity.ts) ===
+$ git grep -nw JwtClaims -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/identity.ts:45:export interface JwtClaims {
+$ git grep -nw JwtClaims -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/typescript-migration.md:408:* `JwtClaims`
+
+=== SYMBOL: ApiKeyContext  (declared in app/lib/types/identity.ts) ===
+$ git grep -nw ApiKeyContext -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/identity.ts:70:export interface ApiKeyContext {
+$ git grep -nw ApiKeyContext -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/typescript-migration.md:409:* `ApiKeyContext`
+
+=== SYMBOL: AuthenticatedAgentContext  (declared in app/lib/types/identity.ts) ===
+$ git grep -nw AuthenticatedAgentContext -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/identity.ts:82:export interface AuthenticatedAgentContext extends AgentIdentity {
+$ git grep -nw AuthenticatedAgentContext -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/dashclaw-hardening-report.md:234:**Recommended TypeScript-migration follow-up (per `docs/plans/typescript-migration.md`):** type the now-shared identity/risk/x402 contracts (`AuthenticatedAgentContext`, `RiskScore`, `X402PurchaseInput`, `SpendAmount`, `CurrencyCode`); make `verification_status` a typed enum persisted on `action_records` (the migration that closes the deferred column item); unify pricing behind `@claw/engine`; convert `guard.js`/`x402.repository.js`/`finops.repository.js` first (pure, high-value).
+docs/plans/archive/typescript-migration.md:403:* `AuthenticatedAgentContext`
+
+=== SYMBOL: AgentName  (declared in app/lib/types/identity.ts) ===
+$ git grep -nw AgentName -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/identity.ts:13:export type AgentName = Brand<string, 'AgentName'>;
+$ git grep -nw AgentName -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/typescript-migration.md:401:* `AgentName`
+
+=== SYMBOL: importPolicyPack  (declared in app/lib/guardrails/import-pack.ts) ===
+$ git grep -nw importPolicyPack -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/guardrails/import-pack.ts:169:export async function importPolicyPack(
+$ git grep -nw importPolicyPack -- docs README.md PROJECT_DETAILS.md
+docs/superpowers/plans/2026-08-20-short-list-policies-calibration.md:407:- Modify: `app/lib/repositories/hosted-workspace.repository.ts:105-116` — replace `importPolicyPack(sql, orgId, 'claude-code-starter')` with `seedCatastrophePack(sql, orgId)` (import from `../setup/catastrophe-pack.mjs`; it is plain JS, importable from TS — verify the existing `.mjs` import pattern used by `scripts/auto-migrate.mjs` and mirror whatever TS-side import the repo uses for `.mjs`, or add a `catastrophe-pack.d.ts`). Keep the try/catch: provisioning never fails on seed errors; log prefix `[HOSTED] short-list seeding failed for ...`.
+docs/superpowers/plans/2026-08-20-short-list-policies-calibration.md:408:- Modify test: `__tests__/unit/hosted/workspace-provision.test.js` — mock `seedCatastrophePack` instead of `importPolicyPack`; assert it is called once with `(sql, orgId)`; seed throw still returns a provisioned workspace.
+
+=== SYMBOL: redactFindingAttribution  (declared in app/lib/posture/signals.ts) ===
+$ git grep -nw redactFindingAttribution -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/posture/signals.ts:368:export function redactFindingAttribution(findings: PostureFinding[]): PostureFinding[] {
+$ git grep -nw redactFindingAttribution -- docs README.md PROJECT_DETAILS.md
+docs/superpowers/specs/2026-07-03-posture-signal-integrity-design.md:134:`redactFindingAttribution` in signals.ts, pinned by route tests.
+
+=== SYMBOL: computePosturePayload  (declared in app/lib/posture/signals.ts) ===
+$ git grep -nw computePosturePayload -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/posture/signals.ts:343: * stay `open`. This is pure (the I/O happens in computePosturePayload) so the
+app/lib/posture/signals.ts:423:export async function computePosturePayload(
+$ git grep -nw computePosturePayload -- docs README.md PROJECT_DETAILS.md
+docs/plans/archive/2026-06-12-posture-score-rebaseline.md:18:| 13 | `/posture` page shell + data load | **SHIPPED** | `app/posture/page.tsx:392-418` (Promise.all fetch of `/api/posture` + `/api/posture/findings`); ScoreHero :114-160 | `posture-page.test.tsx` "renders the score hero" (:66-71) passes; full path traced page→fetch→route→`computePosturePayload` | UPHELD |
+docs/superpowers/2026-06-06-posture-score-PROGRESS.md:42:| `app/lib/posture/signals.ts` | I/O boundary: `buildUnits`, `buildReplayMap` (internal), `buildAdjustments` (internal), `computePosturePayload` |
+docs/superpowers/plans/2026-07-04-live-host-canary.md:103:- signals.ts `computePosturePayload`: add `getLatestLiveCanaryRunForOrg` to the parallel gather; append the derived finding (if any) before `applyFindingStates` so snooze/accept_risk overlay works unchanged.
+docs/superpowers/specs/2026-07-03-posture-signal-integrity-design.md:103:`computePosturePayload` returns `coveredUnits` computed from the actual
+docs/superpowers/specs/2026-07-04-coverage-truth.md:107:   Spliced into `computePosturePayload` before `applyFindingStates` so
+
+=== SYMBOL: riskBand  (declared in app/lib/riskThresholds.ts) ===
+$ git grep -nw riskBand -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/riskThresholds.ts:15:export function riskBand(score: number | null | undefined): RiskBand {
+$ git grep -nw riskBand -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: useContextMenu  (declared in app/components/context-menu/ContextMenuProvider.tsx) ===
+$ git grep -nw useContextMenu -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/components/context-menu/ContextMenuProvider.tsx:48:export function useContextMenu(): ContextMenuApi {
+app/components/context-menu/ContextMenuProvider.tsx:50:  if (!ctx) throw new Error('useContextMenu must be used within ContextMenuProvider');
+$ git grep -nw useContextMenu -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: envValidation  (declared in app/lib/validateEnv.ts) ===
+$ git grep -nw envValidation -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/validateEnv.ts:85:export const envValidation = {
+$ git grep -nw envValidation -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: grantCoversTarget  (declared in app/lib/inert-policies.ts) ===
+$ git grep -nw grantCoversTarget -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/inert-policies.ts:110:export function grantCoversTarget(targetPrefix: string | null, target: string): boolean {
+$ git grep -nw grantCoversTarget -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: _resetClaimProbeForTests  (declared in app/components/ClaimWorkspaceBanner.tsx) ===
+$ git grep -nw _resetClaimProbeForTests -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/components/ClaimWorkspaceBanner.tsx:26:export function _resetClaimProbeForTests() {
+$ git grep -nw _resetClaimProbeForTests -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: getProviderRegistry  (declared in app/lib/providers/providerRegistry.ts) ===
+$ git grep -nw getProviderRegistry -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/providers/providerRegistry.ts:130:export function getProviderRegistry(): Record<string, ProviderEntry> {
+$ git grep -nw getProviderRegistry -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: isSupportedProvider  (declared in app/lib/providers/providerRegistry.ts) ===
+$ git grep -nw isSupportedProvider -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/providers/providerRegistry.ts:172:export function isSupportedProvider(provider: string): boolean {
+$ git grep -nw isSupportedProvider -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: ActKind  (declared in app/lib/guard/evidence.ts) ===
+$ git grep -nw ActKind -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/guard/evidence.ts:11:export type ActKind = 'shell' | 'http' | 'sql' | 'file';
+$ git grep -nw ActKind -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: DEFAULT_PROTECTED_PATHS  (declared in app/lib/guard/protected-path.ts) ===
+$ git grep -nw DEFAULT_PROTECTED_PATHS -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/guard/protected-path.ts:28:export const DEFAULT_PROTECTED_PATHS: string[] = Object.values(PROTECTED_PATH_GROUPS).flat();
+$ git grep -nw DEFAULT_PROTECTED_PATHS -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: SIGNING_CRV  (declared in app/lib/integrity/keys.ts) ===
+$ git grep -nw SIGNING_CRV -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/integrity/keys.ts:24:export const SIGNING_CRV = 'Ed25519';
+$ git grep -nw SIGNING_CRV -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: PLAN_STATUSES  (declared in app/lib/repositories/plans.repository.ts) ===
+$ git grep -nw PLAN_STATUSES -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/repositories/plans.repository.ts:22:export const PLAN_STATUSES = ['previewing', 'pending', 'approved', 'partially_approved', 'denied', 'expired', 'revoked'];
+$ git grep -nw PLAN_STATUSES -- docs README.md PROJECT_DETAILS.md
+docs/superpowers/plans/2026-07-26-preflight-plan-authorization.md:236:export const PLAN_STATUSES = ['pending', 'approved', 'partially_approved', 'denied', 'expired', 'revoked'];
+
+=== SYMBOL: STEP_GRANT_STATUSES  (declared in app/lib/repositories/plans.repository.ts) ===
+$ git grep -nw STEP_GRANT_STATUSES -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/repositories/plans.repository.ts:23:export const STEP_GRANT_STATUSES = ['pending', 'approved', 'denied'];
+$ git grep -nw STEP_GRANT_STATUSES -- docs README.md PROJECT_DETAILS.md
+docs/superpowers/plans/2026-07-26-preflight-plan-authorization.md:237:export const STEP_GRANT_STATUSES = ['pending', 'approved', 'denied'];
+
+=== SYMBOL: SignalSeverity  (declared in app/lib/security-filter.ts) ===
+$ git grep -nw SignalSeverity -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/security-filter.ts:18:export type SignalSeverity = keyof typeof SEVERITY_ROUTE;
+$ git grep -nw SignalSeverity -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: NumericString  (declared in app/lib/types/brand.ts) ===
+$ git grep -nw NumericString -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/brand.ts:20:export type NumericString = Brand<string, 'NumericString'>;
+$ git grep -nw NumericString -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: IsoTimestamp  (declared in app/lib/types/brand.ts) ===
+$ git grep -nw IsoTimestamp -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/brand.ts:23:export type IsoTimestamp = Brand<string, 'IsoTimestamp'>;
+$ git grep -nw IsoTimestamp -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+=== SYMBOL: FromNumeric  (declared in app/lib/types/db.ts) ===
+$ git grep -nw FromNumeric -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js
+app/lib/types/db.ts:18:export type FromNumeric = Nullable<number>;
+$ git grep -nw FromNumeric -- docs README.md PROJECT_DETAILS.md
+(no matches; exit 1)
+
+
+===== SUPPLEMENTAL: FULL-REPO (all tracked files) grep, excluding defining file and docs/ =====
+--- getFeedbackStats [app/lib/feedback.ts] ---
+.claude/skills/dashclaw-agent/knowledge/legacy-sdk-reference.md:331:| `getFeedbackStats` | `params` |
+CHANGELOG.md:7114:- **Feedback SDKs**: Added `submitFeedback()`, `listFeedback()`, and `getFeedbackStats()` to both Node.js and Python SDKs.
+--- listFeedback [app/lib/feedback.ts] ---
+.claude/skills/dashclaw-agent/knowledge/legacy-sdk-reference.md:327:| `listFeedback` | `filters` |
+CHANGELOG.md:7114:- **Feedback SDKs**: Added `submitFeedback()`, `listFeedback()`, and `getFeedbackStats()` to both Node.js and Python SDKs.
+--- createFeedback [app/lib/feedback.ts] ---
+(none)
+--- resolveFeedback [app/lib/feedback.ts] ---
+.claude/skills/dashclaw-agent/knowledge/legacy-sdk-reference.md:329:| `resolveFeedback` | `feedbackId` |
+--- deleteFeedback [app/lib/feedback.ts] ---
+.claude/skills/dashclaw-agent/knowledge/legacy-sdk-reference.md:330:| `deleteFeedback` | `feedbackId` |
+--- createAccessRule [app/lib/repositories/capability-access.repository.ts] ---
+CHANGELOG.md:6553:- **Access-rule uniqueness via DB constraints** (F04): `createAccessRule` used a separate SELECT duplicate-check followed by an INSERT. Two partial unique indexes on `capability_access_rules` (agent-specific and org-wide-default) now enforce uniqueness at the DB level; route catches `23505` for the "already exists" error.
+--- listAccessRules [app/lib/repositories/capability-access.repository.ts] ---
+(none)
+--- deleteAccessRule [app/lib/repositories/capability-access.repository.ts] ---
+(none)
+--- listCapabilityHealthSummaries [app/lib/capability-health.ts] ---
+(none)
+--- printApprovalBlock [cli/lib/render.js] ---
+(none)
+--- actionTypeIcons [app/lib/colors.ts] ---
+(none)
+--- GuardContext [app/lib/types/governance.ts] ---
+(none)
+--- GuardDecisionRow [app/lib/types/governance.ts] ---
+(none)
+--- GuardPolicyRow [app/lib/types/governance.ts] ---
+public/guides/platform-guide-data.json:3426:          "response": "{ policies: GuardPolicyRow[] } — full guard_policies rows ordered by created_at DESC",
+public/guides/platform-guide-data.json:3447:          "response": "{ policy: GuardPolicyRow } (the updated row via RETURNING *)",
+public/guides/platform-guide-data.json:3468:          "response": "201 { policy: GuardPolicyRow, policy_id: string }",
+--- PromptInjectionFinding [app/lib/types/governance.ts] ---
+(none)
+--- SensitiveDataFinding [app/lib/types/governance.ts] ---
+(none)
+--- AuditReceipt [app/lib/types/governance.ts] ---
+(none)
+--- RiskScore [app/lib/types/governance.ts] ---
+(none)
+--- CardSkeleton [app/components/ui/Skeleton.tsx] ---
+CHANGELOG.md:7020:- **ScoringProfileCard Layout**: Fixed a bug where the card collapsed during loading (rendering null) and failed to fill its grid cell. Now uses `CardSkeleton` and `h-full` for consistent grid alignment.
+--- StatSkeleton [app/components/ui/Skeleton.tsx] ---
+(none)
+--- getCapabilityBySlug [app/lib/repositories/capabilities.repository.ts] ---
+(none)
+--- deleteCapability [app/lib/repositories/capabilities.repository.ts] ---
+CHANGELOG.md:5389:- **Added — `deleteCapability(capabilityId)`** (`DELETE /api/capabilities/:id`).
+CHANGELOG.md:5390:- **Removed — `syncState`** (`/api/sync`, archived since v2.1.0). Net public-method count **unchanged at 104** (`syncState` −1, `deleteCapability` +1).
+--- getIdentity [app/lib/repositories/identities.repository.ts] ---
+(none)
+--- validateAssumptionUpdate [app/lib/validate.js] ---
+(none)
+--- listTestRuns [app/lib/repositories/guardrails.repository.ts] ---
+(none)
+--- ActionCreateInput [app/lib/types/actions.ts] ---
+(none)
+--- ExecutionOutcome [app/lib/types/actions.ts] ---
+(none)
+--- ApprovalDecision [app/lib/types/actions.ts] ---
+(none)
+--- ActionCreateResult [app/lib/types/actions.ts] ---
+(none)
+--- ActionId [app/lib/types/actions.ts] ---
+(none)
+--- IdempotencyKey [app/lib/types/actions.ts] ---
+(none)
+--- ActionType [app/lib/types/actions.ts] ---
+(none)
+--- ActionStatus [app/lib/types/actions.ts] ---
+(none)
+--- JwtClaims [app/lib/types/identity.ts] ---
+(none)
+--- ApiKeyContext [app/lib/types/identity.ts] ---
+(none)
+--- AuthenticatedAgentContext [app/lib/types/identity.ts] ---
+(none)
+--- AgentName [app/lib/types/identity.ts] ---
+(none)
+--- importPolicyPack [app/lib/guardrails/import-pack.ts] ---
+(none)
+--- redactFindingAttribution [app/lib/posture/signals.ts] ---
+(none)
+--- computePosturePayload [app/lib/posture/signals.ts] ---
+(none)
+--- riskBand [app/lib/riskThresholds.ts] ---
+(none)
+--- useContextMenu [app/components/context-menu/ContextMenuProvider.tsx] ---
+(none)
+--- envValidation [app/lib/validateEnv.ts] ---
+(none)
+--- grantCoversTarget [app/lib/inert-policies.ts] ---
+(none)
+--- _resetClaimProbeForTests [app/components/ClaimWorkspaceBanner.tsx] ---
+(none)
+--- getProviderRegistry [app/lib/providers/providerRegistry.ts] ---
+(none)
+--- isSupportedProvider [app/lib/providers/providerRegistry.ts] ---
+(none)
+--- ActKind [app/lib/guard/evidence.ts] ---
+(none)
+--- DEFAULT_PROTECTED_PATHS [app/lib/guard/protected-path.ts] ---
+(none)
+--- SIGNING_CRV [app/lib/integrity/keys.ts] ---
+(none)
+--- PLAN_STATUSES [app/lib/repositories/plans.repository.ts] ---
+public/guides/platform-guide-data.json:3311:            "query.status": "optional filter, one of PLAN_STATUSES",
+--- STEP_GRANT_STATUSES [app/lib/repositories/plans.repository.ts] ---
+(none)
+--- SignalSeverity [app/lib/security-filter.ts] ---
+(none)
+--- NumericString [app/lib/types/brand.ts] ---
+(none)
+--- IsoTimestamp [app/lib/types/brand.ts] ---
+(none)
+--- FromNumeric [app/lib/types/db.ts] ---
+(none)
+
+===== DELETIONS APPLIED =====
+ app/components/ClaimWorkspaceBanner.tsx            |   4 -
+ .../context-menu/ContextMenuProvider.tsx           |   8 +-
+ app/components/ui/Skeleton.tsx                     |  25 --
+ app/lib/capability-health.ts                       |  26 --
+ app/lib/colors.ts                                  |  24 --
+ app/lib/feedback.ts                                | 192 -------------
+ app/lib/guard/evidence.ts                          |   2 -
+ app/lib/guard/protected-path.ts                    |   3 -
+ app/lib/guardrails/import-pack.ts                  |  10 -
+ app/lib/inert-policies.ts                          |   8 +-
+ app/lib/integrity/keys.ts                          |   1 -
+ app/lib/posture/signals.ts                         | 307 ---------------------
+ app/lib/providers/providerRegistry.ts              |   8 -
+ app/lib/repositories/capabilities.repository.ts    |  27 --
+ .../repositories/capability-access.repository.ts   |  71 -----
+ app/lib/repositories/guardrails.repository.ts      |  13 -
+ app/lib/repositories/identities.repository.ts      |  14 -
+ app/lib/repositories/plans.repository.ts           |   9 -
+ app/lib/riskThresholds.ts                          |   7 -
+ app/lib/security-filter.ts                         |   2 -
+ app/lib/types/actions.ts                           |  42 +--
+ app/lib/types/brand.ts                             |  10 -
+ app/lib/types/db.ts                                |   5 -
+ app/lib/types/governance.ts                        |  85 +-----
+ app/lib/types/identity.ts                          |  22 --
+ app/lib/validate.js                                |  19 --
+ app/lib/validateEnv.ts                             |   6 -
+ cli/lib/render.js                                  |  25 --
+ 28 files changed, 4 insertions(+), 971 deletions(-)
+
+===== GATES =====
+npx eslint <28 touched files> -> exit 0, no output
+npm run typecheck (tsc --noEmit) -> exit 0, no output
+npm run route-sql:check -> Route SQL guard passed: no direct SQL usage increases (current total 23, baseline total 23).
+npx vitest run --maxWorkers=2 -> Test Files 517 passed | 1 skipped (518); Tests 5360 passed | 5 skipped (5365)
+npm run lint -> ESLint: 0 errors, 4 warnings in 4 files (pre-existing, untouched files)
+npx next build -> Compiled successfully in 4.0s, 198 routes, exit 0
+npm run openapi:check -> exit 0: OpenAPI artifact is up to date
+npm run api:inventory:check -> exit 0: API inventory artifacts are up to date.
+npm run version:check -> exit 0: OK no hardcoded version drift found (canonical: 5.33.3, 3.2.0, 3.1.5)
+npm run doc:counts -> exit 0: doc-counts: all gated counts match source-of-truth.
+
+===== POST-DELETE SWEEP: all 56 symbols absent from app/sdk/sdk-python/mcp-server/cli/plugins/scripts/__tests__/tests/hooks/packages/middleware*.js
+  except one stale COMMENT: app/lib/posture/signals.ts:172 mentions computePosturePayload (left per no-comment-fixes rule)
+
+===== git diff --numstat (mine, excluding pre-existing examples/ lock) =====
+0	4	app/components/ClaimWorkspaceBanner.tsx
+1	7	app/components/context-menu/ContextMenuProvider.tsx
+0	25	app/components/ui/Skeleton.tsx
+0	26	app/lib/capability-health.ts
+0	24	app/lib/colors.ts
+0	192	app/lib/feedback.ts
+0	2	app/lib/guard/evidence.ts
+0	3	app/lib/guard/protected-path.ts
+0	10	app/lib/guardrails/import-pack.ts
+1	7	app/lib/inert-policies.ts
+0	1	app/lib/integrity/keys.ts
+0	307	app/lib/posture/signals.ts
+0	8	app/lib/providers/providerRegistry.ts
+0	27	app/lib/repositories/capabilities.repository.ts
+0	71	app/lib/repositories/capability-access.repository.ts
+0	13	app/lib/repositories/guardrails.repository.ts
+0	14	app/lib/repositories/identities.repository.ts
+0	9	app/lib/repositories/plans.repository.ts
+0	7	app/lib/riskThresholds.ts
+0	2	app/lib/security-filter.ts
+1	41	app/lib/types/actions.ts
+0	10	app/lib/types/brand.ts
+0	5	app/lib/types/db.ts
+1	84	app/lib/types/governance.ts
+0	22	app/lib/types/identity.ts
+0	19	app/lib/validate.js
+0	6	app/lib/validateEnv.ts
+0	25	cli/lib/render.js
+TOTAL: 5 insertions, 971 deletions across 28 files
+
+=== CASCADE PASS (main loop, after the 56 deletions): exports whose only user was a deleted symbol ===
+$ git grep -nw getCapabilityWithHealth -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js   (run BEFORE deletion)
+(no hits: already deleted from the working tree; see the declaration list in round-3.md)
+
+$ git grep -nw CapabilityWithHealth -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js   (run BEFORE deletion)
+(no hits: already deleted from the working tree; see the declaration list in round-3.md)
+
+$ git grep -nw getFeedback -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js   (run BEFORE deletion)
+(no hits: already deleted from the working tree; see the declaration list in round-3.md)
+
+$ git grep -nw PosturePayload -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js   (run BEFORE deletion)
+(no hits: already deleted from the working tree; see the declaration list in round-3.md)
+
+$ git grep -nw RiskBand -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js   (run BEFORE deletion)
+(no hits: already deleted from the working tree; see the declaration list in round-3.md)
+
+$ git grep -nw SecurityFinding -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js   (run BEFORE deletion)
+(no hits: already deleted from the working tree; see the declaration list in round-3.md)
+
+$ git grep -nw ReplayStatus -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js   (run BEFORE deletion)
+(no hits: already deleted from the working tree; see the declaration list in round-3.md)
+
+$ git grep -nw ActionBindingStatus -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js   (run BEFORE deletion)
+(no hits: already deleted from the working tree; see the declaration list in round-3.md)
+
+$ git grep -nw OrganizationContext -- app sdk sdk-python mcp-server cli plugins scripts __tests__ tests hooks packages middleware.js middleware.demo.js middleware.shared.js   (run BEFORE deletion)
+(no hits: already deleted from the working tree; see the declaration list in round-3.md)
+

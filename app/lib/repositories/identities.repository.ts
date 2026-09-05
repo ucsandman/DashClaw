@@ -78,17 +78,3 @@ export async function deleteIdentity(
     RETURNING agent_id
   `;
 }
-
-export async function getIdentity(
-  sql: SqlTag,
-  orgId: string,
-  agentId: string
-): Promise<Record<string, unknown>[]> {
-  await ensureTable(sql);
-  return sql`
-    SELECT public_key, algorithm
-    FROM agent_identities
-    WHERE org_id = ${orgId} AND agent_id = ${agentId}
-    LIMIT 1
-  `;
-}

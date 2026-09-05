@@ -224,20 +224,6 @@ export async function getCapability(
   return shapeCapability(rows[0] as CapabilityRow | undefined);
 }
 
-export async function getCapabilityBySlug(
-  sql: SqlTag,
-  orgId: string,
-  slug: string,
-): Promise<Record<string, unknown> | null> {
-  const rows = await sql`
-    SELECT * FROM capabilities
-    WHERE org_id = ${orgId} AND slug = ${slug}
-    LIMIT 1
-  `;
-  if (rows.length === 0) return null;
-  return shapeCapability(rows[0] as CapabilityRow | undefined);
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Writes
 // ─────────────────────────────────────────────────────────────────────────────
@@ -300,19 +286,6 @@ export async function createCapability(
   `;
 
   return shapeCapability(rows[0] as CapabilityRow | undefined);
-}
-
-export async function deleteCapability(
-  sql: SqlTag,
-  orgId: string,
-  capabilityId: string,
-): Promise<boolean> {
-  const rows = await sql`
-    DELETE FROM capabilities
-    WHERE org_id = ${orgId} AND capability_id = ${capabilityId}
-    RETURNING capability_id
-  `;
-  return rows.length > 0;
 }
 
 export async function updateCapability(

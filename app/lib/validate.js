@@ -273,25 +273,6 @@ export function validateAssumption(body) {
   return validate(body, ASSUMPTION_SCHEMA);
 }
 
-const ASSUMPTION_UPDATE_SCHEMA = {
-  validated:           { type: 'boolean', required: true },
-  invalidated_reason:  { type: 'string', maxLength: 2000 },
-};
-
-export function validateAssumptionUpdate(body) {
-  const result = validate(body, ASSUMPTION_UPDATE_SCHEMA);
-
-  // Invalidating requires a reason
-  if (result.valid && result.data.validated === false) {
-    if (!result.data.invalidated_reason || result.data.invalidated_reason.trim().length === 0) {
-      result.valid = false;
-      result.errors.push('invalidated_reason is required when invalidating an assumption');
-    }
-  }
-
-  return result;
-}
-
 // ── Guard & Policy validation ──
 
 const GUARD_INPUT_SCHEMA = {

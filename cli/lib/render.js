@@ -50,28 +50,3 @@ export function hideCursor() {
 export function showCursor() {
   process.stdout.write(`${ESC}?25h`);
 }
-
-export function printApprovalBlock(action, baseUrl) {
-  const actionId = action.action_id || action.id || 'unknown';
-  const actionType = action.action_type || 'unknown';
-  const riskScore = action.risk_score != null ? String(action.risk_score) : '-';
-  const goal = action.declared_goal || '-';
-  const agentId = action.agent_id || '-';
-  const replayUrl = `${baseUrl}/replay/${actionId}`;
-
-  const lines = [
-    '\u2554\u2550\u2550 DashClaw Approval Required \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557',
-    `  Action ID:   ${actionId}`,
-    `  Agent:       ${agentId}`,
-    `  Action:      ${actionType}`,
-    '  Policy:      require_approval',
-    `  Risk Score:  ${riskScore}`,
-    `  Goal:        ${goal}`,
-    '',
-    `  Replay:      ${replayUrl}`,
-    '',
-    '  Waiting for approval... (Ctrl+C to abort)',
-    '\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d',
-  ];
-  process.stdout.write('\n' + lines.join('\n') + '\n\n');
-}

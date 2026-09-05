@@ -21,7 +21,6 @@ import {
 } from 'node:crypto';
 
 export const SIGNING_ALG = 'EdDSA';
-export const SIGNING_CRV = 'Ed25519';
 
 /**
  * A JSON Web Key for an OKP (Ed25519) curve. `d` is the private scalar (private

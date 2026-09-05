@@ -4,18 +4,12 @@
 // `policy_type` (exactly how app/lib/guard.js evaluatePolicy switches); the
 // `rules` JSON-text column parses into the matching `rules` shape.
 
-import type { Brand, Nullable } from './brand';
+import type { Nullable } from './brand';
 import type {
-  OrganizationId,
   VerificationStatus,
-  ReplayStatus,
-  ActionBindingStatus,
 } from './identity';
 
 export type DecisionType = 'allow' | 'warn' | 'allow_contained' | 'require_approval' | 'block';
-
-/** Server-computed authoritative risk, integer 0-100 (guard.js computeRiskScore). */
-export type RiskScore = Brand<number, 'RiskScore'>;
 
 export type GuardPolicyType =
   | 'risk_threshold'
@@ -58,44 +52,6 @@ export type GuardPolicy =
   | { policy_type: 'green_contract'; rules: { action_types: string[]; required_level: GreenLevel; action?: DecisionType } }
   | { policy_type: 'branch_freshness'; rules: { action_types: string[]; freshness?: string[]; max_commits_behind?: number; action?: DecisionType } };
 
-/** Raw guard_policies row (rules + agent_ids are JSON text). */
-export interface GuardPolicyRow {
-  id: string;
-  org_id: OrganizationId;
-  name: string;
-  policy_type: GuardPolicyType;
-  rules: string;
-  active: number;
-  agent_ids: Nullable<string>;
-  created_by: Nullable<string>;
-  created_at: Nullable<string>;
-  updated_at: Nullable<string>;
-}
-
-/** The `context` object passed to evaluateGuard. */
-export interface GuardContext {
-  action_type: string;
-  agent_id?: Nullable<string>;
-  agent_name?: Nullable<string>;
-  /** Agent-reported risk; may RAISE but never lower the server calculation. */
-  risk_score?: Nullable<number>;
-  systems_touched?: string[];
-  reversible?: boolean;
-  declared_goal?: Nullable<string>;
-  verification_status?: VerificationStatus;
-  replay_status?: ReplayStatus;
-  act_status?: ActionBindingStatus;
-  jti?: Nullable<string>;
-  act_hash?: Nullable<string>;
-  target?: Nullable<string>;
-  write_paths?: string[];
-  provider?: string;
-  provider_id?: Nullable<string>;
-  cost_estimate?: number;
-  intel?: Record<string, unknown>;
-  [field: string]: unknown;
-}
-
 /** Result returned by evaluateGuard. `risk_score` is the authoritative value. */
 export interface GuardDecision {
   decision: DecisionType;
@@ -109,49 +65,4 @@ export interface GuardDecision {
   agent_id: Nullable<string>;
   agent_name: Nullable<string>;
   evaluated_at: string;
-}
-
-/** Raw guard_decisions audit row (matched_policies/context/evidence are JSON text). */
-export interface GuardDecisionRow {
-  id: string;
-  org_id: OrganizationId;
-  agent_id: Nullable<string>;
-  agent_name: Nullable<string>;
-  verification_status: Nullable<VerificationStatus>;
-  replay_status: Nullable<ReplayStatus>;
-  jti: Nullable<string>;
-  act_status: Nullable<ActionBindingStatus>;
-  act_hash: Nullable<string>;
-  decision: DecisionType;
-  reason: Nullable<string>;
-  matched_policies: Nullable<string>;
-  context: Nullable<string>;
-  evidence: Nullable<string>;
-  risk_score: Nullable<number>;
-  action_type: Nullable<string>;
-  created_at: Nullable<string>;
-}
-
-export interface SecurityFinding {
-  type: string;
-  match?: string;
-  [field: string]: unknown;
-}
-
-export interface PromptInjectionFinding {
-  risk_level: string;
-  categories: string[];
-  recommendation: 'allow' | 'warn' | 'block';
-}
-
-export interface SensitiveDataFinding {
-  clean: boolean;
-  findings: SecurityFinding[];
-  redacted: string;
-}
-
-export interface AuditReceipt {
-  kid: string;
-  signature: string;
-  [field: string]: unknown;
 }

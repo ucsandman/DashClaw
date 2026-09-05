@@ -8,8 +8,6 @@
  * behave consistently across surfaces.
  */
 
-export type ActKind = 'shell' | 'http' | 'sql' | 'file';
-
 /** Wire shape of the optional `act` payload (validated in app/lib/validate.js). */
 export interface ActInput {
   kind?: unknown;

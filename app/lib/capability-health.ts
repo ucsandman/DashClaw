@@ -1,4 +1,3 @@
-import { listCapabilities } from './repositories/capabilities.repository';
 import { isLegacyActionRecordsError } from './capability-compat';
 import type { SqlTag } from './types/db';
 
@@ -272,57 +271,6 @@ export async function getCapabilityHealthSummary(
       timestamp: row.timestamp_start,
     })),
   };
-}
-
-export interface CapabilityWithHealth extends CapabilityHealthSummary {
-  capability_id: unknown;
-  name: unknown;
-  slug: string;
-  category: unknown;
-  risk_level: unknown;
-  health_status: unknown;
-}
-
-export async function getCapabilityWithHealth(
-  sql: SqlTag,
-  orgId: string,
-  capability: Capability,
-): Promise<CapabilityWithHealth> {
-  const health = await getCapabilityHealthSummary(sql, orgId, capability);
-  return {
-    capability_id: capability.capability_id,
-    name: capability.name,
-    slug: capability.slug,
-    category: capability.category || null,
-    risk_level: capability.risk_level,
-    health_status: capability.health_status,
-    ...health,
-  };
-}
-
-export async function listCapabilityHealthSummaries(
-  sql: SqlTag,
-  orgId: string,
-  filters: Record<string, unknown> = {},
-): Promise<CapabilityWithHealth[]> {
-  const {
-    status,
-    certification_status,
-    stale_only,
-    ...capabilityFilters
-  } = filters;
-
-  const capabilities = await listCapabilities(sql, orgId, capabilityFilters);
-  const summaries = await Promise.all(
-    capabilities.map((capability) => getCapabilityWithHealth(sql, orgId, capability as unknown as Capability)),
-  );
-
-  return summaries.filter((summary) => {
-    if (status && summary.status !== status) return false;
-    if (certification_status && summary.certification_status !== certification_status) return false;
-    if (stale_only === true && summary.stale_check !== true) return false;
-    return true;
-  });
 }
 
 export interface CircuitBreakerResult {

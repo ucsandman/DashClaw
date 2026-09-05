@@ -58,19 +58,6 @@ export async function createTestRun(
   return result[0] ?? null;
 }
 
-export async function listTestRuns(
-  sql: SqlTag,
-  orgId: string,
-  limit = 20
-): Promise<Record<string, unknown>[]> {
-  return sql`
-    SELECT * FROM guardrails_test_runs
-    WHERE org_id = ${orgId}
-    ORDER BY created_at DESC
-    LIMIT ${limit}
-  `;
-}
-
 export async function getActivePolicies(
   sql: SqlTag,
   orgId: string

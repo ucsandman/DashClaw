@@ -127,10 +127,6 @@ const PROVIDER_REGISTRY: Record<string, ProviderEntry> = Object.freeze({
   },
 });
 
-export function getProviderRegistry(): Record<string, ProviderEntry> {
-  return PROVIDER_REGISTRY;
-}
-
 export function getProviderEntries(): ProviderEntry[] {
   return Object.values(PROVIDER_REGISTRY);
 }
@@ -167,10 +163,6 @@ export function getDefaultProviderModel(provider: string, useCase: string | null
     return providerEntry.defaults[useCase];
   }
   return providerEntry.models[0]?.id || '';
-}
-
-export function isSupportedProvider(provider: string): boolean {
-  return Boolean(PROVIDER_REGISTRY[provider]);
 }
 
 export function isSupportedProviderModel(provider: string, model: string): boolean {

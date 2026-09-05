@@ -81,9 +81,3 @@ for (const warning of warnings) {
 for (const error of errors) {
   console.error(`[ENV] ERROR: ${error}`);
 }
-
-export const envValidation = {
-  warnings,
-  errors,
-  isValid: errors.length === 0,
-};

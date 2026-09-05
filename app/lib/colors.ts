@@ -23,27 +23,3 @@ export function getAgentColor(agentId: string): string {
   agentColorCache.set(agentId, color);
   return color;
 }
-
-// Action type icon mapping (returns Lucide icon name)
-export const actionTypeIcons: Record<string, string> = {
-  build: 'Hammer',
-  deploy: 'Rocket',
-  post: 'FileText',
-  apply: 'Briefcase',
-  security: 'Shield',
-  message: 'MessageSquare',
-  api: 'Link',
-  calendar: 'Calendar',
-  research: 'Search',
-  review: 'Eye',
-  fix: 'Wrench',
-  refactor: 'RefreshCw',
-  test: 'FlaskConical',
-  config: 'Settings',
-  monitor: 'Radio',
-  alert: 'AlertTriangle',
-  cleanup: 'Trash2',
-  sync: 'RefreshCw',
-  migrate: 'Package',
-  other: 'Zap',
-};

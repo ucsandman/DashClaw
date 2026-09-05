@@ -15,8 +15,6 @@ export const SEVERITY_ROUTE = {
   amber: '/decisions?severity=amber',
 } as const;
 
-export type SignalSeverity = keyof typeof SEVERITY_ROUTE;
-
 /**
  * Filter risk signals by a severity query param. 'red' / 'amber' narrow to that
  * tier; anything else (null, undefined, 'all', or an unknown value) returns the

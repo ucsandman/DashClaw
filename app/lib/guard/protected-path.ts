@@ -24,9 +24,6 @@ export const PROTECTED_PATH_GROUPS: Record<string, string[]> = {
   'cron/gateway': ['**/cron/**', 'vercel.json', '**/gateway*', '**/openclaw.json', 'docker-compose.yml', 'Dockerfile'],
 };
 
-/** Flattened default protected globs (every group). */
-export const DEFAULT_PROTECTED_PATHS: string[] = Object.values(PROTECTED_PATH_GROUPS).flat();
-
 /** Normalize a filesystem path for glob matching. */
 export function normalizePath(p: unknown): string {
   if (p == null) return '';

@@ -23,10 +23,6 @@ function probeClaimable(): Promise<boolean> {
   return cachedProbe;
 }
 
-export function _resetClaimProbeForTests() {
-  cachedProbe = null;
-}
-
 export default function ClaimWorkspaceBanner() {
   const [show, setShow] = useState(false);
 

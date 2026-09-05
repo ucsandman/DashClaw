@@ -13,15 +13,6 @@ type SqlClient = {
 // Grants are single-use: consumption is one atomic UPDATE ... WHERE grant_used_at
 // IS NULL RETURNING, the same race-safety shape as applyOperatorApprovalGrant.
 
-// U4: 'previewing' is the transient status between submission and the
-// preview loop finishing (POST /api/plans flips it to 'pending' via
-// markPlanPending once every step has a stamped preview verdict) — plans
-// must not be approvable/deniable before their previews exist. revoke is the
-// one verdict that also accepts 'previewing' (an operator can kill a stuck
-// preview run).
-export const PLAN_STATUSES = ['previewing', 'pending', 'approved', 'partially_approved', 'denied', 'expired', 'revoked'];
-export const STEP_GRANT_STATUSES = ['pending', 'approved', 'denied'];
-
 const mintId = (prefix: string) => `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
 
 export interface PlanStepInput {

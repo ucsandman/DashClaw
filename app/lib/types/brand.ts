@@ -11,13 +11,3 @@ export type Brand<T, B extends string> = T & { readonly [__brand]: B };
 
 /** A column/value that may be SQL NULL → `T | null`. */
 export type Nullable<T> = T | null;
-
-/**
- * A Postgres `numeric`/`decimal` value. The Neon HTTP driver returns these as
- * STRINGS (not numbers); `real`/`float4` come back as JS numbers. Coerce with
- * `Number(...)` before arithmetic. See reference_pg_numeric_returns_string.
- */
-export type NumericString = Brand<string, 'NumericString'>;
-
-/** ISO-8601 timestamp string as returned by the Neon driver. */
-export type IsoTimestamp = Brand<string, 'IsoTimestamp'>;

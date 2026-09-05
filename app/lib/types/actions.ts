@@ -4,17 +4,8 @@
 // money column `cost_estimate` is REAL (float4) → a JS number; it is a
 // write-time snapshot and must NOT be repriced on read.
 
-import type { Brand, Nullable } from './brand';
+import type { Nullable } from './brand';
 import type { OrganizationId } from './identity';
-
-export type ActionId = Brand<string, 'ActionId'>; // ar_ prefix
-export type IdempotencyKey = Brand<string, 'IdempotencyKey'>;
-
-/** Open vocabulary (deploy, security, api, …). */
-export type ActionType = string;
-
-/** Free-form lifecycle status text column (nullable). */
-export type ActionStatus = Nullable<string>;
 
 /** Durable-execution finality — action_records.outcome_status CHECK constraint. */
 export type OutcomeStatus =
@@ -69,35 +60,4 @@ export interface ActionRecord {
   session_id: Nullable<string>;
   created_at: Nullable<string>;
   updated_at: Nullable<string>;
-}
-
-export interface ActionCreateInput {
-  action_type: string;
-  agent_id: string;
-  agent_name?: string;
-  declared_goal?: string;
-  risk_score?: number;
-  session_id?: string;
-  idempotency_key?: string;
-  [field: string]: unknown;
-}
-
-export interface ActionCreateResult {
-  action_id: string;
-  status: Nullable<string>;
-}
-
-export interface ExecutionOutcome {
-  action_id: string;
-  outcome_status: OutcomeStatus;
-  outcome_summary?: Nullable<string>;
-  outcome_error?: Nullable<string>;
-  outcome_at?: Nullable<string>;
-}
-
-export interface ApprovalDecision {
-  action_id: string;
-  status: ApprovalStatus;
-  approved_by?: Nullable<string>;
-  approved_at?: Nullable<string>;
 }

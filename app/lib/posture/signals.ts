@@ -6,65 +6,16 @@
  * functions (computeScore, deriveFindings, gradeCoverage) remain pure.
  */
 
-import type { SqlTag } from '../types/db';
-import {
-  getCapabilityUnits,
-  getObservedActionUnits,
-  getRecentDecisions,
-  getIdentityBoundAgents,
-  getX402SpendSurfaces,
-  listFindingStates,
-} from '../repositories/posture.repository';
-import { getActivePolicies } from '../repositories/guardrails.repository';
-import { getLatestLiveCanaryRunForOrg } from '../repositories/live-canary.repository';
-import { getAgentCoverage } from '../repositories/coverage.repository';
-import { getLatestEnforcementLivenessRunForOrg } from '../repositories/enforcement-liveness.repository';
-import { getAgentLaneWitness } from '../repositories/silent-lane-witness.repository';
-import { getWitnessWindowMinutes } from '../silent-lane-witness';
-import { evaluatePolicy } from '../guard';
 import { isSyntheticEvent } from '../calibration-mining.js';
 import {
-  gradeCoverage,
-  computeScore,
   bucketRiskScore,
 } from './model';
-import {
-  deriveFindings, deriveLiveCanaryFinding, deriveCoverageFinding, deriveEnforcementLivenessFinding,
-  deriveSilentLaneWitnessFinding,
-} from './findings';
 import type {
   GovernableUnit,
-  Decision,
   Adjustments,
   Incident,
-  PostureScore,
   PostureFinding,
 } from './types';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Internal types
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface PolicyRow {
-  id: string;
-  name: string;
-  policy_type: string;
-  rules: string;
-  agent_ids?: string | null;
-  [field: string]: unknown;
-}
-
-interface PolicyRules {
-  threshold?: number;
-  action?: string;
-  action_types?: string[];
-  paths?: string[];
-  max_actions?: number;
-  window_minutes?: number;
-  max_spend_usd?: number;
-  approval_threshold?: number;
-  [k: string]: unknown;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Step 1 — build the deduplicated unit list
@@ -113,129 +64,6 @@ export function buildUnits(
   }
 
   return Array.from(byKey.values());
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 2 — build the policy replay map
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Severity ordering for folding multiple policy results into a single decision.
- * Higher = more restrictive.
- */
-const DECISION_SEV: Record<string, number> = {
-  allow: 0,
-  warn: 1,
-  allow_contained: 2,
-  require_approval: 3,
-  block: 4,
-};
-
-const VALID_DECISIONS = new Set<string>(['allow', 'warn', 'allow_contained', 'require_approval', 'block']);
-
-function toDecision(s: string): Decision {
-  return VALID_DECISIONS.has(s) ? (s as Decision) : 'allow';
-}
-
-/**
- * Pre-compute a Map<unitKey, Decision> by evaluating every active org-wide
- * policy against a synthetic GuardEvalContext for each unit.
- *
- * Design notes:
- * - We use evaluatePolicy() (single-policy evaluator), NOT evaluateGuard()
- *   (which persists a guard_decisions audit row on every call — forbidden here).
- * - For org-wide posture coverage we evaluate with agent_id=null so only
- *   policies with null/empty agent_ids scope (= apply to ALL agents) count as
- *   coverage. Agent-scoped policies do NOT contribute to the org-wide score
- *   (partial coverage, not universal).
- * - The synthetic context sets action_type / risk_score for risk_threshold and
- *   require_approval/block_action_type policies. For path-based or rate-limit
- *   policies the context carries no target/paths, so they correctly return null
- *   (no coverage for path-gating from a headless context).
- * - evaluatePolicy() returns null when the policy doesn't apply; we fold to the
- *   highest-severity result across all applicable policies.
- */
-async function buildReplayMap(
-  policies: Record<string, unknown>[],
-  units: GovernableUnit[],
-  sql: SqlTag,
-  orgId: string,
-): Promise<Map<string, Decision>> {
-  // Only org-wide policies (null/empty agent_ids) count for the coverage score.
-  const orgWidePolicies = (policies as PolicyRow[]).filter((p) => {
-    if (!p.agent_ids) return true;
-    try {
-      const scoped = JSON.parse(p.agent_ids);
-      return !Array.isArray(scoped) || scoped.length === 0;
-    } catch {
-      return false; // malformed → skip (fail-closed, same as guard.ts)
-    }
-  });
-
-  const result = new Map<string, Decision>();
-  if (orgWidePolicies.length === 0) return result;
-
-  await Promise.all(
-    units.map(async (unit) => {
-      // Synthetic context: minimal fields that matter for org-wide policies.
-      // risk_score: use the unit's bucketed level mapped back to a representative
-      // integer so risk_threshold policies fire correctly.
-      const representativeRisk = { low: 10, medium: 35, high: 60, critical: 85 }[unit.riskLevel];
-
-      const context = {
-        agent_id: null,
-        action_type: unit.surfaceType === 'action_type'
-          ? unit.key.replace(/^action_type:/, '')
-          : undefined,
-        risk_score: representativeRisk,
-        reversible: unit.reversible,
-        declared_goal: null,
-      };
-
-      let bestDecision: Decision = 'allow';
-      let bestSev = 0;
-
-      for (const policy of orgWidePolicies) {
-        let rules: PolicyRules = {};
-        try {
-          rules = typeof policy.rules === 'string'
-            ? (JSON.parse(policy.rules) as PolicyRules)
-            : (policy.rules as PolicyRules) ?? {};
-        } catch {
-          rules = {};
-        }
-
-        let policyResult: { action: string } | null = null;
-        try {
-          policyResult = await evaluatePolicy(
-            policy as PolicyRow,
-            rules,
-            context,
-            sql,
-            orgId,
-            representativeRisk,
-          );
-        } catch {
-          // evaluatePolicy can throw for side-effectful policy types (e.g.
-          // rate_limit hitting the DB with a null agent_id). Treat as no-op —
-          // those policy types don't contribute to org-wide structural coverage.
-          policyResult = null;
-        }
-
-        if (policyResult) {
-          const sev = DECISION_SEV[policyResult.action] ?? 0;
-          if (sev > bestSev) {
-            bestSev = sev;
-            bestDecision = toDecision(policyResult.action);
-          }
-        }
-      }
-
-      result.set(unit.key, bestDecision);
-    }),
-  );
-
-  return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -358,21 +186,6 @@ export interface StoredFindingState {
   updatedAt?: string | null;
 }
 
-/**
- * Strip operator attribution (actor identity, free-text note) from findings.
- * Applied at the API boundary for key-authenticated callers: quiet-decision
- * attribution is need-to-know for humans reviewing the surface, not for every
- * agent holding an org key (2026-07-03 security review, MEDIUM). The
- * timestamp stays — "when" is audit-shape, "who/why" is identity.
- */
-export function redactFindingAttribution(findings: PostureFinding[]): PostureFinding[] {
-  return findings.map((f) =>
-    f.statusMeta
-      ? { ...f, statusMeta: { actor: null, note: null, updatedAt: f.statusMeta.updatedAt } }
-      : f,
-  );
-}
-
 export function applyFindingStates(
   findings: PostureFinding[],
   states: Map<string, StoredFindingState>,
@@ -391,141 +204,4 @@ export function applyFindingStates(
       },
     };
   });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Public API
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface PosturePayload {
-  score: PostureScore;
-  findings: PostureFinding[];
-  unitCount: number;
-  /** Units whose coverage grade is 1 (fully governed). Always 0..unitCount. */
-  coveredUnits: number;
-  /** evidence-first guard: enforcement dimension's evidence/declared
-   *  mix from the recent-decision sample, for the /posture detail. Null when
-   *  no sampled decision carries an intent_source yet. */
-  enforcementEvidenceMix: EvidenceMix | null;
-}
-
-/**
- * Compute the org's current governance posture score.
- *
- * Steps:
- *   1. Gather raw data from repositories in parallel.
- *   2. Build the deduplicated GovernableUnit list.
- *   3. Build the replay map (policy coverage per unit) via evaluatePolicy.
- *   4. Build adjustments (incidents, follow-through, coach gaps).
- *   5. gradeCoverage → coverageByKey.
- *   6. computeScore + deriveFindings (pure engine functions).
- */
-export async function computePosturePayload(
-  sql: SqlTag,
-  orgId: string,
-): Promise<PosturePayload> {
-  // 7-day lookback for incidents.
-  const sinceTs = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-  // 1. Parallel data fetch.
-  const witnessWindowMinutes = getWitnessWindowMinutes();
-  const [
-    capUnits, actionUnits, activePolicies, decisionRows, x402Rows, findingStates, canaryRun,
-    coverageStats, enforcementLivenessRun, agentLaneWitness,
-  ] = await Promise.all([
-    getCapabilityUnits(sql, orgId),
-    getObservedActionUnits(sql, orgId),
-    getActivePolicies(sql, orgId),
-    getRecentDecisions(sql, orgId, sinceTs),
-    getX402SpendSurfaces(sql, orgId),
-    listFindingStates(sql, orgId),
-    getLatestLiveCanaryRunForOrg(sql, orgId),
-    getAgentCoverage(sql, orgId),
-    getLatestEnforcementLivenessRunForOrg(sql, orgId),
-    getAgentLaneWitness(sql, orgId, witnessWindowMinutes),
-  ]);
-
-  const x402Slugs = new Set(x402Rows.map((r) => String(r.slug || '')));
-  const stateByKey = new Map<string, StoredFindingState>(findingStates.map((s) => [
-    s.findingKey,
-    { status: s.status, actor: s.actor, note: s.note, updatedAt: s.updatedAt },
-  ]));
-
-  // 2. Build unit list.
-  const units = buildUnits(capUnits, actionUnits, x402Slugs);
-
-  // 3. Build replay map (async — evaluatePolicy per unit × policy).
-  const replayMap = await buildReplayMap(activePolicies, units, sql, orgId);
-
-  // Sync replay function for the pure engine.
-  const replay = (unitKey: string): Decision => replayMap.get(unitKey) ?? 'allow';
-
-  // infraOk: for now always true — infra health signals (MCP, embedding service)
-  // are not yet surfaced per-unit. Task 8 will add them.
-  const infraOk = (_u: GovernableUnit): boolean => true;
-
-  // 4. Build adjustments.
-  const adjustments = buildAdjustments(decisionRows);
-
-  // 4b. Evidence-first guard: intent-source signal per unit,
-  // derived from the same decision rows (no new query).
-  const { byUnitKey: intentSourceByUnitKey, enforcementMix } = buildIntentSourceSignal(decisionRows);
-  const intentSource = (u: GovernableUnit): 'evidence' | 'declared' | null => intentSourceByUnitKey.get(u.key) ?? null;
-
-  // 5. Grade coverage for each unit.
-  const coverageByKey: Record<string, number> = {};
-  for (const unit of units) {
-    const { grade } = gradeCoverage(unit, replay, infraOk, intentSource);
-    coverageByKey[unit.key] = grade;
-  }
-
-  // 6. Run the pure engine, then merge stored finding state onto the queue.
-  const score = computeScore(units, coverageByKey, adjustments);
-  const derived = deriveFindings(units, coverageByKey, adjustments);
-  // v3.4: the live-host canary's verdict joins the queue as one collapsed
-  // auditability finding (fresh failures only — see deriveLiveCanaryFinding).
-  // Appended before the state merge so snooze/accept_risk apply unchanged.
-  const canaryFinding = deriveLiveCanaryFinding(canaryRun, Date.now());
-  if (canaryFinding) {
-    // Keep the queue's scoreDelta-descending order (deriveFindings sorts).
-    const idx = derived.findIndex((f) => f.scoreDelta < canaryFinding.scoreDelta);
-    if (idx === -1) derived.push(canaryFinding);
-    else derived.splice(idx, 0, canaryFinding);
-  }
-  // v4.2: event-coverage drop joins the queue as one collapsed auditability
-  // finding (offending agents listed). Same splice discipline as the canary so
-  // scoreDelta-descending order holds and snooze/accept_risk apply unchanged.
-  const coverageFinding = deriveCoverageFinding(coverageStats, Date.now());
-  if (coverageFinding) {
-    const idx = derived.findIndex((f) => f.scoreDelta < coverageFinding.scoreDelta);
-    if (idx === -1) derived.push(coverageFinding);
-    else derived.splice(idx, 0, coverageFinding);
-  }
-  // v8.2: enforcement-liveness joins the queue the same way — unlike the
-  // canary, a stale probe is itself a finding (see deriveEnforcementLivenessFinding).
-  const enforcementLivenessFinding = deriveEnforcementLivenessFinding(enforcementLivenessRun, Date.now());
-  if (enforcementLivenessFinding) {
-    const idx = derived.findIndex((f) => f.scoreDelta < enforcementLivenessFinding.scoreDelta);
-    if (idx === -1) derived.push(enforcementLivenessFinding);
-    else derived.splice(idx, 0, enforcementLivenessFinding);
-  }
-  // v8.3: silent-lane witness joins the queue the same way — informational
-  // only (F5), so it never touches an action's own risk score, only the
-  // display-weight scoreDelta on this collapsed finding (see
-  // deriveSilentLaneWitnessFinding).
-  const silentLaneWitnessFinding = deriveSilentLaneWitnessFinding(agentLaneWitness, witnessWindowMinutes, Date.now());
-  if (silentLaneWitnessFinding) {
-    const idx = derived.findIndex((f) => f.scoreDelta < silentLaneWitnessFinding.scoreDelta);
-    if (idx === -1) derived.push(silentLaneWitnessFinding);
-    else derived.splice(idx, 0, silentLaneWitnessFinding);
-  }
-  const findings = applyFindingStates(derived, stateByKey);
-
-  // v3.1: coverage counted from the grades themselves — findings are not
-  // units, and this number can never leave 0..unitCount.
-  const coveredUnits = units.filter((u) => (coverageByKey[u.key] ?? 0) >= 1).length;
-
-  const enforcementEvidenceMix = enforcementMix.evidence + enforcementMix.declared > 0 ? enforcementMix : null;
-
-  return { score, findings, unitCount: units.length, coveredUnits, enforcementEvidenceMix };
 }

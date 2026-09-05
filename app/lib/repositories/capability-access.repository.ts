@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import type { SqlTag } from '../types/db';
 
 interface AccessRuleRow {
@@ -10,15 +9,6 @@ interface AccessRuleRow {
   reason?: unknown;
   created_by?: unknown;
   created_at: unknown;
-  [k: string]: unknown;
-}
-
-interface AccessRuleInput {
-  capability_id?: unknown;
-  agent_id?: unknown;
-  access: string;
-  reason?: unknown;
-  created_by?: unknown;
   [k: string]: unknown;
 }
 
@@ -35,8 +25,6 @@ export function shapeAccessRule(row: AccessRuleRow | null | undefined): Record<s
     created_at: row.created_at,
   };
 }
-
-const VALID_ACCESS_LEVELS = new Set(['allow', 'deny', 'require_approval']);
 
 // Lower = more permissive. Unknown access values rank as deny (fail closed).
 const ACCESS_SEVERITY: Record<string, number> = { allow: 0, require_approval: 1, deny: 2 };
@@ -97,63 +85,4 @@ export async function evaluateAccess(
   }
 
   return { access: agentAccess, rule: shapeAccessRule(agentRule) };
-}
-
-export async function listAccessRules(
-  sql: SqlTag,
-  orgId: string,
-  capabilityId: string,
-): Promise<{ rules: Array<Record<string, unknown> | null> }> {
-  const rows = await sql`
-    SELECT * FROM capability_access_rules
-    WHERE org_id = ${orgId} AND capability_id = ${capabilityId}
-    ORDER BY agent_id IS NULL ASC, created_at DESC
-  `;
-  return { rules: rows.map((r) => shapeAccessRule(r as AccessRuleRow)) };
-}
-
-export async function createAccessRule(
-  sql: SqlTag,
-  orgId: string,
-  data: AccessRuleInput,
-): Promise<Record<string, unknown> | null> {
-  if (!VALID_ACCESS_LEVELS.has(data.access)) {
-    throw new Error(`Invalid access level: ${data.access}. Must be allow, deny, or require_approval.`);
-  }
-
-  // Duplicate prevention is enforced by the two partial unique indexes
-  // (capability_access_rules_unique_agent / ..._unique_default). Catch
-  // unique_violation (23505) from the INSERT to distinguish a duplicate
-  // from any other DB error, eliminating the prior check-then-insert race.
-  const ruleId = `car_${crypto.randomUUID()}`;
-  try {
-    const rows = await sql`
-      INSERT INTO capability_access_rules (
-        rule_id, org_id, capability_id, agent_id, access, reason, created_by
-      ) VALUES (
-        ${ruleId}, ${orgId}, ${data.capability_id},
-        ${data.agent_id || null}, ${data.access}, ${data.reason || null}, ${data.created_by || null}
-      )
-      RETURNING *
-    `;
-    return shapeAccessRule(rows[0] as AccessRuleRow | undefined);
-  } catch (err) {
-    if ((err as { code?: string })?.code === '23505') {
-      throw new Error('A rule for this capability and agent already exists. Delete it first.');
-    }
-    throw err;
-  }
-}
-
-export async function deleteAccessRule(
-  sql: SqlTag,
-  orgId: string,
-  ruleId: string,
-): Promise<{ deleted: boolean } | null> {
-  const rows = await sql`
-    DELETE FROM capability_access_rules
-    WHERE org_id = ${orgId} AND rule_id = ${ruleId}
-    RETURNING rule_id
-  `;
-  return rows.length > 0 ? { deleted: true } : null;
 }

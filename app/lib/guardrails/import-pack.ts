@@ -164,13 +164,3 @@ export async function importPolicies(
   // construction — no separate counter can drift away from that.
   return { imported, skipped, errors, watched: imported.length - claimed, short_listed: claimed, dormant };
 }
-
-/** Load a named pack and import its policies for the org. */
-export async function importPolicyPack(
-  sql: SqlTag,
-  orgId: string,
-  packName: string,
-): Promise<ImportPoliciesResult> {
-  const policies = await loadPackPolicies(packName);
-  return importPolicies(sql, orgId, policies);
-}

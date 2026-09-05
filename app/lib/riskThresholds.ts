@@ -9,12 +9,3 @@
  */
 export const RISK_MEDIUM_MIN = 40;
 export const RISK_HIGH_MIN = 70;
-
-export type RiskBand = 'low' | 'medium' | 'high';
-
-export function riskBand(score: number | null | undefined): RiskBand {
-  const n = Number(score) || 0;
-  if (n >= RISK_HIGH_MIN) return 'high';
-  if (n >= RISK_MEDIUM_MIN) return 'medium';
-  return 'low';
-}

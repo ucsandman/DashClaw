@@ -15,7 +15,7 @@
  * Pure and synchronous — the caller supplies the org's policy rows.
  */
 
-import { grantIsExpired, prefixMatches } from './policy-shapes';
+import { grantIsExpired } from './policy-shapes';
 import { parseRules } from './guardrails/short-list';
 
 export interface PolicyRowLike {
@@ -104,10 +104,4 @@ export function findInertPolicies(policies: PolicyRowLike[], now: Date = new Dat
     }
   }
   return inert;
-}
-
-/** Does a scoped grant cover this concrete target? (UI drill-down helper.) */
-export function grantCoversTarget(targetPrefix: string | null, target: string): boolean {
-  if (!targetPrefix) return true;
-  return prefixMatches(targetPrefix, target);
 }

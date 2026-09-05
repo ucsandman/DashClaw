@@ -10,7 +10,6 @@ import type { Brand, Nullable } from './brand';
 
 export type OrganizationId = Brand<string, 'OrganizationId'>;
 export type AgentId = Brand<string, 'AgentId'>;
-export type AgentName = Brand<string, 'AgentName'>;
 
 export type OrganizationRole = 'owner' | 'admin' | 'member' | 'viewer';
 
@@ -22,35 +21,6 @@ export type VerificationStatus =
   | 'failed'
   | 'unknown_issuer'
   | 'exp_too_far';
-
-/** jti replay-protection outcome — mirrors guard_decisions.replay_status. */
-export type ReplayStatus =
-  | 'not_applicable'
-  | 'unique'
-  | 'replayed'
-  | 'not_present'
-  | 'unavailable'
-  | 'exp_too_far'
-  | 'disabled';
-
-/** Action-binding outcome — mirrors guard_decisions.act_status. */
-export type ActionBindingStatus =
-  | 'not_applicable'
-  | 'match'
-  | 'mismatch'
-  | 'not_present'
-  | 'unsupported_typ'
-  | 'ctx_incomplete';
-
-export interface JwtClaims {
-  sub?: string;
-  iss?: string;
-  aud?: string | string[];
-  exp?: number;
-  iat?: number;
-  jti?: string;
-  [claim: string]: unknown;
-}
 
 /**
  * Result of resolveAgentIdentity(). `verified` distinguishes a cryptographically
@@ -65,20 +35,4 @@ export interface AgentIdentity {
   jti: Nullable<string>;
   /** Full verifier result (jwks-verifier.js); narrow before use. */
   verification: unknown;
-}
-
-export interface ApiKeyContext {
-  orgId: OrganizationId;
-  keyId: string;
-  role: OrganizationRole;
-}
-
-export interface OrganizationContext {
-  orgId: OrganizationId;
-  role?: OrganizationRole;
-}
-
-/** Authenticated, governance-ready agent context (identity ∪ org). */
-export interface AuthenticatedAgentContext extends AgentIdentity {
-  org: OrganizationContext;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useCallback, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { isEditableTarget, resolveEntityTarget } from './resolveEntityTarget';
 import { getActionsFor, getFallbackActions } from './actionRegistry';
@@ -44,12 +44,6 @@ interface ContextMenuApi {
 }
 
 const ContextMenuContext = createContext<ContextMenuApi | null>(null);
-
-export function useContextMenu(): ContextMenuApi {
-  const ctx = useContext(ContextMenuContext);
-  if (!ctx) throw new Error('useContextMenu must be used within ContextMenuProvider');
-  return ctx;
-}
 
 export function ContextMenuProvider({ children }: { children?: React.ReactNode }) {
   const router = useRouter();
