@@ -27,7 +27,7 @@ All other scripts stay in `package.json`; add one here only when the agent keeps
 CLAUDE.md is advisory; CI is not. A push is its own step - run these and READ the output first:
 
 - `npm run lint`
-- `npx vitest run` - the **full** suite (targeted runs miss regressions in unrelated files)
+- `npx vitest run` - the **full** suite (targeted runs miss regressions in unrelated files). Tests run on **node** by default; only `.jsx`/`.tsx` tests and the files listed in `DOM_TESTS` in `vitest.config.js` get jsdom (that split took the suite from 511s to 161s). A new test that needs `window`/`document` goes in that list or carries `// @vitest-environment jsdom`; the tell is `document is not defined`.
 - `npx next build` - required for any change under `app/**`
 - For any changed `.ts` file (even outside `app/`), run `npm run typecheck` before pushing - vitest transpiles without type-checking and will pass; the build runs `tsc` and will not.
 - **Entry-path drills (v8.3, `scripts/drills/README.md`)**: a release touching `cli/**`, `scripts/setup.mjs`, or the `up` path runs `npm run drill:fresh-windows` (and/or `drill:fresh-linux`) first; one touching hosted mint/export/import runs `npm run drill:hosted`. A drill failure is a broken ship - fix on the spot, log it in the maintainer log. These test the DISTRIBUTION path on factory-fresh machines; CI's `up-smoke.yml` (from-source, dev-imaged runners) does not cover that class.

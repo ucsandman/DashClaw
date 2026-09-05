@@ -79,9 +79,9 @@ describe('runGoverned', () => {
     claw = new DashClaw({ baseUrl: 'http://localhost:3000', apiKey: 'k', agentId: 'agent-1' });
   });
 
-  it('guard(allow) -> createAction -> fn() -> reportActionOutcome(completed)', async () => {
-    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'allow' });
-    vi.spyOn(claw, 'createAction').mockResolvedValue({ action: { status: 'running' }, action_id: 'act_1' });
+  it('guard(allow, recorded) -> fn() -> reportActionOutcome(completed), with ONE call (no createAction)', async () => {
+    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'allow', recorded: true, action_id: 'act_1' });
+    const createSpy = vi.spyOn(claw, 'createAction');
     const outcomeSpy = vi.spyOn(claw, 'reportActionOutcome').mockResolvedValue({});
     const fn = vi.fn().mockResolvedValue('done');
 
@@ -92,10 +92,42 @@ describe('runGoverned', () => {
     );
 
     expect(result).toBe('done');
-    expect(claw.guard).toHaveBeenCalledWith({ action_type: 'other', declared_goal: 'g', act: { kind: 'shell', command: 'ls' } });
-    expect(claw.createAction).toHaveBeenCalledWith({ action_type: 'other', declared_goal: 'g', act: { kind: 'shell', command: 'ls' } });
+    expect(claw.guard).toHaveBeenCalledWith(
+      { action_type: 'other', declared_goal: 'g', act: { kind: 'shell', command: 'ls' } },
+      { record: true },
+    );
+    expect(createSpy).not.toHaveBeenCalled();
     expect(fn).toHaveBeenCalledTimes(1);
     expect(outcomeSpy).toHaveBeenCalledWith('act_1', { status: 'completed' });
+  });
+
+  it('falls back to createAction when the guard response did not record (older server, or recording failed)', async () => {
+    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'allow', recorded: false, recorded_error: 'boom' });
+    const createSpy = vi.spyOn(claw, 'createAction').mockResolvedValue({ action: { status: 'running' }, action_id: 'act_fallback' });
+    const outcomeSpy = vi.spyOn(claw, 'reportActionOutcome').mockResolvedValue({});
+    const fn = vi.fn().mockResolvedValue('done');
+
+    const result = await claw.runGoverned(
+      { kind: 'shell', command: 'ls' },
+      { action_type: 'other', declared_goal: 'g' },
+      fn,
+    );
+
+    expect(result).toBe('done');
+    expect(createSpy).toHaveBeenCalledWith({ action_type: 'other', declared_goal: 'g', act: { kind: 'shell', command: 'ls' } });
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(outcomeSpy).toHaveBeenCalledWith('act_fallback', { status: 'completed' });
+  });
+
+  it('falls back to createAction when the guard response is recorded but has no action_id (defensive)', async () => {
+    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'allow', recorded: true });
+    const createSpy = vi.spyOn(claw, 'createAction').mockResolvedValue({ action: { status: 'running' }, action_id: 'act_fallback2' });
+    vi.spyOn(claw, 'reportActionOutcome').mockResolvedValue({});
+    const fn = vi.fn().mockResolvedValue('done');
+
+    await claw.runGoverned({ kind: 'shell', command: 'ls' }, { action_type: 'other', declared_goal: 'g' }, fn);
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
   });
 
   it('throws GuardBlockedError on block and never calls createAction or fn', async () => {
@@ -111,22 +143,23 @@ describe('runGoverned', () => {
     expect(fn).not.toHaveBeenCalled();
   });
 
-  it('waits for approval by default when createAction returns pending_approval', async () => {
-    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'require_approval' });
-    vi.spyOn(claw, 'createAction').mockResolvedValue({ action: { status: 'pending_approval' }, action_id: 'act_2' });
+  it('waits for approval by default when the guard decision is require_approval', async () => {
+    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'require_approval', recorded: true, action_id: 'act_2' });
+    const createSpy = vi.spyOn(claw, 'createAction');
     const waitSpy = vi.spyOn(claw, 'waitForApproval').mockResolvedValue({});
     vi.spyOn(claw, 'reportActionOutcome').mockResolvedValue({});
     const fn = vi.fn().mockResolvedValue('ok');
 
     await claw.runGoverned({ kind: 'shell', command: 'rm x' }, { action_type: 'cleanup', declared_goal: 'g' }, fn);
 
+    expect(createSpy).not.toHaveBeenCalled();
     expect(waitSpy).toHaveBeenCalledWith('act_2');
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
   it('wait: false on a pending approval throws ApprovalPendingError and NEVER runs fn (no silent approval bypass)', async () => {
-    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'require_approval' });
-    vi.spyOn(claw, 'createAction').mockResolvedValue({ action: { status: 'pending_approval' }, action_id: 'act_3' });
+    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'require_approval', recorded: true, action_id: 'act_3' });
+    const createSpy = vi.spyOn(claw, 'createAction');
     const waitSpy = vi.spyOn(claw, 'waitForApproval').mockResolvedValue({});
     const outcomeSpy = vi.spyOn(claw, 'reportActionOutcome').mockResolvedValue({});
     const fn = vi.fn().mockResolvedValue('ok');
@@ -139,16 +172,15 @@ describe('runGoverned', () => {
       )
     ).rejects.toMatchObject({ name: 'ApprovalPendingError', actionId: 'act_3' });
 
+    expect(createSpy).not.toHaveBeenCalled();
     expect(waitSpy).not.toHaveBeenCalled();
     expect(fn).not.toHaveBeenCalled();
     expect(outcomeSpy).not.toHaveBeenCalled();
     expect(claw.guard.mock.calls[0][0]).not.toHaveProperty('wait');
-    expect(claw.createAction.mock.calls[0][0]).not.toHaveProperty('wait');
   });
 
   it('wait: false with an allow decision runs fn normally (no approval involved)', async () => {
-    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'allow' });
-    vi.spyOn(claw, 'createAction').mockResolvedValue({ action: { status: 'running' }, action_id: 'act_3b' });
+    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'allow', recorded: true, action_id: 'act_3b' });
     const waitSpy = vi.spyOn(claw, 'waitForApproval').mockResolvedValue({});
     vi.spyOn(claw, 'reportActionOutcome').mockResolvedValue({});
     const fn = vi.fn().mockResolvedValue('ok');
@@ -165,8 +197,7 @@ describe('runGoverned', () => {
   });
 
   it('propagates ApprovalDeniedError without calling fn or reporting an outcome', async () => {
-    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'require_approval' });
-    vi.spyOn(claw, 'createAction').mockResolvedValue({ action: { status: 'pending_approval' }, action_id: 'act_5' });
+    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'require_approval', recorded: true, action_id: 'act_5' });
     vi.spyOn(claw, 'waitForApproval').mockRejectedValue(new ApprovalDeniedError('Denied', 'cancelled'));
     const outcomeSpy = vi.spyOn(claw, 'reportActionOutcome').mockResolvedValue({});
     const fn = vi.fn();
@@ -180,8 +211,7 @@ describe('runGoverned', () => {
   });
 
   it('reports a failed outcome and rethrows when fn() throws', async () => {
-    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'allow' });
-    vi.spyOn(claw, 'createAction').mockResolvedValue({ action: { status: 'running' }, action_id: 'act_6' });
+    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'allow', recorded: true, action_id: 'act_6' });
     const outcomeSpy = vi.spyOn(claw, 'reportActionOutcome').mockResolvedValue({});
     const fn = vi.fn().mockRejectedValue(new Error('boom'));
 
@@ -192,8 +222,8 @@ describe('runGoverned', () => {
     expect(outcomeSpy).toHaveBeenCalledWith('act_6', { status: 'failed', error_message: 'boom' });
   });
 
-  it('scrubs the act before sending it to guard/createAction', async () => {
-    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'allow' });
+  it('scrubs the act before sending it to guard, and to createAction on the fallback path', async () => {
+    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'allow', recorded: false });
     vi.spyOn(claw, 'createAction').mockResolvedValue({ action: { status: 'running' }, action_id: 'act_7' });
     vi.spyOn(claw, 'reportActionOutcome').mockResolvedValue({});
 
@@ -205,6 +235,27 @@ describe('runGoverned', () => {
 
     expect(claw.guard.mock.calls[0][0].act.command).not.toContain('sk-aaaaaaaaaaaa');
     expect(claw.createAction.mock.calls[0][0].act.command).not.toContain('sk-aaaaaaaaaaaa');
+  });
+
+  it('makes exactly one HTTP request to /api/guard?record=true on the happy path (no createAction round trip)', async () => {
+    vi.spyOn(claw, 'reportActionOutcome').mockResolvedValue({});
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ decision: 'allow', recorded: true, action_id: 'act_wire_1' }),
+    });
+
+    const result = await claw.runGoverned(
+      { kind: 'shell', command: 'ls' },
+      { action_type: 'other', declared_goal: 'g' },
+      vi.fn().mockResolvedValue('done'),
+    );
+
+    expect(result).toBe('done');
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url] = global.fetch.mock.calls[0];
+    expect(url).toContain('/api/guard');
+    expect(url).toContain('record=true');
   });
 });
 

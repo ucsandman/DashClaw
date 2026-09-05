@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Changed
+
+- **SDK `runGoverned`/`run_governed` now records in the same guard call** (`POST /api/guard?record=true`) instead of a separate `createAction` request — one HTTP round trip instead of two per governed action. Falls back to the previous `createAction` call when the server doesn't record (older self-hosted servers that ignore the `record` param, or a recording failure).
+- **`/approvals` stops fetching every plan one by one.** `GET /api/plans?expand=details` returns each plan with its steps and deviations in two batched queries, so the page's 10-second poll is five requests instead of up to a hundred.
+- **`/decisions/[actionId]` loads its optional detail (graph, trace, containment patch, guard correlation) in parallel** instead of a five-deep sequential waterfall.
+- **Distributed rate limiter is one bounded round trip.** The Upstash path runs a single atomic `EVAL` (INCR + PEXPIRE) with a hard timeout (`DASHCLAW_RATE_LIMIT_UPSTASH_TIMEOUT_MS`, default 500 ms) instead of two unbounded sequential calls on every `/api/*` request; on timeout it falls back to the per-instance limiter instead of stalling.
+- **Monthly action-ceiling read is cached** (30 s per org) while the org sits below 90% of its ceiling, and skipped entirely for plans with no ceiling; the live read resumes for any org within 10% of the line.
+- **Hook launcher probes the Python interpreter once a day, not on every tool call** (`hooks/run_hook.cjs`): the cached answer is re-probed on the spot if the interpreter disappears.
+- **Test suite runs on node by default** (jsdom only for `.jsx`/`.tsx` tests and the DOM-touching files listed in `vitest.config.js`): the full suite drops from ~511 s to ~161 s on the same machine.
+
 ## [5.33.4] — 2026-09-04
 
 ### Removed

@@ -129,10 +129,9 @@ class TestScrubAct(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestRunGoverned(unittest.TestCase):
-    def test_allow_flow_runs_fn_and_reports_completed(self):
+    def test_allow_flow_recorded_runs_fn_and_reports_completed_with_one_call(self):
         client = RecordingDashClaw(responses={
-            ("POST", "/api/guard"): {"decision": "allow"},
-            ("POST", "/api/actions"): {"action_id": "act_1", "action": {"status": "running"}},
+            ("POST", "/api/guard"): {"decision": "allow", "recorded": True, "action_id": "act_1"},
         })
         calls = []
 
@@ -144,11 +143,30 @@ class TestRunGoverned(unittest.TestCase):
 
         self.assertEqual(result, "done")
         self.assertEqual(calls, ["ran"])
-        guard_call = next(c for c in client.calls if c["path"] == "/api/guard")
-        self.assertEqual(guard_call["body"]["act"], {"kind": "shell", "command": "ls"})
+        guard_calls = [c for c in client.calls if c["path"] == "/api/guard"]
+        self.assertEqual(len(guard_calls), 1)
+        self.assertEqual(guard_calls[0]["body"]["act"], {"kind": "shell", "command": "ls"})
+        self.assertFalse(any(c["path"] == "/api/actions" for c in client.calls))
+        outcome_call = next(c for c in client.calls if c["path"] == "/api/actions/act_1/outcome")
+        self.assertEqual(outcome_call["body"], {"status": "completed"})
+
+    def test_falls_back_to_create_action_when_guard_did_not_record(self):
+        client = RecordingDashClaw(responses={
+            ("POST", "/api/guard"): {"decision": "allow", "recorded": False, "recorded_error": "boom"},
+            ("POST", "/api/actions"): {"action_id": "act_fallback", "action": {"status": "running"}},
+        })
+        calls = []
+
+        result = client.run_governed(
+            {"kind": "shell", "command": "ls"},
+            {"action_type": "other", "declared_goal": "g"},
+            lambda: calls.append("ran") or "done",
+        )
+
+        self.assertEqual(result, "done")
         create_call = next(c for c in client.calls if c["path"] == "/api/actions")
         self.assertEqual(create_call["body"]["act"], {"kind": "shell", "command": "ls"})
-        outcome_call = next(c for c in client.calls if c["path"] == "/api/actions/act_1/outcome")
+        outcome_call = next(c for c in client.calls if c["path"] == "/api/actions/act_fallback/outcome")
         self.assertEqual(outcome_call["body"], {"status": "completed"})
 
     def test_block_raises_guard_blocked_error_and_skips_create_action(self):
@@ -169,8 +187,7 @@ class TestRunGoverned(unittest.TestCase):
 
     def test_waits_for_approval_by_default_when_pending(self):
         client = RecordingDashClaw(responses={
-            ("POST", "/api/guard"): {"decision": "require_approval"},
-            ("POST", "/api/actions"): {"action_id": "act_2", "action": {"status": "pending_approval"}},
+            ("POST", "/api/guard"): {"decision": "require_approval", "recorded": True, "action_id": "act_2"},
         })
         client._wait_for_approval_result = {"action": {"status": "running", "approved_by": "op"}}
 
@@ -182,11 +199,11 @@ class TestRunGoverned(unittest.TestCase):
 
         self.assertEqual(result, "ok")
         self.assertEqual(client.wait_for_approval_calls, ["act_2"])
+        self.assertFalse(any(c["path"] == "/api/actions" for c in client.calls))
 
     def test_wait_false_on_pending_approval_raises_and_never_runs_fn(self):
         client = RecordingDashClaw(responses={
-            ("POST", "/api/guard"): {"decision": "require_approval"},
-            ("POST", "/api/actions"): {"action_id": "act_3", "action": {"status": "pending_approval"}},
+            ("POST", "/api/guard"): {"decision": "require_approval", "recorded": True, "action_id": "act_3"},
         })
         fn_called = []
 
@@ -200,15 +217,13 @@ class TestRunGoverned(unittest.TestCase):
         self.assertEqual(ctx.exception.action_id, "act_3")
         self.assertEqual(fn_called, [])
         self.assertEqual(client.wait_for_approval_calls, [])
+        self.assertFalse(any(c["path"] == "/api/actions" for c in client.calls))
         guard_call = next(c for c in client.calls if c["path"] == "/api/guard")
         self.assertNotIn("wait", guard_call["body"])
-        create_call = next(c for c in client.calls if c["path"] == "/api/actions")
-        self.assertNotIn("wait", create_call["body"])
 
     def test_wait_false_with_allow_decision_runs_fn_normally(self):
         client = RecordingDashClaw(responses={
-            ("POST", "/api/guard"): {"decision": "allow"},
-            ("POST", "/api/actions"): {"action_id": "act_3b", "action": {"status": "running"}},
+            ("POST", "/api/guard"): {"decision": "allow", "recorded": True, "action_id": "act_3b"},
         })
 
         result = client.run_governed(
@@ -222,8 +237,7 @@ class TestRunGoverned(unittest.TestCase):
 
     def test_propagates_approval_denied_without_calling_fn_or_reporting_outcome(self):
         client = RecordingDashClaw(responses={
-            ("POST", "/api/guard"): {"decision": "require_approval"},
-            ("POST", "/api/actions"): {"action_id": "act_5", "action": {"status": "pending_approval"}},
+            ("POST", "/api/guard"): {"decision": "require_approval", "recorded": True, "action_id": "act_5"},
         })
         client._wait_for_approval_error = ApprovalDeniedError("Denied", "cancelled")
         fn_called = []
@@ -240,8 +254,7 @@ class TestRunGoverned(unittest.TestCase):
 
     def test_reports_failed_outcome_and_reraises_when_fn_throws(self):
         client = RecordingDashClaw(responses={
-            ("POST", "/api/guard"): {"decision": "allow"},
-            ("POST", "/api/actions"): {"action_id": "act_6", "action": {"status": "running"}},
+            ("POST", "/api/guard"): {"decision": "allow", "recorded": True, "action_id": "act_6"},
         })
 
         def boom():
@@ -257,9 +270,9 @@ class TestRunGoverned(unittest.TestCase):
         outcome_call = next(c for c in client.calls if c["path"] == "/api/actions/act_6/outcome")
         self.assertEqual(outcome_call["body"], {"status": "failed", "error_message": "boom"})
 
-    def test_scrubs_the_act_before_sending_to_guard_and_create_action(self):
+    def test_scrubs_the_act_before_sending_to_guard_and_create_action_on_fallback(self):
         client = RecordingDashClaw(responses={
-            ("POST", "/api/guard"): {"decision": "allow"},
+            ("POST", "/api/guard"): {"decision": "allow", "recorded": False},
             ("POST", "/api/actions"): {"action_id": "act_7", "action": {"status": "running"}},
         })
 

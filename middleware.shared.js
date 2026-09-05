@@ -77,6 +77,14 @@ const RATE_LIMIT_MAX = (() => {
   return Number.isFinite(v) && v > 0 ? v : def;
 })(); // requests per window
 const RATE_LIMIT_MAX_ENTRIES = 50000;
+// Bound on the distributed limiter's round trip; past it the request falls
+// back to the local limiter (weaker distributed limiting, never a stall).
+const RATE_LIMIT_UPSTASH_TIMEOUT_MS = (() => {
+  const v = parseInt(String(process.env.DASHCLAW_RATE_LIMIT_UPSTASH_TIMEOUT_MS || ''), 10);
+  return Number.isFinite(v) && v > 0 ? v : 500;
+})();
+const RATE_LIMIT_INCR_SCRIPT =
+  "local n = redis.call('INCR', KEYS[1]) if n == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end return n";
 
 // Bound memory growth (best-effort).
 function pruneRateLimitMap() {
@@ -115,21 +123,21 @@ async function checkRateLimitDistributed(ip) {
   const key = `dashclaw:rl:${ip}`;
   const urlBase = baseUrl.replace(/\/+$/, '');
 
-  const call = async (path) => {
-    const res = await fetch(`${urlBase}/${path}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error(`upstash ${res.status}`);
-    const data = await res.json().catch(() => ({}));
-    return data?.result;
-  };
-
-  // Atomic-ish limiter: INCR then PEXPIRE on first hit.
-  const n = await call(`INCR/${encodeURIComponent(key)}`);
-  if (n === 1) {
-    await call(`PEXPIRE/${encodeURIComponent(key)}/${RATE_LIMIT_WINDOW}`);
-  }
+  // One atomic round trip (INCR + PEXPIRE-on-first-hit in a Lua script)
+  // instead of two sequential REST calls on every window open, and a hard
+  // bound on the wait: this runs on EVERY /api/* request, and a stalled
+  // Upstash endpoint used to pend all of them indefinitely (the fail-open
+  // catch in checkRateLimit only fires on a throw). Same fixed-window
+  // semantics as before.
+  const res = await fetch(urlBase, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(['EVAL', RATE_LIMIT_INCR_SCRIPT, 1, key, String(RATE_LIMIT_WINDOW)]),
+    signal: AbortSignal.timeout(RATE_LIMIT_UPSTASH_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`upstash ${res.status}`);
+  const data = await res.json().catch(() => ({}));
+  const n = data?.result;
   return typeof n === 'number' ? (n <= RATE_LIMIT_MAX) : null;
 }
 

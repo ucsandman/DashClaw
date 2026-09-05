@@ -18,7 +18,9 @@ import { redactAny } from '../../lib/security';
 import { getSettings } from '../../lib/repositories/settings.repository';
 import {
   createPlanWithSteps, stampStepPreview, listPlans, countPendingPlans, markPlanPending, reviewPlan,
+  listStepsForPlans,
 } from '../../lib/repositories/plans.repository';
+import { listDeviationsForPlans } from '../../lib/repositories/plan-deviations.repository';
 
 const DEFAULT_MAX_STEPS = 25;
 const MAX_PENDING_PLANS = 10;
@@ -271,6 +273,42 @@ export async function GET(request: Request) {
     // agent-facing GET. reviewed_by stays (it's displayed as approver
     // attribution in the UI, which is intentional provenance).
     const sanitized = (plans as Array<Record<string, unknown>>).map(({ created_by: _createdBy, ...rest }) => rest);
+
+    // expand=details (2026-09-04) is the opt-in the /approvals page uses
+    // instead of a GET /api/plans/{planId} call per plan — the response
+    // mirrors that detail route's { plan, steps, deviations } shape exactly,
+    // batched to one steps query and one deviations query for every plan on
+    // the page. Deviations stay best-effort like the detail route (a failure
+    // logs and yields [] rather than failing the whole list).
+    if (url.searchParams.get('expand') === 'details') {
+      const planIds = sanitized.map((p) => String(p.plan_id));
+      const [steps, deviations] = await Promise.all([
+        listStepsForPlans(sql, orgId, planIds),
+        listDeviationsForPlans(sql, orgId, planIds).catch((err) => {
+          console.warn('[Plans] deviations read failed (continuing):', (err as Error).message);
+          return [] as Record<string, unknown>[];
+        }),
+      ]);
+      const stepsByPlan = new Map<string, unknown[]>();
+      for (const s of steps as Array<Record<string, unknown>>) {
+        const pid = String(s.plan_id);
+        if (!stepsByPlan.has(pid)) stepsByPlan.set(pid, []);
+        stepsByPlan.get(pid)!.push(s);
+      }
+      const deviationsByPlan = new Map<string, unknown[]>();
+      for (const d of deviations as Array<Record<string, unknown>>) {
+        const pid = String(d.plan_id);
+        if (!deviationsByPlan.has(pid)) deviationsByPlan.set(pid, []);
+        deviationsByPlan.get(pid)!.push(d);
+      }
+      const expanded = sanitized.map((plan) => ({
+        plan,
+        steps: stepsByPlan.get(String(plan.plan_id)) ?? [],
+        deviations: deviationsByPlan.get(String(plan.plan_id)) ?? [],
+      }));
+      return NextResponse.json({ plans: expanded });
+    }
+
     return NextResponse.json({ plans: sanitized });
   } catch (error) {
     return apiErrorResponse(error, 'PLANS GET');

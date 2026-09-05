@@ -21,8 +21,11 @@ class RecordingDashClaw(DashClaw):
         )
         self.calls = []
 
-    def _request(self, path, method="GET", body=None, json=None):
+    def _request(self, path, method="GET", body=None, json=None, params=None):
         payload = json or body
+        if params:
+            query = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
+            path = f"{path}&{query}" if "?" in path else f"{path}?{query}"
         self.calls.append({"path": path, "method": method, "body": payload})
         # Mock response for wait_for_approval (which calls get_action)
         if path.startswith("/api/actions/"):

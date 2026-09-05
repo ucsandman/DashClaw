@@ -15,16 +15,43 @@
 'use strict';
 
 const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
-function resolvePython() {
+// The `--version` probe is a whole extra process per tool call (two when
+// `python3` is the Windows Store alias), on top of the hook itself. Remember
+// the answer for a day; a stale entry (interpreter uninstalled) is detected
+// by the real spawn's ENOENT below and re-probed on the spot.
+const PYTHON_CACHE_FILE = path.join(os.tmpdir(), 'dashclaw-run-hook-python.txt');
+const PYTHON_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+function readCachedPython() {
+  try {
+    const st = fs.statSync(PYTHON_CACHE_FILE);
+    if (Date.now() - st.mtimeMs > PYTHON_CACHE_TTL_MS) return null;
+    const cmd = fs.readFileSync(PYTHON_CACHE_FILE, 'utf8').trim();
+    return cmd === 'python3' || cmd === 'python' ? cmd : null;
+  } catch {
+    return null;
+  }
+}
+
+function probePython() {
   for (const cmd of ['python3', 'python']) {
     // The Windows Store `python3` alias exits non-zero without running
     // anything, so a successful --version is required, not just spawnability.
     const probe = spawnSync(cmd, ['--version'], { stdio: 'ignore' });
-    if (!probe.error && probe.status === 0) return cmd;
+    if (!probe.error && probe.status === 0) {
+      try { fs.writeFileSync(PYTHON_CACHE_FILE, cmd); } catch { /* cache is best-effort */ }
+      return cmd;
+    }
   }
   return null;
+}
+
+function resolvePython() {
+  return readCachedPython() || probePython();
 }
 
 const script = process.argv[2];
@@ -39,7 +66,16 @@ if (!python) {
   process.exit(0); // proceed-with-notice: do not hard-block tool calls on a missing interpreter
 }
 
-const result = spawnSync(python, [path.join(__dirname, script), ...process.argv.slice(3)], {
-  stdio: 'inherit',
-});
+const hookArgs = [path.join(__dirname, script), ...process.argv.slice(3)];
+let result = spawnSync(python, hookArgs, { stdio: 'inherit' });
+if (result.error && result.error.code === 'ENOENT') {
+  // Cached interpreter vanished — re-probe once, run exactly once.
+  try { fs.unlinkSync(PYTHON_CACHE_FILE); } catch { /* already gone */ }
+  const fresh = probePython();
+  if (!fresh) {
+    console.error('[DashClaw] No python3 or python found on PATH — governance hook skipped for this call.');
+    process.exit(0);
+  }
+  result = spawnSync(fresh, hookArgs, { stdio: 'inherit' });
+}
 process.exit(result.status === null ? 0 : result.status);

@@ -185,6 +185,20 @@ export async function listPlans(
 }
 
 /**
+ * Batched twin (2026-09-04) of getPlanWithSteps' step read, for
+ * GET /api/plans?expand=details — one query for every plan on the page
+ * instead of one getPlanWithSteps call per plan. Same row shape and the same
+ * per-plan seq ASC ordering (the caller groups by plan_id in JS).
+ */
+export async function listStepsForPlans(sql: SqlClient, orgId: string, planIds: string[]) {
+  if (planIds.length === 0) return [];
+  return sql.query(
+    'SELECT * FROM plan_authorization_steps WHERE org_id = $1 AND plan_id = ANY($2) ORDER BY plan_id, seq ASC',
+    [orgId, planIds],
+  );
+}
+
+/**
  * `plan.status` is the derived presentation status; `plan.raw_status` is the
  * stored one. The review route's separation-of-duties pre-read MUST key on
  * raw_status — a lapsed denial derives to 'expired', which would silently

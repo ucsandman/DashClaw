@@ -29,6 +29,8 @@ const {
   mockCountPendingPlans,
   mockMarkPlanPending,
   mockReviewPlan,
+  mockListStepsForPlans,
+  mockListDeviationsForPlans,
 } = vi.hoisted(() => ({
   mockGetSql: vi.fn(),
   mockGetOrgId: vi.fn(() => 'org_test'),
@@ -50,6 +52,8 @@ const {
   mockCountPendingPlans: vi.fn(async () => 0),
   mockMarkPlanPending: vi.fn(async () => null as unknown),
   mockReviewPlan: vi.fn(async () => null as unknown),
+  mockListStepsForPlans: vi.fn(async () => [] as unknown[]),
+  mockListDeviationsForPlans: vi.fn(async () => [] as unknown[]),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockGetSql }));
@@ -68,6 +72,10 @@ vi.mock('@/lib/repositories/plans.repository.js', () => ({
   countPendingPlans: mockCountPendingPlans,
   markPlanPending: mockMarkPlanPending,
   reviewPlan: mockReviewPlan,
+  listStepsForPlans: mockListStepsForPlans,
+}));
+vi.mock('@/lib/repositories/plan-deviations.repository.js', () => ({
+  listDeviationsForPlans: mockListDeviationsForPlans,
 }));
 
 const { POST, GET } = await import('@/api/plans/route.js');
@@ -575,5 +583,74 @@ describe('GET /api/plans', () => {
       expect(plan).not.toHaveProperty('created_by');
     }
     expect(data.plans[1].reviewed_by).toBe('user_1');
+  });
+
+  // FIX A (2026-09-04): expand=details batches steps/deviations into ONE
+  // extra call each, regardless of how many plans are on the page — this is
+  // what replaced the approvals page's one GET /api/plans/{planId} per plan.
+  it('expand=details returns steps and deviations for every plan using exactly 2 extra calls, regardless of plan count', async () => {
+    const plans = [
+      { plan_id: 'pa_1', status: 'pending' },
+      { plan_id: 'pa_2', status: 'pending' },
+      { plan_id: 'pa_3', status: 'pending' },
+    ];
+    mockListPlans.mockResolvedValueOnce(plans);
+    mockListStepsForPlans.mockResolvedValueOnce([
+      { step_id: 'ps_1', plan_id: 'pa_1', seq: 1 },
+      { step_id: 'ps_2', plan_id: 'pa_2', seq: 1 },
+    ]);
+    mockListDeviationsForPlans.mockResolvedValueOnce([
+      { deviation_id: 'dv_1', plan_id: 'pa_2' },
+    ]);
+
+    const res = await GET(getReq('?status=pending&expand=details'));
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockListStepsForPlans).toHaveBeenCalledTimes(1);
+    expect(mockListDeviationsForPlans).toHaveBeenCalledTimes(1);
+    expect(mockListStepsForPlans).toHaveBeenCalledWith(mockGetSql, 'org_test', ['pa_1', 'pa_2', 'pa_3']);
+    expect(mockListDeviationsForPlans).toHaveBeenCalledWith(mockGetSql, 'org_test', ['pa_1', 'pa_2', 'pa_3']);
+
+    expect(data.plans).toHaveLength(3);
+    expect(data.plans[0]).toEqual({
+      plan: { plan_id: 'pa_1', status: 'pending' },
+      steps: [{ step_id: 'ps_1', plan_id: 'pa_1', seq: 1 }],
+      deviations: [],
+    });
+    expect(data.plans[1]).toEqual({
+      plan: { plan_id: 'pa_2', status: 'pending' },
+      steps: [{ step_id: 'ps_2', plan_id: 'pa_2', seq: 1 }],
+      deviations: [{ deviation_id: 'dv_1', plan_id: 'pa_2' }],
+    });
+    expect(data.plans[2]).toEqual({
+      plan: { plan_id: 'pa_3', status: 'pending' },
+      steps: [],
+      deviations: [],
+    });
+  });
+
+  it('without expand, the response stays the flat { plans } shape and never calls the batched helpers', async () => {
+    const plans = [{ plan_id: 'pa_1', status: 'pending' }];
+    mockListPlans.mockResolvedValueOnce(plans);
+
+    const res = await GET(getReq('?status=pending'));
+    const data = await res.json();
+
+    expect(data.plans).toEqual(plans);
+    expect(mockListStepsForPlans).not.toHaveBeenCalled();
+    expect(mockListDeviationsForPlans).not.toHaveBeenCalled();
+  });
+
+  it('expand=details: a deviations read failure logs and yields [] rather than failing the response', async () => {
+    mockListPlans.mockResolvedValueOnce([{ plan_id: 'pa_1', status: 'pending' }]);
+    mockListStepsForPlans.mockResolvedValueOnce([]);
+    mockListDeviationsForPlans.mockRejectedValueOnce(new Error('deviations table down'));
+
+    const res = await GET(getReq('?status=pending&expand=details'));
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.plans[0].deviations).toEqual([]);
   });
 });

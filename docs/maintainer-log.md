@@ -14,6 +14,62 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-04 - After the simplification: does it still work, and where does the time go
+
+Three rounds of making the codebase smaller deserved a full end-to-end
+check before anything else, so that came first. Remote CI, CodeQL, the
+fresh-install smoke and all three Vercel deploys were green for 5.33.4;
+locally, lint, typecheck, the full test suite (5,360 tests), the build and
+the eleven contract checks all passed, and the policy smoke harness against
+a production build of the tree failed the same 32 checks as the untouched
+main snapshot on the same machine, all of them the known local-approval
+403s. Zero diff. Then the question Wes actually asked: where is it slow.
+
+A read-only audit of the paths a person or an agent waits on found ten
+things, and I fixed seven of them. The biggest for agents: the Node and
+Python SDKs' `runGoverned` made two HTTP calls per governed action, guard
+then record, when the server has answered both in one call
+(`?record=true`) since the hook moved to it in August. It is one call now,
+with a fallback to the old second call for a self-hosted server that
+ignores the parameter. The biggest for humans: `/approvals` fetched every
+plan's detail one request at a time, up to a hundred requests every ten
+seconds on a busy page; the list endpoint now returns steps and deviations
+in two batched queries, so the poll is five requests whatever the plan
+count. The decision detail page loaded its optional data in a five-deep
+waterfall and now loads it in two parallel batches. On the request path,
+the distributed rate limiter made two unbounded sequential Upstash calls on
+every API request and now makes one atomic call with a hard 500 ms bound
+that falls back to the local limiter instead of stalling; the monthly
+action-ceiling read is cached for orgs comfortably under their ceiling and
+skipped for plans with no ceiling; the hook launcher stops probing for a
+Python interpreter on every single tool call, which on this Windows box
+was a 1.4 second process spawn per call.
+
+The largest number in the session was not on the product at all. The full
+test suite ran every one of its 518 files under a jsdom window, and the
+reporter's own breakdown said so: 682 seconds of environment setup against
+37 seconds of tests. About 450 of those files are pure Node. They run on
+node now; only the React component tests and 22 listed DOM-touching files
+keep jsdom. Same suite, 511 seconds to 161. Every file that needed the
+DOM was caught by the grep beforehand; the one run under the new split
+found nothing extra.
+
+Three findings I chose not to ship. Moving the usage-rollup increment off
+the action write path would break a deliberate invariant the tests state
+outright (an action whose insert failed is never counted), so the await
+stays. Starting the assumption-alert lookup before the evaluation saved a
+round trip on paper, but the guard hot-path test answers SQL in call
+order and the earlier query shifted the policy read, so I reverted it
+rather than edit the test; the gain was marginal anyway since empty
+results are already cached. And `guard_policies` has no index on
+`(org_id, active)`, the hottest read in the runtime; that is a migration,
+which is Wes's call, and the SQL is one line when he wants it.
+
+One miss worth recording: the agent that built the batched plan endpoint
+did not know demo mode serves the same route from fixtures, so the demo
+`/approvals` would have received flat rows and rendered nothing. Caught
+by reading the demo dispatch table before the smoke, not by a test.
+
 ## 2026-09-04 - Round three: what nothing calls
 
 The last round of the simplification was supposed to have two halves,

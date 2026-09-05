@@ -63,7 +63,15 @@ export default function DecisionReplayPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(`/api/actions/${actionId}`);
+      // Graph depends only on actionId, not on the base response, so it
+      // starts alongside the base fetch instead of waiting behind it. A
+      // network failure on the graph fetch stays isolated (caught to null)
+      // so it can't turn into the outer catch's generic "failed to load"
+      // error the way a rejected Promise.all element would.
+      const [res, graphRes] = await Promise.all([
+        fetch(`/api/actions/${actionId}`),
+        fetch(`/api/actions/${actionId}/graph`).catch(() => null),
+      ]);
       if (!res.ok) {
         if (res.status === 404) { setError('Decision not found'); return; }
         throw new Error('Failed to fetch');
@@ -76,56 +84,63 @@ export default function DecisionReplayPage() {
       // when present it supersedes the legacy time-window correlation below.
       if (data.guard_decision) setGuardDecision(data.guard_decision);
 
-      // Fetch trace data for failed/completed actions
-      if (data.action.status === 'failed' || data.action.status === 'completed') {
-        try {
-          const traceRes = await fetch(`/api/actions/${actionId}/trace`);
-          if (traceRes.ok) {
-            const traceData = await traceRes.json();
-            setTrace(traceData.trace);
+      // trace/artifacts/guard each depend only on fields of `data` above, not
+      // on each other — run them together instead of a sequential waterfall.
+      // Each keeps its own condition, try/catch isolation, and state set.
+      await Promise.allSettled([
+        (async () => {
+          // Fetch trace data for failed/completed actions
+          if (data.action.status === 'failed' || data.action.status === 'completed') {
+            try {
+              const traceRes = await fetch(`/api/actions/${actionId}/trace`);
+              if (traceRes.ok) {
+                const traceData = await traceRes.json();
+                setTrace(traceData.trace);
+              }
+            } catch { /* trace is optional */ }
           }
-        } catch { /* trace is optional */ }
-      }
-
-      // Containment evidence: the newest 'patch' artifact for a contained
-      // action. Only fetched when the row actually carries a containment
-      // status — every other decision pays nothing.
-      if (data.action.containment_status) {
-        try {
-          const artifactsRes = await fetch(`/api/actions/${actionId}/artifacts`);
-          if (artifactsRes.ok) {
-            const artifactsData = await artifactsRes.json();
-            const patch = (artifactsData.artifacts || []).find((a: any) => a && a.artifact_type === 'patch');
-            setContainmentPatch(patch?.content ?? null);
+        })(),
+        (async () => {
+          // Containment evidence: the newest 'patch' artifact for a contained
+          // action. Only fetched when the row actually carries a containment
+          // status — every other decision pays nothing.
+          if (data.action.containment_status) {
+            try {
+              const artifactsRes = await fetch(`/api/actions/${actionId}/artifacts`);
+              if (artifactsRes.ok) {
+                const artifactsData = await artifactsRes.json();
+                const patch = (artifactsData.artifacts || []).find((a: any) => a && a.artifact_type === 'patch');
+                setContainmentPatch(patch?.content ?? null);
+              }
+            } catch { /* containment evidence is optional */ }
           }
-        } catch { /* containment evidence is optional */ }
-      }
+        })(),
+        (async () => {
+          // Fetch correlated guard decision (policy governance) — legacy
+          // heuristic, only for rows written before guard_decision_id stamping.
+          if (data.action.agent_id && !data.guard_decision) {
+            try {
+              const guardRes = await fetch(`/api/guard?agent_id=${encodeURIComponent(data.action.agent_id)}&limit=10`);
+              if (guardRes.ok) {
+                const guardData = await guardRes.json();
+                const actionStart = new Date(data.action.timestamp_start).getTime();
+                const match = (guardData.decisions || []).find((gd: any) =>
+                  gd.action_type === data.action.action_type &&
+                  Math.abs(new Date(gd.created_at).getTime() - actionStart) <= 60000
+                );
+                if (match) setGuardDecision(match);
+              }
+            } catch { /* guard correlation is optional */ }
+          }
+        })(),
+      ]);
 
-      // Fetch execution graph (nodes + edges) for any action
       try {
-        const graphRes = await fetch(`/api/actions/${actionId}/graph`);
-        if (graphRes.ok) {
+        if (graphRes && graphRes.ok) {
           const graphData = await graphRes.json();
           setGraph(graphData);
         }
       } catch { /* graph is optional */ }
-
-      // Fetch correlated guard decision (policy governance) — legacy
-      // heuristic, only for rows written before guard_decision_id stamping.
-      if (data.action.agent_id && !data.guard_decision) {
-        try {
-          const guardRes = await fetch(`/api/guard?agent_id=${encodeURIComponent(data.action.agent_id)}&limit=10`);
-          if (guardRes.ok) {
-            const guardData = await guardRes.json();
-            const actionStart = new Date(data.action.timestamp_start).getTime();
-            const match = (guardData.decisions || []).find((gd: any) =>
-              gd.action_type === data.action.action_type &&
-              Math.abs(new Date(gd.created_at).getTime() - actionStart) <= 60000
-            );
-            if (match) setGuardDecision(match);
-          }
-        } catch { /* guard correlation is optional */ }
-      }
     } catch (err) {
       console.error('Failed to fetch decision:', err);
       setError('Failed to load decision details');

@@ -348,8 +348,8 @@ class DashClaw {
   }
 
   /** @private POST shorthand for thin endpoint wrappers. */
-  async _post(path, body = null) {
-    return this._request(path, 'POST', body);
+  async _post(path, body = null, params = null) {
+    return this._request(path, 'POST', body, params);
   }
 
   /** @private PATCH shorthand for thin endpoint wrappers. */
@@ -402,7 +402,7 @@ class DashClaw {
    *   failed         — bad signature, malformed token, or audience mismatch
    *   unknown_issuer — issuer not in DASHCLAW_ALLOWED_ISSUER (server config)
    */
-  async guard(context) {
+  async guard(context, { record = false } = {}) {
     return this._post('/api/guard', {
       // Approvals lifecycle: declare the wait window this client will poll if
       // the decision is require_approval, so the pending row gets a truthful
@@ -413,7 +413,7 @@ class DashClaw {
       agent_id: context.agent_id || this.agentId,
       // Include agent_name for audit attribution if not already provided by caller
       ...(context.agent_name == null && this.agentName ? { agent_name: this.agentName } : {}),
-    });
+    }, record ? { record: true } : null);
   }
 
   /**
@@ -466,8 +466,12 @@ class DashClaw {
 
   /**
    * One call that runs the full governance loop with evidence attached:
-   * guard (with act) → createAction → (if pending_approval and
-   * params.wait !== false) waitForApproval → fn() → one-shot outcome report.
+   * guard (with act, `?record=true`) → (if the server didn't record —
+   * `recorded !== true` or no `action_id`, e.g. an older self-hosted server
+   * that ignores the param — fall back to createAction) → (if decision is
+   * require_approval and params.wait !== false) waitForApproval → fn() →
+   * one-shot outcome report. The single-call path is one HTTP round trip
+   * instead of two; the fallback keeps older servers working unchanged.
    *
    * @param {Object} act - { kind: 'shell'|'http'|'sql'|'file', ... } — see the
    *   wire contract in the spec above. Scrubbed client-side before send.
@@ -478,7 +482,7 @@ class DashClaw {
    *   run while the approval is pending. Poll and re-run once approved.
    * @param {Function} fn - the real work to run once guard/approval clears.
    * @returns {Promise<*>} fn()'s return value.
-   * @throws {GuardBlockedError} when guard or createAction blocks the action.
+   * @throws {GuardBlockedError} when guard blocks the action.
    * @throws {ApprovalDeniedError} when an operator denies the pending approval.
    * @throws {ApprovalPendingError} when the action needs approval and
    *   `wait: false` was passed (fn() was not executed).
@@ -486,12 +490,19 @@ class DashClaw {
   async runGoverned(act, params, fn) {
     const { wait, ...context } = params || {};
     const scrubbedAct = scrubAct(act);
+    const guardContext = { ...context, act: scrubbedAct };
 
-    const decision = await this.guard({ ...context, act: scrubbedAct });
+    const decision = await this.guard(guardContext, { record: true });
     if (decision.decision === 'block') throw new GuardBlockedError(decision);
 
-    const { action, action_id } = await this.createAction({ ...context, act: scrubbedAct });
-    if (action?.status === 'pending_approval') {
+    let action_id = decision.action_id;
+    if (decision.recorded !== true || !action_id) {
+      // Server didn't record the action on the guard call — fall back to the
+      // previous two-call path so older self-hosted servers keep working.
+      ({ action_id } = await this.createAction(guardContext));
+    }
+
+    if (decision.decision === 'require_approval') {
       // `wait: false` must not become a silent approval bypass: the previous
       // behavior fell through and executed fn() with the approval still
       // pending — an ungoverned run of exactly the work a human was asked to

@@ -652,10 +652,29 @@ function isGovernedActionCreationRequest(pathname, method, url) {
   return false;
 }
 
+// The ceiling read is one uncached Neon round trip on every governed record
+// call. Cache the count per org, but ONLY while the org sits comfortably
+// under its ceiling (below ACTION_CEILING_CACHE_MARGIN of it): an org that
+// close to the line gets the live read on every call, so the worst-case
+// overshoot is one TTL of actions for an org that was still >10% away.
+const actionCeilingCache = new Map();
+const ACTION_CEILING_CACHE_TTL = 30 * 1000;
+const ACTION_CEILING_CACHE_MAX_ENTRIES = 10000;
+const ACTION_CEILING_CACHE_MARGIN = 0.9;
+
 async function enforceActionCeiling(auth, request, pathname) {
   if (!auth || !auth.hostedMode) return null;
   const url = request.nextUrl || new URL(request.url);
   if (!isGovernedActionCreationRequest(pathname, request.method, url)) return null;
+  // A plan with no monthly ceiling (free hosted — governed by the lifetime
+  // trial cap instead) never needs the usage read at all.
+  const ceiling = entitlementsForPlan(auth.plan).monthlyActionCeiling;
+  if (ceiling == null) return null;
+
+  const now = Date.now();
+  pruneTtlCache(actionCeilingCache, now, ACTION_CEILING_CACHE_TTL, ACTION_CEILING_CACHE_MAX_ENTRIES);
+  const cached = actionCeilingCache.get(auth.orgId);
+  if (cached && now - cached.timestamp < ACTION_CEILING_CACHE_TTL) return null;
 
   let governedActions;
   try {
@@ -667,7 +686,12 @@ async function enforceActionCeiling(auth, request, pathname) {
     return null;
   }
 
-  if (!actionCeilingExceeded(auth.plan, governedActions)) return null;
+  if (!actionCeilingExceeded(auth.plan, governedActions)) {
+    if (governedActions < ceiling * ACTION_CEILING_CACHE_MARGIN) {
+      actionCeilingCache.set(auth.orgId, { timestamp: now });
+    }
+    return null;
+  }
   return {
     status: 403,
     body: {

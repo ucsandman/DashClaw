@@ -522,8 +522,14 @@ const DEMO_API_ROUTES = [
     if (request.method !== 'GET') {
       return demoJson(request, { error: 'Demo mode: plan submission is disabled. Connect an instance to submit real plans.' }, 403);
     }
-    const status = new URL(request.url).searchParams.get('status');
+    const params = new URL(request.url).searchParams;
+    const status = params.get('status');
     const plans = demoPlans(fixtures).filter((p) => !status || p.status === status);
+    // ?expand=details mirrors the real route: each plan in the detail shape
+    // ({ plan, steps, deviations }) so /approvals needs no per-plan call.
+    if (params.get('expand') === 'details') {
+      return demoJson(request, { plans: plans.map((p) => demoPlanDetail(fixtures, p.plan_id)).filter(Boolean) });
+    }
     return demoJson(request, { plans });
   }],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'plans', '*']), ({ request, fixtures, segments }) => {

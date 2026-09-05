@@ -85,6 +85,21 @@ export async function listDeviationsForPlan(sql: SqlClient, orgId: string, planI
   `;
 }
 
+/**
+ * Batched twin (2026-09-04) of listDeviationsForPlan, for
+ * GET /api/plans?expand=details — one query across every plan on the page
+ * instead of one listDeviationsForPlan call per plan. Omits the per-plan
+ * LIMIT 200 cap (a page-sized batch of pending/live plans is nowhere near
+ * that many deviations in aggregate); the caller groups rows by plan_id.
+ */
+export async function listDeviationsForPlans(sql: SqlClient, orgId: string, planIds: string[]) {
+  if (planIds.length === 0) return [];
+  return sql.query(
+    'SELECT * FROM plan_deviations WHERE org_id = $1 AND plan_id = ANY($2) ORDER BY plan_id, created_at DESC',
+    [orgId, planIds],
+  );
+}
+
 export async function listDeviationsForAction(sql: SqlClient, orgId: string, actionId: string) {
   return sql`
     SELECT * FROM plan_deviations

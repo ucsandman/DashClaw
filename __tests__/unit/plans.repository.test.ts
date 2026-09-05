@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createPlanWithSteps, reviewPlan, consumePlanStepGrant, findDeniedStepMatch, countPendingPlans,
-  markPlanPending, listPlans, getPlanWithSteps, PENDING_PLAN_CAP_WINDOW_MINUTES,
+  markPlanPending, listPlans, getPlanWithSteps, listStepsForPlans, PENDING_PLAN_CAP_WINDOW_MINUTES,
 } from '../../app/lib/repositories/plans.repository';
 import { computeActContentHash } from '../../app/lib/act-content-hash';
 
@@ -420,5 +420,25 @@ describe('plans.repository', () => {
     await findDeniedStepMatch(sql as never, 'org_1', { actionType: 'deploy', declaredGoal: 'g', actHash: null });
     expect(sql.calls[0]!.text).toContain("'revoked'");
     expect(sql.calls[0]!.text).toContain('grant_used_at IS NULL');
+  });
+
+  // FIX A: batched twin of getPlanWithSteps' step read for GET
+  // /api/plans?expand=details — one query for every plan on the page.
+  it('listStepsForPlans scopes by org and ANY(planIds), and returns [] without a query for an empty list', async () => {
+    const sql = sqlMock([
+      [
+        { step_id: 'ps_1', plan_id: 'pa_1', seq: 1 },
+        { step_id: 'ps_2', plan_id: 'pa_2', seq: 1 },
+      ],
+    ]);
+    const rows = await listStepsForPlans(sql as never, 'org_1', ['pa_1', 'pa_2']);
+    expect(rows).toHaveLength(2);
+    expect(sql.calls[0]!.text).toContain('= ANY($2)');
+    expect(sql.calls[0]!.v).toEqual(['org_1', ['pa_1', 'pa_2']]);
+
+    const emptySql = sqlMock([[{ step_id: 'unreached' }]]);
+    const emptyRows = await listStepsForPlans(emptySql as never, 'org_1', []);
+    expect(emptyRows).toEqual([]);
+    expect(emptySql.calls).toHaveLength(0);
   });
 });

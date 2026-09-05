@@ -324,8 +324,9 @@ const res = await claw.guardedFetch(
 );
 ```
 
-- `runGoverned(act, params, fn)` -- guard (with `act`) → `createAction` → if
-  `pending_approval`, `waitForApproval` → `fn()` → one-shot outcome
+- `runGoverned(act, params, fn)` -- guard (with `act`, `?record=true`, one
+  HTTP call; falls back to `createAction` if the server didn't record) → if
+  `require_approval`, `waitForApproval` → `fn()` → one-shot outcome
   (`completed` on success, `failed` on throw). Throws `GuardBlockedError` on
   block, `ApprovalDeniedError` on denial. Pass `wait: false` to get an
   `ApprovalPendingError` instead of blocking — `fn()` is never run while the
@@ -382,7 +383,7 @@ The v2 SDK exposes the stable governance runtime plus promoted execution domains
 - `waitForApproval(id)` -- Real-time SSE listener for human-in-the-loop approvals (automatic polling fallback)
 - `approveAction(id, decision, reasoning?)` -- Submit approval decisions from code
 - `getPendingApprovals(limit = 20, offset = 0)` -- List actions awaiting human review (paginated)
-- `runGoverned(act, params, fn)` -- Evidence-first guard: one call that runs guard (with `act`) → `createAction` → optional `waitForApproval` → `fn()` → one-shot outcome report. See [Evidence-first guard](#evidence-first-guard) above.
+- `runGoverned(act, params, fn)` -- Evidence-first guard: one call that runs guard (with `act`, `?record=true`; falls back to `createAction` if the server didn't record) → optional `waitForApproval` → `fn()` → one-shot outcome report. See [Evidence-first guard](#evidence-first-guard) above.
 - `guardedFetch(url, init, params?)` -- `runGoverned()` wrapped around a real `fetch()`; derives the `act` from the request.
 
 ### Policies

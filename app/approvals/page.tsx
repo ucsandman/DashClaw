@@ -131,29 +131,21 @@ export default function ApprovalsPage() {
     }
   }, [agentId]);
 
+  // expand=details returns each plan already in the { plan, steps, deviations }
+  // shape (batched server-side — see GET /api/plans), so the page needs zero
+  // further per-plan calls.
   const fetchPlanList = useCallback(async (status: string) => {
-    const res = await fetch(`/api/plans?status=${status}&limit=20`, { cache: 'no-store' });
+    const res = await fetch(`/api/plans?status=${status}&limit=20&expand=details`, { cache: 'no-store' });
     if (!res.ok) return [];
     const data = await res.json();
     return data.plans ?? [];
   }, []);
 
-  const fetchPlanDetails = useCallback(async (plans: any[]) => {
-    const detailed = await Promise.all(
-      plans.map(async (p: any) => {
-        const d = await fetch(`/api/plans/${p.plan_id}`, { cache: 'no-store' });
-        return d.ok ? d.json() : null;
-      }),
-    );
-    return detailed.filter(Boolean);
-  }, []);
-
   // Fetches pending plans (for review) plus the live set (approved,
-  // partially_approved, denied) for the "Live plans" surface — reusing the
-  // same detail fetch pattern rather than adding a second polling pass.
+  // partially_approved, denied) for the "Live plans" surface.
   const fetchPendingPlans = useCallback(async () => {
     try {
-      const [pending, approved, partiallyApproved, denied, previewing] = await Promise.all([
+      const [pendingDetailed, approved, partiallyApproved, denied, previewing] = await Promise.all([
         fetchPlanList('pending'),
         fetchPlanList('approved'),
         fetchPlanList('partially_approved'),
@@ -163,10 +155,7 @@ export default function ApprovalsPage() {
         // visible and revokable, not disappear until it reaches 'pending'.
         fetchPlanList('previewing'),
       ]);
-      const [pendingDetailed, liveDetailed] = await Promise.all([
-        fetchPlanDetails(pending),
-        fetchPlanDetails([...approved, ...partiallyApproved, ...denied, ...previewing]),
-      ]);
+      const liveDetailed = [...approved, ...partiallyApproved, ...denied, ...previewing];
       setPendingPlans(pendingDetailed);
       // Dead plans (expires_at already in the past — e.g. a lifted denial or
       // an unrevoked plan that simply timed out) age out of the Live plans
@@ -181,7 +170,7 @@ export default function ApprovalsPage() {
         return expiresAt && Date.parse(expiresAt) > Date.now();
       }));
     } catch { /* pending/live plans are additive; the actions inbox must not break on this */ }
-  }, [fetchPlanList, fetchPlanDetails]);
+  }, [fetchPlanList]);
 
   // Containment Verdicts: actions an agent staged instead of executing,
   // awaiting an operator's promote/discard verdict. Additive like the plan

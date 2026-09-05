@@ -477,6 +477,7 @@ Current cron endpoints (see `vercel.json` for the registered schedule on the hos
 - By default this is best-effort per-instance. For multi-instance deployments, distributed rate limiting is supported via Upstash REST:
   - `UPSTASH_REDIS_REST_URL`
   - `UPSTASH_REDIS_REST_TOKEN`
+  - `DASHCLAW_RATE_LIMIT_UPSTASH_TIMEOUT_MS` (default: 500) — one atomic `EVAL` (INCR + PEXPIRE) per request, bounded by this timeout; a slow or down Upstash falls back to the per-instance limiter instead of stalling the request.
 - Local/self-host tuning (middleware env vars):
   - `DASHCLAW_RATE_LIMIT_WINDOW_MS` (default: 60000)
   - `DASHCLAW_RATE_LIMIT_MAX` (default: 1000 in development, 100 otherwise)

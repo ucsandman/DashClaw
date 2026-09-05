@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   insertPlanDeviation, listDeviationsForPlan, listDeviationsForAction,
-  listDeviationsForSession, resolveDeviation, sweepAbandonedSteps,
+  listDeviationsForSession, listDeviationsForPlans, resolveDeviation, sweepAbandonedSteps,
 } from '../../app/lib/repositories/plan-deviations.repository';
 
 type SqlCall = { text: string; v: unknown[] };
@@ -118,5 +118,25 @@ describe('plan-deviations.repository', () => {
     const sqlS = sqlMock([[{ deviation_id: 'dv_3' }]]);
     await listDeviationsForSession(sqlS as never, 'org_1', 'sess_9');
     expect(sqlS.calls[0]!.v).toEqual(expect.arrayContaining(['org_1', 'sess_9']));
+  });
+
+  // FIX A: batched twin of listDeviationsForPlan for GET
+  // /api/plans?expand=details — one query across every plan on the page.
+  it('listDeviationsForPlans scopes by org and ANY(planIds), and returns [] without a query for an empty list', async () => {
+    const sql = sqlMock([
+      [
+        { deviation_id: 'dv_1', plan_id: 'pa_1' },
+        { deviation_id: 'dv_2', plan_id: 'pa_2' },
+      ],
+    ]);
+    const rows = await listDeviationsForPlans(sql as never, 'org_1', ['pa_1', 'pa_2']);
+    expect(rows).toHaveLength(2);
+    expect(sql.calls[0]!.text).toContain('= ANY($2)');
+    expect(sql.calls[0]!.v).toEqual(['org_1', ['pa_1', 'pa_2']]);
+
+    const emptySql = sqlMock([[{ deviation_id: 'unreached' }]]);
+    const emptyRows = await listDeviationsForPlans(emptySql as never, 'org_1', []);
+    expect(emptyRows).toEqual([]);
+    expect(emptySql.calls).toHaveLength(0);
   });
 });

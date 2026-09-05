@@ -736,7 +736,7 @@ class DashClaw:
 
     # --- Category 13: Policy Enforcement (Guard) ---
 
-    def guard(self, context):
+    def guard(self, context, record=False):
         """Can I do X?
 
         Returns a guard decision dict with at minimum:
@@ -776,6 +776,11 @@ class DashClaw:
         ``source_of_truth`` in the context to have a ``non_fabrication`` policy
         verify the content; the decision carries a signed, re-verifiable receipt
         under ``non_fabrication``.
+
+        ``record`` (default False): pass True to add ``?record=true``, which
+        also creates the action record in this same request (the response
+        then carries ``recorded`` and ``action_id``) — used by
+        ``run_governed`` to fold guard+create_action into one HTTP call.
         """
         payload = {
             # Approvals lifecycle: declare the wait window this client will
@@ -790,7 +795,8 @@ class DashClaw:
         # for audit attribution if the caller didn't supply one in `context`.
         if context.get("agent_name") is None and self.agent_name:
             payload["agent_name"] = self.agent_name
-        return self._request("/api/guard", "POST", json=payload)
+        params = {"record": "true"} if record else None
+        return self._request("/api/guard", "POST", json=payload, params=params)
 
     def run_governed(self, act, params, fn):
         """Evidence-first guard: one call that runs the full governance loop
@@ -799,9 +805,14 @@ class DashClaw:
         Node parity: sdk/dashclaw.js runGoverned. See
         docs/superpowers/specs/2026-07-05-evidence-first-guard.md.
 
-        guard(with act) -> create_action -> (if pending_approval and
+        guard(with act, record=True) -> (if the server didn't record —
+        ``recorded`` is not True or no ``action_id``, e.g. an older
+        self-hosted server that ignores the param — fall back to
+        create_action) -> (if decision is require_approval and
         params.get("wait") is not False) wait_for_approval -> fn() ->
         one-shot outcome report (completed on success, failed on exception).
+        The single-call path is one HTTP round trip instead of two; the
+        fallback keeps older servers working unchanged.
 
         ``act``: {"kind": "shell"|"http"|"sql"|"file", ...} — see the wire
         contract. Scrubbed client-side before send.
@@ -814,26 +825,32 @@ class DashClaw:
         ``fn``: zero-arg callable — the real work to run once guard/approval
         clears.
 
-        Raises GuardBlockedError when guard or create_action blocks the
-        action, ApprovalDeniedError when an operator denies the pending
-        approval, ApprovalPendingError when the action needs approval and
+        Raises GuardBlockedError when guard blocks the action,
+        ApprovalDeniedError when an operator denies the pending approval,
+        ApprovalPendingError when the action needs approval and
         ``wait=False`` was passed (fn() was not executed).
         """
         context = dict(params or {})
         wait = context.pop("wait", None)
         scrubbed_act = scrub_act(act)
+        guard_context = {**context, "act": scrubbed_act}
 
-        decision = self.guard({**context, "act": scrubbed_act})
+        decision = self.guard(guard_context, record=True)
         if decision.get("decision") == "block":
             raise GuardBlockedError(decision)
 
-        action_type = context.get("action_type")
-        declared_goal = context.get("declared_goal")
-        extra = {k: v for k, v in context.items() if k not in ("action_type", "declared_goal")}
-        result = self.create_action(action_type, declared_goal, act=scrubbed_act, **extra)
-        action_id = result.get("action_id")
-        action = result.get("action") or {}
-        if action.get("status") == "pending_approval":
+        action_id = decision.get("action_id")
+        if not decision.get("recorded") or not action_id:
+            # Server didn't record the action on the guard call — fall back
+            # to the previous two-call path so older self-hosted servers
+            # keep working.
+            action_type = context.get("action_type")
+            declared_goal = context.get("declared_goal")
+            extra = {k: v for k, v in context.items() if k not in ("action_type", "declared_goal")}
+            result = self.create_action(action_type, declared_goal, act=scrubbed_act, **extra)
+            action_id = result.get("action_id")
+
+        if decision.get("decision") == "require_approval":
             # wait=False must not become a silent approval bypass: the previous
             # behavior fell through and executed fn() with the approval still
             # pending. Fail loud instead; the caller polls and re-runs.
