@@ -13,6 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.33.6] — 2026-09-05
+
+### Added
+
+- **`guard_policies (org_id, active, created_at DESC)` index** (drizzle/0076): the hottest read in the runtime was a sequential scan. Applied by the auto-migrate step every deploy already runs.
+
 ## [5.33.5] — 2026-09-04
 
 ### Changed

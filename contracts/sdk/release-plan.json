@@ -1,26 +1,22 @@
 {
   "node": {
-    "current_version": "5.33.5",
+    "current_version": "5.33.6",
     "next_bump": "none",
-    "reason": "v5.33.5 (speed pass): runGoverned records in the same guard call (POST /api/guard?record=true, one round trip instead of two) with a createAction fallback for servers that do not record. Node SDK source changed: republished to npm at 5.33.5.",
+    "reason": "v5.33.6 (guard_policies org/active index, drizzle/0076). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.33.5.",
     "domains": [
-      "platform",
-      "node"
+      "platform"
     ]
   },
   "python": {
-    "current_version": "5.33.5",
+    "current_version": "5.33.6",
     "next_bump": "none",
-    "reason": "v5.33.5 (speed pass): run_governed records in the same guard call (record=True, one round trip instead of two) with a create_action fallback for servers that do not record. Python SDK source changed: republished to PyPI at 5.33.5.",
+    "reason": "v5.33.6 (guard_policies org/active index, drizzle/0076). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.33.5.",
     "domains": [
-      "platform",
-      "python"
+      "platform"
     ]
   },
-  "reason": "v5.33.5 (speed pass): both SDKs' runGoverned/run_governed collapse guard+record into one call; /approvals batches plan details (expand=details); bounded single-call Upstash limiter; cached action-ceiling read; hook launcher interpreter cache; vitest node-default (511s→161s). Both SDK sources changed: republished.",
+  "reason": "v5.33.6 (guard_policies org/active index, drizzle/0076). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.33.5.",
   "domains": [
-    "platform",
-    "node",
-    "python"
+    "platform"
   ]
 }

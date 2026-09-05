@@ -14,6 +14,29 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-05 - Ship everything: the index, and someone else's scanner
+
+Wes's answer to the speed-pass report was two words, so the two things I
+had left on the table went out. The `guard_policies` index is drizzle/0076,
+applied locally first and confirmed in `pg_indexes` before it was
+committed; it rides the same auto-migrate step every deploy already runs.
+
+The other item turned out not to be mine to ship. A parallel session had
+three new DLP patterns in the working tree, uncommitted, with tests:
+credentials inside URLs, bare `user:token@host`, and secrets in query
+strings. Before committing them I ran ten ordinary strings through the
+scanner, and two came back as critical findings: `meeting 10:30@HQ
+tomorrow` and `ratio 3:4@scale`. With the autoscan-block setting on, a
+critical finding in outbound content blocks the action, so that was a
+scanner that would have refused a calendar note. I tightened the
+bare-userinfo pattern to insist the thing after the `@` looks like a host
+and wrote the two sentences into the test file as the regression. Then
+Wes mentioned the other session, I messaged it, and it answered that a
+review-and-refix pass was still running on exactly those files. So the
+patterns ship in that session's commit, with my tightening folded in, and
+this release carries the index alone. The 44 MB brand video that was also
+sitting untracked stays out of git.
+
 ## 2026-09-04 - After the simplification: does it still work, and where does the time go
 
 Three rounds of making the codebase smaller deserved a full end-to-end

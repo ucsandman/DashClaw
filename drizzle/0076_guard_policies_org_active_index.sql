@@ -1,0 +1,13 @@
+-- 0076_guard_policies_org_active_index
+--
+-- The hottest read in the runtime (app/lib/guard/caches.ts, once per org per
+-- 3-second policy-cache window, on every POST /api/guard cache miss):
+--   SELECT ... FROM guard_policies WHERE org_id = $1 AND active = 1
+-- and the same shape with ORDER BY created_at DESC in
+-- app/lib/repositories/guardrails.repository.ts.
+--
+-- guard_policies carried only its id primary key, so both were sequential
+-- scans over every tenant's policies. Small today (a handful of policies per
+-- org) but it grows linearly with pack adoption and with tenant count on the
+-- shared table. Additive; nothing else changes.
+CREATE INDEX IF NOT EXISTS "idx_guard_policies_org_active" ON "guard_policies" ("org_id", "active", "created_at" DESC);
