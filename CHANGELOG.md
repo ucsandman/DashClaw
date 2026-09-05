@@ -17,7 +17,7 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ### Removed
 
-- Removed a net 6,312 lines in the 65-path cleanup batch before release metadata: 969 additions, including relocated docs and focused tests, against 7,281 deletions.
+- Removed a net 6,034 lines in the 65-path cleanup batch before release metadata: 1,247 additions, including relocated docs and focused tests, against 7,281 deletions.
 - Removed dead AgentLens hooks, duplicate local GitNexus skill copies, a retired command and workflow, obsolete one-off scripts, an unused component and hook, an old migration, and unreferenced MCP resolver and outcome helpers.
 - Removed 21 demo handlers for routes that no longer exist in the production API, plus stale fixture data, 19 feature tutorial agents, 3 journey tutorial agents, and retired persona actions.
 - Moved four superseded documents into `docs/archive/` and updated current documentation to point at the canonical v5 model.
@@ -31,7 +31,7 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 ### Release notes
 
 - This is a platform-only shared-version bump to 5.33.10. Node and Python SDK source is unchanged, so `dashclaw` is intentionally not republished to npm or PyPI.
-- `@dashclaw/mcp-server` advances to 3.1.7 and `dashclaw-demo` advances to 1.3.1 because both package sources changed. Their registry publication is tracked separately from the platform release.
+- `@dashclaw/mcp-server` 3.1.7 and `dashclaw-demo` 1.3.1 are prepared because both package sources changed. Registry publication is pending npm account two-factor confirmation; both publish attempts returned `EOTP`.
 - Use the GitHub release tag `platform-v5.33.10`. The existing `v*` workflow publishes both SDKs unconditionally, so the conventional tag would cut empty SDK releases.
 
 ## [5.33.9] - 2026-09-05

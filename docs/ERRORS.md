@@ -4,6 +4,8 @@ Newest first. Full entries for multi-attempt debugging or reusable lessons; one-
 
 ---
 
+**2026-09-05:** A release note overstated cleanup as 6,312 net lines because `Get-Content | Measure-Object -Line` omitted blank lines while counting untracked archive files; derive future counts from `git diff --no-renames --numstat <base>..<commit>` against committed trees so renamed and formerly untracked files are included.
+
 ## 2026-09-05 — a whole-codebase request was narrowed to recent commits
 
 The review examined only two recent commits even though the request covered the
