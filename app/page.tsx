@@ -32,7 +32,7 @@ import JsonLd from './components/JsonLd';
 export const metadata: Metadata = marketingPageMetadata({
   title: 'DashClaw, the approval layer for unattended AI agents',
   description:
-    'Put a policy checkpoint in front of destructive agent calls. Installed hooks, OpenClaw, and bounded capability invocation can halt work for human approval before execution.',
+    'Stop risky agent actions before they run and approve them from your phone. Works with OpenClaw, Hermes, Claude Code, Codex and MCP. Every decision lands in a signed ledger.',
   path: '/',
 });
 
@@ -142,7 +142,7 @@ export default function LandingPage() {
               '@type': 'SoftwareApplication',
               name: 'DashClaw',
               description:
-                'A governance runtime that evaluates agent actions, records audit evidence, and can halt supported hook, OpenClaw, and bounded capability calls for human approval before execution.',
+                'An approval layer for unattended AI agents. Supported hooks and gateways (OpenClaw, Hermes, Claude Code, Codex, MCP) halt risky actions for human approval before execution, and every decision is recorded in a signed ledger.',
               url: 'https://www.dashclaw.io',
               applicationCategory: 'DeveloperApplication',
               operatingSystem: 'Any',
@@ -166,7 +166,7 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-16 items-center">
             <div>
               <h1 className="text-4xl sm:text-5xl xl:text-[3.25rem] font-bold tracking-tight leading-[1.08] text-text-primary [text-wrap:balance]">
-                Remote approvals for unattended agent runs.
+                Remote approvals for unattended agent runs. A signed record of every decision.
               </h1>
               <p className="mt-6 text-lg text-text-secondary leading-relaxed max-w-xl">
                 Let the routine work continue. Review the actions your policies

@@ -1,5 +1,17 @@
 # Decision log
 
+## 2026-09-05 - One positioning sentence everywhere: "the approval layer for unattended AI agents"
+
+Set while preparing the Product Hunt launch (v5.33.11). Three different framings were live at once: the site title said "approval layer for unattended AI agents", the OG card said "Agent decision infrastructure", and the README opened on "your AI coding agent". Wes's call, in order of what he rejected:
+
+- **Not "coding agent" as the lead.** DashClaw enforces fail-closed on OpenClaw and Hermes as well as Claude Code and Codex, and the story that matters is an agent about to spend money or touch production, not only a bad shell command. Coding agents stay in the runtime list, never in the headline. Every local runtime already has a permission prompt for the person at the keyboard, so leading with coding agents invites "Claude Code already asks me".
+- **Not a story hook as the tagline.** "My agent tried to buy a domain at 2am. I got a yes/no first" was rejected. The tagline is plain and descriptive; the story goes in the launch comment.
+- **Not "observability" or "compliance" as the lead.** Those words put DashClaw in a lineup with tracing tools and enterprise suites. The specific nouns are used instead: signed decision ledger, replayable decision records, stated confidence scored against outcome. It is the second beat after "stop it and ask a human", never the first.
+
+Result: the title tag, OG and Twitter titles, OG alt text, hero H1, README opening line and the three social cards all carry the one sentence. Card tagline source of truth is `brands/dashclaw.json` in the animations repo; `render-dashclaw-statics.mjs` reads it.
+
+Files: `app/layout.tsx`, `app/page.tsx`, `app/lib/marketingSeo.ts`, `README.md`, `public/social/*.png`
+
 ## 2026-09-01 - Plan authority is pinned by content hash; the attest seam fails closed before the first model call
 
 v5.28.0 closes the gap between "the operator approved a plan" and "this run is still entitled to act on it." Adapted from memcode's pinned-content model.

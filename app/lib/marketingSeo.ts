@@ -85,7 +85,7 @@ export function marketingPageMetadata({
           url: '/social/og-image.png',
           width: 1200,
           height: 630,
-          alt: 'DashClaw, the governance runtime for AI agents',
+          alt: 'DashClaw, the approval layer for unattended AI agents',
         },
       ],
     },

@@ -18,10 +18,10 @@ const inter = localFont({
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.dashclaw.io'),
   title: {
-    default: 'DashClaw, the governance runtime for AI agents',
+    default: 'DashClaw, the approval layer for unattended AI agents',
     template: '%s - DashClaw',
   },
-  description: 'DashClaw evaluates agent actions against policy, routes risky work to human approval, and records audit evidence. Installed hooks and supported gateways can halt calls before execution.',
+  description: 'Stop risky agent actions before they run and approve them from your phone. Works with OpenClaw, Hermes, Claude Code, Codex and MCP. Every decision lands in a signed ledger.',
   icons: {
     icon: [
       { url: '/favicons/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
@@ -31,8 +31,8 @@ export const metadata: Metadata = {
   },
   manifest: '/config/site.webmanifest',
   openGraph: {
-    title: 'DashClaw, the governance runtime for AI agents',
-    description: 'DashClaw evaluates agent actions against policy, routes risky work to human approval, and records audit evidence. Installed hooks and supported gateways can halt calls before execution.',
+    title: 'DashClaw, the approval layer for unattended AI agents',
+    description: 'Stop risky agent actions before they run and approve them from your phone. Works with OpenClaw, Hermes, Claude Code, Codex and MCP. Every decision lands in a signed ledger.',
     url: 'https://www.dashclaw.io',
     siteName: 'DashClaw',
     type: 'website',
@@ -41,14 +41,14 @@ export const metadata: Metadata = {
         url: '/social/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'DashClaw, the governance runtime for AI agents',
+        alt: 'DashClaw, the approval layer for unattended AI agents',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'DashClaw, the governance runtime for AI agents',
-    description: 'DashClaw evaluates agent actions against policy, routes risky work to human approval, and records audit evidence. Installed hooks and supported gateways can halt calls before execution.',
+    title: 'DashClaw, the approval layer for unattended AI agents',
+    description: 'Stop risky agent actions before they run and approve them from your phone. Works with OpenClaw, Hermes, Claude Code, Codex and MCP. Every decision lands in a signed ledger.',
     images: ['/social/twitter-card.png'],
   },
 }

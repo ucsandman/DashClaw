@@ -3,7 +3,7 @@
 
   <h1>DashClaw</h1>
 
-  <p><strong>With a supported enforcement integration, when your AI coding agent tries something destructive, DashClaw catches it before it runs and asks you first, even when you are not at the keyboard.</strong></p>
+  <p><strong>With a supported enforcement integration, when your AI agent (OpenClaw, Hermes, Claude Code, Codex) tries something destructive or expensive, DashClaw catches it before it runs and asks you first, even when you are not at the keyboard. Every decision lands in a signed ledger.</strong></p>
 
   <p>Run agents unattended without giving them unconditional authority.</p>
 

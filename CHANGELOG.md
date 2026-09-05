@@ -13,6 +13,19 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.33.11] - 2026-09-05
+
+### Changed
+
+- Positioning copy now says one thing everywhere: "the approval layer for unattended AI agents". Site default title, OpenGraph and Twitter titles, OG alt text, landing hero H1 and the README opening line all use it. The runtime list leads with OpenClaw and Hermes alongside Claude Code and Codex instead of "coding agent", and the signed decision ledger is named as the second beat.
+- Landing and site meta descriptions replaced with plain language (the previous copy said "bounded capability invocation").
+- Regenerated `public/social/og-image.png`, `twitter-card.png` and `github-social-preview.png` with the new tagline. Source of truth for the card tagline is `brands/dashclaw.json` in the animations repo.
+
+### Release notes
+
+- Platform-only shared-version bump to 5.33.11. Node and Python SDK source is unchanged, so `dashclaw` is intentionally not republished to npm or PyPI.
+- Use the GitHub release tag `platform-v5.33.11` for the same reason as 5.33.10.
+
 ## [5.33.10] - 2026-09-05
 
 ### Removed
