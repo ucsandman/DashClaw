@@ -221,8 +221,10 @@ function readManifest(path) {
 /**
  * Stage a source directory's contents (minus excluded paths) into a temp dir.
  * Used when the bundle has paths we don't want in the zip (e.g. Python
- * __pycache__) — Compress-Archive has no native exclude flag, so we copy the
- * filtered tree first and zip the copy. Returns the staged dir path.
+ * __pycache__) — the non-Windows `zip` command has no native exclude flag,
+ * so we copy the filtered tree first and zip the copy (one code path for
+ * both platforms rather than a bsdtar-only `--exclude`). Returns the staged
+ * dir path.
  */
 function stageFiltered(srcDir, excludeRe) {
   const stagingRoot = join(tmpdir(), `dashclaw-bundle-${process.pid}-${Date.now()}`);
@@ -252,14 +254,56 @@ function stageFiltered(srcDir, excludeRe) {
 }
 
 /**
+ * Count plain files (not directories) under a tree. Used to assert a built
+ * zip's file-entry count against what was actually staged for it — `dir` is
+ * always the already-filtered tree (`toZip`), so no excludeRe is needed here.
+ */
+function countFiles(dir) {
+  let count = 0;
+  const walk = (current) => {
+    const entries = readdirSync(current, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = join(current, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (entry.isFile()) {
+        count += 1;
+      }
+    }
+  };
+  walk(dir);
+  return count;
+}
+
+/**
+ * List a zip's entry names by reading its central directory directly —
+ * dependency-free and platform-uniform. bsdtar's `-tf` listing NORMALIZES
+ * backslash entry names to forward slashes on the way out, so shelling out to
+ * it here would make the backslash-entry regression guard below unable to
+ * ever observe the bug it exists to catch (bsdtar reads the raw entry bytes
+ * fine — it's only the *display* that's normalized). Reading the central
+ * directory's raw name bytes avoids that normalization and also drops the
+ * `unzip` binary dependency the non-Windows branch previously introduced.
+ */
+function listZipEntries(zipPath) {
+  const buf = readFileSync(zipPath);
+  const names = [];
+  for (let o = 0; o + 46 <= buf.length; o += 1) {
+    if (buf.readUInt32LE(o) !== 0x02014b50) continue;
+    names.push(buf.toString('utf8', o + 46, o + 46 + buf.readUInt16LE(o + 28)));
+  }
+  return names;
+}
+
+/**
  * Rebuild a bundle zip only when the directory hash disagrees with the
  * manifest. The manifest is committed alongside the zip so re-runs stay
  * idempotent — the zip format embeds timestamps, so naive re-packaging would
  * produce a byte-different archive every invocation.
  *
  * When `excludeRe` is set, paths matching it are dropped from BOTH the hash
- * and the zip — staging happens into a temp dir first because PowerShell's
- * Compress-Archive has no native exclude flag.
+ * and the zip — staging happens into a temp dir first because the non-Windows
+ * `zip` command has no native exclude flag.
  *
  * @param {string} srcDir       Source directory to package
  * @param {string} zipPath      Output zip path
@@ -287,28 +331,38 @@ function refreshBundleZip(srcDir, zipPath, manifestPath, excludeRe = null) {
     cleanup = stagingRoot;
   }
 
-  // Build to a temp file and only swap it into place on a verified, non-empty
-  // success. The old behaviour deleted the destination zip FIRST, so any build
-  // failure left a 0-byte/corrupt artifact committed. The common trigger on
-  // Windows is a locked source file — an editor or the Claude Desktop app
-  // holding a skill's SKILL.md open — where Compress-Archive emits a
-  // *non-terminating* error yet still exits 0; $ErrorActionPreference='Stop'
-  // promotes it to a real failure so we can detect it and keep the prior zip.
+  // Build to a temp file and only swap it into place on a verified, non-empty,
+  // structurally-correct success. The old behaviour deleted the destination
+  // zip FIRST, so any build failure left a 0-byte/corrupt artifact committed.
   const tmpZip = zipPath.replace(/\.zip$/, '') + '.tmp.zip';
   rmSync(tmpZip, { force: true });
 
   const isWindows = platform() === 'win32';
+  // bsdtar (Windows' own System32/tar.exe), not PowerShell's Compress-Archive.
+  // Compress-Archive emitted backslash-separated entry names — corrupt for
+  // any unzip tool expecting POSIX paths — and dragged in whatever cruft
+  // (e.g. __pycache__) sat in the source tree it was pointed at, since it has
+  // no exclude flag of its own (see ERRORS.md). It also silently exited 0 on
+  // a locked source file via a non-terminating error. bsdtar always writes
+  // forward-slash entries and fails loudly on error, so both defects are
+  // fixed at the source rather than papered over. Args are relative to
+  // REPO_ROOT (via cwd), which keeps `drive:` colons out of the tar command
+  // as long as os.tmpdir() and the repo share a drive — bsdtar itself
+  // accepts absolute paths fine, so a tmpdir on another drive is not a
+  // correctness problem, just outside what the relative form covers. The
+  // same relative approach is already proven in scripts/build-desktop-plugin.mjs.
+  const tarBin = isWindows
+    ? join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe')
+    : null;
   let status;
   if (isWindows) {
-    const result = spawnSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-Command',
-        `$ErrorActionPreference='Stop'; Compress-Archive -Path "${toZip}" -DestinationPath "${tmpZip}" -Force`,
-      ],
-      { stdio: ['ignore', 'inherit', 'inherit'] },
-    );
+    const relParent = relative(REPO_ROOT, dirname(toZip)) || '.';
+    const name = toZip.split(/[\\/]/).pop();
+    const relTmpZip = relative(REPO_ROOT, tmpZip);
+    const result = spawnSync(tarBin, ['-a', '-cf', relTmpZip, '-C', relParent, name], {
+      cwd: REPO_ROOT,
+      stdio: ['ignore', 'inherit', 'inherit'],
+    });
     status = result.status;
   } else {
     const parent = dirname(toZip);
@@ -320,12 +374,9 @@ function refreshBundleZip(srcDir, zipPath, manifestPath, excludeRe = null) {
     status = result.status;
   }
 
-  if (cleanup) {
-    rmSync(cleanup, { recursive: true, force: true });
-  }
-
   // A locked source (or any zip failure) must NOT clobber the existing zip.
   if (status !== 0 || !existsSync(tmpZip) || statSync(tmpZip).size === 0) {
+    if (cleanup) rmSync(cleanup, { recursive: true, force: true });
     rmSync(tmpZip, { force: true });
     warn(
       `zip build failed for ${relative(REPO_ROOT, zipPath)} — keeping the existing artifact. ` +
@@ -333,6 +384,29 @@ function refreshBundleZip(srcDir, zipPath, manifestPath, excludeRe = null) {
     );
     return;
   }
+
+  // Post-build assertion: the zip's file-entry count must equal the filtered
+  // source file count, and no entry name may contain a backslash. This is
+  // the regression guard for the corruption class fixed above — a mismatch
+  // here means a backslash-entry or extra-file bug slipped back in, on any
+  // platform, before the artifact ever reaches disk. Counted BEFORE cleanup
+  // wipes the staging dir, since `toZip` lives inside it when excludeRe is set.
+  const sourceFileCount = countFiles(toZip);
+  const entries = listZipEntries(tmpZip);
+  const fileEntries = entries.filter((entry) => !entry.endsWith('/'));
+  const backslashCount = entries.filter((entry) => entry.includes('\\')).length;
+  log(
+    `bundle assertion (${relative(REPO_ROOT, zipPath)}): entries=${fileEntries.length} sourceFiles=${sourceFileCount} backslashEntries=${backslashCount}`,
+  );
+  if (fileEntries.length !== sourceFileCount || backslashCount > 0) {
+    if (cleanup) rmSync(cleanup, { recursive: true, force: true });
+    rmSync(tmpZip, { force: true });
+    throw new Error(
+      `bundle assertion failed for ${relative(REPO_ROOT, zipPath)}: entries=${fileEntries.length} sourceFiles=${sourceFileCount} backslashEntries=${backslashCount}`,
+    );
+  }
+
+  if (cleanup) rmSync(cleanup, { recursive: true, force: true });
 
   rmSync(zipPath, { force: true });
   renameSync(tmpZip, zipPath);
@@ -460,9 +534,11 @@ async function main() {
   // Plugin bundle — the entire plugins/dashclaw/ tree as a single uploadable
   // artifact for ClawHub / direct distribution. Includes the mirrored skill,
   // so this MUST run after the skill mirroring above to capture the latest
-  // SKILL.md content. No excludes; everything under plugins/dashclaw/ is
-  // intended to ship.
-  refreshBundleZip(PLUGIN_BUNDLE_DIR, PLUGIN_BUNDLE_ZIP, PLUGIN_BUNDLE_MANIFEST);
+  // SKILL.md content. Excludes __pycache__/.pytest_cache: mirrorSubdir already
+  // keeps those out of the *mirrored* hook scripts, but plugins/dashclaw/hooks/
+  // is a real directory a developer can run pytest against directly, which
+  // regenerates __pycache__ there independent of any mirror step.
+  refreshBundleZip(PLUGIN_BUNDLE_DIR, PLUGIN_BUNDLE_ZIP, PLUGIN_BUNDLE_MANIFEST, BUNDLE_EXCLUDE_RE);
 
   // Claude Code hooks bundle — drops into .claude/hooks/. Excludes
   // __pycache__ and .pytest_cache so the bundle hash is stable across test

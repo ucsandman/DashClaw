@@ -4,6 +4,71 @@ Newest first. Full entries for multi-attempt debugging or reusable lessons; one-
 
 ---
 
+## 2026-09-05 — the 2026-09-04 backslash guard was a false green on Windows
+
+Follow-up to the entry below. The packer fix (bsdtar instead of `Compress-Archive`)
+was correct, but the regression assertion it shipped with never actually worked: `listZipEntries`
+listed the built zip via `bsdtar -tf` on Windows, and bsdtar **normalizes backslash entry
+names to forward slashes in its listing output** even though the raw central-directory
+bytes still carry backslashes. So `backslashCount` could never be non-zero on the only
+platform that produces the bug — the "verified" fail-on-purpose run below only ever
+exercised the file-count arm (`sourceFileCount` off-by-one), never the backslash arm.
+
+Proved by reinstating the old `Compress-Archive` packer in a scratch copy: it built a zip
+whose entries are all backslash-prefixed (`dashclaw\skills\`, `dashclaw\.mcp.json`, …,
+confirmed independently with `unzip -Z1 | grep -c '\'` → 38 of 38), yet `bsdtar -tf` on
+that same zip reported `backslashEntries=0` on every entry.
+
+**Fix.** `listZipEntries` (`scripts/refresh-bundles.mjs`) no longer shells out to `bsdtar
+-tf` (or `unzip -Z1` on non-Windows). It reads the zip's central directory directly — walk
+the buffer for the `PK\x01\x02` signature, read the 46-byte fixed header, decode the
+filename length + bytes that follow — which is dependency-free, platform-uniform, and
+returns the entry names as actually stored, backslashes included. The `tarBin` argument
+is gone from the call site; `tarBin` itself still resolves and builds the zip (bsdtar is
+still the right packer — this fix is only about how the built zip gets *inspected*
+afterward).
+
+**Verified.** Reran the exact fail-on-purpose from the entry below: with the old
+`Compress-Archive` packer reinstated and the new `listZipEntries`, the assertion now
+throws `bundle assertion failed for public\downloads\dashclaw-governance.zip: entries=2
+sourceFiles=2 backslashEntries=2` (red, as it should have the first time). With the real
+bsdtar packer restored, all three bundles rebuilt clean: `entries=2 sourceFiles=2
+backslashEntries=0`, `entries=32 sourceFiles=32 backslashEntries=0`, `entries=60
+sourceFiles=60 backslashEntries=0`, cross-checked against `unzip -Z1` on the plugin zip
+(0 backslash entries, 42 total entries including directories).
+
+---
+
+## 2026-09-04 — Windows `bundles:refresh` corruption fixed at the source
+
+Follow-up to the entry below. `refreshBundleZip` (`scripts/refresh-bundles.mjs`) built
+Windows zips with PowerShell's `Compress-Archive`, which writes backslash-separated
+entries and has no exclude flag, so `__pycache__`/`.pyc` build garbage packed into the
+`plugins/dashclaw/` tree rode along uncaught. Confirmed against the artifact still
+committed at the time of this fix: the HEAD `dashclaw-governance-plugin.zip` carried
+every entry backslash-prefixed (`dashclaw\hooks\dashclaw_pretool.py`) plus three
+`__pycache__` directories and their `.pyc` files packed in.
+
+**Fix.** Both Windows zip builds now shell out to bsdtar (`%SystemRoot%\System32\tar.exe
+-a -cf`, the same approach already proven in `scripts/build-desktop-plugin.mjs`) instead
+of `Compress-Archive`; bsdtar always writes forward-slash entries and fails loudly
+instead of `Compress-Archive`'s non-terminating errors. `PLUGIN_BUNDLE_ZIP` now filters
+through the same `__pycache__`/`.pytest_cache` exclusion (`BUNDLE_EXCLUDE_RE`) the hooks
+bundle already used. A post-build assertion compares the zip's file-entry count against
+the filtered source tree's file count and (intended to) scan every entry name for a
+backslash, throwing — and discarding the bad temp zip, leaving the last-good `zipPath`
+untouched — before a corrupt archive can reach the commit.
+
+**Verified — CORRECTED 2026-09-05, see the entry above.** The file-count arm of the
+assertion was genuinely exercised and works (`bundle assertion failed for
+…governance.zip: entries=2 sourceFiles=3 backslashEntries=0`, restored on revert). The
+backslash arm was NOT: it read the built zip via `bsdtar -tf`, which normalizes backslash
+entries to forward slashes in its listing, so `backslashEntries=0` was a false green on
+Windows — the platform the bug is specific to. See the 2026-09-05 entry for the real fix
+(dependency-free central-directory read) and its verification.
+
+---
+
 ## 2026-09-01 - `bundles:refresh` on Windows produces a corrupt, incomplete zip that is worse than the committed one (v5.28.0 ship)
 
 **Symptom:** during the v5.28.0 ship, `npm run bundles:refresh` reported every mirrored file "unchanged" but still rewrote all three `public/downloads/*.zip` artifacts with different sizes, so `git status` showed bundle churn that looked like ordinary staleness.
@@ -19,6 +84,8 @@ Newest first. Full entries for multi-attempt debugging or reusable lessons; one-
 **Resolution this ship:** the regenerated bundles were discarded (`git checkout -- public/downloads/`) and the good committed artifacts kept. This was safe because the pre-commit hook runs `refresh-bundles.mjs --if-staged`, which only refreshes when a bundle *source* (`hooks/`, `plugins/dashclaw/{.claude-plugin,.codex-plugin,.hermes-plugin,assets,.mcp.json,.mcp-claude.json,PLUGIN_PARITY.md}`, `public/downloads/dashclaw-governance/`) is staged. v5.28.0 staged none of those, so the hook correctly skipped the refresh and did not reintroduce the bad zip.
 
 **Lesson / open item:** `scripts/refresh-bundles.mjs` is not safe to run on Windows and no gate catches it - `bundles:refresh` is trusted to be correct, and its own per-file "unchanged" log actively hides the fact that the *archive* changed. Anyone shipping from Windows must diff `unzip -l` against `git show HEAD:<zip>` before committing a bundle refresh, or run the refresh on Linux/CI. The packer needs forward-slash normalization and a `__pycache__`/`.pyc` exclusion; until then a Windows refresh should be treated as a corrupting operation, not a self-healing one. NOT FIXED in v5.28.0 - the ship carried no bundle-source change, so fixing the packer was out of scope.
+
+**Superseded 2026-09-04 / 2026-09-05 — see the entries above.**
 
 ## 2026-08-17 — a real domain purchase executed unguarded; four independent gates all missed
 

@@ -13,6 +13,14 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Added
+
+- **URL-credential patterns in the redactor** (`app/lib/security.ts`): `url_userinfo` (`https://user:pass@host`), `bare_userinfo` (`user:token@host`) and `url_query_secret` (`?api_key=` / `?token=` style) join the rule list, so all 22 `redactAny` callers inherit them. Tuned against real prose: comma/semicolon/hash-delimited addresses, `09:30@zoom.us` meeting times and bare `key=`/`sig=` query params do not fire. Overlapping matches of different rules now both count as findings (only a match fully inside an already-redacted span is dropped).
+
+### Fixed
+
+- **Windows bundle corruption at the source** (`scripts/refresh-bundles.mjs`): the `Compress-Archive` spawn is replaced with `tar.exe -a -cf` (the approach `build-desktop-plugin.mjs` already used), `__pycache__` is excluded from the plugin bundle, and a post-build assertion checks entry count against the source file count and rejects any backslash entry name, printing both counts. Closes the ERRORS.md item open since v5.28.0.
+
 ## [5.33.6] — 2026-09-05
 
 ### Added
