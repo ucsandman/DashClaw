@@ -13,6 +13,13 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.33.4] — 2026-09-04
+
+### Removed
+
+- **Simplification round 3 (zero behavior change).** 64 exported symbols that nothing in the code or test trees referenced, with the private helpers and imports they orphaned: the dead `/posture` payload builder and the feedback CRUD in `app/lib`, unused domain types in `app/lib/types/*`, unreferenced repository helpers (`getCapabilityBySlug`, `deleteCapability`, `getIdentity`, `listTestRuns`, capability access rules), unused UI skeletons, a CLI render helper, and a handful of unused constants. 28 files, +5/-1,060 lines; per-symbol grep transcript in `docs/simplify/round-3-grep-transcript.txt`. No route, SDK method, MCP tool, CLI command, hook or contract changed; the full invariant snapshot is identical to 5.33.3 (`docs/simplify/round-3.md`). The dispatch-table pass found no keyed if/else chains to convert.
+- **Program totals** (`docs/simplify/`): three rounds, three releases (5.33.2, 5.33.3, 5.33.4); files over 1,500 lines 9 → 5 (the rest are scripts, the single-file hook and the schema by design); 13 fewer duplicate helper clusters; net -941 source lines excluding the measurement tooling; every public surface byte-identical throughout.
+
 ## [5.33.3] — 2026-09-04
 
 ### Changed

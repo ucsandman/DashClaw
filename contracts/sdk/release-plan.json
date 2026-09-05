@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.33.3",
+    "current_version": "5.33.4",
     "next_bump": "none",
-    "reason": "v5.33.3 (simplification round 2: god-file decomposition into topic siblings, zero behavior change). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
+    "reason": "v5.33.4 (simplification round 3: dead-code removal, 64 unreferenced exports, zero behavior change). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.33.3",
+    "current_version": "5.33.4",
     "next_bump": "none",
-    "reason": "v5.33.3 (simplification round 2: god-file decomposition into topic siblings, zero behavior change). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
+    "reason": "v5.33.4 (simplification round 3: dead-code removal, 64 unreferenced exports, zero behavior change). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v5.33.3 (simplification round 2: god-file decomposition into topic siblings, zero behavior change). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
+  "reason": "v5.33.4 (simplification round 3: dead-code removal, 64 unreferenced exports, zero behavior change). No Node/Python SDK source change: the SDKs are NOT republished; npm and PyPI stay at 5.32.0.",
   "domains": [
     "platform"
   ]

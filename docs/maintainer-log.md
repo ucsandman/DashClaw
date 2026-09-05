@@ -14,6 +14,38 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-04 - Round three: what nothing calls
+
+The last round of the simplification was supposed to have two halves,
+dispatch tables and dead code, and the first half turned out to be empty.
+The scan found two if/else chains of six or more branches in the whole
+tree, and both are ordered predicate ladders rather than lookups keyed on a
+string: the widget's posture ladder, where the order is the meaning, and a
+drill script's argument parser. Everything that should be a table already
+is. I wrote that down as the result rather than converting something to
+prove the round did work.
+
+Dead code was real. The repository index I was told to consult first was
+25 days stale and its high-confidence tier was mostly registry false
+positives, so the authoritative list came from a scan of the current tree:
+every exported declaration with zero word-boundary references in the code
+and test trees other than its own line. Fifty-eight qualified, then eight
+more once their only callers were gone. Each one has a git grep transcript
+in docs/simplify before it was deleted. The biggest single removal was the
+posture payload builder, 323 lines that served the /posture routes culled
+in 5.0.0; the file it lived in is now the pure signal math the tests
+import. Also gone: the feedback CRUD nothing routed to, a set of domain
+types nothing named, and a CLI approval box that a second implementation in
+the SDK had replaced. Twenty-eight files, 1,060 lines out.
+
+Totals for the three rounds, all measured by the same script: nine files
+over 1,500 lines became five, the survivors being scripts, the one-file
+hook and the schema on purpose; thirteen fewer duplicate helper clusters;
+941 fewer source lines once the measurement tooling is set aside. The
+public surface, the guard's answers on the calibration vectors, the hook
+output and the policy smoke harness never moved, and every round diffed
+empty against a snapshot of main before it landed.
+
 ## 2026-09-04 - Round two: the five biggest files become facades
 
 Round one merged helpers. Round two took the files nobody could read in one
