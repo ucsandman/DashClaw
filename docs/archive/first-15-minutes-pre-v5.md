@@ -1,5 +1,7 @@
 # DashClaw: First 15 Minutes (Operator Quickstart)
 
+> **Historical:** This pre-v5 quickstart describes dashboard, toolkit, and event-stream surfaces that have since been removed or replaced. Start with the current [README](../../README.md) and [Quick Start](../../QUICK-START.md).
+
 Goal: from zero to seeing a live event in the dashboard.
 
 ## 1) What you are starting

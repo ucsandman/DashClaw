@@ -1,6 +1,10 @@
 # DashClaw Capability Classification
 
-> **SUPERSEDED (2026-07-05).** This is an early taxonomy kept for link stability. Its tier assignments are incomplete and its folder conventions (`app/(core)`, `app/(extensions)`, `app/(archive)`) never matched the shipped codebase (the real archive is `app/api/_archive/`). The current, maintained system map — tiers, surfaces, and route maturity — is [`PROJECT_DETAILS.md`](../../PROJECT_DETAILS.md). Do not cite this file.
+> **HISTORICAL (archived 2026-09-05).** This superseded taxonomy describes the
+> pre-v5 agent-platform direction. Its tier assignments are incomplete and its
+> folder conventions never matched the shipped codebase. It is preserved as
+> decision history, not current architecture. See the canonical [product
+> thesis](../../THESIS.md) and [system map](../../PROJECT_DETAILS.md).
 
 This document defines the DashClaw product taxonomy. DashClaw is organized into a focused governance runtime with modular extensions.
 

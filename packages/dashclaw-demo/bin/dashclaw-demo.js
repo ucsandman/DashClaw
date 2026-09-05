@@ -46,24 +46,7 @@ container.stdout.on('data', (data) => {
     const line = buffer.slice(0, newlineIdx);
     buffer = buffer.slice(newlineIdx + 1);
 
-    if (line.startsWith('REPLAY_URL=')) {
-      const url = line.slice('REPLAY_URL='.length).trim();
-      process.stdout.write(line + '\n');
-      // Open in default browser
-      try {
-        if (process.platform === 'darwin') {
-          execSync(`open "${url}"`);
-        } else if (process.platform === 'win32') {
-          execSync(`cmd /c start "" "${url}"`);
-        } else {
-          execSync(`xdg-open "${url}"`);
-        }
-      } catch (e) {
-        console.log('Could not open browser automatically. Visit the URL above.');
-      }
-    } else {
-      process.stdout.write(line + '\n');
-    }
+    process.stdout.write(line + '\n');
   }
 });
 

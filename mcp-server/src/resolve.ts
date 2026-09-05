@@ -1,11 +1,5 @@
 import type { Store } from "./storage.js";
-import type {
-  Environment,
-  Project,
-  ProviderConnection,
-  ProviderId,
-  ProviderMapping,
-} from "./types.js";
+import type { Project } from "./types.js";
 import { DashclawError } from "./util.js";
 
 /** Find a project by id or slug. Falls back to the selected project. */
@@ -28,65 +22,4 @@ export function resolveProject(store: Store, projectRef?: string): Project {
   throw new DashclawError(
     "No project specified and none selected. Pass `project` or call select_project first.",
   );
-}
-
-export function resolveEnvironment(
-  store: Store,
-  project: Project,
-  envRef?: string,
-): Environment {
-  const envs = store.data.environments.filter((e) => e.projectId === project.id);
-  if (envRef) {
-    const found = envs.find((e) => e.id === envRef || e.name === envRef);
-    if (!found) {
-      throw new DashclawError(
-        `Project "${project.slug}" has no environment "${envRef}". ` +
-          `Known: ${envs.map((e) => e.name).join(", ") || "(none)"}.`,
-      );
-    }
-    return found;
-  }
-  if (envs.length === 1) return envs[0]!;
-  throw new DashclawError(
-    `Project "${project.slug}" has multiple environments — specify which: ${envs
-      .map((e) => e.name)
-      .join(", ")}.`,
-  );
-}
-
-export function findMapping(
-  store: Store,
-  environment: Environment,
-  provider: ProviderId,
-): ProviderMapping | undefined {
-  return store.data.mappings.find(
-    (m) => m.environmentId === environment.id && m.provider === provider,
-  );
-}
-
-export function requireMapping(
-  store: Store,
-  project: Project,
-  environment: Environment,
-  provider: ProviderId,
-): ProviderMapping {
-  const m = findMapping(store, environment, provider);
-  if (!m) {
-    throw new DashclawError(
-      `No ${provider} mapping for ${project.slug}/${environment.name}. ` +
-        `Add one with map_provider_resource.`,
-    );
-  }
-  return m;
-}
-
-export function findConnection(
-  store: Store,
-  provider: ProviderId,
-  connectionId?: string,
-): ProviderConnection | undefined {
-  if (connectionId) {
-    return store.data.connections.find((c) => c.id === connectionId && c.provider === provider);
-  }
-  return store.data.connections.find((c) => c.provider === provider);
 }

@@ -26,15 +26,6 @@ export interface DashclawGuardDecision {
   raw: unknown;
 }
 
-export interface DashclawOutcomeInput {
-  actionId: string;
-  status: "success" | "error" | "not_executed";
-  durationMs: number;
-  summary: string;
-  metadata: Record<string, unknown>;
-  errorMessage?: string;
-}
-
 export interface DashclawStatusReport {
   configured: boolean;
   baseUrl?: string;

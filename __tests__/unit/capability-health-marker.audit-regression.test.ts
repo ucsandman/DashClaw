@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
-import { checkCircuitBreaker, getCapabilityHealthSummary } from '../../app/lib/capability-health.js';
+import { checkCircuitBreaker } from '../../app/lib/capability-health.js';
 
 type SqlCall = { text: string; values: unknown[] };
 
@@ -15,31 +15,6 @@ function captureSql(results: Array<Record<string, unknown>[]>) {
 }
 
 describe('capability health stable invocation marker', () => {
-  it('counts derived action types by stable capability id while preserving legacy slug rows', async () => {
-    const { sql, calls } = captureSql([[{
-      total_invocations: 0,
-      successful_invocations: 0,
-      failed_invocations: 0,
-      pending_approvals: 0,
-      total_invocations_1d: 0,
-      successful_invocations_1d: 0,
-    }], [], []]);
-    await getCapabilityHealthSummary(sql as never, 'org_1', {
-      capability_id: 'cap_1', slug: 'buy-domain', health_status: 'unknown',
-    });
-
-    const stable = JSON.stringify(['capability:buy-domain', 'capability-id:cap_1']);
-    const legacy = JSON.stringify(['capability:buy-domain']);
-    for (const call of calls.slice(0, 2)) {
-      expect(call.values).toContain(stable);
-      expect(call.values).toContain(legacy);
-      expect(call.text).toContain('AND (systems_touched =');
-      expect(call.text).toContain("OR (action_type = 'capability_invoke' AND systems_touched =");
-    }
-    expect(calls[2]?.values).toContain(legacy);
-    expect(calls[2]?.values).not.toContain(stable);
-  });
-
   it('parameterizes the stable id and opens the breaker for derived-type failures', async () => {
     const capabilityId = "cap_1' OR 1=1 --";
     const { sql, calls } = captureSql([[

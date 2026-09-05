@@ -4,6 +4,16 @@ Newest first. Full entries for multi-attempt debugging or reusable lessons; one-
 
 ---
 
+## 2026-09-05 — a whole-codebase request was narrowed to recent commits
+
+The review examined only two recent commits even though the request covered the
+entire repository. Its no-change conclusion applied only to that sample and did
+not answer the broader request. The prevention is mechanical: start every
+whole-codebase review with a `git ls-files` census, assign every top-level
+subsystem, classify maintained, archived, and generated files, and close with
+an explicit coverage inventory. Any skipped or overlapping directory remains
+unreviewed until the inventory says who checked it.
+
 ## 2026-09-05 — driver-specific catalog arrays caused false unhealthy reports
 
 The first audit deployment had all required schema objects, but its public health

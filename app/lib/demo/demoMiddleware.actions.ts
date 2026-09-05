@@ -17,20 +17,11 @@ export interface DemoFixtures {
   recommendations: AnyRecord[];
   metrics: AnyRecord[];
   metricsSummary?: AnyRecord;
-  tokensCurrent?: AnyRecord;
-  tokensToday?: AnyRecord;
-  tokenHistory: AnyRecord[];
-  content?: AnyRecord[];
   teamMembers?: AnyRecord[];
   teamInvites?: AnyRecord[];
   activityLogs?: AnyRecord[];
   webhooks: AnyRecord[];
   webhookDeliveries?: Record<string, AnyRecord[]>;
-  schedules: AnyRecord[];
-  digest?: AnyRecord | null;
-  contextPoints?: AnyRecord[];
-  contextThreads?: AnyRecord[];
-  preferences: Record<string, AnyRecord>;
   policyProofReport?: string;
   policyTestResults?: AnyRecord;
   decisionMetrics?: AnyRecord;
@@ -617,16 +608,6 @@ export function demoAssumptions(fixtures: DemoFixtures, url: URL) {
       invalidated: paged.filter(a => a.invalidated === 1).length,
       unvalidated: paged.filter(a => a.validated === 0 && a.invalidated === 0).length,
     },
-    lastUpdated: new Date().toISOString(),
-  };
-}
-
-export function demoTokens(fixtures: DemoFixtures) {
-  return {
-    current: fixtures.tokensCurrent,
-    today: fixtures.tokensToday,
-    history: fixtures.tokenHistory.slice().reverse(),
-    timeline: [],
     lastUpdated: new Date().toISOString(),
   };
 }

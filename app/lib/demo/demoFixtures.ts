@@ -83,23 +83,6 @@ function buildFixtures(): Record<string, unknown> {
     timestamp: isoFromNow((12 + i * 29) * 60 * 1000),
   }));
 
-  // ── PRUNED: Tier 4 Legacy Arrays ──
-  const goals: unknown[] = [];
-  const contacts: unknown[] = [];
-  const interactions: unknown[] = [];
-  const events: unknown[] = [];
-  const ideas: unknown[] = [];
-  const tokenHistory: unknown[] = [];
-  const tokensCurrent = null;
-  const tokensToday = { estimatedCost: 0 };
-  const content: unknown[] = [];
-  const contextPoints: unknown[] = [];
-  const contextThreads: unknown[] = [];
-  const contextEntries: unknown[] = [];
-  const snippets: unknown[] = [];
-  const preferences = { preferences: [], recent_moods: [], top_approaches: [] };
-  const executions: unknown[] = [];
-  const schedules: unknown[] = [];
   const webhooks: unknown[] = [];
   const webhookDeliveries = {};
   const activityLogs: unknown[] = [];
@@ -132,16 +115,6 @@ function buildFixtures(): Record<string, unknown> {
     { org_id: DEMO_ORG, key: 'demo_mode', value: 'true', encrypted: 0 },
     { org_id: DEMO_ORG, key: 'governance_runtime', value: 'v2', encrypted: 0 },
   ];
-
-  const memory = {
-    health: { score: 92, status: 'healthy', issues: [] },
-    entities: [
-      { name: 'DashClaw v2', type: 'system', mentions: 45 },
-      { name: 'Guard Policy', type: 'concept', mentions: 32 },
-      { name: 'Evidence Ledger', type: 'concept', mentions: 28 },
-    ],
-    topics: ['governance', 'security', 'compliance', 'reliability'],
-  };
 
   const recommendations = Array.from({ length: 6 }).map((_, i) => ({
     id: stableId('lrec', i + 1),
@@ -232,16 +205,8 @@ function buildFixtures(): Record<string, unknown> {
     })),
   ];
 
-  const routingHealth = { status: 'healthy' };
-  const routingStats = { total_tasks: 0, completed: 0, pending: 0 };
-  const routingAgents: unknown[] = [];
-  const routingTasks: unknown[] = [];
-
   const policyTestResults = { passed: 12, failed: 0 };
   const policyProofReport = { org_id: DEMO_ORG, status: 'valid', verified_at: isoFromNow(0) };
-
-  const feedbackEntries: unknown[] = [];
-  const feedbackStats = { total_entries: 0, avg_sentiment: 0 };
 
   return {
     agents,
@@ -249,24 +214,8 @@ function buildFixtures(): Record<string, unknown> {
     assumptions,
     decisions,
     lessons,
-    goals,
-    contacts,
-    interactions,
-    events,
-    ideas,
-    tokenHistory,
-    tokensCurrent,
-    tokensToday,
-    content,
     policies,
     guardDecisions,
-    contextPoints,
-    contextThreads,
-    contextEntries,
-    snippets,
-    preferences,
-    executions,
-    schedules,
     webhooks,
     webhookDeliveries,
     activityLogs,
@@ -275,21 +224,14 @@ function buildFixtures(): Record<string, unknown> {
     teamInvites,
     usage,
     settings,
-    memory,
     signals,
     decisionMetrics,
     recommendations,
     metrics,
     metricsSummary,
     securityStatus,
-    routingHealth,
-    routingStats,
-    routingAgents,
-    routingTasks,
     policyTestResults,
     policyProofReport,
-    feedbackEntries,
-    feedbackStats,
   };
 }
 

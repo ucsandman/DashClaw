@@ -1,6 +1,6 @@
 {
   "name": "@dashclaw/mcp-server",
-  "version": "3.1.6",
+  "version": "3.1.7",
   "mcpName": "io.github.ucsandman/dashclaw",
   "description": "DashClaw policy checks, approvals, action records, and governed execution of registered HTTP capabilities over MCP.",
   "type": "module",

@@ -1,5 +1,11 @@
 # /goal — Integrate AgentLens into DashClaw
 
+> **HISTORICAL (archived 2026-09-05).** This May 2026 implementation goal
+> describes the AgentLens and Code Sessions platform that DashClaw v5 later
+> removed. It is preserved as decision history, not current architecture. See
+> the canonical [product thesis](../../THESIS.md) and [v5 kill
+> ledger](../releases/2026-07-07-v5-kill-ledger.md).
+
 > Full absorption. AgentLens stops being a separate product. Its capabilities become a first-class part of DashClaw: Claude Code session analytics (repeated-runs, alerts, cache health, /goal autopsy, weekly memo, subagent ROI), and the differentiated **Generate Optimal Files** workflow — wired into DashClaw's existing hooks, action_records, pricing, MCP, plugins, CLI, `vitest` test surfaces, and Vercel cron mechanism.
 >
 > Every concrete claim in this file was verified against `C:\Projects\DashClaw` at HEAD on 2026-05-13 and against `C:\Projects\RevenueGoalExperiment-V3`. If something below contradicts the code on the day this is implemented, **stop and append an addendum to this file** before changing direction.

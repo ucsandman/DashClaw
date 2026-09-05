@@ -95,9 +95,9 @@ A Claude Managed Agent with DashClaw custom tools. Guard and record calls for bu
 
 `kimi_dashclaw_test.py` shows cooperative DashClaw policy and audit calls around a Moonshot AI (Kimi) agent that uses an OpenAI-compatible endpoint. Set `MOONSHOT_API_KEY`, `DASHCLAW_BASE_URL`, and `DASHCLAW_API_KEY`, then run `python examples/kimi_dashclaw_test.py`.
 
-### Market Intelligence Briefing (Full-Stack Demo)
+### DashClaw demo guide
 
-Not an example you run externally — this seeds demo data directly into your DashClaw instance. Run `node scripts/seed-demo-capabilities.mjs` to create a knowledge collection, 5 capabilities, and 3 policies. See [DEMO.md](../DEMO.md).
+For a hosted operator walkthrough, packaged Docker simulation, and safe SDK integration exercise, see [DEMO.md](../DEMO.md).
 
 ## Prerequisites
 

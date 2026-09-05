@@ -1,11 +1,18 @@
 ---
-source-of-truth: true
+source-of-truth: false
+status: archived
 owner: Platform PM
 last-verified: 2026-04-07
 doc-type: architecture
 ---
 
 # Platform Object Model
+
+> **HISTORICAL (archived 2026-09-05).** This object model describes the
+> pre-v5 agent-platform direction, including workflows, model strategies, and
+> knowledge collections that the v5 product thesis removed. It is preserved as
+> decision history, not current architecture. See the canonical [product
+> thesis](../../THESIS.md).
 
 ## Purpose
 

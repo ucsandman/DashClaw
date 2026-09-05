@@ -24,7 +24,7 @@ function buildSecurityHeaderRules({ nextauthUrl = process.env.NEXTAUTH_URL || ''
     "base-uri 'none'",
     "object-src 'none'",
     "frame-ancestors 'none'",
-    "frame-src 'self' https://www.loom.com https://www.youtube-nocookie.com https://challenges.cloudflare.com",
+    "frame-src 'self' https://challenges.cloudflare.com",
     "form-action 'self'",
     ...(isTLS ? ['upgrade-insecure-requests', 'block-all-mixed-content'] : []),
   ].join('; ');

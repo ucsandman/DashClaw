@@ -668,4 +668,4 @@ The right order is:
 - [Agent Operating Layer Roadmap](../../planning/2026-04-07-agent-operating-layer-roadmap.md)
 - [SDK Consolidation RFC](../../plans/archive/2026-04-07-sdk-consolidation.md)
 - [SDK Migration Matrix](../../planning/2026-04-07-sdk-migration-matrix.md)
-- [Platform Object Model](../../architecture/platform-object-model.md)
+- [Platform Object Model](../../archive/platform-object-model.md)

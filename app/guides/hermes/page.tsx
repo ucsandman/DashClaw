@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = marketingPageMetadata({
   title: 'Hermes Agent Integration Guide - DashClaw',
-  description: 'Govern Hermes Agent with DashClaw: per-turn context injection, secret redaction, subagent ROI, and live session ingest in under 20 minutes.',
+  description: 'Govern Hermes Agent with DashClaw: per-turn context injection, secret redaction, subagent ROI, and liveness verification.',
   path: '/guides/hermes',
 });
 
@@ -43,17 +43,11 @@ hooks:
     - command: "python \${DASHCLAW_REPO}/.hermes/hooks/dashclaw_pre_llm_hermes.py"
       timeout: 5
 
-  post_llm_call:
-    - command: "python \${DASHCLAW_REPO}/.hermes/hooks/dashclaw_postllm_hermes.py"
-      timeout: 15
-
   on_session_start:
     - command: "python \${DASHCLAW_REPO}/.hermes/hooks/dashclaw_on_session_start_hermes.py"
       timeout: 10
-
-  on_session_end:
-    - command: "python \${DASHCLAW_REPO}/.hermes/hooks/dashclaw_on_session_end_hermes.py"
-      timeout: 15
+    - command: "python \${DASHCLAW_REPO}/hooks/enforcement_liveness_probe.py --source session-start --runtime hermes"
+      timeout: 10
 
   transform_tool_result:
     - command: "python \${DASHCLAW_REPO}/.hermes/hooks/dashclaw_transform_tool_result_hermes.py"
@@ -118,7 +112,7 @@ DISCORD_APPROVER_ORG_ID=<your-org-id>
       number: 2,
       title: 'Install the Hermes plugin',
       summary:
-        'One script symlinks the plugin into ~/.hermes/, appends the eight DashClaw hook entries to ~/.hermes/config.yaml (idempotent: sentinel markers prevent duplication on re-run), substitutes ${DASHCLAW_REPO} for the absolute repo path, and prints an env-var checklist. Re-run after every git pull to upgrade.',
+        'One script symlinks the plugin into ~/.hermes/, appends the DashClaw hook entries to ~/.hermes/config.yaml (idempotent: sentinel markers prevent duplication on re-run), substitutes ${DASHCLAW_REPO} for the absolute repo path, and prints an env-var checklist. Re-run after every git pull to upgrade.',
       codeTitle: 'Terminal',
       codeBody: `# macOS / Linux
 bash scripts/install-hermes-plugin.sh
@@ -128,7 +122,7 @@ powershell -File scripts/install-hermes-plugin.ps1
 
 # Sanity check
 hermes dashclaw doctor`,
-      note: 'The doctor command runs a 4-section check: env vars, all 8 hooks on disk, plugin skills present, API reachability plus a finalize: true probe of /api/code-sessions/ingest-live.',
+      note: 'The doctor command checks env vars, configured hook scripts, plugin skills, and API reachability.',
     },
     {
       number: 3,
@@ -149,9 +143,9 @@ DASHCLAW_REQUIRE_EXECUTION_CLAIMS=1`,
       number: 4,
       title: 'Accept the hooks',
       summary:
-        'Hermes prompts on first invocation of each (event, command) pair so you can review the eight commands before they fire. Accept once per hook, or set hooks_auto_accept: true in ~/.hermes/config.yaml after you have reviewed them. Trusted hooks persist across sessions.',
+        'Hermes prompts on first invocation of each (event, command) pair so you can review configured commands before they fire. Accept once per hook, or set hooks_auto_accept: true in ~/.hermes/config.yaml after you have reviewed them. Trusted hooks persist across sessions.',
       codeTitle: 'In Hermes',
-      codeBody: `# First Hermes session after install will prompt 8 times — once per hook.
+      codeBody: `# First Hermes session after install prompts once per configured hook command.
 # Each prompt shows the absolute command + matcher.
 
 # Or non-interactive — set in ~/.hermes/config.yaml:
@@ -187,8 +181,8 @@ hooks_auto_accept: true`,
     {
       number: 8,
       title: 'See the result in DashClaw',
-      summary: 'Open your DashClaw dashboard to confirm the action was recorded under the hermes agent id and that the live-ingest session shows turn-by-turn token counts.',
-      note: "Go to /decisions: you should see your tool call with agent_id 'hermes'. Go to /code-sessions: the live session shows per-turn message counts, populated by post_llm_call as the session runs.",
+      summary: 'Open your DashClaw dashboard to confirm the action was recorded under the hermes agent id.',
+      note: "Go to /decisions: you should see your tool call with agent_id 'hermes'.",
     },
   ];
 
@@ -220,28 +214,21 @@ hooks_auto_accept: true`,
 
   const hermesNotesBlock = `## Hermes-specific notes
 
-### Hook surface (8 events vs Codex's 3)
+### Hook surface (6 events)
 Hermes exposes a richer lifecycle than Claude Code or Codex. Beyond
-pre/post_tool_call and on_session_{start,end}, DashClaw also wires:
+pre/post_tool_call, DashClaw also wires:
 
 - pre_llm_call: every turn injects active policies + pending approvals
                   + today's action count via Hermes's context-injection
                   contract (5-minute cached)
-- post_llm_call: per-turn live ingest to /api/code-sessions/ingest-live
+- on_session_start: pre-fetches policy state; the liveness probe verifies
+                  the pre_tool_call seam without delaying session start
 - transform_tool_result: redacts 10 secret-pattern families (Anthropic /
                   OpenAI / AWS / GitHub / Slack / Stripe / JWT / PEM /
                   DashClaw keys) before the model sees tool output
 - subagent_stop: records every delegate_task child exit as a DashClaw
                   action with action_type=subagent for the subagent-ROI
                   dashboard
-
-### Live session ingest
-post_llm_call pushes turn structure (model, usage, tool calls, assistant
-preview, timestamp) to /api/code-sessions/ingest-live every turn. On
-session close, on_session_end fires the finalize: true variant which
-runs the optimizer + alerts pass on the completed session. Turn-level
-attribution is visible immediately in /code-sessions, no waiting for a
-Stop hook to flush.
 
 ### Secret redaction
 transform_tool_result runs every tool output through the same redaction
@@ -257,7 +244,7 @@ dashclaw end markers in ~/.hermes/config.yaml. A .dashclaw-bak file is
 left next to the config on first install for full restore.`;
 
   const proofMoment =
-    "Go to /decisions: you should see your Hermes tool call with agent_id 'hermes'. Go to /code-sessions: the live session shows per-turn token counts and tool calls as they happen.";
+    "Go to /decisions: you should see your Hermes tool call with agent_id 'hermes'.";
 
   return (
     <div className="min-h-screen text-white">
@@ -266,7 +253,7 @@ left next to the config on first install for full restore.`;
           '@context': 'https://schema.org',
           '@type': 'TechArticle',
           headline: 'Hermes Agent Integration Guide - DashClaw',
-          description: 'Govern Hermes Agent with DashClaw: per-turn context injection, secret redaction, subagent ROI, and live session ingest in under 20 minutes.',
+          description: 'Govern Hermes Agent with DashClaw: per-turn context injection, secret redaction, subagent ROI, and liveness verification.',
           url: 'https://www.dashclaw.io/guides/hermes',
         }}
       />

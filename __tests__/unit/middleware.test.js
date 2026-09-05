@@ -102,11 +102,33 @@ describe('middleware demo-mode dispatch order (characterization)', () => {
     expect(body).toHaveProperty('deliveries');
   });
 
-  it('GET /api/context/threads/:id (unknown) → 404 Thread not found', async () => {
-    const res = await middleware(req('/api/context/threads/ct_does_not_exist'));
-    expect(res.status).toBe(404);
+  it.each([
+    '/api/goals',
+    '/api/relationships',
+    '/api/calendar',
+    '/api/inspiration',
+    '/api/routing/health',
+    '/api/routing/stats',
+    '/api/routing/agents',
+    '/api/routing/tasks',
+    '/api/feedback',
+    '/api/feedback/stats',
+    '/api/feedback/fb_demo_1',
+    '/api/content',
+    '/api/schedules',
+    '/api/digest',
+    '/api/context/points',
+    '/api/context/threads',
+    '/api/context/threads/ct_demo_1',
+    '/api/snippets',
+    '/api/preferences',
+    '/api/memory',
+    '/api/tokens',
+  ])('%s uses the standard disabled demo response after feature retirement', async (pathname) => {
+    const res = await middleware(req(pathname));
+    expect(res.status).toBe(403);
     const body = await res.json();
-    expect(body.error).toBe('Thread not found');
+    expect(body.error).toBe('Demo mode: endpoint disabled.');
   });
 
   it('non-API page routes in demo mode pass through without auth redirect', async () => {

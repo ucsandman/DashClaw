@@ -1,34 +1,28 @@
 {
   "node": {
-    "current_version": "5.33.9",
+    "current_version": "5.33.10",
     "next_bump": "none",
-    "reason": "5.33.9 audit remediation: governed helpers require protocol-1 execution claims and distinguish callback failures from uncertain outcome acknowledgement. Publish both SDKs after the matching server and schema are live.",
+    "reason": "5.33.10 platform cleanup: SDK source is unchanged. Keep the shared manifest version aligned, but do not publish the Node SDK.",
     "domains": [
-      "guard",
-      "actions",
-      "approvals",
-      "identity",
-      "sdk"
+      "platform",
+      "docs",
+      "tooling"
     ]
   },
   "python": {
-    "current_version": "5.33.9",
+    "current_version": "5.33.10",
     "next_bump": "none",
-    "reason": "5.33.9 audit remediation: governed helpers require protocol-1 execution claims and distinguish callback failures from uncertain outcome acknowledgement. Publish both SDKs after the matching server and schema are live.",
+    "reason": "5.33.10 platform cleanup: SDK source is unchanged. Keep the shared manifest version aligned, but do not publish the Python SDK.",
     "domains": [
-      "guard",
-      "actions",
-      "approvals",
-      "identity",
-      "sdk"
+      "platform",
+      "docs",
+      "tooling"
     ]
   },
-  "reason": "5.33.9 audit remediation: governed helpers require protocol-1 execution claims and distinguish callback failures from uncertain outcome acknowledgement. Publish both SDKs after the matching server and schema are live.",
+  "reason": "5.33.10 platform cleanup: SDK source is unchanged, so npm and PyPI are intentionally not republished.",
   "domains": [
-    "guard",
-    "actions",
-    "approvals",
-    "identity",
-    "sdk"
+    "platform",
+    "docs",
+    "tooling"
   ]
 }

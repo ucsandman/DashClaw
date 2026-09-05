@@ -30,7 +30,7 @@ When documents disagree, use this precedence order:
 
 - `PROJECT_DETAILS.md`
 - `docs/architecture/enforcement-boundary.md` and `docs/architecture/trust-and-failure-model.md` (ADRs — change by superseding, not by editing)
-- `docs/architecture/platform-object-model.md`
+- `THESIS.md` for the canonical product boundary and supported object model
 - `docs/decisions/*.md` and approved RFCs
 - `docs/sdk-parity.md`, `docs/sdk-reference.md`
 - `docs/hosted-deployment-runbook.md`, `docs/instant-trial-vercel-setup.md`

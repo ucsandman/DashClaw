@@ -1,21 +1,5 @@
 import type { DemoFixtures } from './demoMiddleware.actions';
 
-export function demoContent(fixtures: DemoFixtures, url: URL) {
-  const sp = url.searchParams;
-  const limit = Math.min(parseInt(sp.get('limit') || '50', 10), 200);
-  const offset = parseInt(sp.get('offset') || '0', 10);
-
-  const items = (fixtures.content || []).slice();
-  const total = items.length;
-  const paged = items.slice(offset, offset + limit);
-  const docs = items.filter(i => i.type === 'document').length;
-  const snippets = items.filter(i => i.type === 'snippet').length;
-  const pages = items.filter(i => i.type === 'dashboard_page').length;
-  const stats = { total_items: total, documents: docs, snippets, pages, storage_bytes: 4200000 };
-
-  return { items: paged, total, stats, lastUpdated: new Date().toISOString() };
-}
-
 export function demoActivity(fixtures: DemoFixtures, url: URL) {
   const sp = url.searchParams;
   const limit = Math.min(parseInt(sp.get('limit') || '50', 10), 200);
@@ -40,53 +24,6 @@ export function demoWebhooks(fixtures: DemoFixtures) {
 export function demoWebhookDeliveries(fixtures: DemoFixtures, webhookId: string) {
   const d = (fixtures.webhookDeliveries && fixtures.webhookDeliveries[webhookId]) || [];
   return { deliveries: d, total: d.length };
-}
-
-export function demoSchedules(fixtures: DemoFixtures) {
-  return { schedules: fixtures.schedules, lastUpdated: new Date().toISOString() };
-}
-
-export function demoDigest(fixtures: DemoFixtures, url: URL) {
-  const sp = url.searchParams;
-  const since = sp.get('since') || undefined;
-  return { digest: fixtures.digest || null, lastUpdated: new Date().toISOString() };
-}
-
-export function demoContextPoints(fixtures: DemoFixtures, url: URL) {
-  const sp = url.searchParams;
-  const limit = Math.min(parseInt(sp.get('limit') || '50', 10), 200);
-  const offset = parseInt(sp.get('offset') || '0', 10);
-
-  const items = (fixtures.contextPoints || []).slice();
-  const total = items.length;
-  const paged = items.slice(offset, offset + limit);
-  return { points: paged, total, lastUpdated: new Date().toISOString() };
-}
-
-export function demoContextThreads(fixtures: DemoFixtures, url: URL) {
-  const items = (fixtures.contextThreads || []).slice();
-  const active = items.filter(t => t.status === 'active').length;
-  return { threads: items, total: items.length, stats: { total: items.length, active }, lastUpdated: new Date().toISOString() };
-}
-
-export function demoContextThreadDetail(fixtures: DemoFixtures, threadId: string) {
-  const t = (fixtures.contextThreads || []).find(th => th.id === threadId);
-  if (!t) return null;
-  const pts = (fixtures.contextPoints || []).filter(p => p.thread_id === threadId);
-  return { thread: t, points: pts };
-}
-
-export function demoSnippets(fixtures: DemoFixtures, url: URL) {
-  const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 200);
-  const items = (fixtures.content || []).filter(i => i.type === 'snippet').slice(0, limit);
-  return { snippets: items, total: items.length };
-}
-
-export function demoPreferences(fixtures: DemoFixtures, url: URL) {
-  const sp = url.searchParams;
-  const scope = sp.get('scope') || 'user';
-  if (scope !== 'user' && scope !== 'org') return { error: 'Invalid scope' };
-  return { scope, preferences: fixtures.preferences[scope] || {}, lastUpdated: new Date().toISOString() };
 }
 
 /** GET /api/doctor — read-only diagnostics snapshot. All green plus one

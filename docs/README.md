@@ -26,10 +26,10 @@ Three doors, pick one:
 | You want | Do this | Time |
 |---|---|---|
 | Proof with zero install | Open [hosted.dashclaw.io/connect](https://hosted.dashclaw.io/connect), mint a trial workspace, send a governed action from the browser | ~3 min |
-| A local demo (Docker) | `npx dashclaw-demo` — a simulated high-risk deploy is blocked and Decision Replay opens | ~1 min |
+| A local demo (Docker) | `npx dashclaw-demo` — a simulated high-risk deploy is blocked and the launcher prints a Decision Replay link | ~1 min |
 | Your own instance | `npx dashclaw up` (local) or the Vercel + Neon deploy button in the [README](../README.md#deploy) | ~8 min |
 
-The full walkthrough is [QUICK-START.md](../QUICK-START.md). There is also a second, deeper demo — the seeded "Market Intelligence Briefing" workflow in [DEMO.md](../DEMO.md) — which exercises capabilities, policies, knowledge collections, and the workflow engine on a running instance.
+The full walkthrough is [QUICK-START.md](../QUICK-START.md). The [demo guide](../DEMO.md) explains the hosted operator walkthrough, the packaged Docker simulation, and a safe SDK integration exercise.
 
 ## 3. Connect your agent
 
@@ -84,7 +84,7 @@ You connected an agent. Now you are the operator.
 | MCP server (`@dashclaw/mcp-server`) | [`mcp-server/README.md`](../mcp-server/README.md) — all **17 governance MCP tools**, 3 resources, config |
 | CLI (`@dashclaw/cli`) | [`cli/README.md`](../cli/README.md) — every command, incl. `up`, `install claude`, approvals, `halt`, doctor |
 | Durable outcomes | [Durable execution finality](./architecture/durable-execution-finality.md) — the five-state machine and the sweep |
-| Object glossary | [Platform object model](./architecture/platform-object-model.md) |
+| Historical platform glossary (pre-v5) | [Archived platform object model](./archive/platform-object-model.md) |
 | Environment variables | [`.env.example`](../.env.example) — annotated, always current |
 
 Build against **stable** routes. Experimental routes can change without notice; the tier of every route is in the API inventory.

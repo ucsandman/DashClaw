@@ -14,6 +14,20 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-05 - Delete the old product without deleting its history
+
+Wes asked for the whole repository cleanup to ship. Codex, acting as the AI maintainer, prepared the range from base `f67ca6a9` through this release. The cleanup diff removes a net 6,312 lines across 65 paths before release metadata: 969 lines added, mostly archive moves and focused tests, against 7,281 removed. Dead AgentLens hooks, duplicate local GitNexus skills, one-off audit scripts, an unused video component, an obsolete migration, and unreferenced repository and MCP helpers are gone. Four documents that still matter as history moved to `docs/archive/` instead of disappearing.
+
+The demo was the largest source of false surface area. Twenty-one fixture handlers described routes the production API no longer has. Nineteen feature tutorial agents, three journey tutorial agents, and stale persona actions taught retired areas such as workspace memory, routing, compliance, and messaging. Those fixtures are gone. The packaged demo now prints its Decision Replay link and stops launching a browser from container output. The package has a real launcher test and a `bin/`-only publish allowlist.
+
+The audit also caught public copy that was more capable than the installed product. The Hermes guide claimed eight hook commands, post-LLM live ingest, and session-end finalization. The installer configures six event types and a session-start liveness probe, so the guide now says exactly that. Current docs point to the v5 thesis and runtime guides while the older object model, capabilities overview, AgentLens goal, and first-run guide remain available as archived context.
+
+The shared platform and SDK manifests advance to 5.33.10, but no SDK source changed and neither SDK should be republished. MCP source did change, so `@dashclaw/mcp-server` advances to 3.1.7. The demo package advances to 1.3.1. Publishing those two package versions stays separate from the platform release and happens only after the commit and package checks are green.
+
+One release mechanic needs a deliberate exception. The current `release.yml` publishes both SDKs for every `v*` tag. This platform-only release therefore uses `platform-v5.33.10`, with the GitHub release title `DashClaw 5.33.10`, so the tag records the release without triggering empty SDK publications. The workflow is unchanged in this cleanup batch.
+
+What worked was measuring the entire deletion diff and checking each surviving reference against current source. What did not work was allowing demo fixtures and integration copy to outlive the routes and hooks they described. The prevention is direct: demo route parity and guide contract tests now fail when retired surfaces or invented Hermes hooks return.
+
 ## 2026-09-05 - Bind approval to one execution attempt, then align the claims
 
 Wes requested a repository-wide adversarial audit, implementation of the findings, a full documentation and marketing pass, and shipment of the completed batch. Codex prepared 5.33.9 with atomic execution claims, stronger authorization and secret custody, migration bookkeeping, clearer outcome uncertainty, and runtime parity fixes. The detailed remediation record is [here](audit-remediation-2026-09-05.md).

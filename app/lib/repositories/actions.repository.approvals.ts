@@ -153,16 +153,6 @@ export async function listActionApprovalFacts(
   }));
 }
 
-export async function getActionTimeBounds(sql: SqlClient, orgId: string, actionId: string): Promise<Row | null> {
-  const rows = await sql`
-    SELECT agent_id, timestamp_start, timestamp_end
-    FROM action_records
-    WHERE org_id = ${orgId} AND action_id = ${actionId}
-    LIMIT 1
-  `;
-  return rows[0] || null;
-}
-
 interface RecordApprovalData {
   newStatus: string;
   errorMessage: string | null;
@@ -202,24 +192,6 @@ Reason: ' || ${safeReasoning} ELSE '' END
       AND (approval_expires_at >= NOW()
            OR (approval_expires_at IS NULL AND created_at >= NOW() - interval '24 hours'))
       AND (${userId} = 'operator' OR created_by IS DISTINCT FROM ${userId})
-    RETURNING *
-  `;
-  return result[0] || null;
-}
-
-/**
- * Flip a just-created action to blocked when a post-insert re-check catches a
- * breach the pre-insert gate could not see (x402 budget TOCTOU close-out,
- * security review 2026-07-02). Preserves the audit trail — the row stays,
- * with the block reason recorded, instead of being compensation-deleted.
- */
-export async function markActionBlocked(sql: SqlClient, orgId: string, actionId: string, reason: string): Promise<Row | null> {
-  const result = await sql`
-    UPDATE action_records
-    SET status = 'blocked',
-        error_message = ${reason}
-    WHERE action_id = ${actionId}
-      AND org_id = ${orgId}
     RETURNING *
   `;
   return result[0] || null;
@@ -454,7 +426,6 @@ export async function recordBulkApprovals(
   return rows.map((r) => r.action_id as string);
 }
 
-/** Pending-approval action ids matching a set of action_types since a cutoff (bulk flood resolution). */
 /**
  * Pending approvals THIS policy actually caused, resolved through the guard
  * decision that held them (action_records.guard_decision_id ->
@@ -493,31 +464,6 @@ export async function listPendingApprovalIdsByPolicy(
      ORDER BY ar.created_at ASC
      LIMIT $4`,
     [orgId, policyId, sinceIso, Math.min(Math.max(1, limit), 500)],
-  );
-  return (rows as Array<{ action_id: string }>).map((r) => r.action_id);
-}
-
-export async function listPendingApprovalIdsByActionTypes(
-  sql: SqlClient,
-  orgId: string,
-  actionTypes: string[],
-  sinceIso: string,
-  limit = 500,
-): Promise<string[]> {
-  if (!actionTypes.length) return [];
-  // Overdue rows are excluded: bulk resolution must never "approve" an
-  // approval whose client already stopped waiting (roadmap v2.3). The bulk
-  // route also sweeps first; this predicate covers the race in between.
-  const rows = await sql.query(
-    `SELECT action_id FROM action_records
-     WHERE org_id = $1 AND status = 'pending_approval'
-       AND action_type = ANY($2)
-       AND created_at::timestamptz >= $3::timestamptz
-       AND (approval_expires_at >= NOW()
-            OR (approval_expires_at IS NULL AND created_at >= NOW() - interval '24 hours'))
-     ORDER BY created_at ASC
-     LIMIT $4`,
-    [orgId, actionTypes, sinceIso, Math.min(Math.max(1, limit), 500)],
   );
   return (rows as Array<{ action_id: string }>).map((r) => r.action_id);
 }
@@ -581,9 +527,9 @@ export async function getActionForGrant(
  * re-interrupted a moment later. Re-implementing prefix semantics as a LIKE
  * here is exactly how the two would drift apart.
  *
- * Overdue rows are excluded on the same predicate as
- * listPendingApprovalIdsByActionTypes: a sweep must never "approve" an approval
- * whose client already stopped waiting (roadmap v2.3).
+ * Overdue rows are excluded on the same predicate as other approval reads: a
+ * sweep must never "approve" an approval whose client already stopped waiting
+ * (roadmap v2.3).
  */
 export async function listPendingApprovalsForGrant(
   sql: SqlClient,

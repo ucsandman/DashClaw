@@ -71,9 +71,7 @@ export async function GET(request: Request) {
 
       // Capability health counts. The buckets must PARTITION every row so the
       // "Capabilities X/Y" denominator (healthy+degraded+failing+untested) equals COUNT(*).
-      // 'unknown' = never-invoked capabilities; the canonical deriveStatus() (capability-health.ts)
-      // and the Capabilities page call these UNTESTED (neutral), NOT degraded — so they get their
-      // own bucket and are excluded from degraded, keeping all three surfaces consistent.
+      // 'unknown' represents never-invoked capabilities and is reported as untested.
       safe(sql`
         SELECT
           COUNT(*) FILTER (WHERE health_status = 'healthy' OR health_status IS NULL)::int AS healthy,

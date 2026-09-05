@@ -4,14 +4,13 @@ import { getDemoFixtures } from './app/lib/demo/demoFixtures';
 import {
   demoAgents,
   demoListActions, demoCreateAction, demoActionDetail, demoAssumptions,
-  demoTokens, demoPolicies, demoApprovalFloods, demoPolicySummary, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost,
+  demoPolicies, demoApprovalFloods, demoPolicySummary, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost,
   demoCalibrationController, demoDoctor,
   demoPlans, demoPlanDetail, demoActionArtifacts,
   demoTuningProposals, demoTighteningProposals, demoLooseningProposals, demoCalibrationProposals,
-  demoContent, demoActivity,
-  demoWebhooks, demoWebhookDeliveries, demoSchedules,
-  demoDigest, demoContextPoints, demoContextThreads, demoContextThreadDetail,
-  demoSnippets, demoPreferences, demoActionTrace,
+  demoActivity,
+  demoWebhooks, demoWebhookDeliveries,
+  demoActionTrace,
   demoDecisionMetrics,
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoApiKeys,
@@ -301,20 +300,6 @@ function handleDemoActionGraph({ request, fixtures, segments }) {
   return demoJson(request, { rootActionId: action.action_id, nodes, edges });
 }
 
-function handleDemoRelationships({ request, fixtures }) {
-  const contacts = fixtures.contacts;
-  const today = new Date().toISOString().slice(0, 10);
-  const followUpsDue = contacts.filter(c => c.followUpDate && c.followUpDate <= today).length;
-  const stats = {
-    total: contacts.length,
-    hot: contacts.filter(c => c.temperature === 'HOT').length,
-    warm: contacts.filter(c => c.temperature === 'WARM').length,
-    cold: contacts.filter(c => c.temperature === 'COLD').length,
-    followUpsDue,
-  };
-  return demoJson(request, { contacts, interactions: [], stats, lastUpdated: new Date().toISOString() });
-}
-
 function handleDemoPoliciesProof({ request, fixtures, url }) {
   const fmt = url.searchParams.get('format');
   if (fmt === 'json') {
@@ -322,25 +307,6 @@ function handleDemoPoliciesProof({ request, fixtures, url }) {
   }
   // Markdown format — wrap in JSON object for client to parse
   return demoJson(request, { report: fixtures.policyProofReport });
-}
-
-function handleDemoFeedback({ request, fixtures, url }) {
-  if (request.method === 'GET') {
-    let entries = fixtures.feedbackEntries;
-    const sentiment = url.searchParams.get('sentiment');
-    const resolved = url.searchParams.get('resolved');
-    if (sentiment) entries = entries.filter(e => e.sentiment === sentiment);
-    if (resolved === 'false') entries = entries.filter(e => !e.resolved);
-    if (resolved === 'true') entries = entries.filter(e => e.resolved);
-    return demoJson(request, { feedback: entries, total: entries.length });
-  }
-  return demoJson(request, { id: 'fb_demo_new', sentiment: 'neutral', tags: [] }, 201);
-}
-
-function handleDemoFeedbackDetail({ request, fixtures, pathname }) {
-  const id = pathname.split('/').pop();
-  const fb = fixtures.feedbackEntries.find(e => e.id === id);
-  return fb ? demoJson(request, fb) : demoJson(request, { error: 'Not found' }, 404);
 }
 
 async function handleDemoGuardRoute({ request, fixtures, url, method }) {
@@ -432,19 +398,6 @@ function handleDemoWebhookDeliveries({ request, fixtures, segments }) {
   return demoJson(request, demoWebhookDeliveries(fixtures, webhookId));
 }
 
-function handleDemoContextThreadDetail({ request, fixtures, segments }) {
-  const threadId = segments[3];
-  const detail = demoContextThreadDetail(fixtures, threadId);
-  if (!detail) return demoJson(request, { error: 'Thread not found' }, 404);
-  return demoJson(request, detail);
-}
-
-function handleDemoPreferences({ request, fixtures, url }) {
-  const payload = demoPreferences(fixtures, url);
-  const status = payload?.error ? 400 : 200;
-  return demoJson(request, payload, status);
-}
-
 function handleDemoPairings({ request, fixtures, url }) {
   const status = url.searchParams.get('status') || 'pending';
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 200);
@@ -513,11 +466,6 @@ const DEMO_API_ROUTES = [
   [(pathname, segments) => segmentsMatch(segments, ['api', 'actions', '*', 'containment']), ({ request }) =>
     demoJson(request, { error: 'Demo mode: containment verdicts are disabled. Connect an instance to promote or discard real contained work.' }, 403)],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'actions', '*']), handleDemoActionDetail],
-  // Dashboard widgets
-  ['/api/goals', ({ request, fixtures }) => demoJson(request, { goals: fixtures.goals, stats: { totalGoals: fixtures.goals.length }, lastUpdated: new Date().toISOString() })],
-  ['/api/relationships', handleDemoRelationships],
-  ['/api/calendar', ({ request, fixtures }) => demoJson(request, { events: fixtures.events, lastUpdated: new Date().toISOString(), count: fixtures.events.length })],
-  ['/api/inspiration', ({ request, fixtures }) => demoJson(request, { ideas: fixtures.ideas, stats: { totalIdeas: fixtures.ideas.length }, lastUpdated: new Date().toISOString() })],
   ['/api/settings', ({ request, fixtures }) => demoJson(request, { settings: fixtures.settings })],
   ['/api/policies', demoFixtureRoute(demoPolicies)],
   // Interruption-budget banner on /approvals. The banner treats any non-OK as
@@ -565,34 +513,15 @@ const DEMO_API_ROUTES = [
     const detail = demoPlanDetail(fixtures, segments[2]);
     return detail ? demoJson(request, detail) : demoJson(request, { error: 'Plan not found' }, 404);
   }],
-  // ── Routing demo endpoints ──
-  ['/api/routing/health', demoFixturePropRoute('routingHealth')],
-  ['/api/routing/stats', demoFixturePropRoute('routingStats')],
-  ['/api/routing/agents', ({ request, fixtures }) => demoJson(request, { agents: fixtures.routingAgents })],
-  ['/api/routing/tasks', ({ request, fixtures }) => demoJson(request, { tasks: fixtures.routingTasks })],
-  // -- Feedback demo endpoints --
-  ['/api/feedback', handleDemoFeedback],
-  [(pathname) => /^\/api\/feedback\/stats$/.test(pathname), demoFixturePropRoute('feedbackStats')],
-  [(pathname) => /^\/api\/feedback\/[^/]+$/.test(pathname), handleDemoFeedbackDetail],
   // Guard + messaging + team + activity
   ['/api/guard', handleDemoGuardRoute],
   ['/api/halt', handleDemoHaltRoute],
   ['/api/approval-pause', handleDemoApprovalPauseRoute],
-  ['/api/content', demoFixtureUrlRoute(demoContent)],
   ['/api/activity', demoFixtureUrlRoute(demoActivity)],
   ['/api/webhooks', demoFixtureRoute(demoWebhooks)],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'webhooks', '*', 'deliveries']), handleDemoWebhookDeliveries],
-  ['/api/schedules', demoFixtureRoute(demoSchedules)],
   ['/api/usage', demoFixtureRoute(demoUsage)],
   ['/api/team/invites', demoFixtureRoute(demoTeam)],
-  ['/api/digest', demoFixtureUrlRoute(demoDigest)],
-  ['/api/context/points', demoFixtureUrlRoute(demoContextPoints)],
-  ['/api/context/threads', demoFixtureUrlRoute(demoContextThreads)],
-  [(pathname, segments) => segmentsMatch(segments, ['api', 'context', 'threads', '*']), handleDemoContextThreadDetail],
-  ['/api/snippets', demoFixtureUrlRoute(demoSnippets)],
-  ['/api/preferences', handleDemoPreferences],
-  ['/api/memory', ({ request, fixtures }) => demoJson(request, { ...fixtures.memory, lastUpdated: new Date().toISOString() })],
-  ['/api/tokens', demoFixtureRoute(demoTokens)],
   ['/api/security/status', demoFixturePropRoute('securityStatus')],
   ['/api/pairings', handleDemoPairings],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'pairings', '*']), handleDemoPairingDetail],

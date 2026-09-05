@@ -4536,7 +4536,7 @@
       "title": "Node / TypeScript SDK",
       "package": {
         "name": "dashclaw",
-        "version": "5.33.9",
+        "version": "5.33.10",
         "install": "npm install dashclaw",
         "description": "Govern agent callbacks with policy checks, remote approvals, execution claims, and outcome reporting.",
         "license": "MIT",
@@ -5202,7 +5202,7 @@
       "title": "Python SDK",
       "package": {
         "name": "dashclaw",
-        "version": "5.33.9",
+        "version": "5.33.10",
         "install": "pip install dashclaw",
         "source": "sdk-python/pyproject.toml, sdk-python/dashclaw/client.py, sdk-python/README.md",
         "requires_python": ">=3.7",
@@ -6489,7 +6489,7 @@
       "title": "MCP Server",
       "package": {
         "name": "@dashclaw/mcp-server",
-        "version": "3.1.6",
+        "version": "3.1.7",
         "bin": {
           "dashclaw-mcp": "bin/dashclaw-mcp.js"
         },

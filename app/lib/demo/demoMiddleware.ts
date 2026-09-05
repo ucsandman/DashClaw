@@ -9,7 +9,6 @@ export {
   demoCreateAction,
   demoActionDetail,
   demoAssumptions,
-  demoTokens,
   demoActionTrace,
   demoDecisionMetrics,
 } from './demoMiddleware.actions';
@@ -41,17 +40,9 @@ export {
   demoPlanDetail,
 } from './demoMiddleware.sessions';
 export {
-  demoContent,
   demoActivity,
   demoWebhooks,
   demoWebhookDeliveries,
-  demoSchedules,
-  demoDigest,
-  demoContextPoints,
-  demoContextThreads,
-  demoContextThreadDetail,
-  demoSnippets,
-  demoPreferences,
   demoDoctor,
   demoTeam,
   demoUsage,
