@@ -267,7 +267,7 @@ jobs:
           echo "hosted integration server never became healthy"; exit 1
 
       - name: Run hosted happy-path integration
-        run: npx vitest run __tests__/integration/hosted/end-to-end.test.js __tests__/integration/execution-claims.test.ts __tests__/integration/enforcement-liveness.test.ts
+        run: npx vitest run __tests__/integration/hosted/end-to-end.test.js __tests__/integration/execution-claims.test.ts __tests__/integration/enforcement-liveness.test.ts __tests__/integration/schema-check-types.test.ts
 
       - name: Stop hosted integration server
         if: always()

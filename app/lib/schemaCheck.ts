@@ -41,12 +41,12 @@ export async function checkCoreTables(sql: SqlTag): Promise<CoreTableCheck> {
   const requiredColumns = REQUIRED_SETUP_COLUMNS.map((column) => `${column.table}.${column.name}`);
   const rows = await sql`
     SELECT ARRAY(
-             SELECT table_name FROM information_schema.tables
+             SELECT table_name::text FROM information_schema.tables
              WHERE table_schema = 'public' AND table_name = ANY(${CORE_TABLES})
              ORDER BY table_name
            ) AS present_tables,
            ARRAY(
-             SELECT index_class.relname
+             SELECT index_class.relname::text
              FROM pg_index index_meta
              JOIN pg_class index_class ON index_class.oid = index_meta.indexrelid
              JOIN pg_class table_class ON table_class.oid = index_meta.indrelid

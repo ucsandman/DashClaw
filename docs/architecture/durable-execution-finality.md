@@ -157,4 +157,4 @@ effect happened, and it does not grant replacement execution authority.
 - [Outcome route](<../../app/api/actions/[actionId]/outcome/route.ts>)
 - [Node governed helper](../../sdk/dashclaw.js)
 - [Python governed helper](../../sdk-python/dashclaw/client.py)
-- [Current audit implementation status](../../plans/audit-2026-09-05/IMPLEMENTATION-STATUS.md)
+- [Audit remediation and verification](../audit-remediation-2026-09-05.md)

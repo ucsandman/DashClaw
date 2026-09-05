@@ -4,6 +4,22 @@ Newest first. Full entries for multi-attempt debugging or reusable lessons; one-
 
 ---
 
+## 2026-09-05 — driver-specific catalog arrays caused false unhealthy reports
+
+The first audit deployment had all required schema objects, but its public health
+check returned 503. PostgreSQL catalog-name arrays arrived as strings through
+Neon's HTTP driver; the direct PostgreSQL driver used in local rehearsals decoded
+them as arrays. Explicit `text` casts make the query return standard `text[]`
+values through both drivers. A read-only production probe reproduced the false
+missing-object result before the fix and passed afterward. CI now verifies the
+query's actual PostgreSQL result type identifiers, not only mocked row values.
+
+The same release exposed a documentation link into the ignored audit directory.
+It passed against the working tree but failed in CI. The link now targets the
+tracked remediation record; a clean worktree check verifies publication paths.
+Keep these fixtures outside the parent TypeScript include tree: a nested checkout
+was also scanned by the parent's type check until the temporary tree was removed.
+
 ## 2026-09-05 — release probes need isolated inputs and redacted failures
 
 A documentation-gate negative probe briefly changed the shared guide dataset
