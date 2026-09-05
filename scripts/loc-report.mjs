@@ -34,7 +34,7 @@ const SOURCE_TREES = [
   'app/', 'sdk/', 'sdk-python/dashclaw/', 'mcp-server/src/', 'mcp-server/bin/',
   'cli/bin/', 'cli/lib/', 'hooks/', 'scripts/', 'schema/',
   'packages/openclaw-plugin/src/', 'packages/dashclaw-demo/bin/',
-  'middleware.js', 'next.config.js', 'drizzle.config.js', 'vitest.config.js',
+  'middleware.js', 'middleware.demo.js', 'middleware.shared.js', 'next.config.js', 'drizzle.config.js', 'vitest.config.js',
   'tailwind.config.js', 'postcss.config.js', 'playwright.config.js', 'eslint.config.mjs',
 ];
 const TEST_TREES = ['__tests__/', 'tests/', 'sdk-python/tests/', 'mcp-server/test/', 'cli/test/'];

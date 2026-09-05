@@ -36,7 +36,7 @@ const run = (cmd, a, opts = {}) => spawnSync(cmd, a, { cwd: ROOT, encoding: 'utf
   const walk = (d) => { for (const e of fs.readdirSync(path.join(ROOT, d), { withFileTypes: true })) { const p = `${d}/${e.name}`; if (e.isDirectory()) walk(p); else files.push(p); } };
   walk('docs/openapi'); walk('drizzle'); walk('contracts');
   files.push('docs/api-inventory.json', 'docs/api-inventory.md', 'schema/schema.js');
-  const lines = files.filter((f) => /\.(json|sql|js|md)$/.test(f)).sort().map((f) => `${crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, f))).digest('hex')}  ${f}`);
+  const lines = files.filter((f) => /\.(json|sql|js|md)$/.test(f)).sort().map((f) => `${crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/\r\n/g, '\n')).digest('hex')}  ${f}`);
   write('contracts.sha256', lines.join('\n') + '\n');
 }
 
@@ -137,7 +137,8 @@ const run = (cmd, a, opts = {}) => spawnSync(cmd, a, { cwd: ROOT, encoding: 'utf
 // 7. documented counts
 {
   const r = run('node', ['scripts/check-doc-counts.mjs']);
-  write('doc-counts.txt', `exit ${r.status}\n${r.stdout}${r.stderr}`);
+  // .claude/CODEBASE_MAP.md is a local, untracked artifact: its line is not an invariant.
+  write('doc-counts.txt', `exit ${r.status}\n${r.stdout}${r.stderr}`.split('\n').filter((l) => !l.includes('CODEBASE_MAP.md')).join('\n'));
 }
 
 process.stdout.write(`invariants -> ${path.relative(ROOT, OUT)}: ${fs.readdirSync(OUT).length} entries\n`);
