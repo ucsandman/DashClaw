@@ -411,10 +411,15 @@ def _require_execution_claim_protocol(decision, guard_resp):
 def _claim_execution(action_id, context):
     """Claim one action attempt exactly once. Never retry an ambiguous PATCH."""
     attempt_id = str(uuid.uuid4())
+    # The claim must carry the identity the action was recorded under. With
+    # DASHCLAW_SUBAGENT_IDENTITY=distinct a sub-agent leaf call is recorded as
+    # "<parent>:<agent_type>" (see _apply_distinct_subagent_id); claiming it
+    # as the bare parent misses the server's candidate lookup and every
+    # sub-agent tool call dies with an EXECUTION_CLAIM_CONFLICT 409.
     body = {
         "claim_execution": True,
         "attempt_id": attempt_id,
-        "agent_id": AGENT_ID,
+        "agent_id": context.get("agent_id") or AGENT_ID,
     }
     if "act" in context:
         body["act"] = context["act"]

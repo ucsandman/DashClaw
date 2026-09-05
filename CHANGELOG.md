@@ -13,6 +13,10 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Fixed
+
+- Claude Code pretool hook: the execution claim now carries the identity the action was recorded under. With the default `DASHCLAW_SUBAGENT_IDENTITY=distinct`, a sub-agent leaf call is recorded as `<parent>:<agent_type>` but was claimed as the bare parent id, so the server's candidate lookup missed and every sub-agent tool call exited with "execution claim failed or returned an ambiguous response" (a 409 `EXECUTION_CLAIM_CONFLICT`). Regression test in `hooks/tests/test_pretool_execution_claim.py`; hook mirrors and download zips regenerated.
+
 ## [5.33.11] - 2026-09-05
 
 ### Changed

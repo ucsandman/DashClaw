@@ -88,6 +88,23 @@ class PretoolExecutionClaimTests(unittest.TestCase):
             self.assertTrue(self.hook._claim_execution("act_1", context))
         self.assertEqual(request.call_count, 1)
 
+    def test_claim_carries_the_recorded_subagent_identity(self):
+        # Regression: a haiku-scout leaf call is recorded as claude-code:haiku-scout,
+        # so the claim must not fall back to the bare parent id (2026-09-05).
+        context = {"act": {"kind": "shell", "command": "echo probe"}}
+        with mock.patch.object(self.hook, "SUBAGENT_IDENTITY", "distinct"):
+            self.hook._apply_distinct_subagent_id(context, "haiku-scout")
+        self.assertEqual(context["agent_id"], self.hook.AGENT_ID + ":haiku-scout")
+        seen = {}
+
+        def response(method, path, body=None, **kwargs):
+            seen.update(body)
+            return {"claimed": True, "action_id": "act_1", "attempt_id": body["attempt_id"]}
+
+        with mock.patch.object(self.hook, "api_request", side_effect=response):
+            self.assertTrue(self.hook._claim_execution("act_1", context))
+        self.assertEqual(seen["agent_id"], self.hook.AGENT_ID + ":haiku-scout")
+
     def test_claim_rejects_response_loss_conflict_and_malformed_echo(self):
         responses = (
             None,
