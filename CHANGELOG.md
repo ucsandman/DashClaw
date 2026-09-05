@@ -13,6 +13,8 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.33.5] — 2026-09-04
+
 ### Changed
 
 - **SDK `runGoverned`/`run_governed` now records in the same guard call** (`POST /api/guard?record=true`) instead of a separate `createAction` request — one HTTP round trip instead of two per governed action. Falls back to the previous `createAction` call when the server doesn't record (older self-hosted servers that ignore the `record` param, or a recording failure).
