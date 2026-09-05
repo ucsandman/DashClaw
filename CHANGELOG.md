@@ -13,6 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.33.3] — 2026-09-04
+
+### Changed
+
+- **Simplification round 2 (zero behavior change).** The five largest product files are now facades over topic siblings, every function body byte-identical: `app/lib/repositories/actions.repository.ts` (2,601 lines → 63 + eight `actions.repository.<topic>.ts`), `app/lib/guard/evaluate.ts` (1,804 → 416 + six `evaluate.<topic>.ts`), `app/lib/demo/demoMiddleware.ts` (1,700 → 58 + four), `middleware.js` (2,096 → 1,258 + `middleware.demo.js`, `middleware.shared.js`) and `app/api/guard/route.ts` (702 → 299; helpers in `app/lib/guard/route-record.ts` and `route-replay.ts`). Facade export names, OpenAPI, MCP tool schemas, SDK exports, CLI help, guard calibration, hook output and the policy smoke harness are identical to 5.33.2 (`docs/simplify/round-2.md`). Files over 1,500 lines: 9 → 5, the rest being scripts, the single-file hook and the schema by design.
+
 ## [5.33.2] — 2026-09-04
 
 ### Changed

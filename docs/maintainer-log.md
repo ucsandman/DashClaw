@@ -14,6 +14,32 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-04 - Round two: the five biggest files become facades
+
+Round one merged helpers. Round two took the files nobody could read in one
+sitting and split each into topic siblings behind a facade that exports
+exactly what it did before. actions.repository.ts went from 2,601 lines to
+63 plus eight siblings; guard/evaluate.ts from 1,804 to 416 with
+evaluateGuard still in the original file; demoMiddleware.ts from 1,700 to
+58; middleware.js from 2,096 to 1,258 with the demo block and the shared
+helpers beside it; and the guard route from 702 to 299, its record and
+replay halves now in app/lib/guard. Five workers did the moves in parallel,
+each proving byte identity against git show before reporting, and I
+re-checked the export sets myself.
+
+One catch worth writing down. A facade written as bare export-star lines
+looks identical under vitest and Turbopack and then exposes nothing under
+tsx, because Node's CommonJS export lexer cannot see through a star
+re-export. The doctor's write-canary check loads that repository through
+tsx. The facade now names its 49 exports explicitly; the same probe that
+caught it (import the namespace, compare Object.keys with HEAD) is in the
+round report so the next split runs it first.
+
+Numbers: nine files over 1,500 lines are now five, all scripts, the
+single-file hook or the schema, which stay whole on purpose. The invariant
+snapshot diffs empty against main; the policy smoke harness gives 137
+checks, 108 passed, 29 failed on both trees, the same 29 as before.
+
 ## 2026-09-04 - Round one of making the codebase smaller without changing what it does
 
 Wes asked for a whole-codebase simplification with zero behavior change and
