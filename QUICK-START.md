@@ -45,7 +45,7 @@ The installer opens the trial's `/connect` page, takes the API key you minted, p
 npx dashclaw-demo
 ```
 
-Requires Docker running. It pulls the demo image, starts a local DashClaw, has an example agent attempt a high-risk deployment, and DashClaw blocks it — the demo agent runs the SDK loop, so it consults guard before acting and stops on the `block` decision. Your browser opens directly to the Decision Replay. (On hook surfaces like Claude Code the halt is mechanical; the per-surface table is [docs/architecture/enforcement-boundary.md](./docs/architecture/enforcement-boundary.md).)
+Requires Docker running and port 3000 free. It pulls the demo image, starts a local DashClaw in demo mode, and runs an example agent that tries to purge customer records from a production database. The demo simulates the guard's `block` decision locally (demo mode has no live policies), records the blocked action, and prints a `REPLAY_URL=` line: open it to see the Decision Replay. (On hook surfaces like Claude Code the halt is mechanical; the per-surface table is [docs/architecture/enforcement-boundary.md](./docs/architecture/enforcement-boundary.md).)
 
 ## Door C: deploy your own instance
 

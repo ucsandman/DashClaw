@@ -25,6 +25,6 @@ For hook enforcement, follow the integration's liveness procedure and review its
 npx dashclaw-demo
 ```
 
-With Docker running, this starts the packaged demo and a simulated deployment governed by its demo policy. The example honors the server's block decision before its simulated effect. See [the enforcement boundary](./docs/architecture/enforcement-boundary.md) for how cooperative SDK calls differ from installed tool hooks.
+With Docker running and port 3000 free, this starts the packaged demo and an example agent that tries to purge customer records from production. The block decision is simulated inside the demo agent (demo mode has no live policies); the blocked action is recorded and a `REPLAY_URL=` line points at its Decision Replay. It demonstrates the operator surfaces, not enforcement. See [the enforcement boundary](./docs/architecture/enforcement-boundary.md) for how cooperative SDK calls differ from installed tool hooks.
 
 The former Market Intelligence workflow walkthrough described routes removed from the product. It is superseded by this guide; DashClaw's current purpose is [governance for unattended agents](./THESIS.md).
