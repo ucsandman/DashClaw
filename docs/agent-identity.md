@@ -136,6 +136,20 @@ plus a "seen set" closes that gap.
 4. The outcome is recorded in `guard_decisions.replay_status` alongside
    `verification_status`. Replays force `decision = 'block'`.
 
+### Idempotent retries
+
+An `idempotency_key` deduplicates the action, not the token's authorization.
+With replay protection enabled, retry the same action and key with a **fresh
+JWT carrying a new `jti`**. Reusing the original token must still block, even
+when its first call earned a cached `allow`.
+
+Current replay-protection and action-binding restrictions are checked before
+serving a cached decision, including when an enforcement mode was tightened
+since the first call. A rejected retry goes through normal evaluation and the
+mandatory audit write; audit failure returns HTTP 503, never the cached allow.
+A fresh valid token does not inherit a prior token-replay rejection. Non-JWT
+callers retain normal idempotency behavior.
+
 ### replay_status enum
 
 | Value            | Meaning                                                          |

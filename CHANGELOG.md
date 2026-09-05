@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.33.8] - 2026-09-05
+
+### Fixed
+
+- Guard idempotency now enforces current JWT replay-protection and action-binding restrictions before returning a cached decision. Rejected retries retain mandatory audit persistence and fail closed if the audit write fails.
+- A fresh valid JWT no longer inherits a prior token-replay rejection. Valid fresh-token retries, non-JWT retries, and explicit replay-protection-off behavior remain supported.
+- Added 12 route-level regression tests using real Ed25519 JWT verification, including enforcement-mode changes, required replay-store failure, and recovery after a rejected retry.
+
+This is a platform-only release. SDK source is unchanged; SDK packages are not republished.
+
 ## [5.33.7] - 2026-09-05
 
 ### Fixed

@@ -3,6 +3,7 @@ import { getOrgHaltState } from '../guard';
 import { redactAny } from '../security';
 import { getGuardDecisionByIdempotencyKey } from '../repositories/guard.repository';
 import { digestJson } from '../integrity/canonicalize';
+import { computeReplayBlockReason, computeActBindingBlockReason } from './evaluate.accumulator';
 import { recordRunningAction, attachAssumptionAlerts } from './route-record';
 import type { GuardSql, GuardData, PreparedRecordReads } from './route-record';
 
@@ -20,10 +21,12 @@ import type { GuardSql, GuardData, PreparedRecordReads } from './route-record';
  * written for the second act (2026-08-11 adversarial review).
  *
  * Attribution-only fields (harness/subagent/session ids, trigger, swarm,
- * enforcement_mode, the key itself) and per-token identity state (jti,
- * replay_status, act_hash) stay OUT: they vary between honest retries and
- * never change a verdict. verification_status and act_status are IN — a
- * retry that drops its JWT must not inherit a verified agent's allow.
+ * enforcement_mode, the key itself) and per-token values (jti, act_hash) stay
+ * OUT of the digest so a fresh valid token can retry the same act. Identity
+ * statuses are IN: a fresh token must not inherit a prior replay rejection,
+ * and a retry that drops its JWT must not inherit a verified agent's allow.
+ * Current replay/action-binding blocks are also enforced BEFORE cache lookup:
+ * tightening a mode can make an unchanged status require a block.
  */
 function buildReplayBinding(source: Record<string, unknown>): Record<string, unknown> {
   const act = source.act as { kind?: string; request?: { url?: unknown }; file?: { path?: unknown } } | undefined;
@@ -56,6 +59,8 @@ function buildReplayBinding(source: Record<string, unknown>): Record<string, unk
     declared_goal: source.declared_goal,
     intel: source.intel,
     reversible: source.reversible,
+    // Match resolveAuditStatuses' default for legacy contexts without a status.
+    replay_status: source.replay_status || 'not_applicable',
     risk_score: source.risk_score,
     source_of_truth: source.source_of_truth,
     systems_touched: source.systems_touched,
@@ -106,6 +111,15 @@ export async function tryIdempotentReplay(
   opts: { secretScan: Record<string, unknown> | null; recordParam: boolean; createdBy: string | null; prepared?: Promise<PreparedRecordReads | null> | null },
 ): Promise<NextResponse | null> {
   if (typeof data.idempotency_key !== 'string' || !data.idempotency_key) return null;
+
+  // Identity resolution already checked this request's token. A cached allow
+  // cannot override a reused/missing jti, an unavailable required replay store,
+  // or a currently enforced action-binding failure. Use the evaluator's exact
+  // checks rather than just adding statuses to the digest: tightening a mode
+  // can turn an UNCHANGED status into a block. Fall through to evaluateGuard
+  // so the rejection gets its own mandatory audit row (and fails closed if
+  // that row cannot be written), rather than returning an unaudited block here.
+  if (computeReplayBlockReason(data, orgId) || computeActBindingBlockReason(data, orgId)) return null;
 
   // Org halt is an emergency override with an immediate-block guarantee, NOT
   // an ordinary policy change the dedupe window may absorb. A halted org

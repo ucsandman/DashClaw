@@ -14,6 +14,14 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-05 - Keep identity restrictions ahead of the retry cache
+
+MoltFire prepared this platform-only patch at Wes's request after a blind investigation. Identity resolution detected reused JWTs, but the idempotency fast path could return an earlier allow before the evaluator enforced that restriction. The cache now checks the evaluator's current identity restrictions first, with rejections flowing through normal evaluation and mandatory auditing.
+
+The first patch exposed a second edge case: a rejected token could leave a cached block that trapped a fresh valid retry. A recovery test reproduced that problem, and replay status now participates in the binding without binding honest retries to a specific token ID. The final 12-test regression suite failed eight tests on the original code and passed all twelve on the fix. The full audit-copy suite passed 5,405 tests with five existing skips.
+
+The tests use real JWT signatures and the real route and evaluator, with local database and network substitutes. They do not establish deployed JWT integration behavior or concurrent PostgreSQL behavior. No SDK source or UI changed, so this release does not republish SDK packages.
+
 ## 2026-09-05 - Finish the performance review
 
 Codex prepared this patch release at Wes's request. The SDK fast path now keeps retry identity without losing action metadata or skipping an approval required by fallback recording. Decision Replay shows the base decision as soon as it arrives, while optional evidence loads independently. A delayed-response browser check also found and closed a missing demo graph handler.
