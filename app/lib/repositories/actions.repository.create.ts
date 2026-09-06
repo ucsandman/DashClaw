@@ -377,6 +377,12 @@ function parseJsonColumn(value: unknown): unknown {
   try { return JSON.parse(value); } catch { return null; }
 }
 
+// A lifted attestation field is a non-empty string or nothing: a spoofed
+// object or number never reaches the UI as a "model".
+function liftString(value: unknown): string | null {
+  return typeof value === 'string' && value ? value : null;
+}
+
 export async function getActionWithRelations(
   sql: SqlClient,
   orgId: string,
@@ -423,6 +429,13 @@ export async function getActionWithRelations(
             // so `context->'_risk_breakdown'` fails (text -> unknown), and a
             // ::jsonb cast 500s on contexts with literal backslash-u0000 escapes.
             risk_breakdown: context?._risk_breakdown ?? null,
+            // Attestation (2026-09-06): which model and harness made the call,
+            // lifted the same way on every path that hands a guard decision to
+            // a reader (listGuardDecisions, /api/guard/decisions, and here) so
+            // the /decisions chip reads one shape. Client-declared, never proof.
+            attested_model: liftString(context?.attested_model),
+            harness: liftString(context?.harness),
+            harness_version: liftString(context?.harness_version),
           };
         })()
       : null,
