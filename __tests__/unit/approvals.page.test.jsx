@@ -172,6 +172,61 @@ describe('ApprovalsPage — session resolution', () => {
     expect(actionLink.getAttribute('data-entity-type')).toBe('decision');
   });
 
+  it('renders the guard gating_reason on a held card, distinct from the agent’s own reasoning', async () => {
+    // Rendered proof for assumption_hold (2026-09-05): the operator has to be
+    // able to SEE which assumption went stale, not just that something is held.
+    const HELD = {
+      action_id: 'act_88', agent_id: 'agent_bb', agent_name: 'deployer',
+      declared_goal: 'Deploy to prod', action_type: 'deploy', risk_score: 70,
+      status: 'pending_approval', timestamp_start: '2026-06-01T00:00:00.000Z', systems_touched: '[]',
+      reasoning: 'shipping the hotfix',
+      gating_reason: 'assumption "the staging DB is a copy of prod" was invalidated 4 min ago (staging was reseeded Tuesday) — "Stale Assumption" holds this action until a human confirms',
+    };
+    global.fetch = vi.fn(async (url) => {
+      const u = String(url);
+      if (u.includes('status=pending_approval')) return { ok: true, json: async () => ({ actions: [HELD] }) };
+      if (u.includes('status=expired')) return { ok: true, json: async () => ({ actions: [] }) };
+      if (u === '/api/session/effective') {
+        return { ok: true, json: async () => ({ authenticated: true, authType: 'local', role: 'admin', isAdmin: true }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const { default: ApprovalsPage } = await import('@/approvals/page.jsx');
+    render(<ApprovalsPage />);
+
+    const held = await screen.findByText(/Held because:/);
+    expect(held.textContent).toContain('the staging DB is a copy of prod');
+    expect(held.textContent).toContain('staging was reseeded Tuesday');
+    expect(held.textContent).toContain('Stale Assumption');
+    // The agent's self-report still renders, separately.
+    expect(screen.getByText(/shipping the hotfix/)).toBeTruthy();
+  });
+
+  it('omits the held-because line when the decision carried no gating reason', async () => {
+    const PLAIN = {
+      action_id: 'act_89', agent_id: 'agent_bb', agent_name: 'deployer',
+      declared_goal: 'Deploy to prod', action_type: 'deploy', risk_score: 70,
+      status: 'pending_approval', timestamp_start: '2026-06-01T00:00:00.000Z', systems_touched: '[]',
+      gating_reason: null,
+    };
+    global.fetch = vi.fn(async (url) => {
+      const u = String(url);
+      if (u.includes('status=pending_approval')) return { ok: true, json: async () => ({ actions: [PLAIN] }) };
+      if (u.includes('status=expired')) return { ok: true, json: async () => ({ actions: [] }) };
+      if (u === '/api/session/effective') {
+        return { ok: true, json: async () => ({ authenticated: true, authType: 'local', role: 'admin', isAdmin: true }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const { default: ApprovalsPage } = await import('@/approvals/page.jsx');
+    render(<ApprovalsPage />);
+
+    await screen.findByText('act_89');
+    expect(screen.queryByText(/Held because:/)).toBeNull();
+  });
+
   it('appends agent_id to the pending-actions fetch when the global picker has a selection', async () => {
     agentFilterState.agentId = 'agent-9';
     try {

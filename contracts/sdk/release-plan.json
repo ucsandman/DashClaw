@@ -1,28 +1,25 @@
 {
   "node": {
-    "current_version": "5.33.12",
+    "current_version": "5.34.0",
     "next_bump": "none",
-    "reason": "5.33.12 positioning copy and OG cards: SDK source is unchanged. Keep the shared manifest version aligned, but do not publish the Node SDK.",
+    "reason": "5.34.0 assumption_hold policy type and the /approvals gating reason: SDK source is unchanged. Keep the shared manifest version aligned, but do not publish the Node SDK.",
     "domains": [
       "platform",
-      "docs",
-      "tooling"
+      "docs"
     ]
   },
   "python": {
-    "current_version": "5.33.12",
+    "current_version": "5.34.0",
     "next_bump": "none",
-    "reason": "5.33.12 positioning copy and OG cards: SDK source is unchanged. Keep the shared manifest version aligned, but do not publish the Python SDK.",
+    "reason": "5.34.0 assumption_hold policy type and the /approvals gating reason: SDK source is unchanged. Keep the shared manifest version aligned, but do not publish the Python SDK.",
     "domains": [
       "platform",
-      "docs",
-      "tooling"
+      "docs"
     ]
   },
-  "reason": "5.33.12 positioning copy and OG cards: SDK source is unchanged, so npm and PyPI are intentionally not republished.",
+  "reason": "5.34.0 assumption_hold policy type and the /approvals gating reason: SDK source is unchanged, so npm and PyPI are intentionally not republished.",
   "domains": [
     "platform",
-    "docs",
-    "tooling"
+    "docs"
   ]
 }

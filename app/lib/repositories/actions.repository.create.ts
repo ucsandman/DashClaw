@@ -446,6 +446,13 @@ export async function getActionWithRelations(
  *
  * Returns a map of guard_decision_id -> parsed context. Rows whose context
  * will not parse are omitted; the caller degrades to an untranslated card.
+ *
+ * The decision's `reason` rides along as the additive `_gating_reason` sibling
+ * (same underscore convention as the other server-set context siblings). Until
+ * 2026-09-05 the gating reason was written to guard_decisions and then shown
+ * only in chat alerts and the /decisions ledger — never on /approvals, where
+ * `action.reasoning` is the AGENT's self-report, not why the guard held it. It
+ * is the same column, on the same indexed lookup, so no extra round trip.
  */
 export async function getGuardContextsByIds(
   sql: SqlClient,
@@ -457,7 +464,7 @@ export async function getGuardContextsByIds(
   if (unique.length === 0) return out;
 
   const rows = await sql`
-    SELECT id, context
+    SELECT id, context, reason
     FROM guard_decisions
     WHERE org_id = ${orgId} AND id = ANY(${unique})
   `;
@@ -465,7 +472,10 @@ export async function getGuardContextsByIds(
   for (const row of rows) {
     const parsed = parseJsonColumn(row.context);
     if (parsed && typeof parsed === 'object') {
-      out.set(String(row.id), parsed as Record<string, unknown>);
+      out.set(String(row.id), {
+        ...(parsed as Record<string, unknown>),
+        _gating_reason: typeof row.reason === 'string' && row.reason ? row.reason : null,
+      });
     }
   }
   return out;

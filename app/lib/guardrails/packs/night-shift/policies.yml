@@ -129,3 +129,23 @@ policies:
           declared_goal: "Edit: src/app.js"
         expect:
           decision: allow
+
+  # An assumption you invalidated overnight stops the run instead of being a
+  # notice the agent reads and moves past. Window is wide (2h) because an
+  # unattended run can sit idle between actions; low-risk work keeps flowing.
+  - id: stale_assumption_hold
+    description: "Night Shift — Hold on an Invalidated Assumption"
+    policy_type: assumption_hold
+    rules:
+      window_minutes: 120
+      min_risk_score: 40
+      escalate_action: require_approval
+    tests:
+      - name: holds_after_invalidation
+        input:
+          agent_id: night-agent
+          action_type: deploy
+          risk_score: 70
+          declared_goal: "Deploy to production"
+        expect:
+          decision: require_approval

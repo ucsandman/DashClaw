@@ -161,6 +161,14 @@ export function buildContract(
         else view.interrupts.push(s(txt));
         break;
       }
+      case 'assumption_hold': {
+        const win = typeof rules.window_minutes === 'number' ? rules.window_minutes : 60;
+        const minRisk = typeof rules.min_risk_score === 'number' ? rules.min_risk_score : 40;
+        const txt = `an agent acts within ${win} min of one of its assumptions being invalidated (risk ≥ ${minRisk})`;
+        if (rules.escalate_action === 'block') view.blocks.push(s(txt));
+        else view.interrupts.push(s(txt));
+        break;
+      }
       case 'deviation_response': {
         const onKind = rules.on_kind && typeof rules.on_kind === 'object'
           ? (rules.on_kind as Record<string, string>) : {};

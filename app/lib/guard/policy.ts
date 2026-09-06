@@ -4,6 +4,8 @@
  */
 
 import { baseAgentId } from '../agent-identity-resolve';
+import { listRecentInvalidatedForAgent } from '../repositories/assumptions.repository';
+import { hasNoRecentInvalidation, cacheNoRecentInvalidation } from '../assumption-notify';
 import { deliverGuardWebhook } from '../webhooks';
 import { matchesProtectedPath } from './protected-path';
 import { globToRegex } from '../globToRegex';
@@ -572,6 +574,73 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
     return {
       action,
       reason: `plan deviation ${finding.kind} (${finding.severity}) — "${policy.name || 'deviation policy'}" escalates to ${action}`,
+    };
+  },
+  // Assumption hold (2026-09-05): turns the advisory assumption alert into
+  // authority. When an operator invalidates an assumption an agent recorded,
+  // the guard today only ATTACHES `assumption_alerts` to the response
+  // (route-record.ts attachAssumptionAlerts → assumption-notify.ts
+  // getAssumptionAlerts) and the verdict stays `allow`. Permission is still
+  // valid but current authority is not: the evidence the agent acted on went
+  // stale. This holds the next CONSEQUENTIAL action by that agent family for a
+  // human — require_approval by default, never block unless the operator opts
+  // in — with the reason naming the assumption.
+  //
+  // Relief is the normal path, not an exception: this runs inside
+  // runLocalPolicies (evaluate.ts:198), which is BEFORE applyAllowGrants
+  // (:237) and applyOperatorApprovalGrant (:256), so an operator approval, a
+  // "don't ask again" shape grant, or simply the window elapsing all clear it.
+  //
+  // Keys on the assumptions table, NOT on the agent_messages read state: the
+  // pretool hook acks its inbox message the moment it prints the alert, so a
+  // message-based hold would clear itself before the agent acted. Client hooks
+  // therefore need no change at all.
+  //
+  // Hot path: with no assumption_hold policy in the org this evaluator is never
+  // dispatched, so it costs zero queries — the guard-hotpath budget is unmoved.
+  assumption_hold: async ({ policy, rules, context, sql, orgId, effectiveRiskScore }) => {
+    const agentId = typeof context.agent_id === 'string' ? context.agent_id : '';
+    if (!agentId) return null;
+
+    // Reads and other low-risk calls are never held: the hold exists for
+    // consequential acts, and effectiveRiskScore is the same post-predictive
+    // number the decision itself is judged on (as role_constraint uses it).
+    const minRisk = typeof rules.min_risk_score === 'number' ? rules.min_risk_score : 40;
+    const risk = effectiveRiskScore != null
+      ? effectiveRiskScore
+      : Math.max(0, Math.min(Number(context.risk_score) || 0, 100));
+    if (risk < minRisk) return null;
+
+    const windowMinutes = typeof rules.window_minutes === 'number' ? rules.window_minutes : 60;
+    const cacheKey = `${orgId}|${agentId}|${windowMinutes}`;
+    if (hasNoRecentInvalidation(cacheKey)) return null;
+
+    let recent;
+    try {
+      recent = await listRecentInvalidatedForAgent(sql, orgId, agentId, windowMinutes);
+    } catch (err) {
+      // Fail-soft: a broken lookup must never fail a guard call.
+      console.warn('[Guard] assumption_hold lookup failed (policy skipped):', (err as Error).message);
+      return null;
+    }
+    if (!recent.length) {
+      cacheNoRecentInvalidation(cacheKey);
+      return null;
+    }
+
+    const hit = recent[0]!;
+    const escalate = rules.escalate_action === 'block' ? 'block' : 'require_approval';
+    const text = hit.assumption.length > 80 ? `${hit.assumption.slice(0, 80)}…` : hit.assumption;
+    const rawReason = hit.invalidated_reason || 'no reason given';
+    const why = rawReason.length > 120 ? `${rawReason.slice(0, 120)}…` : rawReason;
+    const invalidatedAt = hit.invalidated_at ? Date.parse(hit.invalidated_at) : NaN;
+    const minsAgo = Number.isNaN(invalidatedAt)
+      ? windowMinutes
+      : Math.max(0, Math.floor((Date.now() - invalidatedAt) / 60_000));
+
+    return {
+      action: escalate,
+      reason: `assumption "${text}" was invalidated ${minsAgo} min ago (${why}) — "${policy.name || 'assumption hold'}" holds this action until a human confirms`,
     };
   },
 };

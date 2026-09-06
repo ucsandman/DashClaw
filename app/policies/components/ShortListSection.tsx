@@ -43,7 +43,9 @@ const UNGRANTABLE_SENTENCE =
  * them on consumes a Short List slot. They are listed, off, until a human says
  * yes — enforcement is never turned on for you.
  */
-const DORMANT_ON_INSTALL = new Set(['role_constraint', 'delegation_constraint', 'non_fabrication', 'webhook_check']);
+const DORMANT_ON_INSTALL = new Set([
+  'role_constraint', 'delegation_constraint', 'assumption_hold', 'non_fabrication', 'webhook_check',
+]);
 
 const DORMANT_NOTE = 'Installed dormant — this rule can only interrupt. Turn it on to add it to the Short List.';
 

@@ -57,6 +57,9 @@ const DEFAULT_FORM_STATE = {
   allowedTools: [],
   blockedTools: [],
   maxDepth: '',
+  // assumption_hold — the risk FLOOR below which nothing is held (reads and
+  // other low-risk calls); windowMinutes above is shared with rate_limit.
+  minRiskScore: 40,
   escalateAction: 'require_approval',
   requireVerifiedParent: false,
   // deviation_response (plan-deviation events, RFC 2026-08-11) — per-kind
@@ -94,6 +97,7 @@ export const POLICY_TYPE_OPTIONS = [
   { value: 'delegation_constraint', label: 'Subagent Constraint', desc: 'Cap what a spawned subagent may do — risk ceiling, action types, paths, depth' },
   { value: 'role_constraint', label: 'Role Constraint', desc: 'A named authority bundle for the targeted agents — allowed/blocked action types, risk ceiling, path scope' },
   { value: 'deviation_response', label: 'Deviation Response', desc: 'Consequence per plan-deviation kind — warn, require approval, or block when an agent departs from its approved plan' },
+  { value: 'assumption_hold', label: 'Assumption Hold', desc: 'Hold the next consequential action after one of the agent’s assumptions is invalidated — until a human confirms' },
 ];
 
 function cleanString(value) {
@@ -400,6 +404,23 @@ const POLICY_TYPE_HANDLERS = {
       return `On plan deviation: ${kinds.map(([k, a]) => `${k.replace(/_/g, ' ')} → ${a}`).join(', ')}${scoped}.`;
     },
   },
+  // Assumption hold (2026-09-05): all three fields are ALWAYS emitted so the
+  // stored rules read the same as the form and a decompile round-trip is exact
+  // — unlike the constraint types above, this rule has no "unset" field that
+  // would read as "nothing configured" to the evaluator.
+  assumption_hold: {
+    compile: (form) => ({
+      window_minutes: Math.max(1, Math.min(10080, Math.floor(Number(form.windowMinutes) || 60))),
+      min_risk_score: hasValue(form.minRiskScore) ? Number(form.minRiskScore) || 0 : 40,
+      escalate_action: form.escalateAction === 'block' ? 'block' : 'require_approval',
+    }),
+    summary: (form, scoped) => {
+      const win = Math.max(1, Math.min(10080, Math.floor(Number(form.windowMinutes) || 60)));
+      const risk = hasValue(form.minRiskScore) ? Number(form.minRiskScore) || 0 : 40;
+      const verb = form.escalateAction === 'block' ? 'Block' : 'Hold for approval';
+      return `${verb} any action at risk ≥ ${risk} within ${win} minutes of one of the agent's assumptions being invalidated${scoped}.`;
+    },
+  },
 };
 
 // --- Form state -> stored policy payload (compile) ---
@@ -482,6 +503,7 @@ export function decompilePolicyForm(policy) {
     allowedTools: arrOr(rules.allowed_tools, DEFAULT_FORM_STATE.allowedTools),
     blockedTools: arrOr(rules.blocked_tools, DEFAULT_FORM_STATE.blockedTools),
     maxDepth: coalesce(rules.max_depth, DEFAULT_FORM_STATE.maxDepth),
+    minRiskScore: coalesce(rules.min_risk_score, DEFAULT_FORM_STATE.minRiskScore),
     escalateAction: orVal(rules.escalate_action, DEFAULT_FORM_STATE.escalateAction),
     requireVerifiedParent: rules.require_verified_parent !== undefined ? !!rules.require_verified_parent : DEFAULT_FORM_STATE.requireVerifiedParent,
     deviationOnKind: {

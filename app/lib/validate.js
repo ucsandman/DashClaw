@@ -408,7 +408,7 @@ function validateClientCapabilities(context, addError) {
   }
 }
 
-const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'require_evidence', 'delegation_constraint', 'role_constraint', 'deviation_response'];
+const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'require_evidence', 'delegation_constraint', 'role_constraint', 'deviation_response', 'assumption_hold'];
 const GUARD_ACTIONS = ['allow', 'warn', 'block', 'require_approval'];
 
 const POLICY_SCHEMA = {
@@ -800,6 +800,23 @@ const POLICY_TYPE_VALIDATORS = {
     }
     if (rules.escalate_action !== undefined && !ACTIONS.includes(rules.escalate_action)) {
       addError('deviation_response rules.escalate_action must be warn, require_approval, or block (a ceiling — deviations only tighten)');
+    }
+  },
+  assumption_hold: (rules, addError) => {
+    // Holds the next consequential action by an agent family after one of its
+    // assumptions was invalidated (app/lib/guard/policy.ts). All fields
+    // optional; the evaluator's defaults are window_minutes 60,
+    // min_risk_score 40, escalate_action require_approval.
+    if (rules.window_minutes !== undefined
+      && (!Number.isInteger(rules.window_minutes) || rules.window_minutes < 1 || rules.window_minutes > 10080)) {
+      addError('assumption_hold rules.window_minutes must be an integer 1-10080 (minutes, max 7 days)');
+    }
+    if (rules.min_risk_score !== undefined
+      && (typeof rules.min_risk_score !== 'number' || rules.min_risk_score < 0 || rules.min_risk_score > 100)) {
+      addError('assumption_hold rules.min_risk_score must be a number 0-100');
+    }
+    if (rules.escalate_action !== undefined && !['require_approval', 'block'].includes(rules.escalate_action)) {
+      addError('assumption_hold rules.escalate_action must be require_approval or block (an assumption hold only tightens)');
     }
   },
 };

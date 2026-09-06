@@ -36,8 +36,28 @@ const ALERT_CACHE_TTL_MS = 30_000;
 // and must never be served stale (the hook acks them immediately).
 const noAlertCache = new Map<string, number>();
 
+// Second negative cache, same TTL, for the `assumption_hold` guard policy
+// (app/lib/guard/policy.ts). Keyed `org|agent|windowMinutes` because the window
+// is a per-policy rule, so two policies with different windows must not share an
+// answer. Negative only, for the same reason as noAlertCache above: a hold has
+// to appear the instant an operator invalidates, and clear the instant a human
+// approves, so a positive answer is never cached.
+const noRecentInvalidationCache = new Map<string, number>();
+
 export function __resetAssumptionAlertCache(): void {
   noAlertCache.clear();
+  noRecentInvalidationCache.clear();
+}
+
+/** True when this org/agent/window was recently answered "no invalidations". */
+export function hasNoRecentInvalidation(key: string): boolean {
+  const expires = noRecentInvalidationCache.get(key);
+  return expires !== undefined && expires > Date.now();
+}
+
+/** Record an empty assumption_hold lookup for ALERT_CACHE_TTL_MS. */
+export function cacheNoRecentInvalidation(key: string): void {
+  noRecentInvalidationCache.set(key, Date.now() + ALERT_CACHE_TTL_MS);
 }
 
 export async function notifyAssumptionInvalidated(
@@ -72,7 +92,10 @@ export async function notifyAssumptionInvalidated(
   });
   if (!created) return null;
   void publishOrgEvent(EVENTS.MESSAGE_CREATED, { orgId, message: created });
-  noAlertCache.clear(); // rare event; cheap full clear beats per-family key math
+  // Rare event; a cheap full clear beats per-family key math. BOTH caches: the
+  // advisory alert and the assumption_hold negative answer both just went stale.
+  noAlertCache.clear();
+  noRecentInvalidationCache.clear();
   return { message_id: id };
 }
 

@@ -64,3 +64,23 @@ policies:
           declared_goal: "Deploy to production"
         expect:
           decision: allow
+
+  # Evidence that has been withdrawn is the strongest evidence gap there is.
+  # Once you invalidate an assumption, the agent's next consequential action
+  # waits for you instead of proceeding on the record it just lost.
+  - id: withdrawn_evidence_hold
+    description: "Evidence First — Hold on an Invalidated Assumption"
+    policy_type: assumption_hold
+    rules:
+      window_minutes: 60
+      min_risk_score: 40
+      escalate_action: require_approval
+    tests:
+      - name: holds_after_invalidation
+        input:
+          agent_id: audit-agent
+          action_type: export
+          risk_score: 55
+          declared_goal: "Export the customer table"
+        expect:
+          decision: require_approval

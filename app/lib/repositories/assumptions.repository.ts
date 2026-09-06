@@ -1,4 +1,5 @@
 import type { SqlTag } from '../types/db';
+import { baseAgentId } from '../agent-identity-resolve';
 
 type SqlClient = {
   (s: TemplateStringsArray, ...v: unknown[]): Promise<Record<string, unknown>[]>;
@@ -175,6 +176,62 @@ export async function getAssumption(
     WHERE a.assumption_id = ${assumptionId} AND a.org_id = ${orgId}
   `;
   return assumptions[0] || null;
+}
+
+export interface RecentInvalidatedAssumption {
+  assumption_id: string;
+  assumption: string;
+  invalidated_reason: string | null;
+  invalidated_at: string | null;
+  action_id: string | null;
+}
+
+/**
+ * Assumptions belonging to an agent FAMILY that an operator invalidated inside
+ * the last `windowMinutes` — the lookup behind the `assumption_hold` guard
+ * policy (app/lib/guard/policy.ts).
+ *
+ * `assumptions` has no agent_id column, so the family match runs on the parent
+ * action's `action_records.agent_id`, joined exactly the way getAssumption and
+ * listAssumptions join it (`ar.org_id = a.org_id`, so an action_id collision
+ * across orgs cannot leak another org's rows).
+ *
+ * Family match mirrors getAssumptionAlerts in app/lib/assumption-notify.ts: the
+ * id itself, its base id, and any composed child (`<agentId>:%`). agent_id is
+ * client-controlled, so LIKE metacharacters are escaped — a '%' or '_' in an id
+ * must not widen the match onto another agent's assumptions.
+ */
+export async function listRecentInvalidatedForAgent(
+  sql: SqlTag,
+  orgId: string,
+  agentId: string,
+  windowMinutes: number
+): Promise<RecentInvalidatedAssumption[]> {
+  const ids = [agentId];
+  const base = baseAgentId(agentId);
+  if (base && base !== agentId) ids.push(base);
+  const likePrefix = agentId.replace(/([\\%_])/g, '\\$1') + ':%';
+  const minutes = Math.max(1, Math.min(10080, Math.floor(Number(windowMinutes) || 60)));
+
+  const rows = await sql`
+    SELECT a.assumption_id, a.assumption, a.invalidated_reason, a.invalidated_at, a.action_id
+    FROM assumptions a
+    JOIN action_records ar ON a.action_id = ar.action_id AND ar.org_id = a.org_id
+    WHERE a.org_id = ${orgId}
+      AND a.invalidated = 1
+      AND a.invalidated_at > NOW() - (INTERVAL '1 minute' * ${minutes})
+      AND (ar.agent_id = ANY(${ids}) OR ar.agent_id LIKE ${likePrefix})
+    ORDER BY a.invalidated_at DESC
+    LIMIT 3
+  `;
+
+  return rows.map((r) => ({
+    assumption_id: String(r.assumption_id ?? ''),
+    assumption: String(r.assumption ?? ''),
+    invalidated_reason: r.invalidated_reason == null ? null : String(r.invalidated_reason),
+    invalidated_at: r.invalidated_at == null ? null : String(r.invalidated_at),
+    action_id: r.action_id == null ? null : String(r.action_id),
+  }));
 }
 
 export async function createAssumption(

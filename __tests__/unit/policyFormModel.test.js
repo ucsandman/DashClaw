@@ -413,3 +413,56 @@ describe('deviation_response', () => {
     expect(form.escalateAction).toBe('block');
   });
 });
+
+// assumption_hold (2026-09-05)
+describe('assumption_hold', () => {
+  it('always emits all three rule fields, clamped to the validator ranges', () => {
+    const payload = compilePolicyPayload({
+      name: 'Stale Assumption',
+      type: 'assumption_hold',
+      windowMinutes: 120,
+      minRiskScore: 55,
+      escalateAction: 'block',
+    });
+    expect(payload.policy_type).toBe('assumption_hold');
+    expect(JSON.parse(payload.rules)).toEqual({
+      window_minutes: 120, min_risk_score: 55, escalate_action: 'block',
+    });
+
+    const clamped = JSON.parse(compilePolicyPayload({
+      name: 'x', type: 'assumption_hold', windowMinutes: 99999, minRiskScore: 40,
+    }).rules);
+    expect(clamped.window_minutes).toBe(10080);
+  });
+
+  it('defaults to a 60 minute window, risk floor 40, and a hold (never a block)', () => {
+    const rules = JSON.parse(compilePolicyPayload({ name: 'x', type: 'assumption_hold' }).rules);
+    expect(rules).toEqual({ window_minutes: 60, min_risk_score: 40, escalate_action: 'require_approval' });
+  });
+
+  it('round-trips through decompile without drift', () => {
+    const payload = compilePolicyPayload({
+      name: 'Stale Assumption',
+      type: 'assumption_hold',
+      windowMinutes: 120,
+      minRiskScore: 55,
+      escalateAction: 'block',
+    });
+    const form = decompilePolicyForm({ ...payload, rules: payload.rules });
+    expect(form.type).toBe('assumption_hold');
+    expect(form.windowMinutes).toBe(120);
+    expect(form.minRiskScore).toBe(55);
+    expect(form.escalateAction).toBe('block');
+    expect(JSON.parse(compilePolicyPayload(form).rules)).toEqual(JSON.parse(payload.rules));
+  });
+
+  it('summarises in the operator’s words', () => {
+    const summary = buildPolicySummary({
+      name: 'Stale Assumption', type: 'assumption_hold', windowMinutes: 120, minRiskScore: 40, agentIds: [],
+    });
+    expect(summary).toContain('Hold for approval');
+    expect(summary).toContain('risk ≥ 40');
+    expect(summary).toContain('120 minutes');
+    expect(summary).toContain('assumptions being invalidated');
+  });
+});

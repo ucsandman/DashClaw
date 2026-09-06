@@ -13,9 +13,20 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.34.0] - 2026-09-05
+
+### Added
+
+- New guard policy type `assumption_hold` (policy types 17 → 18). Until now, when an operator invalidated an assumption an agent had recorded, the guard only attached an advisory `assumption_alerts` list to its response and the verdict stayed `allow`: the agent still had permission, but the evidence it was acting on had gone stale. `assumption_hold` turns that into authority. The next consequential action by that agent family (risk at or above `min_risk_score`, default 40) inside `window_minutes` (default 60) of an invalidation is held for a human (`require_approval` by default; `block` only if the operator opts in), with the reason naming the assumption and why it was invalidated. It runs before the grant passes, so a one-click approval, an "allow, don't ask again" grant, or the window elapsing all clear it. Keys on the `assumptions` table, not on inbox read state, so no client hook changes. Ships in the `night-shift` (120 min) and `evidence-first` (60 min) packs; pickable in the policy builder with its three fields.
+- `/approvals` now shows **why the guard held an action** ("Held because: …") for every policy type. The gating reason was written to `guard_decisions.reason` and shown only in chat alerts and the `/decisions` ledger; the approval card rendered only the agent's own `reasoning`. It now rides the existing context read as a `_gating_reason` sibling (same query, no extra round trip).
+
 ### Fixed
 
 - Claude Code pretool hook: the execution claim now carries the identity the action was recorded under. With the default `DASHCLAW_SUBAGENT_IDENTITY=distinct`, a sub-agent leaf call is recorded as `<parent>:<agent_type>` but was claimed as the bare parent id, so the server's candidate lookup missed and every sub-agent tool call exited with "execution claim failed or returned an ambiguous response" (a 409 `EXECUTION_CLAIM_CONFLICT`). Regression test in `hooks/tests/test_pretool_execution_claim.py`; hook mirrors and download zips regenerated.
+
+### Release notes
+
+- Platform-only shared-version bump to 5.34.0 (minor: a new policy type is new public surface). Node and Python SDK source is unchanged, so `dashclaw` is intentionally not republished to npm or PyPI. GitHub release tag `platform-v5.34.0`, as for 5.33.10 and 5.33.11.
 
 ## [5.33.12] - 2026-09-05
 

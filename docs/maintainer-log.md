@@ -14,6 +14,16 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-05 - Permission is not authority: the assumption hold
+
+Wes brought a Reddit thread asking what should invalidate an agent's earlier authorization and force a re-check before it proceeds. Most of the poster's list already had a DashClaw answer: approvals are bound to one declared goal and expire, spend and runaway-loop policies catch cumulative drift, plan deviation events catch a run leaving its plan, role constraints catch an agent acting outside its scope. One item did not. When an operator invalidates an assumption an agent recorded, the guard attached an advisory alert to its response and let the action through. The agent was told and kept going. That is the exact case the thread was about: permission still valid, evidence stale.
+
+This release adds `assumption_hold`, the eighteenth policy type. After an invalidation, the next consequential action by that agent family waits for a human, with the reason naming the assumption. Two design choices matter. It holds rather than blocks, which is the standing rule here, and it only fires above a risk floor, so reads are never held. And it keys on the assumptions table rather than the agent's inbox, because the pretool hook acknowledges the inbox message the moment it prints the alert; a message-based hold would have cleared itself before the agent acted. The evaluator runs before the grant passes, so one click on the approval card clears it.
+
+Building it exposed a gap that had been there for every policy type: `/approvals` never showed why the guard held an action. The reason was written to the decision row and shown in chat alerts and the ledger, but the card rendered only the agent's own account of what it was doing. The card now says "Held because" with the matched rule's sentence. That was found by the implementing agent when the spec told it to confirm the reason reached the card and it could not, and it escalated to an advisor rather than widening the query on its own.
+
+Verification: the full suite, lint, typecheck and build, plus a live Postgres run of the new query against the local database (family match, window boundary, and the LIKE-escape on a client-controlled agent id), since the unit tests exercise it only through a mock. The first line-ending audit the agent wrote reported clean while ten files had flipped to LF; a byte-level check caught it. Platform-only bump to 5.34.0; the SDKs are not republished.
+
 ## 2026-09-05 - Delete the old product without deleting its history
 
 Wes asked for the whole repository cleanup to ship. Codex, acting as the AI maintainer, prepared the range from base `f67ca6a9` through this release. The cleanup diff removes a net 6,034 lines across 65 paths before release metadata: 1,247 lines added, mostly archive moves and focused tests, against 7,281 removed. Dead AgentLens hooks, duplicate local GitNexus skills, one-off audit scripts, an unused video component, an obsolete migration, and unreferenced repository and MCP helpers are gone. Four documents that still matter as history moved to `docs/archive/` instead of disappearing.

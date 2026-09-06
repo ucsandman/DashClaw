@@ -6,7 +6,7 @@ Policy Modes let you pick a **named operating contract** for an agent — "Claud
 
 1. **Catalog** — the built-in modes live in code at `app/lib/policy-modes/catalog.ts` (human-facing metadata) and `app/lib/policy-modes/compile.ts` (the compiler). This is the source of truth.
 2. **Compile** — `compileMode(modeId)` turns a mode into an array of guard policies in exactly the shape `validatePolicy` accepts and `insertPolicy` stores. Every compiled policy:
-   - uses one of the 17 live `policy_type` values (nothing is fabricated),
+   - uses one of the 18 live `policy_type` values (nothing is fabricated),
    - carries a `_mode: <id>` tag **inside its rules JSON** — mirroring the existing `_shield` tag, so mode-generated policies are recognizable **without a schema migration**,
    - is named `[<Mode Name>] <title>` and applied **active**.
 3. **Preview** — `POST /api/policies/modes/preview { mode_id }` returns the generated policy list, a decision summary, and a **best-effort friction simulation** (replays the mode's deterministic policies against recent action history). It writes nothing.

@@ -637,6 +637,15 @@ export default function ApprovalsPage() {
                                 )}
                               </>
                             ) : null}
+                            {/* Why the GUARD held this — the matched rule's own
+                                sentence. Distinct from action.reasoning below,
+                                which is the agent's self-report. An
+                                assumption_hold names the stale assumption here. */}
+                            {action.gating_reason && (
+                              <p className="mt-2 break-words text-sm text-warning">
+                                Held because: {action.gating_reason}
+                              </p>
+                            )}
                             <div className="mt-3">
                               <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
                                 Bound act {actionContext(action).act ? '(redacted)' : '(unavailable)'}

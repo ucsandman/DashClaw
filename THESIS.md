@@ -230,7 +230,7 @@ growth itself.
 
 **2. The 60-day regrowth ruling.** Between v5.0.0 and today the ceilings moved
 117 → 134 routes, 45 → 53 pages, 12 → 17 MCP tools, 28 → 40 Node SDK methods,
-14 → 17 policy types. Every step is in the amendment log with a reason, so the
+14 → 18 policy types. Every step is in the amendment log with a reason, so the
 brake held mechanically. Read by substance: roughly half of the growth is the
 governed-autonomy program (plans, delegation, containment, deviation,
 attestation, role constraints, the approval pause and per-card grants) and is
@@ -565,6 +565,28 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   No new routes, pages, MCP tools, or SDK methods; one new unbudgeted table
   (`plan_deviations`). RFC: docs/rfcs/2026-08-11-plan-deviation-events.md.
   (Prior: 2026-08-10 15 → 16 `role_constraint`.)
+- **2026-09-05 — Guard policy types 17 → 18 (`assumption_hold`).** Turns the
+  advisory assumption alert into authority. When an operator invalidated an
+  assumption the agent had recorded, the runtime already told the agent —
+  `assumption_alerts` rides on the guard response and the pretool hook prints
+  it — but the verdict stayed `allow`. That is the gap this thesis exists to
+  close: the agent's *permission* was still valid while its *current authority*
+  was not, because the evidence it acted on had gone stale, and the agent read
+  the notice and kept going. This type holds the agent family's next action
+  above a risk floor until a human confirms it, with the reason naming the
+  assumption. Hold, never block, by default: `escalate_action` is
+  `require_approval` unless the operator opts into `block`, and relief is the
+  normal path, not an exception — the rule evaluates inside `runLocalPolicies`,
+  ahead of both grant passes, so approving the held action, a "don't ask again"
+  shape grant, or simply the window elapsing all clear it. It keys on the
+  `assumptions` table rather than the notification's read state, because the
+  hook acks that message the moment it prints it; client hooks therefore need
+  no change. Rejected the zero-budget alternative (raising risk when an
+  invalidation is recent) because a risk nudge is not an authority statement
+  and cannot name which assumption went stale. No new routes, tables,
+  migrations, pages, MCP tools, or SDK methods. Default packs gain it only
+  under `night-shift` and `evidence-first`. (Prior: 2026-08-13 16 → 17
+  `deviation_response`.)
 - **2026-08-09 — App pages 52 → 53 (`/pricing`).** Reinstated per
   `docs/decisions/2026-08-09-hosted-paid-tier.md`, which reverses the
   2026-05-14 "retract the monetization surface entirely" decision

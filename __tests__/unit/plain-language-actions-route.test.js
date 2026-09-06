@@ -28,6 +28,25 @@ describe('enrichWithPlainLanguage', () => {
     expect(out[0].plain.reversible).toBe(false);
   });
 
+  it('exposes the guard reason as gating_reason, distinct from the agent’s own reasoning', async () => {
+    const rows = [{ action_id: 'a1', guard_decision_id: 'gd_1', declared_goal: 'Deploy to production', reasoning: 'shipping the fix', risk_score: 70 }];
+    mockGetContexts.mockResolvedValueOnce(new Map([['gd_1', {
+      intel: {},
+      _gating_reason: 'assumption "staging is a copy of prod" was invalidated 4 min ago (reseeded) — "Stale Assumption" holds this action until a human confirms',
+    }]]));
+
+    const out = await enrichWithPlainLanguage({}, 'org_1', rows);
+    expect(out[0].gating_reason).toContain('Stale Assumption');
+    expect(out[0].reasoning).toBe('shipping the fix');
+  });
+
+  it('gating_reason is null when the decision carried no reason', async () => {
+    const rows = [{ action_id: 'a1', guard_decision_id: 'gd_1', declared_goal: 'Deploy to production', risk_score: 70 }];
+    mockGetContexts.mockResolvedValueOnce(new Map([['gd_1', { intel: {}, _gating_reason: null }]]));
+    const out = await enrichWithPlainLanguage({}, 'org_1', rows);
+    expect(out[0].gating_reason).toBeNull();
+  });
+
   it('still attaches a description when the row has no guard decision', async () => {
     const rows = [{ action_id: 'a1', guard_decision_id: null, declared_goal: 'Write: app/page.tsx', target: 'app/page.tsx', risk_score: 10 }];
     const out = await enrichWithPlainLanguage({}, 'org_1', rows);

@@ -215,6 +215,7 @@ const BUCKET_FALLBACK_BY_TYPE: Record<string, PackPolicyBucket> = {
   delegation_constraint: 'require_approval',
   role_constraint: 'require_approval',
   deviation_response: 'require_approval',
+  assumption_hold: 'require_approval',
   warn_action_type: 'warn',
   agent_allowlist: 'warn',
   rate_limit: 'warn',

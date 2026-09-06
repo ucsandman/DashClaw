@@ -27,7 +27,8 @@ export type GuardPolicyType =
   | 'require_evidence'
   | 'delegation_constraint'
   | 'role_constraint'
-  | 'deviation_response';
+  | 'deviation_response'
+  | 'assumption_hold';
 
 export type GreenLevel = 'targeted' | 'package' | 'workspace' | 'merge_ready';
 

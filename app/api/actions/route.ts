@@ -79,6 +79,10 @@ export async function enrichWithPlainLanguage(
       ...row,
       context: context ? redactAny(context, []) : null,
       provenance: actionProvenance(row),
+      // Why the guard held this action, as opposed to `row.reasoning`, which is
+      // the agent's own account of what it was doing. Carried on the context
+      // read as `_gating_reason` (actions.repository.create.ts).
+      gating_reason: typeof context?._gating_reason === 'string' ? context._gating_reason : null,
       ...(xv
         ? {
             external_verdict: {

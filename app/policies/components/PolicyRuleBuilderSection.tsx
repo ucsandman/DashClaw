@@ -513,6 +513,75 @@ function DeviationResponseFields({ form, onChange }: DelegationConstraintFieldsP
   );
 }
 
+// Assumption hold (2026-09-05): when an operator invalidates an assumption the
+// agent recorded, the next consequential action by that agent family waits for
+// a human. Relief is the normal path — approving the held action, or a "don't
+// ask again" grant, clears it, and so does the window elapsing.
+function AssumptionHoldFields({ form, onChange }: DelegationConstraintFieldsProps) {
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-tertiary">
+        Invalidating an assumption on <code className="text-secondary">/assumptions</code> tells the
+        agent its evidence went stale. This rule turns that notice into authority: the agent&apos;s
+        next action above the risk floor waits in Approvals until you confirm it. Low-risk work
+        (reads, searches) keeps flowing.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-xs text-secondary mb-1">Hold window (minutes)</label>
+          <input
+            aria-label="Assumption hold window minutes"
+            type="number"
+            min="1"
+            max="10080"
+            value={form.windowMinutes}
+            onChange={(event) => {
+              const value = event.target.value === ''
+                ? ''
+                : Math.max(1, Math.min(10080, parseInt(event.target.value, 10) || 1));
+              onChange('windowMinutes', value);
+            }}
+            className={inputClass}
+          />
+          <p className="mt-1 text-[11px] text-tertiary">How recent the invalidation must be. Max 10080 (7 days).</p>
+        </div>
+        <div>
+          <label className="block text-xs text-secondary mb-1">Minimum risk score (0-100)</label>
+          <input
+            aria-label="Assumption hold minimum risk score"
+            type="number"
+            min="0"
+            max="100"
+            value={form.minRiskScore}
+            onChange={(event) => {
+              const value = event.target.value === ''
+                ? ''
+                : Math.max(0, Math.min(100, parseInt(event.target.value, 10) || 0));
+              onChange('minRiskScore', value);
+            }}
+            className={inputClass}
+          />
+          <p className="mt-1 text-[11px] text-tertiary">Actions scoring below this are never held.</p>
+        </div>
+        <div>
+          <label className="block text-xs text-secondary mb-1">On a stale assumption</label>
+          <select
+            aria-label="Assumption hold escalate action"
+            value={form.escalateAction}
+            onChange={(event) => onChange('escalateAction', event.target.value)}
+            className={selectClass}
+          >
+            <option value="require_approval">Require Approval</option>
+            <option value="block">Block</option>
+          </select>
+          <p className="mt-1 text-[11px] text-tertiary">Approval is the default — a hold resumes with one click.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface PolicyRuleBuilderSectionProps {
   form: any;
   actionOptions: string[];
@@ -1004,6 +1073,10 @@ export default function PolicyRuleBuilderSection({
 
       {form.type === 'deviation_response' && (
         <DeviationResponseFields form={form} onChange={onChange} />
+      )}
+
+      {form.type === 'assumption_hold' && (
+        <AssumptionHoldFields form={form} onChange={onChange} />
       )}
 
     </>

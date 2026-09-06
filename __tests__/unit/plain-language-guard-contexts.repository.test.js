@@ -29,6 +29,16 @@ describe('getGuardContextsByIds', () => {
     expect(out.has('gd_1')).toBe(false);
   });
 
+  it('carries the decision reason as the _gating_reason sibling', async () => {
+    const sql = sqlMock([
+      { id: 'gd_1', context: JSON.stringify({ intel: {} }), reason: 'assumption "x" was invalidated 4 min ago' },
+      { id: 'gd_2', context: JSON.stringify({ intel: {} }), reason: null },
+    ]);
+    const out = await getGuardContextsByIds(sql, 'org_1', ['gd_1', 'gd_2']);
+    expect(out.get('gd_1')._gating_reason).toBe('assumption "x" was invalidated 4 min ago');
+    expect(out.get('gd_2')._gating_reason).toBeNull();
+  });
+
   it('de-duplicates ids before querying', async () => {
     const sql = sqlMock([]);
     await getGuardContextsByIds(sql, 'org_1', ['gd_1', 'gd_1', 'gd_2']);

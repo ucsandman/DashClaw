@@ -168,6 +168,13 @@ export interface PolicyRules {
   // to warn|require_approval|block; escalate_action doubles as its ceiling.
   on_kind?: Record<string, string>;
   min_severity?: string;
+  // assumption_hold: hold the next consequential action by an agent family
+  // after one of its assumptions was invalidated. `window_minutes` (shared with
+  // rate_limit above, 1..10080, default 60) is how recent the invalidation must
+  // be; `min_risk_score` (0..100, default 40) is the floor below which reads and
+  // other low-risk calls are never held; `escalate_action` (shared with the
+  // constraint types above) is require_approval by default and only tightens.
+  min_risk_score?: number;
 }
 
 export interface PolicyResult {

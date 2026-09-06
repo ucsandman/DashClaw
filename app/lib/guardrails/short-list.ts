@@ -16,7 +16,7 @@ import { nominalDecision } from '../policy-modes/compile';
 // from demoMiddleware, which compiles into the EDGE middleware bundle, and
 // guard/policy drags the whole guard engine (webhooks, undici, node:net,
 // node:dns, crypto) in with it. validate.js is a leaf with zero imports and
-// carries the SAME 17 types the validator accepts.
+// carries the SAME 18 types the validator accepts.
 import { POLICY_TYPES } from '../validate.js';
 import type { GuardPolicyType } from '../types';
 
@@ -32,11 +32,13 @@ const ACTION_VALUES = new Set<string>(['allow', 'warn', 'require_approval', 'blo
 
 /**
  * Types whose evaluator reads `escalate_action` and never looks at
- * `rules.action` (app/lib/guard/policy.ts:430, :475, :529). For
- * delegation/role it is the escalation itself; for deviation_response it is a
- * CEILING, so it is still the worst this rule can do.
+ * `rules.action` (app/lib/guard/policy.ts:430, :475, :529, :600). For
+ * delegation/role/assumption_hold it is the escalation itself; for
+ * deviation_response it is a CEILING, so it is still the worst this rule can do.
  */
-const ESCALATE_ACTION_TYPES = new Set(['delegation_constraint', 'role_constraint', 'deviation_response']);
+const ESCALATE_ACTION_TYPES = new Set([
+  'delegation_constraint', 'role_constraint', 'deviation_response', 'assumption_hold',
+]);
 
 /**
  * Types with NO warn tier — there is no way to write "record but do not
@@ -45,6 +47,7 @@ const ESCALATE_ACTION_TYPES = new Set(['delegation_constraint', 'role_constraint
  *   non_fabrication        on_violation      require_approval | block (policy.ts:121)
  *   delegation_constraint  escalate_action   require_approval | block (validate.js:718)
  *   role_constraint        escalate_action   require_approval | block (validate.js:748)
+ *   assumption_hold        escalate_action   require_approval | block (validate.js:810)
  *   webhook_check          —                 evaluator returns null (policy.ts:381);
  *                                            the endpoint decides, so nothing local to demote
  * deviation_response is NOT here: validate.js:776 accepts `warn` and the
@@ -57,6 +60,7 @@ const NO_WATCH_TIER_TYPES = new Set([
   'non_fabrication',
   'delegation_constraint',
   'role_constraint',
+  'assumption_hold',
   'webhook_check',
 ]);
 

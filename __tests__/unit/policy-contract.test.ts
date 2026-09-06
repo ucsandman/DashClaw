@@ -86,4 +86,28 @@ describe('buildContract', () => {
     expect(c.custom.some((x) => x.policy_id === 'gp_role')).toBe(false);
     expect(c.interrupts.some((s) => s.text.includes('Reviewer') && s.text.includes('mcp__xapi__*'))).toBe(true);
   });
+
+  it('assumption_hold reads as a sentence, and blocks only on the operator opt-in', () => {
+    const row = (rules: Record<string, unknown>) => ({
+      id: 'gp_ah',
+      name: 'Stale Assumption',
+      policy_type: 'assumption_hold',
+      rules: JSON.stringify(rules),
+      active: 1 as const,
+    });
+
+    const held = buildContract([row({ window_minutes: 120, min_risk_score: 40 })], {});
+    expect(held.custom.some((x) => x.policy_id === 'gp_ah')).toBe(false);
+    expect(held.interrupts.some((s) =>
+      s.text.includes('within 120 min of one of its assumptions being invalidated')
+      && s.text.includes('risk ≥ 40'))).toBe(true);
+
+    // Defaults still produce a sentence rather than falling into `custom`.
+    const defaults = buildContract([row({})], {});
+    expect(defaults.interrupts.some((s) => s.text.includes('within 60 min'))).toBe(true);
+
+    const blocked = buildContract([row({ escalate_action: 'block' })], {});
+    expect(blocked.interrupts).toHaveLength(0);
+    expect(blocked.blocks.some((s) => s.text.includes('assumptions being invalidated'))).toBe(true);
+  });
 });

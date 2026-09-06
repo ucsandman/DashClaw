@@ -27,6 +27,7 @@ const FORMS = {
   delegation_constraint: { name: 'Subagent', type: 'delegation_constraint', parent: '*', childTypes: ['*'], maxRiskScore: 60, escalateAction: 'require_approval', agentIds: [] },
   role_constraint: { name: 'Reviewer', type: 'role_constraint', allowedActionTypes: ['file_read', 'code_review'], allowedTools: ['Read', 'Grep'], blockedTools: ['mcp__xapi__*'], maxRiskScore: 50, escalateAction: 'require_approval', agentIds: ['agent-1'] },
   deviation_response: { name: 'Deviation', type: 'deviation_response', deviationOnKind: { act_substitution: 'require_approval', goal_drift: 'warn' }, deviationMinSeverity: 'low', escalateAction: 'require_approval', agentIds: ['agent-1'] },
+  assumption_hold: { name: 'Stale Assumption', type: 'assumption_hold', windowMinutes: 120, minRiskScore: 40, escalateAction: 'require_approval', agentIds: ['agent-1'] },
 };
 
 describe('policy type coverage (UI ↔ backend contract)', () => {

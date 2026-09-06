@@ -185,6 +185,18 @@ On Claude Code, blocked tools become Claude Code deny rules at session start (th
 
 Attenuation is enforced against the identity the caller *asserts* in `agent_id`, not a cryptographically verified one. Combine `require_verified_parent: true` with the Phase-2 JWKS identity system for a cryptographic claim rather than a self-reported one.
 
+**Assumption hold (`assumption_hold` policy type, 2026-09-05).** Invalidating an assumption on `/assumptions` already notifies the agent — `assumption_alerts` rides on the guard response and the pretool hook prints it — but that notice is advisory and the verdict stays `allow`. This policy type makes it authority: the agent family's next action at or above a risk floor waits for a human, with the reason naming the stale assumption.
+
+| Rule field | Type | Effect |
+|---|---|---|
+| `window_minutes` | integer 1–10080 (default 60) | How recently the assumption must have been invalidated to still hold. |
+| `min_risk_score` | number 0–100 (default 40) | Floor on `effectiveRiskScore` (the same post-predictive value `role_constraint` reads). Below it, nothing is held — reads and other low-risk calls keep flowing. |
+| `escalate_action` | `require_approval` \| `block` (default `require_approval`) | What a stale assumption does. Hold, not block, unless the operator opts in. |
+
+Scope is the agent **family**, matched exactly the way the advisory alert matches it: the `agent_id` itself, its base id, and any composed `<agent_id>:%` child. `assumptions` carries no `agent_id`, so the lookup joins the parent action (`action_records.agent_id`, org-scoped) — `listRecentInvalidatedForAgent` in `app/lib/repositories/assumptions.repository.ts`, capped at 3 rows, newest first, wrapped fail-soft so a broken lookup can never fail a guard call. A 30-second negative cache ("this family had no recent invalidation") keeps the steady state free; `notifyAssumptionInvalidated` clears it, so a fresh invalidation takes effect immediately.
+
+Worked example: an operator invalidates `"the staging DB is a copy of prod"` with reason `"staging was reseeded Tuesday"`. The agent's next `deploy` (risk 70) escalates to `require_approval` with reason `assumption "the staging DB is a copy of prod" was invalidated 4 min ago (staging was reseeded Tuesday) — "Stale Assumption" holds this action until a human confirms`, which is what `/approvals` shows on the held card. Relief is the normal path, not an exception: the rule evaluates inside `runLocalPolicies`, ahead of both grant passes, so an operator approval, a "don't ask again" shape grant, or the window simply elapsing all clear it. It keys on the `assumptions` table rather than the notification's read state — the hook acks that message the moment it prints it — so no client hook changes.
+
 #### Containment Verdicts (`allow_contained`)
 
 A fifth decision sits between `warn` and `require_approval`: **execute now, but staged.** A `risk_threshold` policy may set `rules.contain_above` (must be strictly below `rules.threshold`); a score landing in `[contain_above, threshold)` returns `allow_contained` instead of `require_approval` — but only when the act is eligible. Eligibility is a split responsibility: the **server** (`isContainableAct`) proves the act's effects land in a medium that can be staged and reviewed, and falls back to `require_approval` if it cannot prove this, regardless of score.

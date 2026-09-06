@@ -22,8 +22,11 @@ const GALLERY_PACKS = [
 ];
 
 // Evaluator-runnable types: pure context checks. rate_limit needs a DB count,
-// webhook_check calls out, permission_escalation reads agent_pairings — their
-// firing paths cannot run with sql=null.
+// webhook_check calls out, permission_escalation reads agent_pairings, and
+// assumption_hold joins assumptions to action_records — their firing paths
+// cannot run with sql=null. (assumption_hold is fail-soft on a bad sql, so it
+// would return null here and silently "pass" a require_approval recipe;
+// __tests__/unit/guard-assumption-hold.test.js exercises it with a real mock.)
 const RUNNABLE_TYPES = new Set([
   'require_approval', 'block_action_type', 'warn_action_type', 'risk_threshold',
   'require_evidence', 'role_constraint', 'delegation_constraint',
