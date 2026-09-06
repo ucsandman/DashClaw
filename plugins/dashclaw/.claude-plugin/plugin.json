@@ -1,6 +1,6 @@
 {
   "name": "dashclaw",
-  "version": "3.2.1",
+  "version": "3.3.0",
   "description": "DashClaw tool governance hooks, remote approvals, execution evidence, and setup guidance for Claude Code.",
   "author": {
     "name": "DashClaw",

@@ -13,6 +13,21 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.36.0] - 2026-09-06
+
+### Added
+
+- **Attestation: every guard decision records which model and which harness made the call.** The operator's trust in an agent was never a property of the agent alone: the same act is a different risk from a different model, and it is only governable at all on a harness carrying the hook. Until now the ledger recorded who and what, never *by what* — `action_records.model` was cost attribution written after the fact and reached no decision. The Claude Code pretool hook now declares `attested_model`, `harness` and `harness_version` on every guard call, reading the model from the last assistant entry of the harness's own session transcript (it exists on neither hook stdin nor in the environment; probed) and reading only the file's tail per call. Codex and Hermes declare the harness (from the `--agent-id` their installers write) and no model; a caller the hook cannot recognise says `unknown` rather than guessing. The fields ride the persisted decision context (no schema change) and are lifted onto every reader of a guard decision — `GET /api/guard`, `GET /api/guard/decisions`, and the FK-linked `guard_decision` on `GET /api/actions/:id` — so the `/decisions` detail shows them as a header chip. Client-declared attribution, never proof: the same posture as `enforcement_mode`, no policy grants on it, and outward copy never claims DashClaw verifies which model acted. (`hooks/dashclaw_pretool.py`, `app/lib/validate.js`, `app/lib/repositories/guard.repository.ts`, `actions.repository.create.ts`, `app/api/guard/decisions/route.ts`, `app/decisions/[actionId]/page.tsx`; RFC `docs/rfcs/2026-09-06-graded-clearance.md` records the direction this is the first step of.)
+
+### Fixed
+
+- The first cut of the attestation chip (819ad6c5, same day) was dead on arrival: it read `guardDecision.context.attested_model` from routes that strip `context`, and the FK-linked decision the page actually prefers had no lift at all. Verified rendered in production this time, on a real decision, before release.
+- The pretool hook's attestation cache was removed: the hook is a fresh process per tool call, so a module-global cache never hit in production and the test that "proved" it proved nothing.
+
+### Release notes
+
+- Platform + hooks only. No Node/Python SDK source change; the SDKs are intentionally not republished. Plugin bundle 3.2.1 → 3.3.0 (the pretool hook changed).
+
 ## [5.35.1] - 2026-09-06
 
 ### Changed

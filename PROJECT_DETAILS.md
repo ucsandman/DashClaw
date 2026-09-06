@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-09-05
+last-verified: 2026-09-06
 doc-type: architecture
 ---
 
@@ -31,6 +31,7 @@ As of this verification (2026-08-12), generated API inventory reports **134 rout
 ### DashClaw owns
 
 - **Attribution**: which principal and reported agent submitted an action, with `agent_id`, optional `agent_name`, org scoping, and fleet lineage. Harness-integrated rows carry `harness_session_id`; subagent leaves can carry `subagent_uuid`, and spawn rows can carry `outcome_metadata.spawned_agent_uuid`, so recorded multi-agent fan-out evidence can be joined at read time without inventing missing links.
+- **Attestation** (v5.36.0): which model and which harness the client declared it was running on — `attested_model`, `harness`, `harness_version` on the guard context, lifted onto every reader of a guard decision and shown as a chip on the `/decisions` detail. The Claude Code hook reads the model from the harness's own session transcript (it is on neither hook stdin nor the environment); Codex and Hermes declare the harness and no model. Client-declared, never proof: same posture as `enforcement_mode`, and no policy grants on it.
 - **Policy decisions**: `allow < warn < allow_contained < require_approval < block`, evaluated before governed execution. The strictest applicable verdict wins; the calling execution seam must enforce it (`docs/architecture/enforcement-boundary.md`).
 - **Execution claims**: protocol 1 atomically claims one attempt for the recorded action, principal, agent, exact act, and a fresh policy decision. Operator and plan authority is consumed at claim time. A claim does not make an external effect exactly once or prove its outcome.
 - **Human-in-the-loop approval**: approval queues and chat/native approval bridges.

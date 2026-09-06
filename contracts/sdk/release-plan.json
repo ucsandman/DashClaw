@@ -1,23 +1,23 @@
 {
   "node": {
-    "current_version": "5.35.1",
+    "current_version": "5.36.0",
     "next_bump": "none",
-    "reason": "5.35.1 assumption_hold policy type and the /approvals gating reason: SDK source is unchanged. Keep the shared manifest version aligned, but do not publish the Node SDK.",
+    "reason": "5.36.0 attestation (model + harness on every guard decision, lifted on all reader paths, /decisions chip): no Node SDK source change. The version advances per the unified model but the Node SDK is NOT republished; npm stays at its last published release.",
     "domains": [
       "platform",
       "docs"
     ]
   },
   "python": {
-    "current_version": "5.35.1",
+    "current_version": "5.36.0",
     "next_bump": "none",
-    "reason": "5.35.1 assumption_hold policy type and the /approvals gating reason: SDK source is unchanged. Keep the shared manifest version aligned, but do not publish the Python SDK.",
+    "reason": "5.36.0 attestation (model + harness on every guard decision, lifted on all reader paths, /decisions chip): no Python SDK source change. The version advances per the unified model but the Python SDK is NOT republished; PyPI stays at its last published release.",
     "domains": [
       "platform",
       "docs"
     ]
   },
-  "reason": "5.35.1 assumption_hold policy type and the /approvals gating reason: SDK source is unchanged, so npm and PyPI are intentionally not republished.",
+  "reason": "5.36.0 attestation is platform + hooks only (plugin bundle 3.2.1 -> 3.3.0). No Node/Python SDK source change, so npm and PyPI are intentionally not republished.",
   "domains": [
     "platform",
     "docs"

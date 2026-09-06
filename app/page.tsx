@@ -91,7 +91,7 @@ const SUPPORT_SURFACES = [
   {
     icon: Scale,
     title: 'Decisions ledger',
-    desc: 'Recorded governed actions with their declared goal, bound act, risk composition, matched policies, approver, outcome, verified-identity state, and payload-signature state.',
+    desc: 'Recorded governed actions with their declared goal, bound act, risk composition, matched policies, approver, outcome, verified-identity state, payload-signature state, and the model and harness the client declared it was running on.',
     href: '/decisions',
   },
   {

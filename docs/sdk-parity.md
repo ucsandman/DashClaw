@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: SDK Lead
-last-verified: 2026-09-05
+last-verified: 2026-09-06
 doc-type: architecture
 ---
 
@@ -86,6 +86,7 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
 | Containment (`allow_contained` verdicts) | Yes | Yes | `resolveContainment`/`resolve_containment`, `listContained`/`list_contained`. Full parity (2 Node + 2 Python). Neither SDK sets `client_capabilities: ['allow_contained']` (nor the database basis's `allow_contained:db`, RFC 2026-09-04 — no SDK change) in v1 — only hook-cooperating harnesses opt in. |
 | Assumptions | Record | Record + read/validate | `recordAssumption` at parity; `get_assumption` / `validate_assumption` are Python-only. Invalidated assumptions surface as the `assumption_drift` signal. |
 | Signals | Yes | Yes | Canonical. |
+| Attestation (`attested_model` / `harness` / `harness_version`, v5.36.0) | No | No | Hook-only by design: the fields describe the harness the hook runs inside, and a bare SDK caller has no transcript to read a model from. Both SDKs pass the fields through untouched if a caller sets them in the guard context; neither derives them. No SDK change. |
 | Security (prompt injection) | Yes | Yes | `POST /api/security/prompt-injection`. |
 | Pairing / identities | Enrollment (`createPairing` + `waitForPairing`) | Enrollment + admin reads | Node enrollment is canonical; admin identity reads are Python-only (or HTTP). |
 | Policies (test / import / proof / delegation) | `simulatePolicy` (dry-run), `createDelegationConstraint` | `test_policies` / `import_policies` / `get_proof_report`, `create_delegation_constraint` | Governance-core policy surface. `createDelegationConstraint` / `create_delegation_constraint` are at parity. |

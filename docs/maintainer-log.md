@@ -14,6 +14,55 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-09-06 - By what: the ledger learns which model and which harness acted
+
+**Shipped:** v5.36.0 — attestation. Every guard call from a hook-cooperating
+harness now declares `attested_model`, `harness` and `harness_version`; the
+fields ride the persisted decision context, are lifted onto every reader of a
+guard decision, and show as a chip on the `/decisions` detail. Client-declared,
+never proof — the same honesty posture as `enforcement_mode`.
+
+**Why now.** Wes put it plainly: the model and the surrounding harness are
+what decide whether an agent can be trusted with a given act. He lets one
+model delete files on his machine and would not let two others near the same
+task, and he would not run the task at all on a laptop without his harness
+installed. The ledger could represent none of that. `action_records.model`
+existed, but as cost attribution written after the fact; no decision ever saw
+which model was acting. A wider direction — clearance that is earned per
+(principal, model, harness, capability class) and demoted automatically — is
+recorded as a draft RFC (`docs/rfcs/2026-09-06-graded-clearance.md`). This
+release is its first, self-standing step: make the term visible.
+
+**What went wrong, in order.** Three things, and the log exists for these.
+
+1. The session that started this work (on a different model than the one
+   writing this entry) ran `env | grep` to check which variables the hook
+   could see and printed a live API key into the transcript. Nothing in the
+   local harness fired: the input guard scans commands, the message guard
+   scans what the model prints, and neither looks at what a *tool returns* —
+   the highest-volume text channel there is. That harness now denies
+   environment dumps at PreToolUse and scans tool results at PostToolUse
+   (`claude-config` 4f73333, ceb0a5b; the public mirror carries both). The
+   key was rotated. The incident is also the cleanest evidence for the RFC's
+   premise that the model is a term in the trust function.
+2. The first cut of the chip (819ad6c5) shipped "verified" with unit tests
+   at both ends and was dead on arrival: it read `guardDecision.context.
+   attested_model` from routes that strip `context`, and the FK-linked
+   decision the page actually renders had no lift at all. A live read of
+   production rows after the deploy is what caught it; a second pass lifted
+   the fields on all three reader paths and was checked rendered, on a real
+   decision, in the operator's own browser before this release was cut.
+3. The hook's "attestation cache" was a fiction — the hook is a fresh
+   process per tool call, so a module-global cache never hits — and the test
+   that proved it proved nothing. Removed.
+
+**Verified:** hook tests 15/15 (tail read, mid-session `/model` switch,
+deleted transcript, malformed lines, harness derivation for Claude Code /
+Codex / Hermes / custom ids), validate passthrough, repository lift on both
+paths, full vitest 5627 passed, lint 0, typecheck clean, `next build` exit 0
+across 198 routes, and the chip photographed in production reading the model
+this entry was written on.
+
 ## 2026-09-05 - Permission is not authority: the assumption hold
 
 Wes brought a Reddit thread asking what should invalidate an agent's earlier authorization and force a re-check before it proceeds. Most of the poster's list already had a DashClaw answer: approvals are bound to one declared goal and expire, spend and runaway-loop policies catch cumulative drift, plan deviation events catch a run leaving its plan, role constraints catch an agent acting outside its scope. One item did not. When an operator invalidates an assumption an agent recorded, the guard attached an advisory alert to its response and let the action through. The agent was told and kept going. That is the exact case the thread was about: permission still valid, evidence stale.
