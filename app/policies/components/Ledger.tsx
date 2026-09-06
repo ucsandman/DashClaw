@@ -253,7 +253,13 @@ function describeRule(row: any, rules: Record<string, any>): React.ReactNode {
       const blockedPart = Array.isArray(rules.blocked_action_types) && rules.blocked_action_types.length > 0
         ? <>, no {joinCodes(rules.blocked_action_types)}</>
         : null;
-      return <>Limit the <Code>{row.name}</Code> role{allowed}{riskPart}{blockedPart}</>;
+      const allowedToolsPart = Array.isArray(rules.allowed_tools) && rules.allowed_tools.length > 0
+        ? <>, tools: {joinCodes(rules.allowed_tools)}</>
+        : null;
+      const blockedToolsPart = Array.isArray(rules.blocked_tools) && rules.blocked_tools.length > 0
+        ? <>, never: {joinCodes(rules.blocked_tools)}</>
+        : null;
+      return <>Limit the <Code>{row.name}</Code> role{allowed}{riskPart}{blockedPart}{allowedToolsPart}{blockedToolsPart}</>;
     }
     default:
       return <>{buildPolicySummary(decompilePolicyForm(row))}</>;

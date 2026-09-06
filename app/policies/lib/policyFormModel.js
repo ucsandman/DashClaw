@@ -52,6 +52,10 @@ const DEFAULT_FORM_STATE = {
   maxRiskScore: 60,
   blockedActionTypes: [],
   blockedPathGlobs: [],
+  // role_constraint tool-level scope (glob patterns matched against the
+  // harness tool name) — mirrors allowedActionTypes/blockedActionTypes above.
+  allowedTools: [],
+  blockedTools: [],
   maxDepth: '',
   escalateAction: 'require_approval',
   requireVerifiedParent: false,
@@ -356,6 +360,10 @@ const POLICY_TYPE_HANDLERS = {
       if (blocked.length > 0) rules.blocked_action_types = blocked;
       const globs = cleanStringList(form.blockedPathGlobs);
       if (globs.length > 0) rules.blocked_path_globs = globs;
+      const allowedTools = cleanStringList(form.allowedTools);
+      if (allowedTools.length > 0) rules.allowed_tools = allowedTools;
+      const blockedTools = cleanStringList(form.blockedTools);
+      if (blockedTools.length > 0) rules.blocked_tools = blockedTools;
       return rules;
     },
     summary: (form, scoped) => {
@@ -471,6 +479,8 @@ export function decompilePolicyForm(policy) {
     maxRiskScore: coalesce(rules.max_risk_score, DEFAULT_FORM_STATE.maxRiskScore),
     blockedActionTypes: arrOr(rules.blocked_action_types, DEFAULT_FORM_STATE.blockedActionTypes),
     blockedPathGlobs: arrOr(rules.blocked_path_globs, DEFAULT_FORM_STATE.blockedPathGlobs),
+    allowedTools: arrOr(rules.allowed_tools, DEFAULT_FORM_STATE.allowedTools),
+    blockedTools: arrOr(rules.blocked_tools, DEFAULT_FORM_STATE.blockedTools),
     maxDepth: coalesce(rules.max_depth, DEFAULT_FORM_STATE.maxDepth),
     escalateAction: orVal(rules.escalate_action, DEFAULT_FORM_STATE.escalateAction),
     requireVerifiedParent: rules.require_verified_parent !== undefined ? !!rules.require_verified_parent : DEFAULT_FORM_STATE.requireVerifiedParent,

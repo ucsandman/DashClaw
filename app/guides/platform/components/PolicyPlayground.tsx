@@ -52,7 +52,7 @@ const TEMPLATES: Array<{ type: string; label: string; rules: string }> = [
   {
     type: 'role_constraint',
     label: 'Role constraint',
-    rules: '{\n  "allowed_action_types": ["file_read", "code_review", "comment"],\n  "max_risk_score": 50,\n  "blocked_path_globs": ["infra/**", "**/.env*"],\n  "escalate_action": "require_approval"\n}',
+    rules: '{\n  "allowed_action_types": ["file_read", "code_review", "comment"],\n  "max_risk_score": 50,\n  "blocked_path_globs": ["infra/**", "**/.env*"],\n  "blocked_tools": ["mcp__xapi__*"],\n  "escalate_action": "require_approval"\n}',
   },
 ];
 

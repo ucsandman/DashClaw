@@ -375,6 +375,37 @@ function RoleConstraintFields({ form, onChange }: DelegationConstraintFieldsProp
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
+          <label className="block text-xs text-secondary mb-1">Allowed tools (one per line, optional)</label>
+          <textarea
+            aria-label="Role allowed tools"
+            value={(form.allowedTools || []).join('\n')}
+            onChange={(event) => onChange('allowedTools', event.target.value.split('\n'))}
+            placeholder={'Read\nGrep\nGlob\nmcp__github__*'}
+            rows={3}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-secondary mb-1">Blocked tools (one per line, optional)</label>
+          <textarea
+            aria-label="Role blocked tools"
+            value={(form.blockedTools || []).join('\n')}
+            onChange={(event) => onChange('blockedTools', event.target.value.split('\n'))}
+            placeholder={'mcp__xapi__*\nWrite\nBash'}
+            rows={3}
+            className={inputClass}
+          />
+        </div>
+      </div>
+      <p className="text-xs text-tertiary">
+        Matched against the harness tool name (<code className="text-secondary">Bash</code>,{' '}
+        <code className="text-secondary">Write</code>, <code className="text-secondary">mcp__server__tool</code>).{' '}
+        <code className="text-secondary">*</code> is the only wildcard &mdash;{' '}
+        <code className="text-secondary">mcp__server__*</code> covers a whole MCP server.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
           <label className="block text-xs text-secondary mb-1">Max risk score (0-100)</label>
           <input
             aria-label="Role max risk score"

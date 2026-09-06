@@ -138,6 +138,7 @@ const policies: GuardPolicy[] = [
       allowed_action_types: ['file_read', 'code_review', 'comment'],
       max_risk_score: 50,
       blocked_path_globs: ['infra/**', '**/.env*'],
+      blocked_tools: ['mcp__xapi__*'],
       escalate_action: 'require_approval',
     }),
     active: true,

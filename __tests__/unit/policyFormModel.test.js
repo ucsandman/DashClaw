@@ -294,6 +294,44 @@ describe('policyFormModel — full-type characterization', () => {
     expect(JSON.parse(compilePolicyPayload(form).rules)).toEqual(JSON.parse(payload.rules));
   });
 
+  it('compiles role_constraint including tool-level scope', () => {
+    expect(rulesOf({
+      type: 'role_constraint',
+      allowedActionTypes: ['file_read'],
+      blockedActionTypes: ['deploy'],
+      blockedPathGlobs: ['infra/**'],
+      allowedTools: ['Read', 'Grep', ''],
+      blockedTools: ['mcp__xapi__*', 'Write'],
+      maxRiskScore: 50,
+      escalateAction: 'require_approval',
+      agentIds: [],
+    })).toEqual({
+      escalate_action: 'require_approval',
+      max_risk_score: 50,
+      allowed_action_types: ['file_read'],
+      blocked_action_types: ['deploy'],
+      blocked_path_globs: ['infra/**'],
+      allowed_tools: ['Read', 'Grep'],
+      blocked_tools: ['mcp__xapi__*', 'Write'],
+    });
+  });
+
+  it('round-trips role_constraint tool-level scope through decompile', () => {
+    const payload = compilePolicyPayload({
+      name: 'Reviewer',
+      type: 'role_constraint',
+      allowedTools: ['Read', 'Grep'],
+      blockedTools: ['mcp__xapi__*'],
+      escalateAction: 'require_approval',
+      agentIds: [],
+    });
+    const form = decompilePolicyForm({ ...payload, rules: payload.rules });
+    expect(form.type).toBe('role_constraint');
+    expect(form.allowedTools).toEqual(['Read', 'Grep']);
+    expect(form.blockedTools).toEqual(['mcp__xapi__*']);
+    expect(JSON.parse(compilePolicyPayload(form).rules)).toEqual(JSON.parse(payload.rules));
+  });
+
   // IMPORTANT 4 (final fix wave, 2026-07-27): contain_above must round-trip
   // through compile/decompile exactly like rules.tests does above — an
   // editor round-trip on a containment policy must never silently destroy
