@@ -17,6 +17,13 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 - Claude Code pretool hook: the execution claim now carries the identity the action was recorded under. With the default `DASHCLAW_SUBAGENT_IDENTITY=distinct`, a sub-agent leaf call is recorded as `<parent>:<agent_type>` but was claimed as the bare parent id, so the server's candidate lookup missed and every sub-agent tool call exited with "execution claim failed or returned an ambiguous response" (a 409 `EXECUTION_CLAIM_CONFLICT`). Regression test in `hooks/tests/test_pretool_execution_claim.py`; hook mirrors and download zips regenerated.
 
+## [5.33.12] - 2026-09-05
+
+### Added
+
+- `role_constraint` policies gain **tool-level scope**: `allowed_tools` and `blocked_tools`, glob patterns matched case-sensitively against the harness tool name (`Bash`, `Write`, `mcp__<server>__<tool>`). `*` is the only wildcard (`mcp__github__*` covers a whole MCP server; `**` and `?` are rejected). Both only tighten — a blocked or out-of-allowlist tool escalates to the role's `escalate_action` (require_approval, or block). SDK callers that send no tool name are unaffected. Enforced in the guard evaluator (`app/lib/guard/policy.ts`), validated in `app/lib/validate.js`, and surfaced in the policy builder, ledger, and playground.
+- New SessionStart hook `dashclaw_scope_sync.py`: at session start it turns a role's `blocked_tools` into Claude Code `permissions.deny` rules, so a blocked tool cannot even be chosen by the harness — the server-side evaluator stays the backstop. Allowlists are server-enforced only (Claude Code cannot express "deny everything except"). The hook owns only the deny entries it wrote (tracked in `.claude/.dashclaw-scope.json`) and leaves the deny list untouched when the server is unreachable.
+
 ## [5.33.11] - 2026-09-05
 
 ### Changed

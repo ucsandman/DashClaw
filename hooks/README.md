@@ -108,7 +108,7 @@ node scripts/install-hooks.mjs
 node /path/to/DashClaw/scripts/install-hooks.mjs --target=.
 ```
 
-This copies the hook scripts (`dashclaw_pretool.py`, `dashclaw_posttool.py`, `dashclaw_stop.py`, `dashclaw_db_containment.py`, `enforcement_liveness_probe.py`) and the vendored `dashclaw_agent_intel/` Python module into `.claude/hooks/`, then merges the matching `PreToolUse` / `PostToolUse` / `Stop` entries into `.claude/settings.json`. Re-run after `git pull` to refresh.
+This copies the hook scripts (`dashclaw_pretool.py`, `dashclaw_posttool.py`, `dashclaw_stop.py`, `dashclaw_db_containment.py`, `enforcement_liveness_probe.py`, `dashclaw_scope_sync.py`) and the vendored `dashclaw_agent_intel/` Python module into `.claude/hooks/`, then merges the matching `PreToolUse` / `PostToolUse` / `Stop` / `SessionStart` entries into `.claude/settings.json`. Re-run after `git pull` to refresh.
 
 ### Global capture across every project (capture-only)
 
@@ -138,6 +138,8 @@ cp hooks/dashclaw_pretool.py .claude/hooks/
 cp hooks/dashclaw_posttool.py .claude/hooks/
 cp hooks/dashclaw_stop.py    .claude/hooks/
 cp hooks/dashclaw_db_containment.py .claude/hooks/
+cp hooks/enforcement_liveness_probe.py .claude/hooks/
+cp hooks/dashclaw_scope_sync.py .claude/hooks/
 cp -r hooks/dashclaw_agent_intel .claude/hooks/
 ```
 
@@ -199,6 +201,16 @@ To keep session start instant, the SessionStart entry point throttles itself to 
 `--settings <path>` overrides the config resolution (the codex installer passes it explicitly). A config file that exists but cannot be parsed — including a missing `tomllib`/PyYAML — is reported in the verdict detail rather than being read as "no hook installed", because a silent "nothing installed" is the same false green the probe exists to catch. The int32 timer-overflow emulation (the v4.72.1 failure) applies to `claude-code` only: it was never observed on the other harnesses, and asserting it there could render a live seam broken.
 
 Runtimes with no row above are not oversights. MCP, the Node and Python SDKs, and REST are **cooperative** surfaces per [the enforcement boundary ADR](../docs/architecture/enforcement-boundary.md) — guard returns a decision and the caller chooses to honour it — so there is no seam to hold and nothing for a probe to verdict.
+
+### Scope sync (SessionStart hook)
+
+`dashclaw_scope_sync.py` is a second, independent SessionStart hook. It reads the active `role_constraint` policies' `blocked_tools` and turns them into Claude Code `permissions.deny` rules at session start, so a blocked tool can't even be **chosen** by the harness — it's denied before the guard ever sees it.
+
+**Allowlists are server-enforced only.** `allowed_tools` is intentionally NOT translated into `permissions.deny`: Claude Code's deny list can express "block these specific tools" but not "deny everything except" — expressing an allowlist that way would require enumerating and denying every tool Claude Code knows about, a list this hook does not control and cannot keep current. The server-side guard evaluator stays the enforcement backstop for allowlists.
+
+The hook **owns only the deny entries it wrote**, tracked in `.claude/.dashclaw-scope.json`: on each run it removes entries it previously added that are no longer wanted, adds newly blocked tools, and leaves every other key in `.claude/settings.local.json` — including deny entries added by anyone else — untouched.
+
+If the server is unreachable, the credentials are missing, or `settings.local.json` exists but can't be parsed, the hook leaves the existing deny list exactly as it is and exits cleanly; it never breaks a session on failure.
 
 ## Common setup failures
 

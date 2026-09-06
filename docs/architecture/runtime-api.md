@@ -176,9 +176,12 @@ The evaluator fires only on composed identities — an `agent_id` containing the
 | `blocked_action_types` | string[] | Action types the role may never use. |
 | `max_risk_score` | number 0–100 | Ceiling on `effectiveRiskScore` (the post-predictive value). |
 | `blocked_path_globs` | string[] | Path scope, matched with the same `matchesProtectedPath` semantics as `protected_path`. |
+| `allowed_tools` / `blocked_tools` | string[] | Tool-level scope, checked before the action-type checks above: glob patterns matched case-sensitively against the harness tool name (`Bash`, `Write`, `mcp__<server>__<tool>`). `*` is the only wildcard — no `**`, no `?`; `mcp__server__*` covers a whole MCP server. A missing tool name (bare SDK callers) makes both a no-op. |
 | `escalate_action` | `require_approval` \| `block` (default `require_approval`) | What happens on a violation — never a grant. |
 
 Worked example: a `Reviewer` policy targets `agent_ids: ["review-bot"]` with `{ allowed_action_types: ["file_read", "code_review", "comment"], max_risk_score: 50, escalate_action: "require_approval" }`. When `review-bot` calls guard with `action_type: "deploy"`, the decision escalates to `require_approval` with reason `action type "deploy" is outside the "Reviewer" role's allowlist` — the out-of-role attempt lands in the Approvals inbox showing what the agent reached for, instead of silently dropping. Membership is row scoping, not evaluator matching: an untargeted agent is never evaluated against the role at all. Like `delegation_constraint`, it only tightens; an operator-sanctioned grant can still cover a `require_approval` it produces, and `block` remains absolute.
+
+On Claude Code, blocked tools become Claude Code deny rules at session start (the `dashclaw_scope_sync` SessionStart hook, see `hooks/README.md`), so a blocked tool can't even be chosen; allowlists (`allowed_tools`) are server-enforced only, since Claude Code's deny list cannot express "deny everything except".
 
 Attenuation is enforced against the identity the caller *asserts* in `agent_id`, not a cryptographically verified one. Combine `require_verified_parent: true` with the Phase-2 JWKS identity system for a cryptographic claim rather than a self-reported one.
 
