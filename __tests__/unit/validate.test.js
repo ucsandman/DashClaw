@@ -97,6 +97,41 @@ describe('validateGuardInput — client_capabilities', () => {
   });
 });
 
+// Attestation (2026-09-06): WHICH MODEL and WHICH HARNESS made the call. Wes:
+// "the only model I trust to [delete files] is Fable 5.1, I would never let
+// Opus 5 or Sonnet 5 do this task" — a distinction the guard could not see,
+// because the acting model reached no part of the decision.
+//
+// The failure mode these pin is silent: validate() STRIPS context keys absent
+// from GUARD_INPUT_SCHEMA (the same bug the `metadata` entry was added to fix),
+// so a missing schema line means the hook sends the model and the server drops
+// it with no error anywhere.
+describe('validateGuardInput — attestation passthrough', () => {
+  it('preserves attested_model, harness and harness_version', () => {
+    const result = validateGuardInput({
+      action_type: 'file_delete',
+      attested_model: 'claude-fable-5-1',
+      harness: 'claude-code',
+      harness_version: '2.1.263',
+    });
+    expect(result.valid).toBe(true);
+    expect(result.data.attested_model).toBe('claude-fable-5-1');
+    expect(result.data.harness).toBe('claude-code');
+    expect(result.data.harness_version).toBe('2.1.263');
+  });
+
+  it('is valid without them — an older hook simply attests nothing', () => {
+    const result = validateGuardInput({ action_type: 'file_delete' });
+    expect(result.valid).toBe(true);
+    expect(result.data.attested_model).toBeUndefined();
+  });
+
+  it('rejects an over-long attested_model rather than truncating it', () => {
+    const result = validateGuardInput({ action_type: 'deploy', attested_model: 'm'.repeat(129) });
+    expect(result.valid).toBe(false);
+  });
+});
+
 describe('validateActionRecord', () => {
   it('should validate a correct action record', () => {
     const validRecord = {

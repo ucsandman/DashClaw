@@ -76,6 +76,16 @@ export interface GuardEvalContext {
     };
   };
   client_capabilities?: unknown; // validated in validate.js; array of capability strings
+  /**
+   * Attestation (2026-09-06). WHICH MODEL and WHICH HARNESS made this call.
+   * CALLER-DECLARED, never proof — the hook reads the model out of the
+   * harness's own transcript, so a hostile client can state anything. Recorded
+   * for attribution and rendered on /decisions; never an enforcement input, and
+   * no policy may grant on these alone. Same posture as enforcement_mode.
+   */
+  attested_model?: string;
+  harness?: string;
+  harness_version?: string;
   [field: string]: unknown;
 }
 

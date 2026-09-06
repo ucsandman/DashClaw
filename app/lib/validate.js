@@ -337,6 +337,17 @@ const GUARD_INPUT_SCHEMA = {
   // add a gate but never remove one. Free-form object — passed through, not
   // deep-validated.
   metadata:        { type: 'object' },
+  // Attestation (2026-09-06): WHICH MODEL and WHICH HARNESS made this call.
+  // The same act is a different risk from a different model, and is only
+  // governable at all on a harness carrying the hook — neither was visible to
+  // the guard before. Caller-DECLARED and never proof: the hook reads the model
+  // from the harness's own transcript, so a hostile client can state anything.
+  // Recorded for attribution and rendered on /decisions; a policy must never
+  // grant on the strength of these alone. Same posture as enforcement_mode.
+  // Without these entries validate() strips them (see `metadata` above).
+  attested_model:  { type: 'string', maxLength: 128 },
+  harness:         { type: 'string', maxLength: 64 },
+  harness_version: { type: 'string', maxLength: 64 },
 };
 
 // Evidence-first `act` payload — deep validation (caps + per-kind family).

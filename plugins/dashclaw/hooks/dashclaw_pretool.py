@@ -2211,6 +2211,88 @@ def _attach_harness_session(context):
         context["harness_session_id"] = _SESSION_ID[:200]
 
 
+# Attestation cache: (transcript_path, size) -> (model, harness_version). The
+# model changes only on an explicit /model switch, so re-reading the tail on
+# every tool call would be pure waste; keying on size means a grown transcript
+# re-reads and an unchanged one does not.
+_ATTESTATION_CACHE = {}
+
+# Read only the tail. A long session's transcript reaches many megabytes and
+# this runs on EVERY governed tool call; the last assistant entry is at the end.
+_TRANSCRIPT_TAIL_BYTES = 256 * 1024
+
+
+def _read_attestation(transcript_path):
+    """Return (model, harness_version) from the last assistant entry, or ('', '').
+
+    The acting model is not on hook stdin and not in the environment (probed
+    2026-09-06: there is no CLAUDE_MODEL). The harness writes it per assistant
+    entry in the session transcript, which is the only place it exists.
+
+    This is ATTESTATION, not proof: the file is owned by the harness, so a
+    hostile client could write anything into it. Same posture as
+    enforcement_mode — attribution the operator can see, never an enforcement
+    input. The server must never grant on the strength of this alone.
+    """
+    if not transcript_path:
+        return "", ""
+    try:
+        size = os.path.getsize(transcript_path)
+    except OSError:
+        return "", ""
+    cached = _ATTESTATION_CACHE.get((transcript_path, size))
+    if cached is not None:
+        return cached
+
+    model = version = ""
+    try:
+        with open(transcript_path, "rb") as fh:
+            if size > _TRANSCRIPT_TAIL_BYTES:
+                fh.seek(size - _TRANSCRIPT_TAIL_BYTES)
+                fh.readline()  # discard the partial line the seek landed inside
+            tail = fh.read().decode("utf-8", "replace")
+        for line in reversed(tail.splitlines()):
+            line = line.strip()
+            if not line or '"assistant"' not in line:
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if entry.get("type") != "assistant":
+                continue
+            candidate = (entry.get("message") or {}).get("model")
+            if candidate:
+                model = str(candidate)[:128]
+                version = str(entry.get("version") or "")[:64]
+                break
+    except (OSError, UnicodeError):
+        return "", ""
+
+    result = (model, version)
+    _ATTESTATION_CACHE[(transcript_path, size)] = result
+    return result
+
+
+def _attach_attestation(context, data):
+    """Declare WHICH MODEL and WHICH HARNESS is making this call.
+
+    The operator's trust in an agent is not a property of the agent alone: the
+    same act is a different risk from a different model, and is only governable
+    at all on a harness carrying this hook. Neither was visible to the guard
+    before — guard_decisions recorded who and what, never by what.
+
+    Rides context (already persisted as JSON on the decision row), so this
+    needs no migration. Cooperative and caller-declared, like enforcement_mode.
+    """
+    context["harness"] = "claude-code"
+    model, version = _read_attestation(data.get("transcript_path"))
+    if model:
+        context["attested_model"] = model
+    if version:
+        context["harness_version"] = version
+
+
 def _attach_subagent_provenance(context, data, tool_name):
     """Sub-agent provenance. Claude Code puts agent_id / agent_type on hook stdin
     ONLY when the call fires inside a sub-agent. We keep the governed agent_id =
@@ -2336,6 +2418,7 @@ def main():
     # Step 4: Build guard context
     context = _build_guard_context(tool_name, tool_info, enrichment, tool_input)
     _attach_harness_session(context)
+    _attach_attestation(context, data)
     _attach_autoscan_content(context, tool_name, tool_input)
     _attach_subagent_provenance(context, data, tool_name)
     _attach_client_capabilities(context, tool_name, tool_input)

@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import {
   Clock, HelpCircle, Search, ShieldCheck, ShieldAlert, Info,
   LayoutPanelLeft, ExternalLink, Package, IdCard, Database,
-  CheckCircle2, Ban, AlertTriangle, RefreshCw,
+  CheckCircle2, Ban, AlertTriangle, RefreshCw, Cpu,
 } from 'lucide-react';
 import PageLayout from '../../components/PageLayout';
 import { Card, CardContent, CardHeader } from '../../components/ui/Card';
@@ -321,6 +321,23 @@ export default function DecisionReplayPage() {
               <RefreshCw size={14} className={reissuing ? 'motion-safe:animate-spin' : ''} />
               {reissuing ? 'Re-issuing…' : 'Re-issue merge grant'}
             </button>
+          )}
+          {/* Attestation (2026-09-06): which MODEL and which HARNESS made this
+              call. The same act is a different risk from a different model, and
+              is only governable at all on a harness carrying the hook — until
+              now the ledger recorded who and what, never by what. Declared by
+              the client, so the tooltip says so: this is attribution, never
+              proof, and no policy grants on it. */}
+          {(guardDecision?.context?.attested_model || guardDecision?.context?.harness) && (
+            <div
+              className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] font-bold text-tertiary uppercase tracking-wider"
+              title={`Declared by the client, not verified: model ${guardDecision.context.attested_model || 'unstated'}` +
+                `${guardDecision.context.harness ? ` on ${guardDecision.context.harness}` : ''}` +
+                `${guardDecision.context.harness_version ? ` v${guardDecision.context.harness_version}` : ''}`}
+            >
+              <Cpu size={12} />
+              {guardDecision.context.attested_model || guardDecision.context.harness}
+            </div>
           )}
           {action.provenance?.identity_verified === true && (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-success-subtle border border-success/20 text-[10px] font-bold text-success uppercase tracking-wider" title="The submitting identity was authenticated">
