@@ -408,6 +408,34 @@ def _require_execution_claim_protocol(decision, guard_resp):
     sys.exit(2)
 
 
+def _request_folded_claim(context):
+    """Ask the guard call to claim the execution attempt in the same request.
+
+    A 5.35+ server answering POST /api/guard?record=true with an allow/warn
+    verdict performs the claim PATCH /api/actions/<id> would have performed and
+    echoes claimed/attempt_id/action_id, so the hook makes one HTTPS round trip
+    per governed tool call instead of two (measured 2026-09-06: the two calls
+    were 610 of the hook's 694 ms). An older server ignores both fields and
+    answers with no claimed key; _folded_claim_outcome then returns None and
+    the PATCH runs as before."""
+    context["claim_execution"] = True
+    context["attempt_id"] = str(uuid.uuid4())
+
+
+def _folded_claim_outcome(guard_resp, action_id, context):
+    """True when the guard response carries this call's claim, False when the
+    server attempted the folded claim and refused it (the PATCH would answer
+    409 EXECUTION_CLAIM_CONFLICT; never retry), None when the server did not
+    fold (legacy server, or a verdict the server leaves to the PATCH)."""
+    if not isinstance(guard_resp, dict) or "claimed" not in guard_resp:
+        return None
+    if (guard_resp.get("claimed") is True
+            and guard_resp.get("action_id") == action_id
+            and guard_resp.get("attempt_id") == context.get("attempt_id")):
+        return True
+    return False
+
+
 def _claim_execution(action_id, context):
     """Claim one action attempt exactly once. Never retry an ambiguous PATCH."""
     attempt_id = str(uuid.uuid4())
@@ -1395,7 +1423,8 @@ def _authorize_execution(action_id, context, tool_use_id, guard_resp, persist=Tr
     # lets focused handler tests construct legacy fixtures without bypassing the
     # production entry point.
     if guard_resp.get("execution_claim_required") is True:
-        if not _claim_execution(action_id, context):
+        folded = _folded_claim_outcome(guard_resp, action_id, context)
+        if folded is False or (folded is None and not _claim_execution(action_id, context)):
             log("[DashClaw] Blocked: execution claim failed or returned an ambiguous response.")
             log("Action ID: " + action_id + ". Do not retry automatically; reconcile this attempt first.")
             sys.exit(2)
@@ -2323,7 +2352,9 @@ def main():
             "tool_use_id": data.get("tool_use_id"),
         })
 
-    # Step 5: POST /api/guard with enriched context
+    # Step 5: POST /api/guard with enriched context. The body also asks the
+    # server to fold the execution claim into this call (_request_folded_claim).
+    _request_folded_claim(context)
     guard_resp = guard_check(context)
     if guard_resp is AUTH_FAILED:
         handle_guard_unavailable(context, tool_use_id, reason="unauthorized")

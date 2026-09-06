@@ -1,6 +1,6 @@
 {
   "name": "dashclaw-platform",
-  "version": "5.34.0",
+  "version": "5.35.0",
   "description": "Remote approvals, policy checks, and execution evidence for unattended AI agents.",
   "private": true,
   "license": "MIT",

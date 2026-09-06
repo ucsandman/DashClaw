@@ -15,6 +15,7 @@ import { listGuardDecisions } from '../../lib/repositories/guard.repository';
 import { resolveAgentIdentity } from '../../lib/guard-identity';
 import { statedConfidence, prepareRecordReads, recordRunningAction, attachAssumptionAlerts } from '../../lib/guard/route-record';
 import { tryIdempotentReplay } from '../../lib/guard/route-replay';
+import { requestedAttemptId, attachExecutionClaim } from '../../lib/guard/route-claim';
 
 /**
  * POST /api/guard — Evaluate guard policies for a proposed action.
@@ -27,6 +28,11 @@ import { tryIdempotentReplay } from '../../lib/guard/route-replay';
  *        record) and returns its action_id, so a governed hook needs one HTTP
  *        call instead of two — and the blocked record reuses this evaluation
  *        instead of re-evaluating into a duplicate guard_decisions row.
+ *        Body { claim_execution: true, attempt_id } with ?record=true also
+ *        claims the recorded action's one execution attempt for an allow/warn
+ *        verdict (the same claim PATCH /api/actions/<id> performs) and echoes
+ *        { claimed, attempt_id, claimed_at }, so the hook needs no second
+ *        request at all (app/lib/guard/route-claim.ts).
  *
  * Agent identity — two tiers:
  *
@@ -243,6 +249,14 @@ export async function POST(request: Request) {
         mutable.recorded_error = 'Failed to create action record';
       }
       stageTimings.record = Date.now() - recordStart;
+
+      // Folded execution claim: one request for evaluate + record + claim.
+      const attemptId = requestedAttemptId(body);
+      if (attemptId) {
+        const claimStart = Date.now();
+        await attachExecutionClaim(sql, orgId, { attemptId, principalId: getUserId(request) || '', act: body?.act }, data, mutable);
+        stageTimings.claim = Date.now() - claimStart;
+      }
     }
 
     stageTimings.total = Date.now() - routeStart;

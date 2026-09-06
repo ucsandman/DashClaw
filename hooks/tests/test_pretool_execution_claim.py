@@ -118,6 +118,70 @@ class PretoolExecutionClaimTests(unittest.TestCase):
                     self.assertFalse(self.hook._claim_execution("act_1", {}))
                 self.assertEqual(request.call_count, 1)
 
+    # --- folded claim (5.35): the guard call carries the claim, no PATCH ---------
+
+    def test_guard_context_asks_for_a_folded_claim(self):
+        context = {}
+        self.hook._request_folded_claim(context)
+        self.assertIs(context["claim_execution"], True)
+        # Same shape PATCH /api/actions/[actionId] enforces for attempt_id.
+        self.assertRegex(context["attempt_id"], r"^[A-Za-z0-9_-]{16,128}$")
+
+    def test_folded_claim_outcome_true_false_none(self):
+        context = {"attempt_id": "attempt-1234567890"}
+        self.assertIs(self.hook._folded_claim_outcome(
+            {"claimed": True, "action_id": "act_1", "attempt_id": "attempt-1234567890"}, "act_1", context), True)
+        # Refused by the server: the PATCH would answer 409; never retry.
+        self.assertIs(self.hook._folded_claim_outcome(
+            {"claimed": False, "attempt_id": "attempt-1234567890", "claim_error": "EXECUTION_CLAIM_CONFLICT"}, "act_1", context), False)
+        # Echo for another attempt or another action is not this call's claim.
+        self.assertIs(self.hook._folded_claim_outcome(
+            {"claimed": True, "action_id": "act_1", "attempt_id": "other-1234567890"}, "act_1", context), False)
+        self.assertIs(self.hook._folded_claim_outcome(
+            {"claimed": True, "action_id": "act_2", "attempt_id": "attempt-1234567890"}, "act_1", context), False)
+        # Legacy server, or a verdict the server leaves to the PATCH.
+        self.assertIsNone(self.hook._folded_claim_outcome({"execution_claim_required": True}, "act_1", context))
+        self.assertIsNone(self.hook._folded_claim_outcome(None, "act_1", context))
+
+    def _authorize(self, guard_resp, context):
+        with (
+            mock.patch.object(self.hook, "write_action_id"),
+            mock.patch.object(self.hook, "append_turn_action"),
+            mock.patch.object(self.hook, "api_request", side_effect=lambda method, path, body=None, **kw: {"claimed": True, "action_id": "act_1", "attempt_id": body["attempt_id"]}) as request,
+        ):
+            self.hook._authorize_execution("act_1", context, "tool_1", guard_resp)
+            return request
+
+    def test_folded_claim_skips_the_patch(self):
+        context = {"attempt_id": "attempt-1234567890"}
+        request = self._authorize({
+            "execution_claim_required": True, "claim_protocol": 1,
+            "claimed": True, "action_id": "act_1", "attempt_id": "attempt-1234567890",
+        }, context)
+        self.assertEqual(request.call_count, 0)
+
+    def test_refused_folded_claim_blocks_without_a_patch(self):
+        context = {"attempt_id": "attempt-1234567890"}
+        with (
+            mock.patch.object(self.hook, "write_action_id"),
+            mock.patch.object(self.hook, "append_turn_action"),
+            mock.patch.object(self.hook, "api_request") as request,
+            self.assertRaises(SystemExit) as raised,
+        ):
+            self.hook._authorize_execution("act_1", context, "tool_1", {
+                "execution_claim_required": True, "claim_protocol": 1,
+                "claimed": False, "attempt_id": "attempt-1234567890", "claim_error": "EXECUTION_CLAIM_CONFLICT",
+            })
+        self.assertEqual(raised.exception.code, 2)
+        self.assertEqual(request.call_count, 0)
+
+    def test_legacy_server_without_folded_claim_still_patches(self):
+        context = {"attempt_id": "attempt-1234567890"}
+        request = self._authorize({"execution_claim_required": True, "claim_protocol": 1}, context)
+        self.assertEqual(request.call_count, 1)
+        self.assertEqual(request.call_args.args[0], "PATCH")
+        self.assertEqual(request.call_args.args[1], "/api/actions/act_1")
+
 
 if __name__ == "__main__":
     unittest.main()

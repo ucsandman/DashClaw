@@ -13,6 +13,13 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.35.0] - 2026-09-06
+
+### Changed
+
+- `POST /api/guard?record=true` now folds the execution claim into the same request. A body carrying `claim_execution: true` and an `attempt_id` (the PATCH shape) has its just-recorded action claimed by the same authority the PATCH uses (`authorizeActionExecution`) when the verdict is allow or warn, and the response echoes `claimed`, `attempt_id`, `action_id` and `claimed_at`. A refused claim answers `claimed: false` with `claim_error: EXECUTION_CLAIM_CONFLICT`; require_approval, block and allow_contained are left to the PATCH as before; a request without the two fields gets a byte-identical response. `Server-Timing` gains a `claim` stage. (`app/lib/guard/route-claim.ts`)
+- Claude Code pretool hook: every governed tool call now asks for the folded claim and skips `PATCH /api/actions/<id>` when the guard response carries it, halving the hook's network cost: measured from a Windows workstation, the two HTTPS round trips were 610 of the hook's 694 ms per tool call. Against a pre-5.35 server the response has no `claimed` key and the hook sends the PATCH exactly as before.
+
 ## [5.34.0] - 2026-09-05
 
 ### Added

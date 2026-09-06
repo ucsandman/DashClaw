@@ -36,6 +36,15 @@ contract, see [Runtime API](runtime-api.md).
    }
    ```
 
+   A client that already uses `POST /api/guard?record=true` can put the same
+   `claim_execution` and `attempt_id` fields in the guard body instead. For an
+   allow or warn verdict the server performs this exact claim inside the guard
+   request and echoes `{ claimed, attempt_id, action_id, claimed_at }`, so the
+   governed call costs one round trip. A refused claim comes back as
+   `claimed: false` with `claim_error: "EXECUTION_CLAIM_CONFLICT"` (the PATCH's
+   409); a response with no `claimed` key means the server did not fold, and the
+   client sends the PATCH. Verdicts the client claims later (require_approval)
+   or never (block) are never folded. The Claude Code hook does this since 5.35.0.
 3. The server atomically locks the candidate action, validates the guard and
    act binding, consumes any operator or plan authority, and stores the attempt
    claim. Exactly one concurrent caller can win new execution authority.
