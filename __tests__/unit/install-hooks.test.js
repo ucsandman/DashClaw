@@ -77,6 +77,7 @@ describe('install-hooks isManagedHookCommand', () => {
       'dashclaw_db_containment.py',
       'dashclaw_session_digest.py',
       'enforcement_liveness_probe.py',
+      'dashclaw_scope_sync.py',
     ]);
   });
 });
@@ -203,6 +204,16 @@ describe('SessionStart liveness probe hook', () => {
     expect(cmd).not.toContain('dashclaw_session_digest.py');
   });
 
+  it('hookBlocks wires dashclaw_scope_sync.py as a second SessionStart entry', () => {
+    const blocks = hookBlocks('python');
+    expect(blocks.SessionStart).toHaveLength(2);
+    const cmd = blocks.SessionStart[1].hooks[0].command;
+    expect(cmd).toContain('dashclaw_scope_sync.py');
+    expect(cmd).toContain('$CLAUDE_PROJECT_DIR');
+    expect(cmd).not.toContain('--source');
+    expect(blocks.SessionStart[1].hooks[0].timeout).toBe(10);
+  });
+
   it('still recognises a retired digest command as managed (so re-install strips it)', () => {
     // dashclaw_session_digest.py stays in MANAGED_HOOK_FILES purely so a
     // re-install over a digest-era settings.json cleanly removes the stale entry.
@@ -223,9 +234,17 @@ describe('SessionStart liveness probe hook', () => {
     expect(blocks.PostToolUse[0].matcher).toContain('Workflow');
   });
 
-  it('re-merge does not duplicate the SessionStart entry', () => {
+  it('re-merge does not duplicate the SessionStart entries', () => {
     const once = mergeGlobalGovernanceHooks({}, '/repo', { python: 'python3' });
     const twice = mergeGlobalGovernanceHooks(once, '/repo', { python: 'python3' });
-    expect(twice.hooks.SessionStart).toHaveLength(1);
+    expect(twice.hooks.SessionStart).toHaveLength(2);
+  });
+
+  it('globalGovernanceBlocks wires dashclaw_scope_sync.py alongside the liveness probe', () => {
+    const blocks = globalGovernanceBlocks('/repo', 'python3');
+    expect(blocks.SessionStart).toHaveLength(2);
+    const cmd = blocks.SessionStart[1].hooks[0].command;
+    expect(cmd).toContain('/repo/hooks/dashclaw_scope_sync.py');
+    expect(cmd).not.toContain('--source session-start');
   });
 });

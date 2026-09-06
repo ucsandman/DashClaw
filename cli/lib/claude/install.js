@@ -53,8 +53,10 @@ const HOOK_FILES = [
 // (v8.2) IS wired as a SessionStart hook below when the script is present in
 // the hooks dir (older bundles that lack it are skipped, never registered as
 // a dangling command), so the enforcement-liveness verdict lands on /setup
-// automatically after the first governed session.
-const OPTIONAL_HOOK_FILES = ['enforcement_liveness_probe.py'];
+// automatically after the first governed session. dashclaw_scope_sync.py
+// (SessionStart, role_constraint blocked_tools -> permissions.deny) is the
+// same pattern.
+const OPTIONAL_HOOK_FILES = ['enforcement_liveness_probe.py', 'dashclaw_scope_sync.py'];
 const HOOK_INTEL_DIR = 'dashclaw_agent_intel';
 const HOOKS_BUNDLE_PATH = '/downloads/dashclaw-claude-code-hooks.zip';
 
@@ -213,12 +215,26 @@ const HOOK_EVENTS = {
   // --runtime names WHICH SEAM this is (drizzle/0072). Codex wires the same
   // probe with the same --source session-start, so without it both seams landed
   // as one indistinguishable stream and the newest run spoke for the fleet.
-  SessionStart: {
-    script: 'enforcement_liveness_probe.py',
-    timeout: 10,
-    args: ['--source', 'session-start', '--runtime', 'claude-code'],
-    optional: true,
-  },
+  // SessionStart carries an ARRAY of specs (unlike the other events): the
+  // liveness probe and dashclaw_scope_sync.py are two independent hooks on
+  // the same event, each optional/skipped when its script is absent.
+  SessionStart: [
+    {
+      script: 'enforcement_liveness_probe.py',
+      timeout: 10,
+      args: ['--source', 'session-start', '--runtime', 'claude-code'],
+      optional: true,
+    },
+    // dashclaw_scope_sync.py: turns a role_constraint policy's blocked_tools
+    // into Claude Code permissions.deny rules at session start. Allowlists
+    // stay server-enforced only (permissions.deny can't express "deny all
+    // except").
+    {
+      script: 'dashclaw_scope_sync.py',
+      timeout: 10,
+      optional: true,
+    },
+  ],
 };
 
 export function isManagedHookEntry(entry) {
@@ -229,30 +245,39 @@ export function isManagedHookEntry(entry) {
   );
 }
 
+function buildEntryForSpec(hooksDir, python, agentId, spec) {
+  const hook = {
+    type: 'command',
+    // --agent-id is the per-harness identity declaration (roadmap v2.2):
+    // argv beats the machine-ambient DASHCLAW_AGENT_ID env var, so this
+    // install keeps its identity even when another harness exports one.
+    // spec.args (e.g. the probe's --source session-start) follow the id.
+    command: [
+      python,
+      `"${join(hooksDir, spec.script)}"`,
+      '--agent-id',
+      `"${agentId}"`,
+      ...(spec.args || []),
+    ].join(' '),
+    ...(spec.timeout ? { timeout: spec.timeout } : {}),
+  };
+  return { ...(spec.matcher ? { matcher: spec.matcher } : {}), hooks: [hook] };
+}
+
 /** Build the managed hook entries pointing at <hooksDir> via <python>. */
 export function buildHookEntries(hooksDir, python, agentId = DEFAULT_AGENT_ID) {
   const entries = {};
-  for (const [event, spec] of Object.entries(HOOK_EVENTS)) {
-    // Optional events (the SessionStart probe) are skipped when the script is
-    // not present in the hooks dir — never register a hook pointing at a
-    // missing file (older hosted bundles predate the probe).
-    if (spec.optional && !existsSync(join(hooksDir, spec.script))) continue;
-    const hook = {
-      type: 'command',
-      // --agent-id is the per-harness identity declaration (roadmap v2.2):
-      // argv beats the machine-ambient DASHCLAW_AGENT_ID env var, so this
-      // install keeps its identity even when another harness exports one.
-      // spec.args (e.g. the probe's --source session-start) follow the id.
-      command: [
-        python,
-        `"${join(hooksDir, spec.script)}"`,
-        '--agent-id',
-        `"${agentId}"`,
-        ...(spec.args || []),
-      ].join(' '),
-      ...(spec.timeout ? { timeout: spec.timeout } : {}),
-    };
-    entries[event] = [{ ...(spec.matcher ? { matcher: spec.matcher } : {}), hooks: [hook] }];
+  for (const [event, specOrSpecs] of Object.entries(HOOK_EVENTS)) {
+    const specs = Array.isArray(specOrSpecs) ? specOrSpecs : [specOrSpecs];
+    const built = [];
+    for (const spec of specs) {
+      // Optional entries (the SessionStart probe, scope_sync) are skipped
+      // when the script is not present in the hooks dir — never register a
+      // hook pointing at a missing file (older hosted bundles predate them).
+      if (spec.optional && !existsSync(join(hooksDir, spec.script))) continue;
+      built.push(buildEntryForSpec(hooksDir, python, agentId, spec));
+    }
+    if (built.length) entries[event] = built;
   }
   return entries;
 }

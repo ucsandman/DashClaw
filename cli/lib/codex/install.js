@@ -75,6 +75,10 @@ const HOOK_FILES = [
   // (wired once codex-cli 0.139.0's SessionStart event was confirmed to fire;
   // see PLUGIN_PARITY.md). Replaced the retired session-digest hook.
   'enforcement_liveness_probe.py',
+  // dashclaw_scope_sync.py — second SessionStart hook: turns a role_constraint
+  // policy's blocked_tools into deny rules at session start (see
+  // hooks/README.md). Wired the same way as the liveness probe above.
+  'dashclaw_scope_sync.py',
 ];
 const HOOK_INTEL_DIR = 'dashclaw_agent_intel';
 
@@ -343,6 +347,7 @@ export function buildConfigTomlBlock({
   const post = join(hooksDir, 'dashclaw_posttool.py');
   const stop = join(hooksDir, 'dashclaw_stop.py');
   const sessionStart = join(hooksDir, 'enforcement_liveness_probe.py');
+  const scopeSync = join(hooksDir, 'dashclaw_scope_sync.py');
 
   const lines = [
     MANAGED_START,
@@ -400,6 +405,16 @@ export function buildConfigTomlBlock({
       `${py} ${sessionStart} --source session-start --runtime codex` +
         (configPath ? ` --settings ${configPath}` : ''),
     )}`,
+    '',
+    // dashclaw_scope_sync.py: a second, independent SessionStart hook. Turns a
+    // role_constraint policy's blocked_tools into a Claude Code
+    // permissions.deny-shaped scope file at session start (see
+    // hooks/README.md); allowlists stay server-enforced only. No --source /
+    // --runtime — the script takes no args.
+    '[[hooks.SessionStart]]',
+    '[[hooks.SessionStart.hooks]]',
+    'type = "command"',
+    `command = ${tomlString(`${py} ${scopeSync}`)}`,
     MANAGED_END,
   ];
 

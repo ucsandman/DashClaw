@@ -22,6 +22,7 @@ plugins/dashclaw/hooks/dashclaw_pretool.py merge=regenerate
 plugins/dashclaw/hooks/dashclaw_posttool.py merge=regenerate
 plugins/dashclaw/hooks/dashclaw_stop.py merge=regenerate
 plugins/dashclaw/hooks/enforcement_liveness_probe.py merge=regenerate
+plugins/dashclaw/hooks/dashclaw_scope_sync.py merge=regenerate
 plugins/dashclaw/hooks/dashclaw_agent_intel/** merge=regenerate
 docs/api-inventory.json merge=regenerate
 docs/api-inventory.md merge=regenerate

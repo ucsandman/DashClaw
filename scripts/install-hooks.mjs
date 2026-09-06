@@ -183,6 +183,19 @@ export function hookBlocks(python = 'python') {
           },
         ],
       },
+      // dashclaw_scope_sync.py: turns a role_constraint policy's blocked_tools
+      // into Claude Code permissions.deny rules at session start. Allowlists
+      // stay server-enforced only (permissions.deny can't express "deny all
+      // except").
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_scope_sync.py"`,
+            timeout: 10,
+          },
+        ],
+      },
     ],
   };
 }
@@ -193,7 +206,7 @@ export function hookBlocks(python = 'python') {
 // silently removed on re-install. `dashclaw_session_digest.py` is retired (the
 // SessionStart hook is now enforcement_liveness_probe.py) but stays listed so a
 // re-install over a digest-era settings.json cleanly strips the stale entry.
-export const MANAGED_HOOK_FILES = ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_db_containment.py', 'dashclaw_session_digest.py', 'enforcement_liveness_probe.py'];
+export const MANAGED_HOOK_FILES = ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_db_containment.py', 'dashclaw_session_digest.py', 'enforcement_liveness_probe.py', 'dashclaw_scope_sync.py'];
 // Full regex-escape (every metacharacter incl. backslash), not just '.', so the
 // alternation is always well-formed regardless of the filename contents.
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -290,7 +303,10 @@ export function globalGovernanceBlocks(repoRoot, python = 'python') {
     PreToolUse: [{ matcher, hooks: [{ type: 'command', command: cmd('dashclaw_pretool.py'), timeout: 3660 }] }],
     PostToolUse: [{ matcher, hooks: [{ type: 'command', command: cmd('dashclaw_posttool.py') }] }],
     Stop: [{ hooks: [{ type: 'command', command: cmd('dashclaw_stop.py') }] }],
-    SessionStart: [{ hooks: [{ type: 'command', command: `${cmd('enforcement_liveness_probe.py')} --source session-start`, timeout: 10 }] }],
+    SessionStart: [
+      { hooks: [{ type: 'command', command: `${cmd('enforcement_liveness_probe.py')} --source session-start`, timeout: 10 }] },
+      { hooks: [{ type: 'command', command: cmd('dashclaw_scope_sync.py'), timeout: 10 }] },
+    ],
   };
 }
 
@@ -460,7 +476,7 @@ function main() {
   // dashclaw_db_containment.py is imported by pre/posttool for the db_branch
   // containment basis (RFC 2026-09-04); both import it defensively, so a stale
   // install degrades to no db containment rather than breaking.
-  for (const name of ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_db_containment.py', 'enforcement_liveness_probe.py']) {
+  for (const name of ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_db_containment.py', 'enforcement_liveness_probe.py', 'dashclaw_scope_sync.py']) {
     const src = join(HOOKS_SRC, name);
     if (!existsSync(src)) {
       console.error(`✗ Missing hook script: ${src}`);

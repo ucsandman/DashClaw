@@ -124,12 +124,25 @@ describe('buildConfigTomlBlock', () => {
     assert.doesNotMatch(built, /dashclaw_session_digest\.py/);
   });
 
-  it('every dashclaw_ hook command declares the codex identity via --agent-id (roadmap v2.2)', () => {
+  it('wires dashclaw_scope_sync.py as a second, independent SessionStart hook', () => {
+    const sessionStartBlocks = built.split('[[hooks.SessionStart]]');
+    assert.equal(sessionStartBlocks.length, 3, 'two [[hooks.SessionStart]] tables expected');
+    assert.match(built, /command = ".*dashclaw_scope_sync\.py"$/m);
+    // No --source / --agent-id — the script takes no args.
+    const scopeSyncLine = built.split('\n').find((l) => l.includes('dashclaw_scope_sync.py'));
+    assert.doesNotMatch(scopeSyncLine, /--source/);
+    assert.doesNotMatch(scopeSyncLine, /--agent-id/);
+  });
+
+  it('every dashclaw_ governance hook command declares the codex identity via --agent-id (roadmap v2.2)', () => {
     // The hooks' argv identity beats a machine-ambient DASHCLAW_AGENT_ID, so
     // Codex tool calls are never mis-attributed to another harness. The
-    // SessionStart probe is exempt (not dashclaw_-prefixed, no --agent-id), so
-    // only the three governance hooks (pre/post/stop) are matched here.
-    const hookCommands = built.split('\n').filter((l) => l.startsWith('command = ') && l.includes('dashclaw_'));
+    // SessionStart probe and dashclaw_scope_sync.py are exempt (no --agent-id
+    // — the probe forces its own identity, scope_sync takes no args), so only
+    // the three governance hooks (pre/post/stop) are matched here.
+    const hookCommands = built.split('\n').filter(
+      (l) => l.startsWith('command = ') && l.includes('dashclaw_') && !l.includes('dashclaw_scope_sync.py'),
+    );
     assert.equal(hookCommands.length, 3);
     for (const line of hookCommands) {
       assert.match(line, / --agent-id codex"$/);
@@ -367,6 +380,7 @@ describe('installCodex (end-to-end)', () => {
       'dashclaw_posttool.py',
       'dashclaw_stop.py',
       'enforcement_liveness_probe.py',
+      'dashclaw_scope_sync.py',
     ]) {
       assert.equal(
         fs.existsSync(path.join(codexHomeDir, 'hooks', 'dashclaw', file)),

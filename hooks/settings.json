@@ -42,6 +42,15 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.cjs\" dashclaw_scope_sync.py",
+            "timeout": 10
+          }
+        ]
       }
     ]
   }

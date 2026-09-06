@@ -122,6 +122,12 @@ describe('installClaude', () => {
     // wires the same probe with the same --source, so without it both seams
     // landed as one stream and the newest run spoke for the whole fleet.
     assert.match(session.hooks[0].command, /enforcement_liveness_probe\.py" --agent-id "my-agent" --source session-start --runtime claude-code$/);
+    // dashclaw_scope_sync.py: a second, independent SessionStart entry (repo
+    // bundle ships it too), no --source arg.
+    const scopeSync = settings.hooks.SessionStart.filter(isManagedHookEntry)
+      .find((e) => e.hooks[0].command.includes('dashclaw_scope_sync.py'));
+    assert.ok(scopeSync, 'managed SessionStart scope_sync entry present');
+    assert.match(scopeSync.hooks[0].command, /dashclaw_scope_sync\.py" --agent-id "my-agent"$/);
   });
 
   it('fresh install writes enforce + 120s timeout; --observe opts back to observe', async () => {
@@ -258,8 +264,8 @@ describe('installClaude', () => {
     const settings = JSON.parse(fs.readFileSync(again.settingsPath, 'utf8'));
     assert.equal(settings.hooks.PreToolUse.filter(isManagedHookEntry).length, 1);
     assert.equal(settings.hooks.Stop.filter(isManagedHookEntry).length, 1);
-    // The SessionStart probe entry is also deduped, not duplicated.
-    assert.equal(settings.hooks.SessionStart.filter(isManagedHookEntry).length, 1);
+    // The SessionStart probe + scope_sync entries are also deduped, not duplicated.
+    assert.equal(settings.hooks.SessionStart.filter(isManagedHookEntry).length, 2);
   });
 
   it('preserves user-authored hook entries and other settings keys', async () => {
