@@ -49,6 +49,31 @@ describe('GET /api/guard/decisions', () => {
     expect(data.filters).toEqual({});
   });
 
+  // Attestation (2026-09-06): the model and harness ride the stripped context,
+  // so they must be lifted like declared_goal or no reader ever sees them —
+  // the exact way the first cut of the /decisions chip was dead on arrival.
+  it('lifts attested_model / harness / harness_version out of the stripped context', async () => {
+    mockListGuardDecisions.mockResolvedValueOnce({
+      decisions: [
+        { id: 'gd_2', decision: 'allow', risk_score: 5, agent_id: 'a1', action_type: 'file_delete', reason: null, matched_policies: '[]',
+          context: '{"declared_goal":"rm old cache","attested_model":"claude-fable-5-1","harness":"claude-code","harness_version":"2.1.263"}', created_at: '2026-09-06T14:00:00Z' },
+        { id: 'gd_3', decision: 'allow', risk_score: 5, agent_id: 'a2', action_type: 'file_read', reason: null, matched_policies: '[]',
+          context: '{"declared_goal":"older hook, no attestation"}', created_at: '2026-09-06T14:00:01Z' },
+      ],
+      total: 2,
+    });
+    mockGetGuardDecisionStats.mockResolvedValueOnce({ blocks: 0, approvals: 0, warns: 0 });
+
+    const data = await (await GET(getReq())).json();
+    expect(data.decisions[0].attested_model).toBe('claude-fable-5-1');
+    expect(data.decisions[0].harness).toBe('claude-code');
+    expect(data.decisions[0].harness_version).toBe('2.1.263');
+    expect(data.decisions[0].context).toBeUndefined();
+    expect(data.decisions[1].attested_model).toBeNull();
+    expect(data.decisions[1].harness).toBeNull();
+    expect(data.total).toBe(2);
+  });
+
   it('echoes the applied filters so the response is self-describing', async () => {
     mockListGuardDecisions.mockResolvedValueOnce({ decisions: [], total: 0 });
     mockGetGuardDecisionStats.mockResolvedValueOnce({ blocks: 0, approvals: 0, warns: 0 });

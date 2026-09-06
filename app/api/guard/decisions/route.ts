@@ -50,6 +50,13 @@ export async function GET(request: Request) {
         context: undefined,
         declared_goal: context.declared_goal || null,
         agent_name: context.agent_name || null,
+        // Attestation (2026-09-06): which model and harness made the call.
+        // Lifted out of the stripped context like declared_goal, because a
+        // reader that cannot see the model cannot act on the one fact the
+        // operator says decides trust. Client-declared, never proof.
+        attested_model: context.attested_model || null,
+        harness: context.harness || null,
+        harness_version: context.harness_version || null,
       };
     });
 

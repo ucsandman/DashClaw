@@ -125,16 +125,27 @@ export async function listGuardDecisions(
 
     // Lift context._risk_breakdown to the top-level column the consumers
     // expect, and drop the raw context blob from the list payload (it was
-    // never part of the list response shape).
+    // never part of the list response shape). Attestation (2026-09-06) rides
+    // the same lift: which model and harness made the call is the one fact
+    // the operator says decides trust, and it is invisible to every reader of
+    // this list unless it comes out of the stripped blob here. Client-declared,
+    // never proof — attribution only.
     const decisions = (rawDecisions as Row[]).map((row) => {
       const { context, ...rest } = row;
-      let breakdown: unknown = null;
+      let ctx: Record<string, unknown> | null = null;
       if (typeof context === 'string') {
-        try { breakdown = (JSON.parse(context) as Record<string, unknown>)?._risk_breakdown ?? null; } catch { /* best-effort: malformed context JSON — no breakdown */ }
+        try { ctx = JSON.parse(context) as Record<string, unknown>; } catch { /* best-effort: malformed context JSON — nothing lifted */ }
       } else if (context && typeof context === 'object') {
-        breakdown = (context as Record<string, unknown>)._risk_breakdown ?? null;
+        ctx = context as Record<string, unknown>;
       }
-      return { ...rest, risk_breakdown: breakdown };
+      const str = (v: unknown) => (typeof v === 'string' && v ? v : null);
+      return {
+        ...rest,
+        risk_breakdown: ctx?._risk_breakdown ?? null,
+        attested_model: str(ctx?.attested_model),
+        harness: str(ctx?.harness),
+        harness_version: str(ctx?.harness_version),
+      };
     });
 
     return {

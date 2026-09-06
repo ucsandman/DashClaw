@@ -2211,15 +2211,26 @@ def _attach_harness_session(context):
         context["harness_session_id"] = _SESSION_ID[:200]
 
 
-# Attestation cache: (transcript_path, size) -> (model, harness_version). The
-# model changes only on an explicit /model switch, so re-reading the tail on
-# every tool call would be pure waste; keying on size means a grown transcript
-# re-reads and an unchanged one does not.
-_ATTESTATION_CACHE = {}
-
 # Read only the tail. A long session's transcript reaches many megabytes and
 # this runs on EVERY governed tool call; the last assistant entry is at the end.
+# No cache on purpose: this hook is a fresh process per tool call, so a module
+# global would never be hit in production — a tail read is the whole cost.
 _TRANSCRIPT_TAIL_BYTES = 256 * 1024
+
+# Harness ids the installers write into `--agent-id` (cli/lib/*/install.js).
+_KNOWN_HARNESSES = ("claude-code", "codex", "hermes", "openclaw")
+
+
+def _harness_name(data):
+    """Which harness is running this hook. The installer declares it through
+    `--agent-id`; a custom agent id falls back on a Claude-Code-only stdin
+    field, and an unrecognizable caller says so instead of guessing."""
+    base = AGENT_ID.split(":", 1)[0].strip().lower()
+    if base in _KNOWN_HARNESSES:
+        return base
+    if data.get("transcript_path"):
+        return "claude-code"  # only Claude Code hands the hook a transcript
+    return "unknown"
 
 
 def _read_attestation(transcript_path):
@@ -2240,9 +2251,6 @@ def _read_attestation(transcript_path):
         size = os.path.getsize(transcript_path)
     except OSError:
         return "", ""
-    cached = _ATTESTATION_CACHE.get((transcript_path, size))
-    if cached is not None:
-        return cached
 
     model = version = ""
     try:
@@ -2268,10 +2276,7 @@ def _read_attestation(transcript_path):
                 break
     except (OSError, UnicodeError):
         return "", ""
-
-    result = (model, version)
-    _ATTESTATION_CACHE[(transcript_path, size)] = result
-    return result
+    return model, version
 
 
 def _attach_attestation(context, data):
@@ -2285,7 +2290,7 @@ def _attach_attestation(context, data):
     Rides context (already persisted as JSON on the decision row), so this
     needs no migration. Cooperative and caller-declared, like enforcement_mode.
     """
-    context["harness"] = "claude-code"
+    context["harness"] = _harness_name(data)
     model, version = _read_attestation(data.get("transcript_path"))
     if model:
         context["attested_model"] = model

@@ -328,15 +328,18 @@ export default function DecisionReplayPage() {
               now the ledger recorded who and what, never by what. Declared by
               the client, so the tooltip says so: this is attribution, never
               proof, and no policy grants on it. */}
-          {(guardDecision?.context?.attested_model || guardDecision?.context?.harness) && (
+          {/* Read from the lifted top-level fields: GET /api/guard strips
+              `context` (it carries the evidence blob), and lifts what the
+              page needs — see listGuardDecisions in guard.repository.ts. */}
+          {(guardDecision?.attested_model || guardDecision?.harness) && (
             <div
               className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] font-bold text-tertiary uppercase tracking-wider"
-              title={`Declared by the client, not verified: model ${guardDecision.context.attested_model || 'unstated'}` +
-                `${guardDecision.context.harness ? ` on ${guardDecision.context.harness}` : ''}` +
-                `${guardDecision.context.harness_version ? ` v${guardDecision.context.harness_version}` : ''}`}
+              title={`Declared by the client, not verified: model ${guardDecision.attested_model || 'unstated'}` +
+                `${guardDecision.harness ? ` on ${guardDecision.harness}` : ''}` +
+                `${guardDecision.harness_version ? ` v${guardDecision.harness_version}` : ''}`}
             >
               <Cpu size={12} />
-              {guardDecision.context.attested_model || guardDecision.context.harness}
+              {guardDecision.attested_model || guardDecision.harness}
             </div>
           )}
           {action.provenance?.identity_verified === true && (
