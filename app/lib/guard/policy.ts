@@ -6,6 +6,7 @@
 import { baseAgentId } from '../agent-identity-resolve';
 import { deliverGuardWebhook } from '../webhooks';
 import { matchesProtectedPath } from './protected-path';
+import { globToRegex } from '../globToRegex';
 import { targetPrefixMatches } from '../policy-shapes';
 import { isContainableAct } from './containment';
 import { gitPushPredicateMatches, parseGitPush, commandTextOf } from './git-push';
@@ -284,6 +285,14 @@ function evaluateRequireEvidencePolicy({ rules, context }: PolicyEvalArgs): Poli
   return { action: enforcement, reason: `Evidence required for "${label}" but the call was graded from self-declared intent (no act attached)` };
 }
 
+// role_constraint tool-level scope: a pattern matches the harness tool name
+// (`Bash`, `Write`, `mcp__<server>__<tool>`) case-sensitively, `*` as the only
+// wildcard (validate.js rejects `**`/`?`), so `mcp__github__*` covers a server.
+function toolMatchesAny(patterns: unknown, toolName: string): boolean {
+  if (!Array.isArray(patterns)) return false;
+  return patterns.some((p) => typeof p === 'string' && p.length > 0 && globToRegex(p).test(toolName));
+}
+
 // One evaluator per policy type. evaluatePolicy is a thin dispatcher over this map.
 const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
   risk_threshold: ({ rules, context, effectiveRiskScore }) => {
@@ -490,6 +499,21 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
   role_constraint: ({ policy, rules, context, effectiveRiskScore }) => {
     const escalate = rules.escalate_action === 'block' ? 'block' : 'require_approval';
     const role = policy.name || 'role';
+
+    // Tool-level scope runs BEFORE the action-type checks: the harness tool name
+    // (context.tool.name) is finer-grained than the mapped action_type. When it
+    // is absent (SDK callers that never send a tool) both checks are a no-op and
+    // the action-type/risk/path checks below still run.
+    const toolName = typeof context.tool?.name === 'string' ? context.tool.name : '';
+    if (toolName) {
+      if (toolMatchesAny(rules.blocked_tools, toolName)) {
+        return { action: escalate, reason: `tool "${toolName}" is blocked for the "${role}" role` };
+      }
+      if (Array.isArray(rules.allowed_tools) && rules.allowed_tools.length > 0
+        && !toolMatchesAny(rules.allowed_tools, toolName)) {
+        return { action: escalate, reason: `tool "${toolName}" is outside the "${role}" role's tool allowlist` };
+      }
+    }
 
     const actionType = typeof context.action_type === 'string' ? context.action_type : '';
     if (Array.isArray(rules.blocked_action_types) && actionType && rules.blocked_action_types.includes(actionType)) {

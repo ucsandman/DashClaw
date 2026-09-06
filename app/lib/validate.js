@@ -754,6 +754,25 @@ const POLICY_TYPE_VALIDATORS = {
     if (rules.escalate_action !== undefined && !['require_approval', 'block'].includes(rules.escalate_action)) {
       addError('role_constraint rules.escalate_action must be require_approval or block (roles only tighten)');
     }
+    // Tool-level scope: glob patterns matched against the harness tool name.
+    // `*` is the only wildcard; `**` and `?` are rejected so a pattern cannot
+    // mean something the Claude Code deny translation (Part B) cannot express.
+    for (const key of ['allowed_tools', 'blocked_tools']) {
+      if (rules[key] !== undefined && rules[key] !== null
+        && (!Array.isArray(rules[key]) || !rules[key].every((t) => typeof t === 'string' && t.length > 0 && t.length <= 128))) {
+        addError(`role_constraint rules.${key} must be null or an array of non-empty strings (<=128 chars)`);
+      }
+      if (Array.isArray(rules[key])) {
+        if (rules[key].length > 50) {
+          addError(`role_constraint rules.${key} must have at most 50 entries`);
+        }
+        for (const pat of rules[key]) {
+          if (typeof pat === 'string' && (pat.includes('**') || pat.includes('?'))) {
+            addError(`role_constraint rules.${key} pattern "${pat}" may use "*" only (no "**" or "?")`);
+          }
+        }
+      }
+    }
   },
   deviation_response: (rules, addError) => {
     // Per-kind consequence for plan-vs-actual deviation (RFC

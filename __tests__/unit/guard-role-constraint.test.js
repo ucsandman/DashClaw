@@ -59,4 +59,45 @@ describe('role_constraint evaluator', () => {
     const hit = await ev({ allowed_action_types: ['read'], escalate_action: 'block' }, { agent_id: 'a1', action_type: 'write' }, 0);
     expect(['require_approval', 'block']).toContain(hit.action);
   });
+
+  it('blocked_tools trips on the harness tool name and names the tool + role', async () => {
+    const hit = await ev({ blocked_tools: ['Write'] }, { agent_id: 'a1', tool: { name: 'Write' } }, 0);
+    expect(hit.action).toBe('require_approval');
+    expect(hit.reason).toBe('tool "Write" is blocked for the "Reviewer" role');
+  });
+
+  it('blocked_tools server-wide glob covers every tool on that MCP server', async () => {
+    const r = { blocked_tools: ['mcp__xapi__*'] };
+    expect((await ev(r, { agent_id: 'a1', tool: { name: 'mcp__xapi__search' } }, 0)).reason)
+      .toBe('tool "mcp__xapi__search" is blocked for the "Reviewer" role');
+    expect(await ev(r, { agent_id: 'a1', tool: { name: 'mcp__github__create_issue' } }, 0)).toBeNull();
+  });
+
+  it('allowed_tools: inside passes, outside escalates', async () => {
+    const r = { allowed_tools: ['Read', 'Grep', 'mcp__github__*'] };
+    expect(await ev(r, { agent_id: 'a1', tool: { name: 'Read' } }, 0)).toBeNull();
+    expect(await ev(r, { agent_id: 'a1', tool: { name: 'mcp__github__list_issues' } }, 0)).toBeNull();
+    const hit = await ev(r, { agent_id: 'a1', tool: { name: 'Write' } }, 0);
+    expect(hit.action).toBe('require_approval');
+    expect(hit.reason).toBe('tool "Write" is outside the "Reviewer" role\'s tool allowlist');
+  });
+
+  it('missing tool name is a no-op for both tool checks (SDK callers)', async () => {
+    expect(await ev({ blocked_tools: ['Write'], allowed_tools: ['Read'] }, { agent_id: 'a1' }, 0)).toBeNull();
+    // action-type/risk checks still run when tool name is absent
+    expect((await ev({ blocked_tools: ['Write'], max_risk_score: 0 }, { agent_id: 'a1' }, 1)).reason).toMatch(/ceiling/i);
+  });
+
+  it('tool check fires before the action-type check', async () => {
+    // blocked_action_types would also trip, but the blocked tool is reported first.
+    const hit = await ev(
+      { blocked_tools: ['Bash'], blocked_action_types: ['deploy'] },
+      { agent_id: 'a1', action_type: 'deploy', tool: { name: 'Bash' } }, 0);
+    expect(hit.reason).toBe('tool "Bash" is blocked for the "Reviewer" role');
+  });
+
+  it('escalate_action block applies to tool checks too', async () => {
+    const hit = await ev({ escalate_action: 'block', blocked_tools: ['Write'] }, { agent_id: 'a1', tool: { name: 'Write' } }, 0);
+    expect(hit.action).toBe('block');
+  });
 });

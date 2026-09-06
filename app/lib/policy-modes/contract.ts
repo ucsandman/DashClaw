@@ -146,6 +146,12 @@ export function buildContract(
         if (Array.isArray(rules.blocked_path_globs) && rules.blocked_path_globs.length > 0) {
           parts.push(`touches ${listTypes(rules.blocked_path_globs)}`);
         }
+        if (Array.isArray(rules.allowed_tools) && rules.allowed_tools.length > 0) {
+          parts.push(`uses a tool outside ${listTypes(rules.allowed_tools)}`);
+        }
+        if (Array.isArray(rules.blocked_tools) && rules.blocked_tools.length > 0) {
+          parts.push(`uses ${listTypes(rules.blocked_tools)}`);
+        }
         if (parts.length === 0) {
           view.custom.push({ policy_id: row.id, name: row.name, policy_type: row.policy_type });
           break;

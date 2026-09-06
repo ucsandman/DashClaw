@@ -271,4 +271,39 @@ describe('validatePolicy — role_constraint', () => {
     }));
     expect(r.valid).toBe(false);
   });
+
+  it('accepts valid allowed_tools and blocked_tools', () => {
+    const r = validatePolicy(base('role_constraint', {
+      allowed_tools: ['Read', 'Grep', 'Glob', 'mcp__github__*'],
+      blocked_tools: ['mcp__xapi__*', 'Write', 'Bash'],
+    }));
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects a blocked_tools pattern containing **', () => {
+    const r = validatePolicy(base('role_constraint', { blocked_tools: ['mcp__**__deploy'] }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects an allowed_tools pattern containing ?', () => {
+    const r = validatePolicy(base('role_constraint', { allowed_tools: ['Bash?'] }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects allowed_tools above 50 entries', () => {
+    const r = validatePolicy(base('role_constraint', {
+      allowed_tools: Array.from({ length: 51 }, (_, i) => `Tool${i}`),
+    }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects a blocked_tools entry over 128 chars', () => {
+    const r = validatePolicy(base('role_constraint', { blocked_tools: ['x'.repeat(129)] }));
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects allowed_tools containing a non-string', () => {
+    const r = validatePolicy(base('role_constraint', { allowed_tools: ['Read', 7] }));
+    expect(r.valid).toBe(false);
+  });
 });

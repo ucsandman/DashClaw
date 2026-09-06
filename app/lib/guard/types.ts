@@ -50,7 +50,7 @@ export interface GuardEvalContext {
   provider_id?: string | null;
   cost_estimate?: number;
   cost?: number;
-  tool?: { required_permission?: string };
+  tool?: { required_permission?: string; name?: string };
   intel?: {
     branch?: { freshness: string; commits_behind?: number; name?: string };
     mcp?: { healthy?: boolean; server?: string };
@@ -156,6 +156,12 @@ export interface PolicyRules {
   blocked_path_globs?: string[];
   require_verified_parent?: boolean;
   escalate_action?: string;
+  // role_constraint tool-level scope: glob patterns (`*` only, no `**`/`?`)
+  // matched case-sensitively against context.tool.name (the harness tool name:
+  // Bash, Write, mcp__<server>__<tool>). Each list only tightens; a missing
+  // tool name (SDK callers) makes both a no-op. `mcp__github__*` covers a server.
+  allowed_tools?: string[];
+  blocked_tools?: string[];
   contain_above?: number;
   // deviation_response: per-kind consequence for plan-vs-actual deviation
   // (RFC 2026-08-11-plan-deviation-events §7). on_kind maps a deviation kind

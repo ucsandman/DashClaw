@@ -67,4 +67,23 @@ describe('buildContract', () => {
     expect(c.custom.some((x) => x.policy_id === 'gp_ra')).toBe(true);
     expect(c.interrupts.some((s) => s.text.includes('action is one of'))).toBe(false);
   });
+
+  it('role_constraint tool-level scope (allowed_tools / blocked_tools) lands in interrupts', () => {
+    const rows = [
+      {
+        id: 'gp_role',
+        name: 'Reviewer',
+        policy_type: 'role_constraint',
+        rules: JSON.stringify({
+          allowed_tools: ['Read', 'Grep'],
+          blocked_tools: ['mcp__xapi__*'],
+          escalate_action: 'require_approval',
+        }),
+        active: 1 as const,
+      },
+    ];
+    const c = buildContract(rows, {});
+    expect(c.custom.some((x) => x.policy_id === 'gp_role')).toBe(false);
+    expect(c.interrupts.some((s) => s.text.includes('Reviewer') && s.text.includes('mcp__xapi__*'))).toBe(true);
+  });
 });
