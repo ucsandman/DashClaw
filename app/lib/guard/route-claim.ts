@@ -56,6 +56,15 @@ export async function attachExecutionClaim(
       attemptId: input.attemptId,
       act: input.act,
       identity: { agent_id: agentId, verified: verificationStatus === 'verified', verification_status: verificationStatus },
+      // This request evaluated the act moments ago; the claim reuses that
+      // verdict instead of a second evaluation (measured 2026-09-06: the
+      // re-evaluation was ~100 ms of a ~200 ms server total).
+      freshDecision: {
+        decision: String(result.decision),
+        decision_id: typeof result.decision_id === 'string' ? result.decision_id : undefined,
+        degraded: result.degraded === true,
+        containment: (result.containment as { ref?: string } | null | undefined) ?? null,
+      },
     });
     result.attempt_id = input.attemptId;
     if (claimed) {

@@ -97,6 +97,8 @@ describe('/api/guard?record=true — folded execution claim', () => {
       orgId: 'org_1', actionId: body.action_id, principalId: 'user_1', attemptId: ATTEMPT,
       act: { kind: 'shell', command: 'echo hi' },
       identity: { agent_id: 'agt_1', verified: false, verification_status: 'unverified' },
+      // the verdict this request just computed rides along, so the claim does not re-evaluate
+      freshDecision: { decision: 'allow', degraded: false, containment: null },
     });
     expect(res.headers.get('Server-Timing')).toMatch(/claim;dur=\d+/);
   });

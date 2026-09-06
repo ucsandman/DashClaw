@@ -56,3 +56,39 @@ it('an originally contained action claims only its original containment target',
   expect(await authorizeActionExecution({} as never, input)).toBeNull();
   expect(mocks.claim).toHaveBeenCalledTimes(1);
 });
+
+// --- folded claim (POST /api/guard?record=true passes the verdict it just computed) ---
+it('a fresh decision from the same request is reused: no second evaluation, no cache flush', async () => {
+  const fresh = { decision: 'allow', decision_id: 'gd_same_request', degraded: false, containment: null };
+  expect(await authorizeActionExecution({} as never, { ...input, freshDecision: fresh })).toBeTruthy();
+  expect(mocks.evaluate).not.toHaveBeenCalled();
+  expect(mocks.invalidate).not.toHaveBeenCalled();
+  expect(mocks.claim).toHaveBeenCalledWith({}, expect.objectContaining({ decisionId: 'gd_same_request', attemptId: input.attemptId }));
+});
+it('a fresh decision still needs an eligible, identity-continuous record', async () => {
+  const fresh = { decision: 'allow', decision_id: 'gd_same_request' };
+  mocks.candidate.mockResolvedValueOnce(null);
+  expect(await authorizeActionExecution({} as never, { ...input, freshDecision: fresh })).toBeNull();
+  mocks.candidate.mockResolvedValueOnce({ identity_verified: true });
+  expect(await authorizeActionExecution({} as never, { ...input, freshDecision: fresh })).toBeNull();
+  expect(mocks.claim).not.toHaveBeenCalled();
+});
+it('a fresh decision that is not permissive, is degraded, or lacks an id cannot claim', async () => {
+  for (const fresh of [
+    { decision: 'block', decision_id: 'gd_1' },
+    { decision: 'require_approval', decision_id: 'gd_2' },
+    { decision: 'allow', decision_id: 'gd_3', degraded: true },
+    { decision: 'allow' },
+  ]) {
+    expect(await authorizeActionExecution({} as never, { ...input, freshDecision: fresh })).toBeNull();
+  }
+  expect(mocks.claim).not.toHaveBeenCalled();
+  expect(mocks.evaluate).not.toHaveBeenCalled();
+});
+it('a fresh allow_contained verdict is held to the same containment binding as a re-evaluation', async () => {
+  const fresh = { decision: 'allow_contained', decision_id: 'gd_c', containment: { ref: 'dashclaw/contained-fixture' } };
+  // recorded row is not contained -> no claim
+  expect(await authorizeActionExecution({} as never, { ...input, freshDecision: fresh })).toBeNull();
+  mocks.candidate.mockResolvedValueOnce({ action_id: 'act_1', containment_status: 'contained', containment_ref: 'dashclaw/contained-fixture' });
+  expect(await authorizeActionExecution({} as never, { ...input, freshDecision: fresh })).toBeTruthy();
+});

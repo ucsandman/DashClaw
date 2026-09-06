@@ -13,6 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.35.1] - 2026-09-06
+
+### Changed
+
+- The folded execution claim on `POST /api/guard?record=true` now reuses the verdict the same request just computed instead of running a second guard evaluation inside `authorizeActionExecution`. The PATCH path is unchanged: a claim that arrives later is still a fresh policy checkpoint with a cache flush. Inside one request there is no window for a policy change, so the re-evaluation only cost time: `Server-Timing` measured the `claim` stage at 95 to 122 ms against a 200 to 260 ms server total on 5.35.0. Every other claim rule still applies to the fresh verdict (eligible and identity-continuous record, permissive and non-degraded decision, containment binding, a decision id to bind to). (`app/lib/guard/execution.ts`, `route-claim.ts`)
+
 ## [5.35.0] - 2026-09-06
 
 ### Changed

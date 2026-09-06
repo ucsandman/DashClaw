@@ -1,6 +1,6 @@
 {
   "name": "dashclaw",
-  "version": "5.35.0",
+  "version": "5.35.1",
   "description": "Govern agent callbacks with policy checks, remote approvals, execution claims, and outcome reporting.",
   "type": "module",
   "publishConfig": {
