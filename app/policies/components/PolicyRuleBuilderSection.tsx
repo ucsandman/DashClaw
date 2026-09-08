@@ -582,6 +582,101 @@ function AssumptionHoldFields({ form, onChange }: DelegationConstraintFieldsProp
   );
 }
 
+// Catastrophe floor (2026-09-08): the backstop for when the calibrated
+// controller cannot interrupt (θ saturated) — destructive action types at or
+// above a risk floor are held for approval (or blocked), optionally
+// irreversible-only, and can be marked ungrantable so no grant disarms the
+// floor. The form model (policyFormModel.js) already compiles/decompiles this
+// type; this section was the missing piece — without it actionTypes stayed
+// empty and the server rejected the save with
+// "catastrophe_floor policy requires rules.action_types array".
+function CatastropheFloorFields({
+  form,
+  actionOptions,
+  onChange,
+}: DelegationConstraintFieldsProps & { actionOptions: string[] }) {
+  // Destructive presets the floor is meant for, on top of the shared options.
+  const destructivePresets = ['delete_data', 'drop_table', 'rm_rf', 'delete_branch', 'force_push'];
+  const options = [...new Set([...destructivePresets, ...(Array.isArray(actionOptions) ? actionOptions : [])])];
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-tertiary">
+        Holds or blocks destructive action types at or above a risk floor — the backstop for when the
+        calibrated controller cannot interrupt. Pick at least one action type; a floor with no types is
+        rejected by the server.
+      </p>
+      <ActionTypePicker
+        label="Destructive Action Types (required)"
+        options={options}
+        selected={form.actionTypes}
+        onChange={(next) => onChange('actionTypes', next)}
+        hint="One-click destructive presets above, or type any custom action type and press Enter."
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-xs text-secondary mb-1">Minimum risk score (0-100)</label>
+          <input
+            aria-label="Catastrophe floor minimum risk score"
+            type="number"
+            min="0"
+            max="100"
+            value={form.floorMinRisk}
+            onChange={(event) => {
+              const value = event.target.value === ''
+                ? ''
+                : Math.max(0, Math.min(100, parseInt(event.target.value, 10) || 0));
+              onChange('floorMinRisk', value);
+            }}
+            className={inputClass}
+          />
+          <p className="mt-1 text-[11px] text-tertiary">Actions scoring below this never trip the floor.</p>
+        </div>
+        <div>
+          <label className="block text-xs text-secondary mb-1">Consequence</label>
+          <select
+            aria-label="Catastrophe floor action"
+            value={form.action}
+            onChange={(event) => onChange('action', event.target.value)}
+            className={selectClass}
+          >
+            <option value="require_approval">Require Approval</option>
+            <option value="block">Block</option>
+          </select>
+          <p className="mt-1 text-[11px] text-tertiary">Approval holds the action in the queue; Block refuses it outright.</p>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className="flex items-start gap-2 text-xs text-secondary">
+          <input
+            type="checkbox"
+            checked={form.floorRequireIrreversible !== false}
+            onChange={(event) => onChange('floorRequireIrreversible', event.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="block text-primary">Only irreversible acts</span>
+            Trip the floor only when the action is declared irreversible. Uncheck to cover reversible
+            destructive calls too.
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-xs text-secondary">
+          <input
+            type="checkbox"
+            checked={form.ungrantable === true}
+            onChange={(event) => onChange('ungrantable', event.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="block text-primary">Ungrantable</span>
+            No grant, approval pause, interruption budget, or automatic tuning can disarm this floor.
+            Reserve it for rare classes.
+          </span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
 interface PolicyRuleBuilderSectionProps {
   form: any;
   actionOptions: string[];
@@ -1077,6 +1172,10 @@ export default function PolicyRuleBuilderSection({
 
       {form.type === 'assumption_hold' && (
         <AssumptionHoldFields form={form} onChange={onChange} />
+      )}
+
+      {form.type === 'catastrophe_floor' && (
+        <CatastropheFloorFields form={form} actionOptions={actionOptions} onChange={onChange} />
       )}
 
     </>

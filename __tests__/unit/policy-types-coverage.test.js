@@ -88,4 +88,14 @@ describe('policy type coverage (UI ↔ backend contract)', () => {
     expect(buildPolicySummary(FORMS.green_contract)).toMatch(/workspace/i);
     expect(buildPolicySummary(FORMS.branch_freshness)).toMatch(/commits behind/i);
   });
+
+  it('rejects a catastrophe_floor with no action types (the 2026-09-08 authoring gap)', () => {
+    // The rule builder once rendered no fields for this type, so actionTypes
+    // stayed empty and the server rejected the save. The contract: the backend
+    // must keep rejecting the empty shape with a message the UI surfaces.
+    const payload = compilePolicyPayload({ ...FORMS.catastrophe_floor, actionTypes: [] });
+    const result = validatePolicy(payload);
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/catastrophe_floor policy requires rules\.action_types array/);
+  });
 });
