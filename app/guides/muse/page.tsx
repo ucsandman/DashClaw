@@ -23,6 +23,9 @@ export default async function MuseGuidePage() {
   const host = headerStore.get('host') || 'localhost:3000';
   const baseUrl = getGuideBaseUrl(host);
 
+  // Fictional release tag used only in the docs example below.
+  const exampleVersion = 'v2.3.1'; // version-hardcode-allowed
+
   const loopCodeBody = `import { DashClaw } from 'dashclaw';
 
 const claw = new DashClaw({
@@ -34,7 +37,7 @@ const claw = new DashClaw({
 // 1. Guard — "may I?"
 const decision = await claw.guard({
   action_type: 'deploy',
-  declared_goal: 'Deploy v2.3.1 to staging after all tests passed',
+  declared_goal: 'Deploy ${exampleVersion} to staging after all tests passed',
   systems_touched: ['staging'],
   reversible: false,
   confidence: 80, // your honest pre-act odds of completing without human help
@@ -45,13 +48,13 @@ if (decision.decision === 'require_approval') {
   // 2-3. Record, then wait for the human in /approvals
   const action = await claw.recordAction({
     action_type: 'deploy',
-    declared_goal: 'Deploy v2.3.1 to staging after all tests passed',
+    declared_goal: 'Deploy ${exampleVersion} to staging after all tests passed',
   });
   await claw.waitForApproval(action.action_id); // resolves on approve, throws on deny/expiry
 }
 
 // 4. Act — run the real effect with your own tools.
-await deployToStaging('v2.3.1');
+await deployToStaging('${exampleVersion}');
 
 // 5. Outcome — completed, partial, or failed. One-shot: the first call wins.
 await claw.recordOutcome(action.action_id, { status: 'completed' });`;
