@@ -243,7 +243,7 @@ Every instance also serves Streamable HTTP MCP at `/api/mcp`. For Claude Desktop
 
 **SDKs.** `npm install dashclaw` (Node 18+) or `pip install dashclaw` (Python 3.7+). The **41-method canonical Node surface** covers guard, record, assumptions, approvals, durable-execution finality, security scanning, sessions and the action graph, pairing, risk signals, policy simulation, plan authorization, delegation constraints, containment verdicts, and team tasks. The **Python SDK exposes 61 methods**, plus CrewAI and AutoGen integrations. Plan authorization pins the approved plan's content hash at submission (`plan_hash`); `attestPlan(planId, planHash)` / `attest_plan(plan_id, plan_hash)` let an unattended runner confirm -- before its first model call -- that the plan it is about to act under is still approved, unexpired, and hash-matched, failing closed on drift (`not_approved | expired | revoked | hash_mismatch`) without ever echoing the stored hash back on a mismatch.
 
-**REST.** Every primitive is HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](docs/openapi/critical-stable.openapi.json); the full inventory (**134 routes**: 42 stable, 18 beta, 74 experimental) is in [`docs/api-inventory.md`](docs/api-inventory.md). Webhooks: `decision.created`, `action.created`, `lost_confirmation`, configurable per org.
+**REST.** Every primitive is HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](docs/openapi/critical-stable.openapi.json); the full inventory (**135 routes**: 42 stable, 18 beta, 75 experimental) is in [`docs/api-inventory.md`](docs/api-inventory.md). Webhooks: `decision.created`, `action.created`, `lost_confirmation`, configurable per org.
 
 </details>
 
@@ -328,7 +328,7 @@ Approved actions carry a terminal outcome separate from their lifecycle status. 
 
 Stated plainly, because a security tool that oversells itself is a liability:
 
-- **Young and fast-moving.** First commit February 2026; releases land near-daily. The API surface is tiered for exactly this reason: 42 stable routes pinned in the [OpenAPI contract](docs/openapi/critical-stable.openapi.json), 18 beta, 74 experimental. Build against stable; experimental can change without notice.
+- **Young and fast-moving.** First commit February 2026; releases land near-daily. The API surface is tiered for exactly this reason: 42 stable routes pinned in the [OpenAPI contract](docs/openapi/critical-stable.openapi.json), 18 beta, 75 experimental. Build against stable; experimental can change without notice.
 - **Proven by dogfood, not by scale.** The core loop runs against the maintainer's own agent fleet, and CI exercises specified policy and lifecycle contracts. External production deployments are early. Treat this as young infrastructure, not a battle-tested incumbent or an uptime commitment.
 - **AI-maintained, human-governed, in public.** Day-to-day maintenance is done by an AI agent under the human-held charter in [MAINTAINER.md](MAINTAINER.md), whose five invariants (above) the maintainer cannot change. Material changes and design decisions are recorded in the [maintainer log](docs/maintainer-log.md).
 
