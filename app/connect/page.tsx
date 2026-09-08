@@ -614,6 +614,11 @@ dashclaw doctor`}</CodeBlock>
                   desc: 'Govern CrewAI tool calls using the @tool decorator pattern with the Python SDK. Includes a runnable example.',
                 },
                 {
+                  href: '/guides/muse',
+                  title: 'Muse',
+                  desc: 'Govern Meta\u2019s Muse agents with the cooperative guard/record/wait/act/outcome loop, plan-first approvals, and unattended runs.',
+                },
+                {
                   href: '/guides/openclaw',
                   title: 'OpenClaw',
                   desc: 'Framework native plugin. Intercepts PreToolUse and PostToolUse and calls guard, record, and waitForApproval automatically.',

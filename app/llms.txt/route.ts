@@ -77,6 +77,15 @@ where their one-click approvals happen.
   Bare methods are cooperative. \`runGoverned\` and \`run_governed\` require a
   server that advertises execution-claim protocol 1 before invoking the supplied
   callback. Upgrade the server and SDK together before using these helpers.
+- Muse (Meta): no hook runtime exists yet, so the integration is cooperative
+  over REST. The agent needs your instance URL, an API credential in its secure
+  credential store (never in chat), and an agent id. Install the
+  \`muse-governance\` skill from this repo
+  (\`plugins/dashclaw/skills/muse-governance/\`) and have the agent follow the
+  guard → record → (wait) → act → outcome loop. For long runs, use plan-first
+  execution: \`POST /api/plans\` with the ordered step list, one operator
+  approval, then attest (\`POST /api/plans/:id/attest\`) before acting. Full
+  guide: ${MARKETING_ORIGIN}/guides/muse.
 
 ## Enforcement contract
 
