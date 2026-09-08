@@ -321,7 +321,7 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 | Surface | Ceiling | Counted from |
 |---|---|---|
 | Active API routes | 134 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
-| App pages | 53 | `app/**/page.{js,jsx,ts,tsx}` |
+| App pages | 54 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 17 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
 | Node SDK methods | 41 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
@@ -338,6 +338,15 @@ Raising any ceiling requires amending this section **and**
 recorded, deliberate act that falsifier #3 (Regrowth) watches for.
 
 **Amendment log:**
+- **2026-09-08 — App pages 53 → 54 (`/guides/muse`).** The Muse (Meta) agent
+  integration guide. Each supported runtime gets its own guide page (precedent:
+  crewai, hermes, langgraph, openclaw); the Muse content cannot fold into an
+  existing guide because the integration is cooperative — no pre-tool-call hook
+  exists in that runtime yet — so the setup, the guard/record/wait/act/outcome
+  loop, plan-first execution, and the stated enforcement boundary are a
+  different document from every mechanical-hook guide. Zero new API routes,
+  zero new policy types, zero new SDK methods, zero new MCP tools: a docs
+  surface only, shipped on PR #233.
 - **2026-09-05: Node SDK methods 40 to 41, Python SDK methods 60 to 61 (`claimExecution`, `claim_execution`).** The audit found that approval selection alone did not bind execution to a single attempt. These methods expose the existing action route's protocol-1 claim: exact act, credential principal, agent, current policy, and atomic authority consumption. The governed helpers call them before the effect callback. No new route or operator surface is added. This strengthens the execution boundary rather than expanding the agent's work capabilities.
 - **2026-09-01 — API routes 133 → 134, Node SDK methods 39 → 40, Python SDK
   methods 59 → 60 (`/api/plans/[planId]/attest`, `attestPlan`,
