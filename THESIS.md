@@ -320,7 +320,7 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 
 | Surface | Ceiling | Counted from |
 |---|---|---|
-| Active API routes | 134 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
+| Active API routes | 136 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
 | App pages | 54 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 17 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
@@ -338,6 +338,18 @@ Raising any ceiling requires amending this section **and**
 recorded, deliberate act that falsifier #3 (Regrowth) watches for.
 
 **Amendment log:**
+- **2026-09-08 — API routes 135 → 136 (`POST /api/actions/[actionId]/cancel`).**
+  The cancellation seam for actions that were approved but should not run. A
+  running or pending action that is unclaimed and unexecuted can be cancelled
+  atomically: the route sets `status` to `cancelled` with `close_source='direct'`,
+  writes a "Deliberately not executed…" summary, leaves the outcome pending
+  (no fabricated success/failure), and audits + publishes the update. Once
+  claimed, executed, or terminal the route returns 409. Without it an
+  approved-but-unwanted action has no governed off-ramp — the operator's only
+  choices are letting it run or killing it outside the ledger, which is the
+  ungoverned path the brake exists to close. Requires a trimmed, redacted,
+  capped reason. Zero new policy types, zero new tables, zero new pages, zero
+  new SDK methods, zero new MCP tools.
 - **2026-09-08 — App pages 53 → 54 (`/guides/muse`).** The Muse (Meta) agent
   integration guide. Each supported runtime gets its own guide page (precedent:
   crewai, hermes, langgraph, openclaw); the Muse content cannot fold into an
