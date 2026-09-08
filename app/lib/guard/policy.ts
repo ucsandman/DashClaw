@@ -344,6 +344,29 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
     }
     return null;
   },
+  catastrophe_floor: ({ rules, context, effectiveRiskScore }) => {
+    // The floor the calibrated controller cannot provide: when θ saturates at
+    // its ceiling, no score interrupts — but some acts are catastrophic at any
+    // θ. Fires on the declared shape alone (destructive action type + high
+    // declared risk + irreversible), independent of evidence flags, so
+    // goal-only evaluations are covered too. Narrow by construction: all three
+    // gates must hold. rules.ungrantable (default true here) is honored by the
+    // grant post-pass, so accumulated allow_grants can never clear this floor.
+    const minRisk = typeof rules.min_risk === 'number' ? rules.min_risk : 85;
+    const riskScore = effectiveRiskScore != null
+      ? effectiveRiskScore
+      : Math.max(0, Math.min(Number(context.risk_score) || 0, 100));
+    if (riskScore < minRisk) return null;
+    const actionTypes = Array.isArray(rules.action_types) ? rules.action_types : [];
+    const matchedType = contextActionTypes(context).find((t) => actionTypes.includes(t));
+    if (matchedType === undefined) return null;
+    if (rules.require_irreversible && context.reversible !== false) return null;
+    const action = rules.action === 'block' ? 'block' : 'require_approval';
+    return {
+      action,
+      reason: `Catastrophe floor: ${matchedType} at risk ${riskScore} ≥ ${minRisk} (irreversible) — held regardless of calibrated θ`,
+    };
+  },
   require_approval: ({ rules, context }) =>
     matchActionType(rules, context, 'require_approval', (t) => `Action type "${t}" requires approval`),
   block_action_type: ({ rules, context }) =>
@@ -374,7 +397,7 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
     }
     return null;
   },
-  rate_limit: async ({ rules, context, sql, orgId }) => {
+  rate_limit: async ({ policy, rules, context, sql, orgId }) => {
     const maxActions = rules.max_actions || 50;
     const windowMinutes = Math.max(1, Math.min(10080, parseInt(String(rules.window_minutes), 10) || 60));
     const agentId = context.agent_id;
@@ -395,10 +418,36 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
     );
 
     const count = parseInt((rows[0]?.cnt as string) || '0', 10);
-    if (count >= maxActions) {
-      return { action: rules.action || 'warn', reason: `Agent made ${count} guard evaluations in ${windowMinutes}min (limit: ${maxActions})` };
+    if (count < maxActions) return null;
+
+    // Per-episode cooldown: without this, every evaluation past the limit
+    // fires its own warn — a runaway agent doing 2,000 evals in 10 min
+    // emitted ~1,800 warns (2026-09-08: 34,760 firings/30d on the
+    // catastrophe pack's rate_limit_runaway_safety). One warn per cooldown
+    // window per agent keeps the signal and drops the noise. Defaults to the
+    // policy window; override with rules.cooldown_minutes.
+    //
+    // Cooldown applies ONLY when the policy emits a warn. A block or
+    // require_approval is enforcement, not noise — suppressing it would let
+    // the runaway action through.
+    const emittedAction = rules.action || 'warn';
+    if (emittedAction === 'warn') {
+      const cooldownMinutes = Math.max(
+        1,
+        Math.min(10080, parseInt(String(rules.cooldown_minutes), 10) || windowMinutes),
+      );
+      const recent = await sql.query(
+        `SELECT 1 FROM guard_decisions
+           WHERE org_id = $1 AND agent_id = $2 AND decision = 'warn'
+           AND matched_policies LIKE '%"' || $3 || '"%'
+           AND created_at > NOW() - INTERVAL '1 minute' * $4
+         LIMIT 1`,
+        [orgId, agentId, policy.id, cooldownMinutes],
+      );
+      if (recent.length > 0) return null;
     }
-    return null;
+
+    return { action: emittedAction, reason: `Agent made ${count} guard evaluations in ${windowMinutes}min (limit: ${maxActions})` };
   },
   // Handled separately after the local policy loop.
   webhook_check: () => null,

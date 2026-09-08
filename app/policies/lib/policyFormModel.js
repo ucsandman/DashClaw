@@ -71,6 +71,10 @@ const DEFAULT_FORM_STATE = {
     goal_drift: 'ignore',
   },
   deviationMinSeverity: 'info',
+  // catastrophe_floor — minimum risk floor for destructive action types;
+  // require_irreversible defaults true so only irreversible acts trip it.
+  floorMinRisk: 85,
+  floorRequireIrreversible: true,
   // optional inline test recipes (A1): [{ name, input, expect: { decision } }]
   tests: [],
 };
@@ -98,6 +102,7 @@ export const POLICY_TYPE_OPTIONS = [
   { value: 'role_constraint', label: 'Role Constraint', desc: 'A named authority bundle for the targeted agents — allowed/blocked action types, risk ceiling, path scope' },
   { value: 'deviation_response', label: 'Deviation Response', desc: 'Consequence per plan-deviation kind — warn, require approval, or block when an agent departs from its approved plan' },
   { value: 'assumption_hold', label: 'Assumption Hold', desc: 'Hold the next consequential action after one of the agent’s assumptions is invalidated — until a human confirms' },
+  { value: 'catastrophe_floor', label: 'Catastrophe Floor', desc: 'Hold or block irreversible destructive action types at or above a risk floor — the backstop when the calibrated controller cannot interrupt' },
 ];
 
 function cleanString(value) {
@@ -421,6 +426,28 @@ const POLICY_TYPE_HANDLERS = {
       return `${verb} any action at risk ≥ ${risk} within ${win} minutes of one of the agent's assumptions being invalidated${scoped}.`;
     },
   },
+  // Catastrophe floor: destructive action types at/above min_risk, optionally
+  // irreversible-only, held for approval (or blocked). ungrantable rides
+  // along when set so a grant can never disarm the floor.
+  catastrophe_floor: {
+    compile: (form) => {
+      const rules = {
+        action_types: (Array.isArray(form.actionTypes) ? form.actionTypes : []).map((t) => String(t).trim()).filter(Boolean),
+        min_risk: Math.max(0, Math.min(100, Math.floor(Number(form.floorMinRisk) || 0))),
+        require_irreversible: form.floorRequireIrreversible !== false,
+        action: form.action === 'block' ? 'block' : 'require_approval',
+      };
+      if (form.ungrantable === true) rules.ungrantable = true;
+      return rules;
+    },
+    summary: (form, scoped) => {
+      const types = (Array.isArray(form.actionTypes) ? form.actionTypes : []).join(', ') || 'destructive types';
+      const risk = Math.max(0, Math.min(100, Math.floor(Number(form.floorMinRisk) || 0)));
+      const verb = form.action === 'block' ? 'Block' : 'Hold for approval';
+      const irrev = form.floorRequireIrreversible !== false ? 'irreversible ' : '';
+      return `${verb} ${irrev}${types} at risk ≥ ${risk} — catastrophe floor${scoped}.`;
+    },
+  },
 };
 
 // --- Form state -> stored policy payload (compile) ---
@@ -504,6 +531,8 @@ export function decompilePolicyForm(policy) {
     blockedTools: arrOr(rules.blocked_tools, DEFAULT_FORM_STATE.blockedTools),
     maxDepth: coalesce(rules.max_depth, DEFAULT_FORM_STATE.maxDepth),
     minRiskScore: coalesce(rules.min_risk_score, DEFAULT_FORM_STATE.minRiskScore),
+    floorMinRisk: coalesce(rules.min_risk, DEFAULT_FORM_STATE.floorMinRisk),
+    floorRequireIrreversible: rules.require_irreversible !== undefined ? !!rules.require_irreversible : DEFAULT_FORM_STATE.floorRequireIrreversible,
     escalateAction: orVal(rules.escalate_action, DEFAULT_FORM_STATE.escalateAction),
     requireVerifiedParent: rules.require_verified_parent !== undefined ? !!rules.require_verified_parent : DEFAULT_FORM_STATE.requireVerifiedParent,
     deviationOnKind: {

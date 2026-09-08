@@ -114,6 +114,13 @@ export function buildContract(
         else view.silent.push(s(txt));
         break;
       }
+      case 'catastrophe_floor': {
+        const floor = typeof rules.min_risk === 'number' ? rules.min_risk : 85;
+        const txt = `catastrophe floor: ${listTypes(rules.action_types)} at risk ≥ ${floor} (irreversible) — held regardless of calibrated θ`;
+        if (rules.action === 'block') view.blocks.push(s(txt));
+        else view.interrupts.push(s(txt));
+        break;
+      }
       case 'warn_action_type':
         if (!Array.isArray(rules.action_types) || rules.action_types.length === 0) {
           view.custom.push({ policy_id: row.id, name: row.name, policy_type: row.policy_type });

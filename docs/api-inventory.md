@@ -1,7 +1,7 @@
 ---
 source-of-truth: false
 owner: API Governance Lead
-last-verified: 2026-09-06
+last-verified: 2026-09-08
 doc-type: architecture
 ---
 
@@ -13,8 +13,8 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `135`
-- Stable routes: `42`
+- Total routes: `136`
+- Stable routes: `43`
 - Beta routes: `18`
 - Experimental routes: `75`
 
@@ -26,6 +26,7 @@ doc-type: architecture
 | `/api/actions/stats` | `GET` | `stable` | `/api/actions` | `app/api/actions/stats/route.ts` |
 | `/api/actions/{actionId}` | `GET, PATCH` | `stable` | `/api/actions` | `app/api/actions/[actionId]/route.ts` |
 | `/api/actions/{actionId}/artifacts` | `GET` | `stable` | `/api/actions` | `app/api/actions/[actionId]/artifacts/route.ts` |
+| `/api/actions/{actionId}/cancel` | `POST` | `stable` | `/api/actions` | `app/api/actions/[actionId]/cancel/route.ts` |
 | `/api/actions/{actionId}/containment` | `POST` | `stable` | `/api/actions` | `app/api/actions/[actionId]/containment/route.ts` |
 | `/api/actions/{actionId}/graph` | `GET` | `stable` | `/api/actions` | `app/api/actions/[actionId]/graph/route.ts` |
 | `/api/actions/{actionId}/outcome` | `GET, POST` | `stable` | `/api/actions` | `app/api/actions/[actionId]/outcome/route.ts` |
