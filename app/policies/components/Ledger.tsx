@@ -753,8 +753,13 @@ export default function Ledger({
       if (!res.ok) {
         // The route owns this sentence (SHORT_LIST_CAP lives there); echoing
         // it here is how the two copies drift apart. Only the link is ours.
+        // Include the server's details so a bare "Validation failed" never
+        // hides the real cause (e.g. a missing required field).
         setCapFull(body.code === 'SHORT_LIST_FULL');
-        setEditorError(body.error || 'Failed to save rule');
+        const details = Array.isArray(body.details) && body.details.length > 0
+          ? `: ${body.details.join('; ')}`
+          : '';
+        setEditorError(`${body.error || 'Failed to save rule'}${details}`);
       } else {
         setShowEditor(false);
         await afterChange();
