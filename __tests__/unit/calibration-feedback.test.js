@@ -105,9 +105,11 @@ describe('ingestApprovalAdjudication', () => {
   });
 
   // miss_review: verdicts on specific allowed actions that should have been
-  // held (2026-09-08). A dangerous miss tightens θ at full weight, owns its
-  // agent, and stays off the live counter; a benign one moves θ neither way.
-  it('miss_review dangerous tightens θ, owns its agent, off the live counter', async () => {
+  // held (2026-09-08). A dangerous miss tightens θ at full weight and stays
+  // off the live counter, but moves NO agent's e-process (product decision
+  // 2026-09-08) — the miss is the operator's retrospective judgment, not the
+  // agent's live decision record. A benign miss moves θ neither way.
+  it('miss_review dangerous tightens θ, moves no agent e-process, off the live counter', async () => {
     const out = await ingestApprovalAdjudication(sql(), 'org_1', {
       actionId: 'act_m1', agentId: 'agent_x', riskScore: 95, approved: false, source: 'miss_review',
     });
@@ -116,8 +118,9 @@ describe('ingestApprovalAdjudication', () => {
     const saved = mockSaveState.mock.calls[0][2];
     expect(saved.labeledTotal).toBe(1);
     expect(saved.labeledLive).toBe(0);
-    expect(saved.agents['agent_x'].denied).toBe(1);
-    expect(saved.agents['agent_x'].e).toBeGreaterThan(1);
+    // Even though an agentId was supplied, miss_review must not touch
+    // e-process wealth: no new agent entry, no alarm.
+    expect(saved.agents['agent_x']).toBeUndefined();
     expect(mockInsertEvent).toHaveBeenCalledWith(expect.anything(), 'org_1', expect.objectContaining({
       actionId: 'act_m1', label: 'dangerous', source: 'miss_review',
     }));

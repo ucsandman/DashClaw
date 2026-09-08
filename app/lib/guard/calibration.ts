@@ -317,9 +317,13 @@ export function applyAdjudication(
   let agents = state.agents;
   let alarmFired = false;
   // A group verdict owns no agent — nobody was on the hook for it, so it must
-  // not move any agent's e-process wealth. A miss verdict DOES own its agent:
-  // that agent performed the dangerous act, so its e-process records it.
-  const agentId = !retro && typeof input.agentId === 'string' && input.agentId ? input.agentId : null;
+  // not move any agent's e-process wealth. A miss_review verdict is the same:
+  // it tightens global θ (the operator's retrospective judgment that an
+  // allowed act should have been held) but must NOT move the acting agent's
+  // e-process — the miss is filed at leisure, not on the agent's live
+  // decision record. Agent identity is preserved in the audit event, never
+  // in e-process wealth. (Product decision 2026-09-08.)
+  const agentId = !retro && !miss && typeof input.agentId === 'string' && input.agentId ? input.agentId : null;
   if (agentId) {
     const prev = agents[agentId] ?? { e: 1, n: 0, denied: 0, alarmed_at: null };
     const step = eProcessStep(prev, input.label === 'dangerous', nowIso);

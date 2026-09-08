@@ -6,6 +6,7 @@ import { getOrgId, getOrgRole, getUserId } from '../../../lib/org';
 import { getSql } from '../../../lib/db';
 import { apiErrorResponse } from '../../../lib/apiErrors';
 import { logActivity } from '../../../lib/audit';
+import { scanSensitiveData } from '../../../lib/security';
 import { ingestApprovalAdjudication } from '../../../lib/guard/calibration-feedback';
 import { getMissCandidateForOrg } from '../../../lib/repositories/calibration.repository';
 
@@ -16,7 +17,7 @@ const MISSABLE_DECISIONS = new Set(['allow', 'warn']);
 /**
  * POST /api/calibration/misses — file a "should-have-held" verdict (admin only).
  *
- * Body: { action_id: string, label: 'dangerous'|'benign', reason?: string }
+ * Body: { action_id: string, label: 'dangerous'|'benign', reason: string }
  *
  * The calibration controller learned only from interruptions: benign
  * approvals loosened θ, denials tightened it, and actions the guard waved
@@ -26,9 +27,17 @@ const MISSABLE_DECISIONS = new Set(['allow', 'warn']);
  * controller was missing: a human (or probe) verdict on a SPECIFIC allowed
  * action that should have been held.
  *
- *  - label 'dangerous': the miss is real — folds at weight 1, owns the
- *    action's agent, and tightens θ.
+ *  - label 'dangerous': the miss is real — folds at weight 1 and tightens θ,
+ *    but moves no agent's e-process (the verdict is the operator's
+ *    retrospective judgment, not the agent's live decision record; agent
+ *    identity lives in the audit event only).
  *  - label 'benign': no miss occurred — recorded for the ledger, θ unmoved.
+ *
+ * Only actions with a persisted guard decision of 'allow' or 'warn' are
+ * missable: anything already held, denied, or blocked has no false negative
+ * to fix, and a row with no persisted decision cannot prove the guard let it
+ * through. The reason is required — it is the audit trail — and is
+ * secret-redacted before storage.
  */
 export async function POST(request: Request) {
   try {
@@ -51,20 +60,28 @@ export async function POST(request: Request) {
     if (label !== 'dangerous' && label !== 'benign') {
       return NextResponse.json({ error: "label must be 'dangerous'|'benign'" }, { status: 400 });
     }
-    const reason =
-      typeof body?.reason === 'string' ? body.reason.slice(0, MAX_REASON_LENGTH) : null;
+    const rawReason = typeof body?.reason === 'string' ? body.reason.trim() : '';
+    if (!rawReason) {
+      return NextResponse.json({ error: 'reason is required' }, { status: 400 });
+    }
+    const scan = scanSensitiveData(rawReason);
+    const reason = (scan.redacted ?? rawReason).slice(0, MAX_REASON_LENGTH);
 
     const sql = getSql();
     const row = await getMissCandidateForOrg(sql, orgId, actionId);
     if (!row) {
       return NextResponse.json({ error: 'action not found' }, { status: 404 });
     }
-    // A miss is only meaningful for actions the guard actually let through —
-    // anything already held, denied, or blocked has no false negative to fix.
-    if (row.guard_decision && !MISSABLE_DECISIONS.has(row.guard_decision)) {
+    // A miss is only meaningful for actions the guard actually let through.
+    // An explicit persisted allow/warn is required: a NULL decision cannot
+    // prove the guard waved the action through, and anything already held,
+    // denied, or blocked has no false negative to fix.
+    if (!row.guard_decision || !MISSABLE_DECISIONS.has(row.guard_decision)) {
       return NextResponse.json(
         {
-          error: `action was '${row.guard_decision}' — misses apply only to actions the guard let through (allow/warn)`,
+          error: row.guard_decision
+            ? `action was '${row.guard_decision}' — misses apply only to actions the guard let through (allow/warn)`
+            : 'action has no persisted guard decision — misses apply only to actions the guard let through (allow/warn)',
           code: 'NOT_MISSABLE',
         },
         { status: 409 },
@@ -75,9 +92,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'action has no persisted risk score' }, { status: 400 });
     }
 
+    // miss_review moves no agent's e-process (product decision 2026-09-08):
+    // the verdict tightens global θ only. Agent identity stays in the audit
+    // event and the action row, never in e-process wealth — so the route
+    // passes null rather than the action's agent.
     const outcome = await ingestApprovalAdjudication(sql, orgId, {
       actionId,
-      agentId: row.agent_id ?? null,
+      agentId: null,
       riskScore,
       approved: label !== 'dangerous',
       source: 'miss_review',
