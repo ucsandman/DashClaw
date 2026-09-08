@@ -104,6 +104,35 @@ describe('ingestApprovalAdjudication', () => {
     expect(out.thetaAfter).toBeGreaterThan(out.thetaBefore);
   });
 
+  // miss_review: verdicts on specific allowed actions that should have been
+  // held (2026-09-08). A dangerous miss tightens θ at full weight, owns its
+  // agent, and stays off the live counter; a benign one moves θ neither way.
+  it('miss_review dangerous tightens θ, owns its agent, off the live counter', async () => {
+    const out = await ingestApprovalAdjudication(sql(), 'org_1', {
+      actionId: 'act_m1', agentId: 'agent_x', riskScore: 95, approved: false, source: 'miss_review',
+    });
+    expect(out.loss).toBe(0);
+    expect(out.thetaAfter).toBeLessThan(out.thetaBefore);
+    const saved = mockSaveState.mock.calls[0][2];
+    expect(saved.labeledTotal).toBe(1);
+    expect(saved.labeledLive).toBe(0);
+    expect(saved.agents['agent_x'].denied).toBe(1);
+    expect(saved.agents['agent_x'].e).toBeGreaterThan(1);
+    expect(mockInsertEvent).toHaveBeenCalledWith(expect.anything(), 'org_1', expect.objectContaining({
+      actionId: 'act_m1', label: 'dangerous', source: 'miss_review',
+    }));
+  });
+
+  it('miss_review benign moves θ neither way — no miss occurred', async () => {
+    const out = await ingestApprovalAdjudication(sql(), 'org_1', {
+      actionId: 'act_m2', agentId: 'agent_x', riskScore: 95, approved: true, source: 'miss_review',
+    });
+    expect(out.thetaAfter).toBe(out.thetaBefore);
+    const saved = mockSaveState.mock.calls[0][2];
+    expect(saved.labeledTotal).toBe(1);
+    expect(saved.labeledLive).toBe(0);
+  });
+
   it('never throws — a dead repository yields null and a warning only', async () => {
     mockSaveState.mockRejectedValue(new Error('db down'));
     const out = await ingestApprovalAdjudication(sql(), 'org_1', {

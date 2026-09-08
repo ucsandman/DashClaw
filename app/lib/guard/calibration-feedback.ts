@@ -39,9 +39,12 @@ export interface ApprovalAdjudication {
    * 'warn_review' is a RETROSPECTIVE verdict on a whole warn group from the
    * review feed: it folds at weight 0.5, owns no agent, and can only move θ
    * in the loosening direction (spec §8 invariant 8). The ledger column is
-   * plain text, so no migration is involved in adding it.
+   * plain text, so no migration is involved in adding a source.
+   * 'miss_review' is a verdict on a SPECIFIC action the guard let through
+   * that should have been held: it folds at weight 1, owns its agent, a
+   * dangerous miss TIGHTENS θ, and a benign one moves θ neither way.
    */
-  source: 'approval' | 'bulk_approval' | 'seed' | 'warn_review';
+  source: 'approval' | 'bulk_approval' | 'seed' | 'warn_review' | 'miss_review';
 }
 
 /** Retrospective group verdicts count for half a live adjudication. */
@@ -51,7 +54,9 @@ const WARN_REVIEW_WEIGHT = 0.5;
 const adjudicationWeighting = (source: ApprovalAdjudication['source']) =>
   source === 'warn_review'
     ? { weight: WARN_REVIEW_WEIGHT, source: 'warn_review' as const }
-    : { weight: 1, source: 'live' as const };
+    : source === 'miss_review'
+      ? { weight: 1, source: 'miss_review' as const }
+      : { weight: 1, source: 'live' as const };
 
 /**
  * Bound on the read-modify-write retry below. Two writers landing in the

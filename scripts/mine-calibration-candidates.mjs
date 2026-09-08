@@ -45,10 +45,17 @@ async function loadDecisionEvents(sql, days) {
   // (buildGuardDecisionRow), so the LIKE '{%' validity guard is cheap.
   // ::json (not ::jsonb) + stripping literal \u0000 escapes: some contexts
   // embed file contents containing "\u0000", which jsonb rejects (22P05).
+  // pg_input_is_valid gates the cast: a malformed row degrades to ctx NULL
+  // instead of failing the whole run (2026-09-08: the same poison row 500'd
+  // /api/calibration/proposals).
   const rows = await sql.query(
     `WITH src AS (
        SELECT gd.*,
+              -- pg_input_is_valid (PG16+, the CI/self-host baseline): one
+              -- malformed context row used to fail the whole query with
+              -- 22P02. Poison rows now degrade to ctx NULL instead.
               CASE WHEN gd.context LIKE '{%'
+                        AND pg_input_is_valid(replace(gd.context, chr(92) || 'u0000', ''), 'json')
                    THEN replace(gd.context, chr(92) || 'u0000', '')::json
               END AS ctx
        FROM guard_decisions gd
