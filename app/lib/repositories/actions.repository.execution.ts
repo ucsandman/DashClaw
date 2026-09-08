@@ -109,3 +109,97 @@ export async function getExecutionCandidate(sql: SqlTag, input: {
   `;
   return rows[0] ?? null;
 }
+
+export interface ActionCancelFacts {
+  action_id: string;
+  agent_id: string | null;
+  status: string | null;
+  outcome_status: string | null;
+  claimed: boolean;
+}
+
+/** Pre-execution lifecycle facts needed to authorize and attempt a cancel. */
+export async function getActionCancelFacts(
+  sql: SqlTag,
+  orgId: string,
+  actionId: string,
+): Promise<ActionCancelFacts | null> {
+  const rows = await sql.query(
+    `SELECT action_id, agent_id, status, outcome_status,
+            (execution_claimed_at IS NOT NULL) AS claimed
+     FROM action_records
+     WHERE org_id = $1 AND action_id = $2
+     LIMIT 1`,
+    [orgId, actionId],
+  );
+  const row = rows[0] as ActionCancelFacts | undefined;
+  return row ?? null;
+}
+
+export type CancelActionErrorCode = 'NOT_FOUND' | 'NOT_CANCELLABLE' | 'REASON_REQUIRED';
+
+export interface CancelActionInput {
+  orgId: string;
+  actionId: string;
+  /** Why the action was deliberately never executed. Recorded on the row. */
+  reason: string;
+}
+
+export interface CancelActionResult {
+  ok: boolean;
+  code?: CancelActionErrorCode;
+  action_id?: string;
+  agent_id?: string | null;
+  status?: string | null;
+  outcome_status?: string | null;
+  claimed?: boolean;
+}
+
+/**
+ * Deliberately close an allowed-but-never-executed action as cancelled —
+ * without inventing an outcome. A cancel is only valid while the action is
+ * still in its pre-execution state (status 'running', outcome pending,
+ * execution never claimed): once an execution claim exists, the row is no
+ * longer cancellable and must report its real outcome instead.
+ *
+ * The lost-outcome sweep and the outcome route both treat status 'cancelled'
+ * as terminal, so a cancelled row is never reconciled to lost_confirmation
+ * and never accepts a later outcome report.
+ */
+export async function cancelAction(
+  sql: SqlTag,
+  input: CancelActionInput,
+): Promise<CancelActionResult> {
+  const reason = input.reason.trim().slice(0, 4000);
+  // Repository-level callers cannot provide a blank reason either — the
+  // route validates first, but this is the invariant's true home.
+  if (reason.length === 0) return { ok: false, code: 'REASON_REQUIRED' };
+  const cancelled = await sql.query(
+    `UPDATE action_records
+     SET status = 'cancelled',
+         close_source = 'direct',
+         outcome_summary = 'Deliberately not executed: ' || $3,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE org_id = $1 AND action_id = $2
+       AND status = 'running'
+       AND outcome_status = 'pending'
+       AND execution_claimed_at IS NULL
+     RETURNING action_id, agent_id`,
+    [input.orgId, input.actionId, reason],
+  );
+  if (cancelled.length > 0) {
+    const row = cancelled[0] as { action_id: string; agent_id: string | null };
+    return { ok: true, action_id: row.action_id, agent_id: row.agent_id, status: 'cancelled' };
+  }
+  const existing = await getActionCancelFacts(sql, input.orgId, input.actionId);
+  if (!existing) return { ok: false, code: 'NOT_FOUND' };
+  return {
+    ok: false,
+    code: 'NOT_CANCELLABLE',
+    action_id: existing.action_id,
+    agent_id: existing.agent_id,
+    status: existing.status,
+    outcome_status: existing.outcome_status,
+    claimed: existing.claimed,
+  };
+}

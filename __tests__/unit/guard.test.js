@@ -84,13 +84,44 @@ describe('evaluatePolicy dispatch', () => {
   });
 
   it('rate_limit: blocks/warns when count >= max (via sql.query)', async () => {
-    const sql = createSqlMock({ queryResponses: [[{ cnt: '60' }]] });
+    const sql = createSqlMock({ queryResponses: [[{ cnt: '60' }], []] });
     expect(await evalPolicy('rate_limit', { max_actions: 50 }, { agent_id: 'agt_1' }, { sql }))
       .toEqual({ action: 'warn', reason: 'Agent made 60 guard evaluations in 60min (limit: 50)' });
     const sql2 = createSqlMock({ queryResponses: [[{ cnt: '5' }]] });
     expect(await evalPolicy('rate_limit', { max_actions: 50 }, { agent_id: 'agt_1' }, { sql: sql2 })).toBeNull();
     // No agent → null, no query
     expect(await evalPolicy('rate_limit', { max_actions: 50 }, {})).toBeNull();
+  });
+
+  it('rate_limit: cooldown suppresses repeat warns for the same episode', async () => {
+    // Over the limit but warned recently for this policy+agent → suppressed.
+    // (2026-09-08: without this, a runaway agent emitted ~1,800 warns per
+    // 10-min episode — 34,760 firings/30d on rate_limit_runaway_safety.)
+    const sql = createSqlMock({ queryResponses: [[{ cnt: '250' }], [{ '1': 1 }]] });
+    expect(await evalPolicy('rate_limit', { max_actions: 50 }, { agent_id: 'agt_1' }, { sql })).toBeNull();
+    expect(sql.queryCalls).toHaveLength(2);
+    // Cooldown lookup targets this policy id and agent, default window = 60.
+    expect(sql.queryCalls[1].params).toEqual(['org_1', 'agt_1', 'gp_rate_limit', 60]);
+
+    // Over the limit, no recent warn → fires.
+    const sql2 = createSqlMock({ queryResponses: [[{ cnt: '250' }], []] });
+    expect(await evalPolicy('rate_limit', { max_actions: 50 }, { agent_id: 'agt_1' }, { sql: sql2 }))
+      .toEqual({ action: 'warn', reason: 'Agent made 250 guard evaluations in 60min (limit: 50)' });
+
+    // Custom cooldown_minutes is honored.
+    const sql3 = createSqlMock({ queryResponses: [[{ cnt: '250' }], []] });
+    await evalPolicy('rate_limit', { max_actions: 50, cooldown_minutes: 30 }, { agent_id: 'agt_1' }, { sql: sql3 });
+    expect(sql3.queryCalls[1].params[3]).toBe(30);
+  });
+
+  it('rate_limit: cooldown never suppresses a block — enforcement is not noise', async () => {
+    // A block-action rate_limit policy must keep firing on every over-limit
+    // evaluation even when a recent warn exists for the policy: the cooldown
+    // lookup is skipped entirely for non-warn emissions.
+    const sql = createSqlMock({ queryResponses: [[{ cnt: '250' }]] });
+    expect(await evalPolicy('rate_limit', { max_actions: 50, action: 'block' }, { agent_id: 'agt_1' }, { sql }))
+      .toEqual({ action: 'block', reason: 'Agent made 250 guard evaluations in 60min (limit: 50)' });
+    expect(sql.queryCalls).toHaveLength(1); // no cooldown lookup ran
   });
 
   it('webhook_check returns null (handled separately after the local loop)', async () => {
@@ -134,5 +165,36 @@ describe('evaluatePolicy dispatch', () => {
 
   it('unknown policy type → null', async () => {
     expect(await evalPolicy('made_up_type', {}, { action_type: 'deploy' })).toBeNull();
+  });
+
+  it('catastrophe_floor: holds irreversible high-risk destructive acts regardless of θ', async () => {
+    const rules = { action_types: ['delete', 'destroy'], min_risk: 85, require_irreversible: true, ungrantable: true };
+    const ctx = { action_type: 'delete', reversible: false };
+    const res = await evalPolicy('catastrophe_floor', rules, ctx, { risk: 95 });
+    expect(res).toEqual({
+      action: 'require_approval',
+      reason: 'Catastrophe floor: delete at risk 95 ≥ 85 (irreversible) — held regardless of calibrated θ',
+    });
+  });
+
+  it('catastrophe_floor: null when any gate misses', async () => {
+    const rules = { action_types: ['delete', 'destroy'], min_risk: 85, require_irreversible: true };
+    // below the floor
+    expect(await evalPolicy('catastrophe_floor', rules, { action_type: 'delete', reversible: false }, { risk: 84 })).toBeNull();
+    // wrong action type
+    expect(await evalPolicy('catastrophe_floor', rules, { action_type: 'deploy', reversible: false }, { risk: 95 })).toBeNull();
+    // reversible act
+    expect(await evalPolicy('catastrophe_floor', rules, { action_type: 'delete', reversible: true }, { risk: 95 })).toBeNull();
+  });
+
+  it('catastrophe_floor: block action and declared-type fallback', async () => {
+    const rules = { action_types: ['delete'], min_risk: 85, action: 'block' };
+    const res = await evalPolicy('catastrophe_floor', rules, { declared_action_type: 'delete' }, { risk: 90 });
+    expect(res?.action).toBe('block');
+  });
+
+  it('catastrophe_floor: defaults (min_risk 85, require_approval)', async () => {
+    const res = await evalPolicy('catastrophe_floor', { action_types: ['destroy'] }, { action_type: 'destroy', reversible: false }, { risk: 85 });
+    expect(res?.action).toBe('require_approval');
   });
 });

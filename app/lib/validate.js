@@ -419,7 +419,7 @@ function validateClientCapabilities(context, addError) {
   }
 }
 
-const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'require_evidence', 'delegation_constraint', 'role_constraint', 'deviation_response', 'assumption_hold'];
+const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'require_evidence', 'delegation_constraint', 'role_constraint', 'deviation_response', 'assumption_hold', 'catastrophe_floor'];
 const GUARD_ACTIONS = ['allow', 'warn', 'block', 'require_approval'];
 
 const POLICY_SCHEMA = {
@@ -567,6 +567,26 @@ const POLICY_TYPE_VALIDATORS = {
     }
   },
   require_approval: (rules, addError, policyType) => validateActionTypesRequired(rules, addError, policyType),
+  catastrophe_floor: (rules, addError, policyType) => {
+    // The floor gates on the declared shape: destructive action type + high
+    // declared risk + irreversible. All three are required so the type stays
+    // narrow — it is the backstop for when the calibrated controller cannot
+    // interrupt (θ saturated), not a general delete gate.
+    validateActionTypesRequired(rules, addError, policyType);
+    if (rules.min_risk !== undefined
+      && (typeof rules.min_risk !== 'number' || rules.min_risk < 0 || rules.min_risk > 100)) {
+      addError('catastrophe_floor rules.min_risk must be a number 0-100');
+    }
+    if (rules.require_irreversible !== undefined && typeof rules.require_irreversible !== 'boolean') {
+      addError('catastrophe_floor rules.require_irreversible must be a boolean');
+    }
+    if (rules.action !== undefined && rules.action !== 'require_approval' && rules.action !== 'block') {
+      addError("catastrophe_floor rules.action must be 'require_approval' or 'block'");
+    }
+    if (rules.ungrantable !== undefined && typeof rules.ungrantable !== 'boolean') {
+      addError('catastrophe_floor rules.ungrantable must be a boolean');
+    }
+  },
   block_action_type: (rules, addError, policyType) => validateActionTypesRequired(rules, addError, policyType),
   warn_action_type: (rules, addError, policyType) => validateActionTypesRequired(rules, addError, policyType),
   allow_grant: (rules, addError) => {

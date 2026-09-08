@@ -220,4 +220,25 @@ describe('allow_grant F1 guards', () => {
     expect(res.decision).toBe('require_approval');
     expect((res.warnings || []).join(' ')).toContain('ungrantable');
   });
+
+  it('catastrophe_floor: an ungrantable floor survives a matching grant', async () => {
+    const sql = createSqlMock({ taggedResponses: [rows([
+      {
+        policy_type: 'catastrophe_floor',
+        name: 'Catastrophe floor',
+        rules: { action_types: ['delete'], min_risk: 85, require_irreversible: true, ungrantable: true },
+      },
+      { policy_type: 'allow_grant', rules: { action_type: 'delete', target_prefix: 'prod-db' } },
+    ])] });
+    const res = await evaluateGuard(freshOrg(), {
+      agent_id: 'agent_1',
+      action_type: 'delete',
+      declared_goal: '[probe] Drop the production database cluster',
+      reversible: false,
+      risk_score: 95,
+      target: 'prod-db',
+    }, sql);
+    expect(res.decision).toBe('require_approval');
+    expect((res.warnings || []).join(' ')).toContain('ungrantable');
+  });
 });

@@ -307,3 +307,33 @@ describe('validatePolicy — role_constraint', () => {
     expect(r.valid).toBe(false);
   });
 });
+
+describe('validatePolicy — catastrophe_floor', () => {
+  it('accepts a valid floor definition', () => {
+    const r = validatePolicy(base('catastrophe_floor', {
+      action_types: ['delete', 'destroy'],
+      min_risk: 85,
+      require_irreversible: true,
+      action: 'require_approval',
+      ungrantable: true,
+    }));
+    expect(r.valid).toBe(true);
+  });
+  it('rejects a missing action_types array', () => {
+    const r = validatePolicy(base('catastrophe_floor', { min_risk: 85 }));
+    expect(r.valid).toBe(false);
+    expect(r.errors.join(' ')).toContain('action_types');
+  });
+  it('rejects out-of-range min_risk', () => {
+    expect(validatePolicy(base('catastrophe_floor', { action_types: ['delete'], min_risk: 101 })).valid).toBe(false);
+    expect(validatePolicy(base('catastrophe_floor', { action_types: ['delete'], min_risk: -1 })).valid).toBe(false);
+  });
+  it('rejects a non-require_approval/block action', () => {
+    const r = validatePolicy(base('catastrophe_floor', { action_types: ['delete'], action: 'warn' }));
+    expect(r.valid).toBe(false);
+  });
+  it('rejects a non-boolean ungrantable', () => {
+    const r = validatePolicy(base('catastrophe_floor', { action_types: ['delete'], ungrantable: 'yes' }));
+    expect(r.valid).toBe(false);
+  });
+});

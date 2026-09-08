@@ -122,11 +122,22 @@ export interface PolicyRules {
    *  require_approval verdict cleared by an allow_grant (control-plane and
    *  catastrophe rules). */
   ungrantable?: boolean;
+  /** catastrophe_floor: minimum risk score (0-100) for the floor to fire.
+   *  Default 85. */
+  min_risk?: number;
+  /** catastrophe_floor: when true, the floor only fires on irreversible acts
+   *  (context.reversible === false). */
+  require_irreversible?: boolean;
   /** F1: allow_grant lifetime stamp (ISO), written at creation; legacy grants
    *  without one age out from the row's created_at. */
   expires_at?: string;
   paths?: string[];
   max_actions?: number;
+  /** rate_limit: warn cooldown in minutes (per policy per agent). One warn
+   *  per cooldown window; defaults to window_minutes. Applies only when the
+   *  policy emits a warn — blocks and require_approvals are never
+   *  suppressed. */
+  cooldown_minutes?: number;
   window_minutes?: number;
   url?: string;
   timeout_ms?: number;
