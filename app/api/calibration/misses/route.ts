@@ -7,6 +7,7 @@ import { getSql } from '../../../lib/db';
 import { apiErrorResponse } from '../../../lib/apiErrors';
 import { logActivity } from '../../../lib/audit';
 import { ingestApprovalAdjudication } from '../../../lib/guard/calibration-feedback';
+import { getMissCandidateForOrg } from '../../../lib/repositories/calibration.repository';
 
 const MAX_REASON_LENGTH = 500;
 /** A miss is only meaningful for actions the guard actually let through. */
@@ -54,23 +55,7 @@ export async function POST(request: Request) {
       typeof body?.reason === 'string' ? body.reason.slice(0, MAX_REASON_LENGTH) : null;
 
     const sql = getSql();
-    const rows = (await sql.query(
-      `SELECT ar.action_id, ar.risk_score, ar.agent_id, ar.declared_goal,
-              gd.decision AS guard_decision
-       FROM action_records ar
-       LEFT JOIN guard_decisions gd
-         ON gd.id = ar.guard_decision_id AND gd.org_id = ar.org_id
-       WHERE ar.org_id = $1 AND ar.action_id = $2
-       LIMIT 1`,
-      [orgId, actionId],
-    )) as Array<{
-      action_id: string;
-      risk_score: unknown;
-      agent_id: string | null;
-      declared_goal: string | null;
-      guard_decision: string | null;
-    }>;
-    const row = rows[0];
+    const row = await getMissCandidateForOrg(sql, orgId, actionId);
     if (!row) {
       return NextResponse.json({ error: 'action not found' }, { status: 404 });
     }
@@ -85,7 +70,7 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
-    const riskScore = Number(row.risk_score);
+    const riskScore = row.risk_score;
     if (!Number.isFinite(riskScore)) {
       return NextResponse.json({ error: 'action has no persisted risk score' }, { status: 400 });
     }
