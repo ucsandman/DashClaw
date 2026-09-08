@@ -8,6 +8,7 @@ import {
   upsertProposalDecision,
   deleteProposalDecision,
   markProposalForged,
+  getMissCandidateForOrg,
 } from '../../app/lib/repositories/calibration.repository';
 
 function mockSql(rows) {
@@ -167,5 +168,41 @@ describe('markProposalForged', () => {
   it("returns 'not_ratified' when the row exists but is dismissed", async () => {
     const sql = mockSqlSequence([[], [{ decision: 'dismissed' }]]);
     expect(await markProposalForged(sql, 'org1', 'cv_0123456789abcdef', 'x')).toBe('not_ratified');
+  });
+});
+
+describe('getMissCandidateForOrg', () => {
+  it('returns the candidate facts with the persisted guard decision', async () => {
+    const sql = mockSql([
+      {
+        action_id: 'act_1',
+        risk_score: 95,
+        agent_id: 'agent_7',
+        declared_goal: 'delete prod db',
+        guard_decision: 'allow',
+      },
+    ]);
+    const facts = await getMissCandidateForOrg(sql, 'org_1', 'act_1');
+    expect(facts).toEqual({
+      action_id: 'act_1',
+      risk_score: 95,
+      agent_id: 'agent_7',
+      declared_goal: 'delete prod db',
+      guard_decision: 'allow',
+    });
+    expect(sql.query.mock.calls[0][1]).toEqual(['org_1', 'act_1']);
+  });
+
+  it('returns null when the action is unknown', async () => {
+    const facts = await getMissCandidateForOrg(mockSql([]), 'org_1', 'act_nope');
+    expect(facts).toBeNull();
+  });
+
+  it('surfaces a NULL guard decision as null (route must reject it)', async () => {
+    const sql = mockSql([
+      { action_id: 'act_2', risk_score: 40, agent_id: null, declared_goal: null, guard_decision: null },
+    ]);
+    const facts = await getMissCandidateForOrg(sql, 'org_1', 'act_2');
+    expect(facts?.guard_decision).toBeNull();
   });
 });

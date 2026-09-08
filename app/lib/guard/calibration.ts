@@ -215,8 +215,13 @@ export interface AdjudicationInput {
    * Where the verdict came from. `warn_review` marks a retrospective group
    * verdict: it may only move θ in the LOOSENING direction, owns no agent,
    * and does not count toward the live-label floor (spec §8 invariant 8).
+   * `miss_review` marks a verdict on a SPECIFIC action the guard let through
+   * that should have been held: a dangerous miss TIGHTENS θ (the sanctioned
+   * counterpart to invariant 8 — the operator is explicitly asking for more
+   * interruption for this class), a benign one moves θ neither way, it owns
+   * its agent, and it does not count toward the live-label floor.
    */
-  source?: 'live' | 'warn_review';
+  source?: 'live' | 'warn_review' | 'miss_review';
 }
 
 export interface AdjudicationOutcome {
@@ -295,19 +300,30 @@ export function applyAdjudication(
   const rawWeight = Number(input.weight);
   const weight = Number.isFinite(rawWeight) && rawWeight > 0 && rawWeight <= 1 ? rawWeight : 1;
   const retro = input.source === 'warn_review';
+  const miss = input.source === 'miss_review';
   const loss: 0 | 1 = score >= thetaBefore && input.label === 'benign' ? 1 : 0;
   const rawDelta = CALIBRATION_DEFAULTS.gamma * (loss - settings.targetRate) * weight;
   // Retrospective verdicts may loosen (Δ>0) but never tighten (Δ<0): a
   // verdict rendered at leisure on a batch of past warns is not evidence
   // that the operator wants MORE interruptions (spec §8 invariant 8).
-  const delta = retro && rawDelta < 0 ? 0 : rawDelta;
+  // miss_review is the mirror image: a verdict on a specific allowed action
+  // the operator says should have been held IS evidence they want more
+  // interruption, so a dangerous miss tightens θ. A benign miss verdict
+  // means no miss occurred and moves θ neither way (without this clamp a
+  // benign label below θ would perversely tighten via the -γ·α term).
+  const delta = retro && rawDelta < 0 ? 0 : miss && input.label !== 'dangerous' ? 0 : rawDelta;
   const thetaAfter = clampTheta(thetaBefore + delta);
 
   let agents = state.agents;
   let alarmFired = false;
   // A group verdict owns no agent — nobody was on the hook for it, so it must
-  // not move any agent's e-process wealth.
-  const agentId = !retro && typeof input.agentId === 'string' && input.agentId ? input.agentId : null;
+  // not move any agent's e-process wealth. A miss_review verdict is the same:
+  // it tightens global θ (the operator's retrospective judgment that an
+  // allowed act should have been held) but must NOT move the acting agent's
+  // e-process — the miss is filed at leisure, not on the agent's live
+  // decision record. Agent identity is preserved in the audit event, never
+  // in e-process wealth. (Product decision 2026-09-08.)
+  const agentId = !retro && !miss && typeof input.agentId === 'string' && input.agentId ? input.agentId : null;
   if (agentId) {
     const prev = agents[agentId] ?? { e: 1, n: 0, denied: 0, alarmed_at: null };
     const step = eProcessStep(prev, input.label === 'dangerous', nowIso);
@@ -327,7 +343,10 @@ export function applyAdjudication(
     state: {
       theta: thetaAfter,
       labeledTotal: state.labeledTotal + weight,
-      labeledLive: state.labeledLive + (retro ? 0 : 1),
+      // warn_review and miss_review are both rendered at leisure rather than
+      // while blocked, so neither counts toward the live-label floor that
+      // arms the demote arm.
+      labeledLive: state.labeledLive + (retro || miss ? 0 : 1),
       labeledBenign: state.labeledBenign + (input.label === 'benign' ? weight : 0),
       labeledDenied: state.labeledDenied + (input.label === 'dangerous' ? weight : 0),
       lossSum: state.lossSum + loss * weight,
