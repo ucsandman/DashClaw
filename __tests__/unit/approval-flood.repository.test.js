@@ -43,6 +43,26 @@ describe('getRecentApprovalCountsByPolicy', () => {
       'org1', 15, true, SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS, SYNTHETIC_AGENT_LIKE_PATTERNS,
     ]);
   });
+
+  it('excludes self-test traffic from flood counts (2026-09-09)', async () => {
+    const sql = mockSql([]);
+    await getRecentApprovalCountsByPolicy(sql, 'org1', 15);
+    const text = sql.query.mock.calls[0][0];
+    // Scheduled verification (catastrophe-floor probe) declares self_test:true
+    // in its guard payload; it is designed to trip policies and must never
+    // trip the flood budget. Excluded inside the unnest subquery, before
+    // aggregation — same as the synthetic predicate.
+    expect(text).toContain(`(context::jsonb ->> 'self_test') IS DISTINCT FROM 'true'`);
+  });
+
+  it('self-test exclusion is not lifted by includeSynthetic (2026-09-09)', async () => {
+    const sql = mockSql([]);
+    await getRecentApprovalCountsByPolicy(sql, 'org1', 15, { includeSynthetic: true });
+    const text = sql.query.mock.calls[0][0];
+    // The ?include_synthetic=1 escape hatch is for synthetic families; the
+    // self-test marker is a separate, always-on exclusion.
+    expect(text).toContain(`(context::jsonb ->> 'self_test') IS DISTINCT FROM 'true'`);
+  });
 });
 
 describe('getPolicyNamesByIds', () => {

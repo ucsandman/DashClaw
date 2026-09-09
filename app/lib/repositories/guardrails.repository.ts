@@ -282,6 +282,12 @@ export async function getRecentApprovalCountsByPolicy(
            (action_type IS NULL OR action_type NOT LIKE ALL($4::text[]))
            AND (agent_id IS NULL OR agent_id NOT LIKE ALL($5::text[]))
          ))
+         -- Self-test exclusion (2026-09-09): scheduled verification traffic
+         -- (catastrophe-floor probe) declares self_test:true in its guard
+         -- payload and is DESIGNED to trip policies — it must never count
+         -- toward the flood budget. Always applied: the includeSynthetic
+         -- escape hatch is for synthetic families, not self-tests.
+         AND (context::jsonb ->> 'self_test') IS DISTINCT FROM 'true'
      ) sub
      GROUP BY sub.policy_id`,
     [

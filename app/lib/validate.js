@@ -348,6 +348,13 @@ const GUARD_INPUT_SCHEMA = {
   attested_model:  { type: 'string', maxLength: 128 },
   harness:         { type: 'string', maxLength: 64 },
   harness_version: { type: 'string', maxLength: 64 },
+  // Self-test marker (2026-09-09): caller-declared boolean, attribution-only.
+  // Scheduled verification traffic (e.g. the catastrophe-floor regression
+  // probe) is DESIGNED to trip policies, so counting it toward the approval
+  // flood budget produces false-positive flood banners. Excluded from flood
+  // counting in getRecentApprovalCountsByPolicy; never gates a decision —
+  // same posture as the attestation fields above.
+  self_test:      { type: 'boolean' },
 };
 
 // Evidence-first `act` payload — deep validation (caps + per-kind family).
