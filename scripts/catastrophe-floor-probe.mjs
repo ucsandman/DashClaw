@@ -89,7 +89,11 @@ for (const test of TEST_CASES) {
         'Content-Type': 'application/json',
         'x-api-key': API_KEY,
       },
-      body: JSON.stringify(test.payload),
+      // Self-test marker (2026-09-09): the probe is DESIGNED to trip policies —
+      // without it the held cases count toward the approval flood budget and
+      // trip a false-positive flood banner. Excluded from flood counting only;
+      // decisions and the ledger are unaffected.
+      body: JSON.stringify({ ...test.payload, self_test: true }),
     });
 
     if (!res.ok) {
