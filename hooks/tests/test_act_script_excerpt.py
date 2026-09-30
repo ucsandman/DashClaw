@@ -73,5 +73,40 @@ class TestActScriptAttachment(_ActScriptBase):
         self.assertNotIn("script", act)
 
 
+class TestActCapsSurviveScrubbing(_ActScriptBase):
+    """2026-09-30: the excerpt was capped THEN scrubbed, and `token=a` ->
+    `token=[REDACTED]` grows the text, so a script full of secret-shaped
+    samples (tools/security/outbound_filter.py) landed at 6148 chars. The
+    server 400s ("Validation failed") and the hook fails closed. Every act
+    field must stay within its server cap after scrubbing."""
+
+    SECRETISH = "token=a\n"
+
+    def test_script_excerpt_stays_within_cap_after_scrubbing(self):
+        cap = dashclaw_pretool._ACT_SCRIPT_EXCERPT_CAP
+        self._write_script("scan.py", self.SECRETISH * (cap // len(self.SECRETISH) + 10))
+        act = dashclaw_pretool._build_act("Bash", {"command": "python scan.py"})
+        excerpt = act["script"]["content_excerpt"]
+        self.assertLessEqual(len(excerpt), cap)
+        self.assertNotIn("token=a", excerpt)
+
+    def test_command_stays_within_cap_after_scrubbing(self):
+        cap = dashclaw_pretool._ACT_COMMAND_CAP
+        command = "echo " + "token=a " * (cap // 8 + 10)
+        act = dashclaw_pretool._build_act("Bash", {"command": command})
+        self.assertLessEqual(len(act["command"]), cap)
+        self.assertNotIn("token=a", act["command"])
+
+    def test_file_excerpt_stays_within_cap_after_scrubbing(self):
+        cap = dashclaw_pretool._ACT_FILE_EXCERPT_CAP
+        content = self.SECRETISH * (cap // len(self.SECRETISH) + 10)
+        act = dashclaw_pretool._build_act(
+            "Write", {"file_path": os.path.join(self.dir, "out.py"), "content": content}
+        )
+        excerpt = act["file"]["content_excerpt"]
+        self.assertLessEqual(len(excerpt), cap)
+        self.assertNotIn("token=a", excerpt)
+
+
 if __name__ == "__main__":
     unittest.main()

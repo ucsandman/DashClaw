@@ -2211,7 +2211,8 @@ _ACT_SCRUB_KV = re.compile(r"(password|token|secret)\s*=\s*[^\s&\"']+", re.IGNOR
 
 
 def _scrub_act_text(text):
-    """Mask secret-looking substrings before the act leaves the machine."""
+    """Mask secret-looking substrings before the act leaves the machine.
+    Scrub BEFORE capping: a redaction can lengthen the text past the server cap."""
     if not text:
         return text
     for pattern, replacement in _ACT_SCRUB_PATTERNS:
@@ -2256,7 +2257,7 @@ def _build_act_script(command):
             if not _is_sensitive_path(resolved):
                 with open(resolved, encoding="utf-8", errors="replace") as f:
                     content = f.read(_ACT_SCRIPT_EXCERPT_CAP + 1)
-                script["content_excerpt"] = _scrub_act_text(content[:_ACT_SCRIPT_EXCERPT_CAP])
+                script["content_excerpt"] = _scrub_act_text(content)[:_ACT_SCRIPT_EXCERPT_CAP]
             return script
         return None
     except Exception:
@@ -2274,7 +2275,7 @@ def _build_act(tool_name, tool_input):
         command = str(tool_input.get("command") or "")
         if not command:
             return None
-        act = {"kind": "shell", "command": _scrub_act_text(command[:_ACT_COMMAND_CAP])}
+        act = {"kind": "shell", "command": _scrub_act_text(command)[:_ACT_COMMAND_CAP]}
         script = _build_act_script(command)
         if script:
             act["script"] = script
@@ -2291,7 +2292,7 @@ def _build_act(tool_name, tool_input):
             "kind": "file",
             "file": {
                 "path": path,
-                "content_excerpt": _scrub_act_text(content[:_ACT_FILE_EXCERPT_CAP]),
+                "content_excerpt": _scrub_act_text(content)[:_ACT_FILE_EXCERPT_CAP],
                 "bytes": len(content.encode("utf-8", errors="ignore")),
             },
         }
