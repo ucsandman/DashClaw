@@ -2,6 +2,7 @@ import { computeActContentHash } from '../act-content-hash';
 import { buildAgentDefense, type AgentDefense } from '../agent-defense';
 import { getGuardDecisionById } from './guardrails.repository';
 import { incrementUsageRollup } from './usage.repository';
+import { ACTION_STATES, ACTION_TERMINAL_STATES } from '../action-lifecycle';
 import { computeApprovalExpiry } from './actions.repository.approvals';
 import { actionProvenance, boundedIdText, type Row, type SqlClient } from './actions.repository.shared';
 import { redactAny } from '../security';
@@ -184,8 +185,11 @@ function createActionInsertValues(payload: CreateActionPayload) {
 // other create status means the row was born already closed (MCP
 // dashclaw_record, POST with a terminal status, or createBlockedActionRecord),
 // so close_source is stamped 'direct' — the row never transitioned through a
-// PATCH/outcome close. See drizzle/0048 (v4.2 coverage truth).
-const NON_TERMINAL_CREATE_STATUSES = new Set(['running', 'pending', 'pending_approval']);
+// PATCH/outcome close. See drizzle/0048 (v4.2 coverage truth). Derived from
+// the lifecycle table: every state with an outgoing edge.
+const NON_TERMINAL_CREATE_STATUSES = new Set<string>(
+  ACTION_STATES.filter((state) => !ACTION_TERMINAL_STATES.includes(state)),
+);
 
 export async function createActionRecord(sql: SqlClient, payload: CreateActionPayload): Promise<Row | null> {
   const {

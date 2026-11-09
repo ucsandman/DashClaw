@@ -9,6 +9,7 @@ import {
   recordApproval,
 } from '../../../lib/repositories/actions.repository';
 import { clearApprovalNotifications } from '../../../lib/approvalNotifications';
+import { statusForDecision } from '../../../lib/action-lifecycle';
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
 const FETCH_TIMEOUT_MS = 1500;
@@ -140,7 +141,7 @@ export async function POST(request: Request) {
     let updated;
     try {
       updated = await recordApproval(sql, orgId, action_id, {
-        newStatus: 'running',
+        newStatus: statusForDecision('allow'),
         errorMessage: null,
         decision: 'allow',
         userId,
@@ -170,7 +171,7 @@ export async function POST(request: Request) {
   let updated;
   try {
     updated = await recordApproval(sql, orgId, action_id, {
-      newStatus: 'failed',
+      newStatus: statusForDecision('deny'),
       errorMessage: 'Denied via Telegram',
       decision: 'deny',
       userId,

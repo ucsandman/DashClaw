@@ -176,6 +176,50 @@ describe("dashclaw_guard context enrichment", () => {
 // Act-content grant binding (drizzle/0056): dashclaw_record forwards the act
 // so the server stamps act_content_hash on the row — a pending_approval
 // record binds the operator's approval to that exact act.
+// Lifecycle refusal on the close path (app/lib/action-lifecycle.ts): a 409
+// illegal_transition is a verdict about the row's state, not a transport
+// failure, so the agent gets current/allowed and is told not to retry.
+describe("dashclaw_record close path lifecycle refusal", () => {
+  const REFUSAL = {
+    error: "illegal_transition",
+    message: "Cannot move this action from Completed (completed) to Running (running). Completed is final; no further status change is allowed.",
+    current: "completed",
+    requested: "running",
+    allowed: [],
+    status: "completed",
+  };
+
+  it("passes the 409 illegal_transition contract through and tells the agent not to retry", async () => {
+    fetchMock.mockResolvedValue(mockStatus(409, REFUSAL));
+    const out = JSON.parse(await makeHandlers().dashclaw_record({ action_id: "act_1", status: "running" }));
+    expect(out).toMatchObject({
+      recorded: false,
+      action_id: "act_1",
+      error: "illegal_transition",
+      current: "completed",
+      requested: "running",
+      allowed: [],
+    });
+    expect(out.guidance).toMatch(/do not retry/i);
+    expect(out.guidance).not.toMatch(/Retry dashclaw_record/);
+    expect("_status" in out).toBe(false);
+  });
+
+  it("names the allowed next states when the lifecycle leaves some open", async () => {
+    fetchMock.mockResolvedValue(mockStatus(409, { ...REFUSAL, current: "pending_approval", requested: "completed", allowed: ["running", "failed", "expired"] }));
+    const out = JSON.parse(await makeHandlers().dashclaw_record({ action_id: "act_1", status: "completed" }));
+    expect(out.allowed).toEqual(["running", "failed", "expired"]);
+    expect(out.guidance).toMatch(/running, failed, expired/);
+  });
+
+  it("still reports a non-lifecycle 409 as a failed close", async () => {
+    fetchMock.mockResolvedValue(mockStatus(409, { error: "conflict" }));
+    const out = JSON.parse(await makeHandlers().dashclaw_record({ action_id: "act_1", status: "completed" }));
+    expect(out.recorded).toBe(false);
+    expect(out.error).toMatch(/record close failed/);
+  });
+});
+
 describe("dashclaw_record act forwarding", () => {
   const RECORD_INPUT = { action_type: "deploy", declared_goal: "ship it", status: "pending_approval" };
 

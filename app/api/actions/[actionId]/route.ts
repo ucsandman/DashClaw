@@ -14,6 +14,7 @@ import { redactAny } from '../../../lib/security';
 import { estimateCost } from '../../../lib/billing';
 import { getModelPricing } from '../../../lib/repositories/settings.repository';
 import { maybeFireCostAlert } from '../../../lib/cost-alerts';
+import { canTransition, illegalTransitionBody, nextStates } from '../../../lib/action-lifecycle';
 import {
   getActionStatus,
   getActionWithRelations,
@@ -79,7 +80,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ acti
       console.warn('[Actions] deviations read failed (continuing):', (err as Error).message);
     }
 
-    return NextResponse.json({ ...result, deviations });
+    // allowed_next (additive): the lifecycle table's next states from the
+    // current status (app/lib/action-lifecycle.ts), e.g. the resolutions an
+    // agent waiting on a pending_approval row is waiting for.
+    return NextResponse.json({
+      ...result,
+      deviations,
+      allowed_next: nextStates(result.action?.status as string | null | undefined),
+    });
   } catch (error) {
     return apiErrorResponse(error, 'ACTION_GET');
   }
@@ -251,6 +259,28 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
       return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 });
     }
 
+    // Lifecycle guard (app/lib/action-lifecycle.ts). Close writes are gated on
+    // status='running', so a status the table never lets an agent reach from
+    // running (pending, pending_approval, blocked) is refused here with the
+    // illegal_transition contract before any write, on both the Stop-hook and
+    // the normal path. A request equal to the stored status is an identity
+    // no-op: the status is dropped from the write and nothing moves.
+    let identityStatus: string | null = null;
+    if (data.status !== undefined && !canTransition('running', data.status, 'agent')) {
+      const current = await getActionStatus(sql, orgId, actionId);
+      if (!current) {
+        return NextResponse.json({ error: 'Action not found' }, { status: 404 });
+      }
+      if (current.status !== data.status) {
+        return NextResponse.json(
+          { ...illegalTransitionBody(current.status as string | null, data.status, 'agent'), status: current.status },
+          { status: 409 },
+        );
+      }
+      identityStatus = data.status;
+      delete data.status;
+    }
+
     // SECURITY: clamp token/cost to reasonable bounds and auto-derive cost
     // when tokens are reported without an explicit cost_estimate. Matches the
     // POST path so hooks reporting tokens after the fact get priced the same.
@@ -347,17 +377,35 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
       if (!updatedAction) {
         // If no close fields were submitted, null from updateActionOutcome
         // definitively means the action does not exist (no gate was applied).
-        if (!hasCloseFields) {
+        if (!hasCloseFields && identityStatus === null) {
           return NextResponse.json({ error: 'Action not found' }, { status: 404 });
         }
-        // Close-fields path returned null — either not found OR terminal row.
-        // Lightweight repository lookup distinguishes the two.
+        // Close-fields path returned null — either not found OR a row that is
+        // no longer running. Lightweight repository lookup distinguishes them.
         const current = await getActionStatus(sql, orgId, actionId);
         if (!current) {
           return NextResponse.json({ error: 'Action not found' }, { status: 404 });
         }
+        // Close fields with no status ride the agent's running -> running edge.
+        const requested = (closeData.status as string | undefined) ?? identityStatus ?? 'running';
+        if (current.status === requested) {
+          // Identity (requested equals stored): no-op success. Nothing was
+          // written, so no event or cost alert fires a second time.
+          const rel = await getActionWithRelations(sql, orgId, actionId);
+          const action = rel?.action ?? current;
+          return NextResponse.json({
+            action,
+            allowed_next: nextStates(action.status as string | null | undefined),
+            security: {
+              clean: dlpFindings.length === 0,
+              findings_count: dlpFindings.length,
+              critical_count: dlpFindings.filter(f => f.severity === 'critical').length,
+              categories: [...new Set(dlpFindings.map(f => f.category))],
+            },
+          });
+        }
         return NextResponse.json(
-          { error: 'Action is in a terminal state and cannot be modified', status: current.status },
+          { ...illegalTransitionBody(current.status as string | null, requested, 'agent'), status: current.status },
           { status: 409 },
         );
       }
@@ -377,6 +425,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
 
     return NextResponse.json({
       action: updatedAction,
+      allowed_next: nextStates(updatedAction.status as string | null | undefined),
       security: {
         clean: dlpFindings.length === 0,
         findings_count: dlpFindings.length,

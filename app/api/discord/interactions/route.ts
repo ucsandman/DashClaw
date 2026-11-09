@@ -9,6 +9,7 @@ import {
   recordApproval,
 } from '../../../lib/repositories/actions.repository';
 import { clearApprovalNotifications } from '../../../lib/approvalNotifications';
+import { statusForDecision } from '../../../lib/action-lifecycle';
 
 // Discord REST base; v10 per RESEARCH §Standard Stack.
 const DISCORD_API = 'https://discord.com/api/v10';
@@ -110,7 +111,7 @@ async function resolveApproval(
   let updated;
   try {
     updated = await recordApproval(sql, orgId, actionId, {
-      newStatus: isApprove ? 'running' : 'failed',
+      newStatus: statusForDecision(isApprove ? 'allow' : 'deny'),
       errorMessage: isApprove ? null : 'Denied via Discord',
       decision: isApprove ? 'allow' : 'deny',
       userId,

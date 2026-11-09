@@ -12,6 +12,7 @@ import {
   setActionOutcome,
   getActionStatus,
 } from '../../../../lib/repositories/actions.repository';
+import { ACTION_STATES_REFUSING_OUTCOME } from '../../../../lib/action-lifecycle';
 
 // Terminal states an agent is allowed to report. `lost_confirmation` is
 // reserved for the system sweep (Phase 2) and rejected from this endpoint.
@@ -21,8 +22,10 @@ const AGENT_TERMINAL_STATES = new Set(['completed', 'partial', 'failed']);
 // the action was never dispatched for execution (blocked / not-yet-approved /
 // cancelled) or already concluded as denied/failed. Without this gate the
 // one-shot `outcome_status='pending'` guard alone let an agent stamp a
-// 'completed' outcome onto a blocked or denied action.
-const OUTCOME_FORBIDDEN_STATUSES = new Set(['blocked', 'pending_approval', 'cancelled', 'failed']);
+// 'completed' outcome onto a blocked or denied action. The set comes from the
+// lifecycle table (app/lib/action-lifecycle.ts) and includes 'expired': an
+// approval the client stopped waiting on was never released for execution.
+const OUTCOME_FORBIDDEN_STATUSES = new Set<string>(ACTION_STATES_REFUSING_OUTCOME);
 
 const MAX_SUMMARY_LEN = 4000;
 const MAX_ERROR_LEN = 4000;

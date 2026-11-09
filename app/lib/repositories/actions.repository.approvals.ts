@@ -1,5 +1,6 @@
 import { buildPromotionGoal } from '../guard/containment';
 import { invalidateGuardPolicyCache } from '../guard';
+import { assertTransition } from '../action-lifecycle';
 import type { Row, SqlClient } from './actions.repository.shared';
 
 // ── Approvals lifecycle hygiene (roadmap v2.3, drizzle/0039) ────────────────
@@ -168,6 +169,9 @@ export async function recordApproval(
   actionId: string,
   data: RecordApprovalData,
 ): Promise<Row | null> {
+  // Lifecycle backstop: an approval decision is the pending_approval -> X
+  // edge; a newStatus the table does not allow there throws before any SQL.
+  assertTransition('pending_approval', data.newStatus, 'user');
   const { newStatus, errorMessage, decision, userId } = data;
   // safeReasoning is optional; an approval without reasoning must bind '' —
   // the self-host postgres.js driver rejects undefined params outright
@@ -400,6 +404,8 @@ export async function recordBulkApprovals(
   actionIds: string[],
   data: RecordBulkApprovalsData,
 ): Promise<string[]> {
+  // Lifecycle backstop, same edge as recordApproval.
+  assertTransition('pending_approval', data.newStatus, 'user');
   if (!actionIds.length) return [];
   const { newStatus, errorMessage, decision, userId, safeReasoning } = data;
   const decisionUpper = decision.toUpperCase();

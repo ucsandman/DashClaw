@@ -18,6 +18,7 @@ import {
 import { fireWebhooksForApproval } from '../../../lib/webhooks';
 import { clearApprovalNotifications } from '../../../lib/approvalNotifications';
 import { ingestApprovalAdjudication } from '../../../lib/guard/calibration-feedback';
+import { nextStates, statusForDecision } from '../../../lib/action-lifecycle';
 
 // Truthful response for acting on a dead approval (roadmap v2.3): the
 // requesting client stopped polling long ago, so flipping the row to
@@ -96,7 +97,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
     }
 
     if (action.status !== 'pending_approval') {
-      return NextResponse.json({ error: 'Action is not pending approval' }, { status: 400 });
+      // Status code and error text unchanged; the lifecycle contract fields
+      // (app/lib/action-lifecycle.ts) are additive.
+      return NextResponse.json({
+        error: 'Action is not pending approval',
+        code: 'illegal_transition',
+        current: action.status ?? null,
+        requested: statusForDecision(decision),
+        allowed: nextStates(action.status as string | null | undefined, 'user'),
+      }, { status: 400 });
     }
 
     // SECURITY: separation of duties (drizzle/0055) — the principal that
@@ -119,7 +128,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
     const dlpFindings: Array<{ severity?: string; category?: string }> = [];
     const safeReasoning = reasoning ? redactAny(reasoning, dlpFindings) : reasoning;
 
-    const newStatus = decision === 'allow' ? 'running' : 'failed';
+    const newStatus = statusForDecision(decision);
     const errorMessage = decision === 'deny' ? (safeReasoning || 'Denied by human operator') : null;
 
     const updatedAction = await recordApproval(sql, orgId, actionId, {

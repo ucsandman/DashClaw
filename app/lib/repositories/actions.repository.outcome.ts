@@ -1,4 +1,5 @@
 import { OUTCOME_FIELDS } from '../validate.js';
+import { ACTION_TERMINAL_STATES, assertTransition } from '../action-lifecycle';
 import { boundedIdText, type Row, type SqlClient } from './actions.repository.shared';
 
 interface UpdateActionOutcomeOptions {
@@ -27,8 +28,10 @@ interface UpdateActionOutcomeOptions {
 }
 
 // Statuses a close write may set. close_source is stamped only when the new
-// status is one of these AND a closeSource intent was supplied.
-const TERMINAL_CLOSE_STATUSES = ['completed', 'failed', 'cancelled', 'blocked', 'partial'];
+// status is one of these AND a closeSource intent was supplied. Derived from
+// the lifecycle table (app/lib/action-lifecycle.ts); 'partial' is an outcome,
+// never a stored lifecycle status.
+const TERMINAL_CLOSE_STATUSES = [...ACTION_TERMINAL_STATES];
 
 interface NormalizedOutcomePatch {
   data: Record<string, unknown>;
@@ -170,6 +173,10 @@ export async function updateActionOutcome(
   // actions without clobbering a terminal state PostToolUse just wrote. If the
   // gate doesn't match, the UPDATE affects 0 rows and this returns null.
   const { gateStatus } = options;
+  // Lifecycle backstop: a gated write is a transition from gateStatus, so a
+  // status the table does not allow from there fails loudly (typed
+  // IllegalTransitionError, 409 via apiErrorResponse) before any SQL runs.
+  if (gateStatus && outcome.status != null) assertTransition(gateStatus, String(outcome.status));
   const gate = gateStatus ?? null;
   const closeSource = options.closeSource ?? null;
   // Fleet attribution (v4.3): sanitized here as the authoritative gate — a

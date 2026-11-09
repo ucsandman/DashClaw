@@ -12,6 +12,7 @@ import { ingestApprovalAdjudicationBatch } from '../../../lib/guard/calibration-
 import { getPolicyById } from '../../../lib/repositories/guardrails.repository';
 import { clearApprovalNotifications } from '../../../lib/approvalNotifications';
 import { EVENTS, publishOrgEvent } from '../../../lib/events';
+import { statusForDecision } from '../../../lib/action-lifecycle';
 
 const MAX_BULK = 500;
 
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
     );
 
     const decision = body.decision as 'allow' | 'deny';
-    const newStatus = decision === 'allow' ? 'running' : 'failed';
+    const newStatus = statusForDecision(decision);
     const reasoning = `Bulk ${decision} via approval-flood resolution (policy ${policy.name ?? policyId})`;
 
     const resolvedIds = await recordBulkApprovals(sql as never, orgId, ids, {

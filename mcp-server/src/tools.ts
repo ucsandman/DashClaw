@@ -663,6 +663,22 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
         if (typeof input.output_summary === 'string') patch.output_summary = input.output_summary;
         if (typeof input.error_message === 'string') patch.error_message = input.error_message;
         const closed = await client.patch(`/api/actions/${encodeURIComponent(input.action_id)}`, patch, { timeout: 10000 });
+        // Lifecycle refusal (409 illegal_transition from app/lib/action-lifecycle.ts):
+        // the row is in a state this close cannot follow. That is a verdict, not
+        // a transport failure, so pass the contract fields (current, requested,
+        // allowed) through and tell the agent not to retry the same status.
+        if (closed?._status === 409 && closed?.error === 'illegal_transition') {
+          const { _status, ...refusal } = closed;
+          const allowed: string[] = Array.isArray(refusal.allowed) ? refusal.allowed : [];
+          return JSON.stringify({
+            recorded: false,
+            action_id: input.action_id,
+            ...refusal,
+            guidance: allowed.length > 0
+              ? `The action is already '${refusal.current}'. Do not retry dashclaw_record with status '${refusal.requested}'; from here the lifecycle allows only: ${allowed.join(', ')}.`
+              : `The action is already '${refusal.current}', which is final. Nothing more can be recorded on it; do not retry.`,
+          });
+        }
         if (transportFailed(closed)) {
           return JSON.stringify({
             recorded: false,

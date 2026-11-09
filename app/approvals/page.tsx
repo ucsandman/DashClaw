@@ -28,6 +28,7 @@ import ApprovalFloodBanner from '../components/ApprovalFloodBanner';
 import ApprovalPauseBanner from '../components/ApprovalPauseBanner';
 import ObserveModeBanner from '../components/ObserveModeBanner';
 import { RISK_HIGH_MIN } from '../lib/riskThresholds';
+import { ACTION_STATE_LABELS, isActionState, nextStates, statusForDecision } from '../lib/action-lifecycle';
 import DontAskAgainPanel from './_components/DontAskAgainPanel';
 import ActiveGrantsStrip, { type GrantRow } from './_components/ActiveGrantsStrip';
 import PlanReviewCard from './_components/PlanReviewCard';
@@ -311,7 +312,13 @@ export default function ApprovalsPage() {
         body: JSON.stringify({ decision })
       });
 
-      if (!res.ok) throw new Error('Failed to submit decision');
+      if (!res.ok) {
+        // Show the server's reason (410 expired, 409 already resolved, 403
+        // self-approval, 400 illegal_transition) instead of a generic line.
+        const body = await res.json().catch(() => null);
+        const reason = typeof body?.error === 'string' ? body.error : 'Failed to submit decision';
+        throw new Error(typeof body?.code === 'string' ? `${reason} (${body.code})` : reason);
+      }
 
       // Trust the server as the source of truth — re-fetch the pending list
       // instead of optimistically filtering locally. Previously a 200 with a
@@ -549,6 +556,13 @@ export default function ApprovalsPage() {
               const systems = safeJsonArray(action.systems_touched) as string[];
               const isProcessing = processingId === action.action_id;
               const riskColor = action.risk_score >= 70 ? 'text-error' : 'text-warning';
+              // Buttons follow the lifecycle table: a row whose status moved
+              // under the operator (SSE/poll) loses the decisions it no longer has.
+              const operatorNext = nextStates(action.status, 'user');
+              const canAllow = operatorNext.includes(statusForDecision('allow'));
+              const canDeny = operatorNext.includes(statusForDecision('deny'));
+              const currentStatus: unknown = action.status;
+              const statusLabel = isActionState(currentStatus) ? ACTION_STATE_LABELS[currentStatus].toLowerCase() : String(currentStatus);
               return (
                 <Card key={action.action_id} data-entity-type="decision" data-entity-id={action.action_id} data-entity-status={action.status} data-entity-action-type={action.action_type} hover={false}>
                   <CardContent className="pt-5">
@@ -732,18 +746,25 @@ export default function ApprovalsPage() {
 
                       {/* Actions Panel */}
                       <div className="flex flex-row justify-center gap-2 md:w-44 md:flex-col">
-                        <button
-                          onClick={() => handleDecision(action.action_id, 'allow')}
-                          disabled={!canDecide || isProcessing}
-                          className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-success/20 bg-success-subtle px-4 py-2.5 text-sm font-semibold text-success transition-colors hover:border-success/40 hover:bg-success-subtle focus:border-success/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <Check size={16} /> Allow
-                        </button>
+                        {!canAllow && !canDeny && (
+                          <div className="flex-1 rounded-lg border border-border/60 px-3 py-2 text-center text-[11px] leading-snug text-tertiary">
+                            Now {statusLabel}; nothing to decide
+                          </div>
+                        )}
+                        {canAllow && (
+                          <button
+                            onClick={() => handleDecision(action.action_id, 'allow')}
+                            disabled={!canDecide || isProcessing}
+                            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-success/20 bg-success-subtle px-4 py-2.5 text-sm font-semibold text-success transition-colors hover:border-success/40 hover:bg-success-subtle focus:border-success/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Check size={16} /> Allow
+                          </button>
+                        )}
                         {/* Risk ceiling. Above RISK_HIGH_MIN there is no button
                             to press — a grant minted here could not cover such
                             an action anyway (applyAllowGrants refuses it), so
                             offering one would be a promise the guard breaks. */}
-                        {action.risk_score < RISK_HIGH_MIN ? (
+                        {canAllow && (action.risk_score < RISK_HIGH_MIN ? (
                           <button
                             onClick={() => setGrantingId(grantingId === action.action_id ? null : action.action_id)}
                             disabled={!canDecide || isProcessing}
@@ -755,14 +776,16 @@ export default function ApprovalsPage() {
                           <div className="flex-1 rounded-lg border border-border/60 px-3 py-2 text-center text-[11px] leading-snug text-tertiary">
                             Needs a human every time
                           </div>
+                        ))}
+                        {canDeny && (
+                          <button
+                            onClick={() => handleDecision(action.action_id, 'deny')}
+                            disabled={!canDecide || isProcessing}
+                            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-error/20 bg-error-subtle px-4 py-2.5 text-sm font-semibold text-error transition-colors hover:border-error/40 hover:bg-error-subtle focus:border-error/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <X size={16} /> Deny
+                          </button>
                         )}
-                        <button
-                          onClick={() => handleDecision(action.action_id, 'deny')}
-                          disabled={!canDecide || isProcessing}
-                          className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-error/20 bg-error-subtle px-4 py-2.5 text-sm font-semibold text-error transition-colors hover:border-error/40 hover:bg-error-subtle focus:border-error/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <X size={16} /> Deny
-                        </button>
                       </div>
                     </div>
 

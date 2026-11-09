@@ -889,7 +889,7 @@
           "inputs": {
             "pathParams.actionId": "string, required"
           },
-          "response": "{ action, open_loops: Row[], assumptions: Row[], guard_decision: {...decision, matched_policies, context, evidence} | null }",
+          "response": "{ action, open_loops: Row[], assumptions: Row[], guard_decision: {...decision, matched_policies, context, evidence} | null, allowed_next: string[] } — allowed_next is the lifecycle table's next states from action.status (app/lib/action-lifecycle.ts), e.g. ['running','failed','expired'] while pending_approval, [] once terminal",
           "errors": "404 'Action not found'; 500 via apiErrorResponse",
           "gotchas": "If status is pending_approval and past approval_expires_at, the route flips it to expired in-place (publishing ACTION_UPDATED) before responding — the same lazy-sweep pattern used on the list GET.",
           "file": "app/api/actions/[actionId]/route.ts"
@@ -904,7 +904,7 @@
           "auth": "x-api-key or session cookie, resolved by middleware to org_id/role",
           "inputs": {
             "pathParams.actionId": "string, required",
-            "body.status": "string, optional, one of 'running'|'completed'|'failed'|'cancelled'|'pending'|'pending_approval'|'blocked' (a 'close field')",
+            "body.status": "string, optional, one of 'running'|'completed'|'failed'|'cancelled'|'pending'|'pending_approval'|'blocked' (a 'close field'); only running/completed/failed/cancelled are legal from a running row, the rest answer 409 illegal_transition",
             "body.output_summary": "string, optional max 4000, redacted (a 'close field')",
             "body.timestamp_end": "ISO datetime string, optional (a 'close field')",
             "body.side_effects": "array, optional max 50, redacted",
@@ -917,8 +917,8 @@
             "body.close_if_running": "boolean, optional — Stop-hook contract; when true, close fields only apply if the row is still status='running'",
             "body.outcome_metadata.spawned_agent_uuid": "string, optional, <=200 chars — persisted into outcome_progress regardless of the close gate"
           },
-          "response": "{ action: updated row, security: {clean, findings_count, critical_count, categories}, cost_alert?: {threshold, severity} }",
-          "errors": "400 invalid/non-object JSON body or validation failed; 404 action not found (no close fields submitted or truly missing); 409 'Action is in a terminal state and cannot be modified' when close fields target an already-terminal row",
+          "response": "{ action: updated row, allowed_next: string[], security: {clean, findings_count, critical_count, categories}, cost_alert?: {threshold, severity} }; a status equal to the stored one is a no-op 200 with the current row",
+          "errors": "400 invalid/non-object JSON body or validation failed; 404 action not found (no close fields submitted or truly missing); 409 { error: 'illegal_transition', message, current, requested, allowed, status } when the requested status does not follow the stored one (pending/pending_approval/blocked are never PATCHable; close fields on a row that is no longer running)",
           "gotchas": "At least one recognized outcome field is required by validateActionOutcome or validation fails. Close fields (status/output_summary/timestamp_end) only apply if the row's status is 'running' (or per close_if_running semantics for the Stop hook); non-close fields (tokens/cost/model/side_effects/etc.) always apply even after closure. Also triggers cost-alert evaluation and best-effort learning-epis…",
           "file": "app/api/actions/[actionId]/route.ts"
         },
@@ -1022,7 +1022,7 @@
             "body.summary": "string, optional; truncated to 4000 chars; redacted for secrets"
           },
           "response": "{ outcome: {action_id, status, outcome_at, summary, error_message, progress, elapsed_ms}, security: {clean, findings_count, critical_count, categories} }",
-          "errors": "400 invalid status, missing error_message for failed, missing/invalid progress for partial, or progress payload too large; 404 action not found; 409 'Cannot report an outcome for an action in status <status>' (blocked/pending_approval/cancelled/fail…",
+          "errors": "400 invalid status, missing error_message for failed, missing/invalid progress for partial, or progress payload too large; 404 action not found; 409 'Cannot report an outcome for an action in status <status>' (blocked/pending_approval/cancelled/failed/expired), with current_status",
           "gotchas": "One-shot semantics — a second POST for the same action conflicts (409) rather than overwriting.",
           "file": "app/api/actions/[actionId]/outcome/route.ts"
         },
@@ -1533,7 +1533,7 @@
             "body.reasoning": "string, optional (redacted for secrets before storage)"
           },
           "response": "{ success: true, action: {...}, security: {clean, findings_count, critical_count, categories} }",
-          "errors": "403 Admin access required / APPROVER_IDENTITY_REQUIRED / SELF_APPROVAL_FORBIDDEN (creator approving own action, unless userId==='operator'); 404 Action not found; 400 invalid decision or action not pending_approval; 409 already resolved by another a…; SoD also covers deny and lifting a denial (a second principal or 'operator' required), and principal-less (NULL created_by) rows are operator-only",
+          "errors": "403 Admin access required / APPROVER_IDENTITY_REQUIRED / SELF_APPROVAL_FORBIDDEN (creator approving own action, unless userId==='operator'); 404 Action not found; 400 invalid decision or action not pending_approval (the latter with code 'illegal_transition', current, requested, allowed); 409 already resolved by another a…; SoD also covers deny and lifting a denial (a second principal or 'operator' required), and principal-less (NULL created_by) rows are operator-only",
           "gotchas": "Lazily expires overdue pending approvals on read (self-healing) before processing; clears external (Discord/Telegram) approval-request notifications via next/server `after()`.",
           "file": "app/api/approvals/[actionId]/route.ts"
         },
@@ -5301,6 +5301,11 @@
             "base": "DashClawError",
             "signature": "OutcomeConfirmationError(action_id)",
             "purpose": "The callback succeeded but its completed outcome could not be confirmed. Carries .action_id."
+          },
+          "IllegalTransitionError": {
+            "base": "DashClawError",
+            "signature": "IllegalTransitionError(body, status=409)",
+            "purpose": "The server refused a lifecycle status change (409 illegal_transition). Carries .code, .current, .requested and .allowed (the statuses reachable from .current; [] when it is final); str() is the server message. Retrying the same request cannot succeed."
           }
         },
         "top_level_exports": {
@@ -5308,6 +5313,7 @@
             "DashClaw",
             "DashClawError",
             "GuardBlockedError",
+            "IllegalTransitionError",
             "OpenClawAgent",
             "ApprovalDeniedError",
             "ApprovalPendingError",

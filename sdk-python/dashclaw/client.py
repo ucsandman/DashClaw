@@ -98,6 +98,23 @@ class GuardBlockedError(DashClawError):
         self.matched_policies = decision.get("matched_policies", [])
         self.risk_score = decision.get("risk_score")
 
+class IllegalTransitionError(DashClawError):
+    """Raised when the server refuses a lifecycle status change (409 illegal_transition).
+
+    ``current`` is the stored status, ``requested`` the one asked for and
+    ``allowed`` the statuses the lifecycle lets this caller reach from here
+    ([] when ``current`` is final). Retrying the same request cannot succeed.
+    """
+    def __init__(self, body, status=409):
+        body = body if isinstance(body, dict) else {}
+        message = body.get("message") or "illegal_transition"
+        super().__init__(message, status=status, details=body)
+        self.code = "illegal_transition"
+        self.current = body.get("current")
+        self.requested = body.get("requested")
+        self.allowed = list(body.get("allowed") or [])
+
+
 class ApprovalDeniedError(DashClawError):
     """Thrown when a human operator denies an action."""
     def __init__(self, message, decision=None):
@@ -228,7 +245,10 @@ class DashClaw:
             # Check for governance block
             if e.code == 403 and decision and decision.get("decision") == "block":
                 raise GuardBlockedError(decision)
-        except GuardBlockedError:
+            # Lifecycle refusal: keep current / requested / allowed for the caller
+            if error_data.get("error") == "illegal_transition":
+                raise IllegalTransitionError(error_data, status=e.code)
+        except (GuardBlockedError, IllegalTransitionError):
             raise
         except Exception:
             message = str(e)

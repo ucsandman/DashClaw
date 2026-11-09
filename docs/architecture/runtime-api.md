@@ -257,6 +257,23 @@ DashClaw can also set `expired` server-side (never client-suppliable): a
 `pending_approval` row whose requesting client provably stopped waiting flips
 to `expired` and is no longer approvable (see "Approval lifecycle" below).
 
+**Lifecycle table.** `app/lib/action-lifecycle.ts` is the one source of truth
+for how a status may change after create:
+
+```text
+pending_approval -> running | failed     (operator or chat approve/deny)
+pending_approval -> expired              (server-side expiry)
+running          -> running | completed | failed | cancelled   (agent; operator cancel)
+running | pending -> completed | failed  (outcome / sweep); -> unknown (sweep only)
+blocked, completed, failed, cancelled, expired, unknown: terminal
+```
+
+A request the table refuses answers `409 { "error": "illegal_transition",
+"message", "current", "requested", "allowed" }` (the PATCH also keeps its
+legacy `status` key). A request equal to the stored status is a no-op
+success. `GET /api/actions/:actionId` and the PATCH response carry
+`allowed_next`, the states the action can still move to.
+
 Agent-reported cost and token values are clamped server-side. If `tokens_in` or `tokens_out` are provided without an explicit `cost_estimate`, DashClaw estimates cost from the configured pricing table.
 
 ### 3. Durable Outcomes (`POST /api/actions/:actionId/outcome`)

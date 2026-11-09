@@ -28,6 +28,21 @@ export function redactErrorDetail(err: any): string {
 export function apiErrorResponse(err: any, label: string): NextResponse {
   console.error(`[${label}] error:`, err);
 
+  // Lifecycle refusal (IllegalTransitionError, app/lib/action-lifecycle.ts)
+  // thrown by a repository backstop: the requested status does not follow the
+  // stored one. A caller error, not a server fault, so it answers the 409
+  // illegal_transition contract. The message is built from fixed state labels
+  // (no internals), so it is safe to return under the redaction gate.
+  if (err?.code === 'illegal_transition') {
+    return NextResponse.json({
+      error: 'illegal_transition',
+      message: err.message,
+      current: err.current,
+      requested: err.requested,
+      allowed: err.allowed,
+    }, { status: 409 });
+  }
+
   // Guard refused to return a decision it could not durably audit (see
   // persistGuardDecision). This is the one failure where the caller MUST be
   // able to tell "governance is degraded" apart from a generic 500 — the

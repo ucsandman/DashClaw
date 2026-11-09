@@ -28,6 +28,7 @@ import { ListControlsBar } from '../components/ListControlsBar';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
 import { useRealtime } from '../hooks/useRealtime';
 import { OutcomeBadge } from '../components/OutcomeBadge';
+import { ACTION_STATES, ACTION_STATE_LABELS } from '../lib/action-lifecycle';
 import { parseJsonArray } from '../lib/parseJson';
 import {
   Zap, Hammer, Rocket, FileText, Briefcase, Shield, MessageSquare,
@@ -614,7 +615,7 @@ function DecisionsLedgerInner() {
             </select>
             <select aria-label="Filter by status" value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(0); }} className={`${selectClass} md:flex-1`}>
               <option value="">All statuses</option>
-              {['running','pending','pending_approval','blocked','completed','failed','cancelled','unknown'].map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+              {ACTION_STATES.map(s => <option key={s} value={s}>{ACTION_STATE_LABELS[s]}</option>)}
             </select>
             <select aria-label="Filter by outcome" value={filterOutcome} onChange={(e) => { setFilterOutcome(e.target.value); setPage(0); }} className={`${selectClass} md:flex-1`}>
               <option value="">All outcomes</option>

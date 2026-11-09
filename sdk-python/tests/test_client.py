@@ -23,6 +23,7 @@ from dashclaw.client import (
     DashClawError,
     GuardBlockedError,
     ApprovalDeniedError,
+    IllegalTransitionError,
 )
 
 
@@ -163,6 +164,30 @@ class TestRequest(unittest.TestCase):
         self.assertEqual(str(ctx.exception), "bad input")
         self.assertEqual(ctx.exception.status, 422)
         self.assertEqual(ctx.exception.details, {"f": 1})
+
+    def test_http_409_illegal_transition_keeps_lifecycle_contract(self):
+        body = {
+            "error": "illegal_transition",
+            "message": "Cannot move this action from Completed (completed) to Running (running).",
+            "current": "completed",
+            "requested": "running",
+            "allowed": [],
+            "status": "completed",
+        }
+        err = make_http_error(409, json.dumps(body).encode())
+        client = make_client()
+        with mock.patch("urllib.request.urlopen", side_effect=err):
+            with self.assertRaises(IllegalTransitionError) as ctx:
+                client._request("/api/actions/act_1", method="PATCH", body={"status": "running"})
+        exc = ctx.exception
+        self.assertIsInstance(exc, DashClawError)
+        self.assertEqual(exc.status, 409)
+        self.assertEqual(exc.code, "illegal_transition")
+        self.assertEqual(exc.current, "completed")
+        self.assertEqual(exc.requested, "running")
+        self.assertEqual(exc.allowed, [])
+        self.assertEqual(str(exc), body["message"])
+        self.assertEqual(exc.details, body)
 
     def test_http_403_block_decision_raises_guard_blocked(self):
         decision = {
