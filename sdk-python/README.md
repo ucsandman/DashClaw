@@ -108,12 +108,29 @@ signals = claw.get_signals()
 | Method | Description |
 |--------|-------------|
 | `create_action(action_type, declared_goal, session_id=None, **kwargs)` | Record a new action. Optional: session_id (exact session linkage), risk_score, systems_touched, reversible |
-| `update_outcome(action_id, status=None, **kwargs)` | Update action outcome. Optional: duration_ms, error_message, tokens_in, tokens_out, model, cost_estimate. When tokens + model are provided without cost_estimate, the server derives cost from the pricing table. |
+| `update_outcome(action_id, status=None, **kwargs)` | Update action outcome. Optional: duration_ms, error_message, tokens_in, tokens_out, model, cost_estimate. When tokens + model are provided without cost_estimate, the server derives cost from the pricing table. A status the action lifecycle refuses (409 `illegal_transition`) raises `IllegalTransitionError`; see below. |
 | `get_actions(**filters)` | Query actions. Filters: status, agent_id, limit, offset |
-| `get_action(action_id)` | Get a single action by ID |
+| `get_action(action_id)` | Get a single action by ID. The response carries `allowed_next`, the statuses the action can still move to. |
 | `get_action_trace(action_id)` | Get the full trace for an action |
 | `track(action_type, declared_goal, **kwargs)` | Context manager: auto-creates action, records status + duration |
 | `get_signals()` | Get computed signals (anomalies, streaks, patterns) |
+
+**Illegal status changes.** From `running` an agent can move an action to
+`completed`, `failed` or `cancelled`. Asking for `pending`,
+`pending_approval` or `blocked`, or changing the status of a row that is no
+longer `running`, gets `409 illegal_transition` and raises
+`IllegalTransitionError` (a `DashClawError` with `.code`, `.current`,
+`.requested` and `.allowed`; `str()` is the server message). Retrying the
+same request cannot succeed. A status equal to the stored one is a no-op.
+
+```python
+from dashclaw import IllegalTransitionError
+
+try:
+    claw.update_outcome(action_id, status="pending_approval")
+except IllegalTransitionError as err:
+    print(err.current, err.requested, err.allowed)
+```
 
 ## Action Context (Auto-Tagging)
 

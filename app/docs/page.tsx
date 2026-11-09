@@ -817,7 +817,7 @@ if created.get("action", {}).get("status") == "pending_approval":
             <MethodEntry
               id="updateOutcome"
               signature="claw.updateOutcome(id, outcome) / claw.update_outcome(id, **kwargs)"
-              description="Record caller-reported results. Accepts status, output_summary, error_message, duration_ms, tokens_in, tokens_out, model, cost_estimate. When tokens and model are supplied without cost_estimate, the server derives cost from the pricing table. This record supports reconciliation; it is not independent proof of the external effect."
+              description="Record caller-reported results. Accepts status, output_summary, error_message, duration_ms, tokens_in, tokens_out, model, cost_estimate. When tokens and model are supplied without cost_estimate, the server derives cost from the pricing table. This record supports reconciliation; it is not independent proof of the external effect. A status the action lifecycle refuses (pending, pending_approval or blocked, or any change on a row that is no longer running) answers 409 illegal_transition with current, requested and allowed: Node throws with err.message 'illegal_transition' and the body on err.decision, Python raises IllegalTransitionError. Do not retry it. GET /api/actions/:id and the PATCH response carry allowed_next."
               example={
                 <DocsCodeTabs
                   nodeSnippet={`await claw.updateOutcome(action_id, {

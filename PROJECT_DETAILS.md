@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-09-26
+last-verified: 2026-11-09
 doc-type: architecture
 ---
 
@@ -74,7 +74,7 @@ These routes define the minimum DashClaw category. They are stable or runtime-cr
 |:---|:---|:---|
 | `/api/guard` | Policy evaluation before execution | Returns `allow`, `warn`, `allow_contained`, `require_approval`, or `block`. With recording enabled, protocol-1 responses also advertise the execution claim requirement. The calling surface enforces the verdict. |
 | `/api/actions` | Create, list, and delete action records | `POST` accepts `idempotency_key`; duplicate `(org_id, idempotency_key)` creates return the existing row with `idempotent_replay: true`. |
-| `/api/actions/:actionId` | Read, update, or claim an action | Protocol-1 clients PATCH `{ claim_execution: true, attempt_id, agent_id, act }` to claim one execution attempt. The server binds the authenticated principal, exact act, and fresh policy state; conflicts fail closed. Lifecycle updates remain available; durable finality uses the separate `/outcome` route. |
+| `/api/actions/:actionId` | Read, update, or claim an action | Protocol-1 clients PATCH `{ claim_execution: true, attempt_id, agent_id, act }` to claim one execution attempt. The server binds the authenticated principal, exact act, and fresh policy state; conflicts fail closed. Lifecycle updates remain available and follow the table in `app/lib/action-lifecycle.ts`: a status change the table refuses answers `409 { error: 'illegal_transition', message, current, requested, allowed }`, a status equal to the stored one is a no-op, and `GET` and `PATCH` carry `allowed_next`. Durable finality uses the separate `/outcome` route. |
 | `/api/actions/:actionId/outcome` | Durable terminal outcome | One-shot `pending -> completed/partial/failed`; `lost_confirmation` is system-owned. |
 | `/api/actions/:actionId/trace` | Action trace | Read-only evidence path. |
 | `/api/actions/:actionId/graph` | Execution graph | Nodes and edges around an action, assumptions, and trace data. |
