@@ -13,6 +13,18 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.39.1] - 2026-11-14
+
+### Security
+
+- Update sharp to 0.35.5 and Vitest/coverage/mocker to 4.1.12 to address GHSA-wq5f-xc86-pv6w and GHSA-qxg6-89mg-rqv8.
+- Integrate the weekly dependency updates from PR #292, including Next.js and eslint-config-next 16.4.6.
+
+### Release notes
+
+- Platform-only dependency release. SDK source is unchanged; do not republish Node or Python SDK packages.
+- Other dependency advisories remain outside this scoped update; this is not a complete security clearance.
+
 ## [5.39.0] - 2026-11-09
 
 ### Changed
