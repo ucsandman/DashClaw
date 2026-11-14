@@ -102,7 +102,7 @@
   },
   "overrides": {
     "esbuild": "^0.28.1",
-    "sharp": "^0.35.0",
+    "sharp": "^0.35.5",
     "vite": "^8.0.16",
     "dompurify": "^3.4.11",
     "postcss": "^8.5.10",
@@ -116,7 +116,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^6.1.1",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "4.1.12",
     "acorn": "^8.18.0",
     "autocannon": "^8.0.0",
     "autoprefixer": "^10.6.1",
@@ -129,6 +129,6 @@
     "tsx": "^4.23.15",
     "tweetnacl": "^1.0.3",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.0"
+    "vitest": "4.1.12"
   }
 }
