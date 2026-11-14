@@ -1,23 +1,23 @@
 {
   "node": {
-    "current_version": "5.39.0",
+    "current_version": "5.39.1",
     "next_bump": "none",
-    "reason": "5.39.0 explicit action lifecycle (409 illegal_transition and allowed_next on GET/PATCH /api/actions/{id}): no Node SDK source change since 5.33.9. The JS SDK already surfaces the refusal (err.status 409, err.message 'illegal_transition', body on err.decision). The v5.39.0 tag publishes sdk/ at 5.39.0 with code identical to 5.33.9, because release.yml publishes both SDKs on a version tag.",
+    "reason": "5.39.1 explicit action lifecycle (409 illegal_transition and allowed_next on GET/PATCH /api/actions/{id}): no Node SDK source change since 5.33.9. The JS SDK already surfaces the refusal (err.status 409, err.message 'illegal_transition', body on err.decision). The v5.39.1 tag publishes sdk/ at 5.39.1 with code identical to 5.33.9, because release.yml publishes both SDKs on a version tag.",
     "domains": [
       "platform",
       "docs"
     ]
   },
   "python": {
-    "current_version": "5.39.0",
+    "current_version": "5.39.1",
     "next_bump": "none",
-    "reason": "5.39.0 Python SDK change: IllegalTransitionError (a DashClawError with .code, .current, .requested, .allowed) is raised when the server answers 409 illegal_transition, instead of a bare DashClawError('illegal_transition'). Publish to PyPI.",
+    "reason": "5.39.1 Python SDK change: IllegalTransitionError (a DashClawError with .code, .current, .requested, .allowed) is raised when the server answers 409 illegal_transition, instead of a bare DashClawError('illegal_transition'). Publish to PyPI.",
     "domains": [
       "actions",
       "sdk"
     ]
   },
-  "reason": "5.39.0 makes the action status machine explicit (409 illegal_transition, allowed_next). Python SDK source changed (IllegalTransitionError) and is published; Node SDK source is unchanged and is republished at 5.39.0 only because the version tag publishes both. MCP server 3.1.7 -> 3.1.8 for the dashclaw_record close path.",
+  "reason": "5.39.1 makes the action status machine explicit (409 illegal_transition, allowed_next). Python SDK source changed (IllegalTransitionError) and is published; Node SDK source is unchanged and is republished at 5.39.1 only because the version tag publishes both. MCP server 3.1.7 -> 3.1.8 for the dashclaw_record close path.",
   "domains": [
     "actions",
     "sdk",
