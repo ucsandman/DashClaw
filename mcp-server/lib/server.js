@@ -40,10 +40,10 @@ function propertyToZod(prop) {
                 schema = z.boolean();
                 break;
             case "array":
-                schema = z.array(prop.items?.type === "string" ? z.string() : z.record(z.unknown()));
+                schema = z.array(prop.items?.type === "string" ? z.string() : z.record(z.string(), z.unknown()));
                 break;
             case "object":
-                schema = z.record(z.unknown());
+                schema = z.record(z.string(), z.unknown());
                 break;
             default:
                 schema = z.string();

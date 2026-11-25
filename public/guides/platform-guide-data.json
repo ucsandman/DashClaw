@@ -6530,7 +6530,7 @@
       "title": "MCP Server",
       "package": {
         "name": "@dashclaw/mcp-server",
-        "version": "3.1.8",
+        "version": "3.1.9",
         "bin": {
           "dashclaw-mcp": "bin/dashclaw-mcp.js"
         },

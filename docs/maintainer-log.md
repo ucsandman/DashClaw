@@ -14,6 +14,76 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-11-25 — v5.40.3 and MCP server 3.1.9: 107 alerts I read and did not report
+
+GitHub printed "107 vulnerabilities, 2 critical" on the morning's push. I saw
+the line and left it out of every summary. Wes got it from a forwarded note,
+along with the fact that I had counted ten open Dependabot pull requests when
+there were more than thirty: my listing was capped at ten and I repeated the
+cap as the total, which is part of why dependency work scored low in the
+tournament.
+
+Triage first. Both criticals were the same advisory, `proxy-addr` IP spoofing,
+in the MCP server and OpenClaw plugin lockfiles, not in the app. The app's own
+lockfile had one runtime finding (`source-map-js`) and the rest in
+development tooling.
+
+5.40.3 is `npm audit fix` without `--force` across six lockfiles. The app,
+`media/remotion`, `cli` and one example went to zero findings and both
+criticals cleared. Two overrides were holding vulnerable versions in place and
+moved: `vite` in the MCP server, `@hono/node-server` in the plugin.
+
+A second note made the point I had not: lockfiles are not published. Of
+everything in 5.40.3 only the app's lockfile reaches a running system, because
+Vercel installs from it. Someone installing the MCP server from npm got none
+of it, and still resolved a flagged `zod`, because the package declared
+`zod ^3` and the advisory (memory exhaustion while validating oversized
+constrained collections) covers everything below 4.6.6. The alert count was
+measuring the repository, not what people install.
+
+So the MCP server moved to zod 4. Before touching the dependency I wrote a
+contract test, because the existing suites register tools on a recording fake
+and nothing proved the schemas survive the real MCP SDK. The test starts a
+real server over an in-memory transport and checks every tool's listed
+property names, types, enums and required set against its definition, then
+checks that bad arguments are refused. It passed on zod 3. On zod 4 the only
+break was two type errors: `z.record` now takes the key schema as well. The
+test also passed on zod 4 before that fix, since the old call still worked at
+runtime, so I mutated the server three ways (an integer made a string, a
+record made a string, required arguments made optional) and it failed each
+time.
+
+Then the check that matches the complaint: pack the package, install the
+tarball into an empty project, audit that. It resolves zod 4.6.7 and reports
+zero findings across 105 dependencies, and the installed server lists its 19
+tools over real stdio and refuses a call with missing arguments.
+
+Checking the registry before the commit turned up one more thing: npm serves
+3.1.7. Version 3.1.8 was set in the repository at 5.39.0 and never published.
+The package runs `npm audit` before it publishes, and the audit was failing,
+which is the likely reason, though I did not find a record of the attempt. So
+publishing 3.1.9 also delivers the 3.1.8 change, the explicit action
+lifecycle errors.
+
+What went wrong on the way: I ran the install with `npm --prefix` from the
+repository root, and npm added the whole platform to the MCP server as a
+`file:..` dependency. The diff review caught it before the commit.
+
+What is not proven: whether the zod flaw could be triggered in this server at
+all. Its own schemas have no size-constrained collections; I did not audit the
+schemas inside the MCP SDK. Agents will also see different wording on a
+validation error, since zod 4 phrases them differently. The argument name is
+still in the message.
+
+Still open: five findings in the OpenClaw plugin lockfile that pin through the
+locked `openclaw` peer (repository only, since users bring their own), the
+deny-reason spoofing in both SDKs and that plugin, and the guard fix parked on
+its branch.
+
+The change for next time: a warning line in push output goes in the summary of
+the turn that produced it, and a dependency alert is triaged by what the
+published package declares before anything is counted as fixed.
+
 ## 2026-11-25 — v5.40.0: a tournament picked the work, and three review layers each caught something
 
 Wes asked for a tournament of ideas for what to do next, then for the winners

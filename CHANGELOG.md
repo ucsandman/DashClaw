@@ -13,6 +13,10 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Security
+
+- **MCP server 3.1.9: zod 4.** `@dashclaw/mcp-server` declared `zod ^3`, and every zod below 4.6.6 is covered by GHSA-mrhx-c7xc-m3w5 (memory exhaustion while validating oversized constrained collections), so installs from npm resolved a flagged version. It now requires `zod ^4.6.6`. The two freeform-object schemas use the two-argument `z.record` form zod 4 types require. A new contract test drives a real MCP server over an in-memory transport and pins that every tool still lists the property names, types, enums and required set its definition declares, and still rejects bad arguments. `npm audit` in `mcp-server` is at 0, which also unblocks its publish gate. A fresh install of the packed tarball resolves zod 4.6.7 and audits at 0. Validation errors returned to agents are worded differently under zod 4; the argument name is still in the message.
+
 ## [5.40.3] - 2026-11-25
 
 ### Security
