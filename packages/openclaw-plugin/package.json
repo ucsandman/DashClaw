@@ -1,6 +1,6 @@
 {
   "name": "@dashclaw/openclaw-plugin",
-  "version": "1.6.4",
+  "version": "1.6.5",
   "description": "DashClaw policy checks, remote approvals, and execution claims at OpenClaw's supported tool hook boundary.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -491,6 +491,43 @@ function hourBucket(): number {
  * Create tool handler functions bound to a DashClawClient instance.
  * Each handler accepts input args and returns a JSON string (MCP text content).
  */
+const WAIT_REPLY_ACTION_FIELDS = [
+  'action_id', 'status', 'approved_by', 'approved_at', 'approval_expires_at',
+  'agent_id', 'action_type', 'declared_goal',
+] as const;
+
+const HITL_DENY_MARKER = '[HITL Decision: DENY by ';
+const HITL_DENY_NOTE_PREFIX = '\nReason: ';
+
+/**
+ * The note an approver typed when denying, or ''.
+ *
+ * Read ONLY from the marker the approvals route appends to `reasoning`: that
+ * column is not writable through PATCH /api/actions/:id, while `error_message`
+ * is writable by any org key, so reporting it as the denial reason would let
+ * another agent speak to this one with the operator's voice. The LAST marker
+ * is the server's; one the action's creator wrote earlier loses to it.
+ */
+function operatorDenyNote(action: any): string {
+  const reasoning = action?.reasoning;
+  if (typeof reasoning !== 'string') return '';
+  // approval_expires_at is stamped by the server only on a row created
+  // pending_approval. A row created already failed never met an approver, so a
+  // marker in it was written by whoever created it.
+  if (action.approval_expires_at == null) return '';
+  const at = reasoning.lastIndexOf(HITL_DENY_MARKER);
+  if (at < 0) return '';
+  const close = reasoning.indexOf(']', at);
+  if (close < 0 || !reasoning.startsWith(HITL_DENY_NOTE_PREFIX, close + 1)) return '';
+  const note = reasoning
+    .slice(close + 1 + HITL_DENY_NOTE_PREFIX.length)
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '')
+    .trim();
+  // Cut by code point: a UTF-16 slice can end on half of a surrogate pair.
+  return Array.from(note).slice(0, 500).join('');
+}
+
 export function createToolHandlers(client: DashClawClient): Record<string, ToolHandler> {
   // WRITE identity: server-configured agent_id (DASHCLAW_AGENT_ID / --agent-id /
   // auto-derived from MCP clientInfo) wins over anything the LLM passes in the
@@ -833,14 +870,22 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
           // Approvals lifecycle (roadmap v2.3): the server expired the
           // approval — it can no longer release anything. Terminal.
           const expired = !approved && status === 'expired';
+          // A model reads this whole reply. `error_message`, `side_effects`,
+          // `artifacts_created` and the other outcome fields are writable by any
+          // org key, and `reasoning` can hold a marker its creator forged, so the
+          // record is cut down to the fields that describe the decision.
+          const action: Record<string, unknown> = {};
+          for (const key of WAIT_REPLY_ACTION_FIELDS) {
+            if (result.action[key] !== undefined) action[key] = result.action[key];
+          }
           return JSON.stringify({
             approved,
             denied,
             ...(expired ? { expired: true } : {}),
             denial_reason: denied
-              ? (result?.action?.error_message || `Operator marked action as ${status}`)
-              : (expired ? (result?.action?.error_message || 'Approval expired before a decision was made') : null),
-            action: result.action,
+              ? (operatorDenyNote(result.action) || `Operator marked action as ${status}`)
+              : (expired ? 'Approval expired before a decision was made' : null),
+            action,
             waited_seconds: Math.round((Date.now() - start) / 1000),
           });
         }

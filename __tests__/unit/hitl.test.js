@@ -158,7 +158,7 @@ describe('HITL Approval Flow', () => {
       .rejects.toThrow('Network failure');
   });
 
-  it('throws ApprovalDeniedError with custom message on cancelled status', async () => {
+  it('throws ApprovalDeniedError with the note the operator typed on cancelled status', async () => {
     fetch
       .mockResolvedValueOnce(sseUnavailable())
       .mockResolvedValueOnce({
@@ -167,7 +167,8 @@ describe('HITL Approval Flow', () => {
           action: {
             action_id: 'act_6',
             status: 'cancelled',
-            error_message: 'Budget limit exceeded'
+            approval_expires_at: '2026-11-25T21:00:00.000Z',
+            reasoning: 'Buy the domain.\n\n[HITL Decision: DENY by usr_1]\nReason: Budget limit exceeded'
           }
         })
       });
@@ -184,7 +185,8 @@ describe('HITL Approval Flow', () => {
             action: {
               action_id: 'act_6',
               status: 'cancelled',
-              error_message: 'Budget limit exceeded'
+              approval_expires_at: '2026-11-25T21:00:00.000Z',
+              reasoning: 'Buy the domain.\n\n[HITL Decision: DENY by usr_1]\nReason: Budget limit exceeded'
             }
           })
         });

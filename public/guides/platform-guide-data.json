@@ -4571,7 +4571,7 @@
       "title": "Node / TypeScript SDK",
       "package": {
         "name": "dashclaw",
-        "version": "5.40.3",
+        "version": "5.40.4",
         "install": "npm install dashclaw",
         "description": "Govern agent callbacks with policy checks, remote approvals, execution claims, and outcome reporting.",
         "license": "MIT",
@@ -5237,7 +5237,7 @@
       "title": "Python SDK",
       "package": {
         "name": "dashclaw",
-        "version": "5.40.3",
+        "version": "5.40.4",
         "install": "pip install dashclaw",
         "source": "sdk-python/pyproject.toml, sdk-python/dashclaw/client.py, sdk-python/README.md",
         "requires_python": ">=3.7",
@@ -6217,7 +6217,7 @@
       "title": "CLI (@dashclaw/cli)",
       "package": {
         "name": "@dashclaw/cli",
-        "version": "0.13.1",
+        "version": "0.13.2",
         "bin": {
           "dashclaw": "./bin/dashclaw.js"
         },
@@ -6530,7 +6530,7 @@
       "title": "MCP Server",
       "package": {
         "name": "@dashclaw/mcp-server",
-        "version": "3.1.9",
+        "version": "3.1.10",
         "bin": {
           "dashclaw-mcp": "bin/dashclaw-mcp.js"
         },
@@ -7357,7 +7357,7 @@
           "name": "@dashclaw/openclaw-plugin (OpenClaw gateway plugin)",
           "kind": "plugin",
           "status": "stable",
-          "statusEvidence": "package.json and openclaw.plugin.json are version 1.6.4 and declare OpenClaw compatibility >=2026.4.15.",
+          "statusEvidence": "package.json and openclaw.plugin.json are version 1.6.5 and declare OpenClaw compatibility >=2026.4.15.",
           "interface": "packages/openclaw-plugin/src/index.ts, built via `tsc` to dist/index.js; registered in openclaw.plugin.json (id: dashclaw-governance) with a configSchema; OpenClaw hooks: before_tool_call, after_tool_call, llm_output, agent_end",
           "purpose": "Routes each supported OpenClaw tool call through guard and optional approval, creates the action record, consumes the exact one-shot execution claim when protocol 1 is advertised, then records the outcome.",
           "envVars": [
@@ -7384,11 +7384,11 @@
       "package": {
         "bundle": {
           "name": "dashclaw",
-          "version": "3.4.1"
+          "version": "3.4.2"
         },
         "openclaw": {
           "name": "@dashclaw/openclaw-plugin",
-          "version": "1.6.4"
+          "version": "1.6.5"
         }
       }
     },

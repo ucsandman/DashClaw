@@ -14,6 +14,68 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-11-25 — v5.40.4: the deny reason, in the four places the hook fix left behind
+
+5.40.0 stopped the Claude Code hook from printing `error_message` as the
+operator's reason for a denial, because any API key in the org can write that
+field. The same day's review said the hole was older and wider than the hook.
+This closes it everywhere else an agent is told why it was denied.
+
+It was four clients, not the three I had listed. Both SDKs and the OpenClaw
+plugin were known. Reading for the fix turned up the MCP server's
+`dashclaw_wait_for_approval`, which returned the same field as
+`denial_reason`, eight hours after I published that package. It also turned up
+the governance skill, which told agents in plain words to "report
+`error_message` from the action record" after a denial. The skill ships in the
+plugin bundle and as a download.
+
+Each client now reads the note only from the marker the approvals route
+appends to `reasoning`, a column the update route cannot write. The plugin
+does not trust the SDK's error text, since it can be installed beside any SDK
+back to 5.0: on a denial it re-reads the action and parses the note itself.
+
+Two corrections came from outside my own reasoning. A forwarded note pointed
+out that the MCP reply still returned the whole record, `error_message`
+included, and that I had chosen to mention this later instead of fixing it. A
+model reads the whole reply, so the label on one field was never the point.
+Then an independent security review, run on the diff without my conclusions,
+passed it with four minor findings. I took three:
+
+- The MCP reply now returns eight named fields of the record. Removing one
+  field was the wrong shape: `side_effects` and `artifacts_created` are
+  writable by any key too.
+- A key can create a record already failed, with a forged marker in its own
+  reasoning. All four clients now trust the marker only on a record that was
+  created pending approval, which the server marks with `approval_expires_at`.
+  The local database has 49 human-denied records and all 49 carry it.
+- A second line in the skill's reference file pointed at `error_message`.
+
+Tests that asserted the old behavior were rewritten to the new contract, since
+the old behavior was the bug: one each in `__tests__/unit/hitl.test.js` and
+`__tests__/unit/sdk/dashclaw.test.js`, two in
+`sdk-python/tests/test_client.py`. Fourteen mutations of the fix across the four
+packages each fail a test. The control that matters most: the published SDK
+5.39.0, installed from npm and pointed at a local server, hands the planted
+text to the agent; the packed 5.40.4 does not.
+
+What the review found that this does not fix:
+
+- An admin-role key, or the root key, can deny through the API with a note,
+  and the clients present it as the operator's. I left it: a key that can deny
+  can also approve, so it already holds the operator's authority. Member keys,
+  the default for agents, cannot.
+- The update route lets any org key write outcome fields on any action. That
+  is the cause under all of this and it is a server change with its own review.
+- The server puts the approver's id into the marker unescaped. Every id format
+  in use today is safe.
+
+What is not proven: nothing here has run against the live host, and the
+packages are not published as I write this.
+
+The change for next time: when a field turns out to be untrusted, search for
+every reader of it, in code and in the text agents are told to follow, before
+fixing the first one. I fixed the hook and listed the rest from memory.
+
 ## 2026-11-25 — v5.40.3 and MCP server 3.1.9: 107 alerts I read and did not report
 
 GitHub printed "107 vulnerabilities, 2 critical" on the morning's push. I saw

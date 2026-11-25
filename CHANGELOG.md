@@ -13,9 +13,23 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.40.4] - 2026-11-25
+
 ### Security
 
+- **A denial reason now comes only from the operator, in every client.** When an approval was denied, both SDKs, the OpenClaw plugin and the MCP server told the waiting agent why by reading the action's `error_message`. Any API key in the org can write that field through `PATCH /api/actions/:id`, so another agent could put words in the operator's mouth. All four now read the note only from the `[HITL Decision: DENY by ...]` marker the approvals route appends to `reasoning`, which that route cannot write. The Claude Code hook was fixed the same way in 5.40.0.
+  - Node SDK and Python SDK 5.40.4: `ApprovalDeniedError` carries the operator's note, or a fixed default.
+  - OpenClaw plugin 1.6.5: on a denial it re-reads the action and parses the note itself, so it is safe with any installed SDK version.
+  - MCP server 3.1.10: `dashclaw_wait_for_approval` builds `denial_reason` from the marker. A model reads the whole reply, so the `action` it returns is now cut down to `action_id`, `status`, `approved_by`, `approved_at`, `approval_expires_at`, `agent_id`, `action_type` and `declared_goal`. `error_message`, `side_effects`, `artifacts_created` and the other fields any org key can write are no longer in it.
+  - All four trust the marker only on a record that was created pending approval (the server stamps `approval_expires_at` on those alone), so a record created already failed with a forged marker yields the plain default.
+  - Governance skill: it told agents to "report `error_message` from the action record" after a denial. It now points at `denial_reason`, in the skill and in its governance-patterns reference. Plugin bundle 3.4.2.
+  - CLI 0.13.2: `dashclaw install openclaw` installs plugin 1.6.5.
 - **MCP server 3.1.9: zod 4.** `@dashclaw/mcp-server` declared `zod ^3`, and every zod below 4.6.6 is covered by GHSA-mrhx-c7xc-m3w5 (memory exhaustion while validating oversized constrained collections), so installs from npm resolved a flagged version. It now requires `zod ^4.6.6`. The two freeform-object schemas use the two-argument `z.record` form zod 4 types require. A new contract test drives a real MCP server over an in-memory transport and pins that every tool still lists the property names, types, enums and required set its definition declares, and still rejects bad arguments. `npm audit` in `mcp-server` is at 0, which also unblocks its publish gate. A fresh install of the packed tarball resolves zod 4.6.7 and audits at 0. Validation errors returned to agents are worded differently under zod 4; the argument name is still in the message.
+
+### Changed
+
+- Denial text from the SDKs is different when the operator typed no note: `Operator denied the action.` (it was the server default `Denied by human operator`). An expired approval always reads `Approval expired before a decision was made.` The note is capped at 500 characters with control characters removed.
+- The OpenClaw plugin's block reason on a denial is `Denied by operator: <note>` or `Action denied by operator` (it was `Approval denied or wait failed: <text>`).
 
 ## [5.40.3] - 2026-11-25
 

@@ -28,6 +28,46 @@ _SCRUB_HEADER_KEYS = {"authorization", "cookie", "x-api-key"}
 # operator verdict yet, same as "pending".
 _PLAN_REVIEW_TERMINAL_STATUSES = {"approved", "partially_approved", "denied", "revoked", "expired"}
 
+_HITL_DENY_MARKER = "[HITL Decision: DENY by "
+_HITL_DENY_NOTE_PREFIX = "\nReason: "
+
+
+def _operator_deny_note(action):
+    """The note an approver typed when denying, or ''.
+
+    Read ONLY from the marker the approvals route appends to ``reasoning``:
+    that column is not writable through PATCH /api/actions/:id, while
+    ``error_message`` is writable by any org key, so using it as the denial
+    text would let another agent speak to this one with the operator's voice.
+    The LAST marker is the server's; one the action's creator wrote earlier
+    loses to it.
+    """
+    reasoning = action.get("reasoning") if isinstance(action, dict) else None
+    if not isinstance(reasoning, str):
+        return ""
+    # approval_expires_at is stamped by the server only on a row created
+    # pending_approval. A row created already failed never met an approver, so
+    # a marker in it was written by whoever created it.
+    if action.get("approval_expires_at") is None:
+        return ""
+    at = reasoning.rfind(_HITL_DENY_MARKER)
+    if at < 0:
+        return ""
+    close = reasoning.find("]", at)
+    if close < 0 or not reasoning.startswith(_HITL_DENY_NOTE_PREFIX, close + 1):
+        return ""
+    note = reasoning[close + 1 + len(_HITL_DENY_NOTE_PREFIX):]
+    # Control characters would be interpreted by a terminal showing the error.
+    note = "".join(ch for ch in note if ch in "\n\t" or (" " <= ch and not "\x7f" <= ch <= "\x9f"))
+    return note.strip()[:500]
+
+
+def _denial_message(action):
+    """Text for ApprovalDeniedError. Never built from ``error_message``."""
+    if isinstance(action, dict) and action.get("status") == "expired":
+        return "Approval expired before a decision was made."
+    return _operator_deny_note(action) or "Operator denied the action."
+
 _SCRUB_TEXT_PATTERNS = [
     (re.compile(r"oc_live_[A-Za-z0-9_-]+"), "[REDACTED]"),
     (re.compile(r"sk-[A-Za-z0-9_-]{10,}"), "[REDACTED]"),
@@ -534,7 +574,7 @@ class DashClaw:
 
         if action.get("status") in ["failed", "cancelled"]:
             raise ApprovalDeniedError(
-                action.get("error_message") or "Operator denied the action.",
+                _denial_message(action),
                 decision=action.get("status")
             )
 
@@ -543,7 +583,7 @@ class DashClaw:
         # it from an operator denial.
         if action.get("status") == "expired":
             raise ApprovalDeniedError(
-                action.get("error_message") or "Approval expired before a decision was made.",
+                _denial_message(action),
                 decision="expired"
             )
 
@@ -572,13 +612,13 @@ class DashClaw:
 
         if sse_data.get("status") in ["failed", "cancelled"]:
             raise ApprovalDeniedError(
-                sse_data.get("error_message") or "Operator denied the action.",
+                _denial_message(sse_data),
                 decision=sse_data.get("status")
             )
 
         if sse_data.get("status") == "expired":
             raise ApprovalDeniedError(
-                sse_data.get("error_message") or "Approval expired before a decision was made.",
+                _denial_message(sse_data),
                 decision="expired"
             )
 
@@ -628,12 +668,7 @@ class DashClaw:
                 if value.get("approved_by"):
                     return self.get_action(action_id)
                 if value.get("status") in ["failed", "cancelled", "expired"]:
-                    message = value.get("error_message") or (
-                        "Approval expired before a decision was made."
-                        if value.get("status") == "expired"
-                        else "Operator denied the action."
-                    )
-                    raise ApprovalDeniedError(message, decision=value.get("status"))
+                    raise ApprovalDeniedError(_denial_message(value), decision=value.get("status"))
 
             result = self.get_action(action_id)
             resolved, was_pending = self._evaluate_wait_for_approval_action(
@@ -651,12 +686,7 @@ class DashClaw:
                     if value.get("approved_by"):
                         return self.get_action(action_id)
                     if value.get("status") in ["failed", "cancelled", "expired"]:
-                        message = value.get("error_message") or (
-                            "Approval expired before a decision was made."
-                            if value.get("status") == "expired"
-                            else "Operator denied the action."
-                        )
-                        raise ApprovalDeniedError(message, decision=value.get("status"))
+                        raise ApprovalDeniedError(_denial_message(value), decision=value.get("status"))
             except queue.Empty:
                 pass
 

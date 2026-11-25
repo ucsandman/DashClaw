@@ -59,6 +59,7 @@ declare module 'dashclaw' {
       actionId: string,
       opts?: { timeout?: number; interval?: number }
     ): Promise<WaitForApprovalResult>;
+    getAction(actionId: string): Promise<{ action?: ActionRecord; [key: string]: unknown }>;
     recordAssumption(assumption: Record<string, unknown>): Promise<unknown>;
     createSession(
       agentId?: string,

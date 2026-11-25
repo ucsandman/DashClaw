@@ -57,7 +57,7 @@ Step 4: Handle the result. The response shape is { approved, denied, expired?, a
                        retry grace passed). It can no longer be approved —
                        re-request if the action is still wanted.
   - approved == false otherwise → action moved to a non-completed terminal
-                                   state. Read action.error_message, then stop.
+                                   state. Read denial_reason and action.status, then stop.
 
 For an ordinary MCP action, `dashclaw_guard` + `dashclaw_record` + approval wait
 is cooperative policy state. It does not claim execution authority. Put a

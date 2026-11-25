@@ -1,7 +1,7 @@
 ---
 name: dashclaw-governance
 description: Policy checks, remote approvals, and execution claims at OpenClaw's supported tool hook boundary.
-version: 1.6.4
+version: 1.6.5
 ---
 
 # DashClaw Governance Hook

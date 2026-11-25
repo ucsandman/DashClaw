@@ -35,8 +35,4 @@ export interface ToolDefinition {
 }
 export type ToolHandler = (input: any) => Promise<string>;
 export declare const TOOL_DEFINITIONS: ToolDefinition[];
-/**
- * Create tool handler functions bound to a DashClawClient instance.
- * Each handler accepts input args and returns a JSON string (MCP text content).
- */
 export declare function createToolHandlers(client: DashClawClient): Record<string, ToolHandler>;

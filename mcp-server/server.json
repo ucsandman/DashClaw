@@ -7,12 +7,12 @@
     "source": "github",
     "subfolder": "mcp-server"
   },
-  "version": "3.1.9",
+  "version": "3.1.10",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@dashclaw/mcp-server",
-      "version": "3.1.9",
+      "version": "3.1.10",
       "transport": {
         "type": "stdio"
       },

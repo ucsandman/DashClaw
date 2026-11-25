@@ -1065,10 +1065,7 @@ async function waitForRequiredApproval(
       interval: approvalPollInterval(timeout),
     });
     if (isApproved(action)) return undefined;
-    return {
-      block: true,
-      blockReason: action?.error_message || 'Action denied by operator',
-    };
+    return { block: true, blockReason: denialBlockReason(action) };
   } catch (err) {
     if (isApprovalTimeout(err)) {
       // The server keeps the approval open past this bounded wait
@@ -1083,10 +1080,82 @@ async function waitForRequiredApproval(
           `Approve it at ${ctx.config.dashclawUrl}/approvals, then retry this tool call.`,
       };
     }
+    if (isApprovalDenial(err)) {
+      // The SDK's error text is not used: SDK versions before 5.40.4 build it
+      // from `error_message`. Re-read the record and take the note from there.
+      if (err.decision === 'expired') {
+        return { block: true, blockReason: 'Approval expired before a decision was made' };
+      }
+      const action = await fetchResolvedAction(ctx, created.actionId);
+      return { block: true, blockReason: denialBlockReason(action) };
+    }
     return {
       block: true,
       blockReason: `Approval denied or wait failed: ${errorMessage(err) || 'denied'}`,
     };
+  }
+}
+
+const HITL_DENY_MARKER = '[HITL Decision: DENY by ';
+const HITL_DENY_NOTE_PREFIX = '\nReason: ';
+const DENY_NOTE_FETCH_MS = 5000;
+
+/**
+ * The note an approver typed when denying, or ''.
+ *
+ * Read ONLY from the marker the approvals route appends to `reasoning`: that
+ * column is not writable through PATCH /api/actions/:id, while `error_message`
+ * is writable by any org key, so relaying it as the block reason would let
+ * another agent speak to this one with the operator's voice. The LAST marker
+ * is the server's; one the action's creator wrote earlier loses to it.
+ */
+function operatorDenyNote(action: ActionRecord | undefined): string {
+  const reasoning = action?.reasoning;
+  if (typeof reasoning !== 'string') return '';
+  // approval_expires_at is stamped by the server only on a row created
+  // pending_approval. A row created already failed never met an approver, so a
+  // marker in it was written by whoever created it.
+  if (action?.approval_expires_at == null) return '';
+  const at = reasoning.lastIndexOf(HITL_DENY_MARKER);
+  if (at < 0) return '';
+  const close = reasoning.indexOf(']', at);
+  if (close < 0 || !reasoning.startsWith(HITL_DENY_NOTE_PREFIX, close + 1)) return '';
+  const note = reasoning
+    .slice(close + 1 + HITL_DENY_NOTE_PREFIX.length)
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '')
+    .trim();
+  // Cut by code point: a UTF-16 slice can end on half of a surrogate pair.
+  return Array.from(note).slice(0, 500).join('');
+}
+
+function denialBlockReason(action: ActionRecord | undefined): string {
+  if (action?.status === 'expired') return 'Approval expired before a decision was made';
+  const note = operatorDenyNote(action);
+  return note ? `Denied by operator: ${note}` : 'Action denied by operator';
+}
+
+function isApprovalDenial(err: unknown): err is { name: string; decision?: unknown } {
+  return typeof err === 'object' && err !== null
+    && (err as { name?: unknown }).name === 'ApprovalDeniedError';
+}
+
+/** Re-read a resolved action, bounded so a slow server cannot outlast the tool-call watchdog. */
+async function fetchResolvedAction(
+  ctx: OpenActionContext,
+  actionId: string,
+): Promise<ActionRecord | undefined> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const fetched = ctx.client.getAction(actionId).catch(() => undefined);
+    const bound = new Promise<undefined>((resolve) => {
+      timer = setTimeout(() => resolve(undefined), DENY_NOTE_FETCH_MS);
+    });
+    return (await Promise.race([fetched, bound]))?.action;
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

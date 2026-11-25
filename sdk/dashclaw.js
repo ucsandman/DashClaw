@@ -245,6 +245,39 @@ function* drainSSEBuffer(state, text) {
   }
 }
 
+const HITL_DENY_MARKER = '[HITL Decision: DENY by ';
+const HITL_DENY_NOTE_PREFIX = '\nReason: ';
+
+/**
+ * The note an approver typed when denying, or ''.
+ *
+ * Read ONLY from the marker the approvals route appends to `reasoning`: that
+ * column is not writable through PATCH /api/actions/:id, while `error_message`
+ * is writable by any org key, so using it as the denial text would let another
+ * agent speak to this one with the operator's voice. The LAST marker is the
+ * server's; one the action's creator wrote earlier loses to it.
+ */
+function operatorDenyNote(action) {
+  const reasoning = action?.reasoning;
+  if (typeof reasoning !== 'string') return '';
+  // approval_expires_at is stamped by the server only on a row created
+  // pending_approval. A row created already failed never met an approver, so a
+  // marker in it was written by whoever created it.
+  if (action.approval_expires_at == null) return '';
+  const at = reasoning.lastIndexOf(HITL_DENY_MARKER);
+  if (at < 0) return '';
+  const close = reasoning.indexOf(']', at);
+  if (close < 0 || !reasoning.startsWith(HITL_DENY_NOTE_PREFIX, close + 1)) return '';
+  const note = reasoning
+    .slice(close + 1 + HITL_DENY_NOTE_PREFIX.length)
+    // Control characters would be interpreted by a terminal showing the error.
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '')
+    .trim();
+  // Cut by code point: a UTF-16 slice can end on half of a surrogate pair.
+  return Array.from(note).slice(0, 500).join('');
+}
+
 /**
  * Classify an action's approval state.
  * Returns { resolved: false } while waiting, { resolved: true, result } on
@@ -253,13 +286,13 @@ function* drainSSEBuffer(state, text) {
 function evaluateApprovalState(action) {
   if (action.approved_by) return { resolved: true, result: { action } };
   if (action.status === 'failed' || action.status === 'cancelled') {
-    return { resolved: true, error: new ApprovalDeniedError(action.error_message || 'Operator denied the action.', action.status) };
+    return { resolved: true, error: new ApprovalDeniedError(operatorDenyNote(action) || 'Operator denied the action.', action.status) };
   }
   // Approvals lifecycle (roadmap v2.3): the server expired the approval — it
   // can no longer release anything. Terminal; err.status distinguishes it
   // from an operator denial.
   if (action.status === 'expired') {
-    return { resolved: true, error: new ApprovalDeniedError(action.error_message || 'Approval expired before a decision was made.', action.status) };
+    return { resolved: true, error: new ApprovalDeniedError('Approval expired before a decision was made.', action.status) };
   }
   return { resolved: false };
 }
