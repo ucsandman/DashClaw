@@ -70,7 +70,7 @@ export default function AgentsPage() {
           <Section id="runbook" title="Agents: the one command that works non-interactively">
             <CodeBlock>{'npx dashclaw up --yes --no-browser'}</CodeBlock>
             <p>
-              Needs Node 18+ and a terminal. No account, no OAuth, no browser, no LLM API key.
+              Needs Node 20.9+ and a terminal. No account, no OAuth, no browser, no LLM API key.
               It installs the runtime to <code className="font-mono text-text-primary">~/.dashclaw</code>,
               provisions Postgres (Docker if available, embedded otherwise), generates secrets,
               applies migrations, mints the workspace API key, and starts the dashboard on{' '}

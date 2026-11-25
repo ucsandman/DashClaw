@@ -30,7 +30,7 @@ const RUNBOOK = `# DashClaw
 ## Setup runbook for AI agents
 
 You are an AI agent setting DashClaw up for your user. This is the complete,
-non-interactive path. It needs Node 18+ and a terminal. No account, no OAuth,
+non-interactive path. It needs Node 20.9+ and a terminal. No account, no OAuth,
 no browser, no LLM API key.
 
 Run:

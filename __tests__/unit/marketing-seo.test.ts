@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { GET as robotsGET } from '@/robots.txt/route';
@@ -73,6 +75,33 @@ describe('/sitemap.xml (host-aware, v6.3)', () => {
     const body = await res.text();
     expect(body).toContain('<urlset');
     expect(body).not.toContain('<loc>');
+  });
+});
+
+describe('MARKETING_ROUTES reverse coverage', () => {
+  it('lists every page that calls marketingPageMetadata', () => {
+    const appDir = path.resolve(__dirname, '../../app');
+    const pageFiles: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (/^page\.(tsx|jsx)$/.test(entry.name)) pageFiles.push(full);
+      }
+    };
+    walk(appDir);
+
+    const routes: string[] = [];
+    for (const file of pageFiles) {
+      const match = fs
+        .readFileSync(file, 'utf8')
+        .match(/marketingPageMetadata\(\{[\s\S]*?path:\s*'([^']+)'/);
+      if (match?.[1]) routes.push(match[1]);
+    }
+
+    expect(routes.length).toBeGreaterThan(0);
+    const listed: readonly string[] = MARKETING_ROUTES;
+    expect(routes.filter((route) => !listed.includes(route))).toEqual([]);
   });
 });
 
