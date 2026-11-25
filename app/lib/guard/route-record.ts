@@ -3,6 +3,8 @@ import { after } from 'next/server';
 import { getSql } from '../db';
 import { redactAny } from '../security';
 import { createActionRecord, createBlockedActionRecord, getActionIdByIdempotencyKey } from '../repositories/actions.repository';
+import { findOpenApprovalRequest } from '../repositories/actions.repository.approvals';
+import { computeActContentHash } from '../act-content-hash';
 import { incrementTrialActionCount } from '../repositories/hosted-workspace.repository';
 import { fireActionAlert } from '../actionAlerts';
 import { fireApprovalSurfaces } from '../approvalSurfaces';
@@ -86,6 +88,7 @@ export async function recordRunningAction(
   result: GuardResult,
   createdBy: string | null,
   prepared?: Promise<PreparedRecordReads | null> | null,
+  opts: { reuseOpenRequest?: boolean } = {},
 ): Promise<{ recorded: boolean; action_id?: string; reason?: string; security?: Record<string, unknown> }> {
   if (!data.agent_id || !data.declared_goal) {
     return { recorded: false, reason: 'agent_id and declared_goal are required to record an action' };
@@ -122,6 +125,20 @@ export async function recordRunningAction(
   // it so approval outcomes join back to matched_policies (policy-tuning
   // proposal loop, drizzle/0035). Overrides any client-supplied value.
   record.guard_decision_id = typeof result.decision_id === 'string' ? result.decision_id : null;
+
+  // One open request per ask (the guard route's approval-request path): when
+  // the same ask is already waiting on a human, return that request instead
+  // of opening a second one and prompting the operator again.
+  if (opts.reuseOpenRequest && result.decision === 'require_approval') {
+    const open = await findOpenApprovalRequest(sql, orgId, {
+      agentId: record.agent_id,
+      actionType: record.action_type,
+      declaredGoal: record.declared_goal,
+      actContentHash: computeActContentHash(data.act),
+      createdBy,
+    });
+    if (open?.action_id) return { recorded: true, action_id: String(open.action_id), security };
+  }
 
   // Blocked verdict: create the blocked action record in-request, reusing THIS
   // evaluation. The pre-5.10.1 contract returned recorded:false here and the

@@ -35,6 +35,8 @@ import {
   maybeSweepLostOutcomes,
   sweepExpiredApprovals,
 } from '../../lib/repositories/actions.repository';
+import { findOpenApprovalRequest } from '../../lib/repositories/actions.repository.approvals';
+import { computeActContentHash } from '../../lib/act-content-hash';
 import { getModelPricing, getSettings } from '../../lib/repositories/settings.repository';
 import { getLatestPatchRefs } from '../../lib/repositories/artifacts.repository';
 import { findInheritedConfidence, guardDecisionExists } from '../../lib/repositories/guard.repository';
@@ -534,6 +536,29 @@ export async function POST(request: Request) {
 
     const isPendingApproval = guardDecision.decision === 'require_approval';
     const actionStatus = isPendingApproval ? 'pending_approval' : (data.status || 'running');
+
+    // One open request per ask. POST /api/guard opens the approval request for
+    // every require_approval verdict, so a client that asked the guard first
+    // and then records here gets that request back instead of a second pending
+    // row and a second operator prompt. A caller that chose its own action_id
+    // keeps its own row.
+    if (isPendingApproval && !data.action_id) {
+      const openRequest = await findOpenApprovalRequest(sql, orgId, {
+        agentId: data.agent_id,
+        actionType: data.action_type,
+        declaredGoal: data.declared_goal,
+        actContentHash: computeActContentHash(data.act),
+        createdBy: getUserId(request) || null,
+      });
+      if (openRequest) {
+        return NextResponse.json({
+          action: openRequest,
+          action_id: openRequest.action_id,
+          decision: guardDecision,
+          open_request_reused: true,
+        }, { status: 202 });
+      }
+    }
 
     // Auto-calculate cost if tokens are provided
     // SECURITY: Clamp agent-reported cost/token values to reasonable bounds
