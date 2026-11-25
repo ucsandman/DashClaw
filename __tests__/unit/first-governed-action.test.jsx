@@ -22,6 +22,7 @@ import FirstGovernedActionCard, {
   FIRST_ACTION_TYPES,
 } from '@/connect/FirstGovernedActionCard';
 import { isSyntheticEvent } from '@/lib/calibration-mining.js';
+import { BROWSER_HELD_ACTION } from '@/lib/hosted/browser-action.js';
 import { getViewerContextFromCookieHeader } from '@/lib/sessionViewer.mjs';
 import { getHostedWorkspace } from '@/lib/repositories/hosted-workspace.repository';
 import ConnectPage from '@/connect/page';
@@ -124,6 +125,45 @@ describe('FirstGovernedActionCard', () => {
 
     expect(container.textContent).toContain('waiting on an operator');
     expect(container.querySelector('a[href="/decisions/act_pending_7"]')).toBeTruthy();
+  });
+
+  it('the held preset sends one POST with the force-push act and the card agent id', async () => {
+    const fetchMock = mockGuard({ decision: 'allow', recorded: true, action_id: 'act_2' });
+    const { getByText, container } = render(<FirstGovernedActionCard />);
+
+    fireEvent.click(getByText('Send one your Short List holds'));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/guard?record=true');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body);
+    expect(body.act.command).toBe('git push --force origin main');
+    expect(body.agent_id).toBe(FIRST_ACTION_AGENT_ID);
+    expect(container.querySelector('pre').textContent).toContain('git push --force origin main');
+  });
+
+  it('require_approval on the held preset links to the Approvals inbox and the ledger', async () => {
+    mockGuard({
+      decision: 'require_approval',
+      reason: 'Force-push over "main" requires approval',
+      recorded: true,
+      action_id: 'act_held_9',
+    });
+    const { getByText, container } = render(<FirstGovernedActionCard />);
+
+    fireEvent.click(getByText('Send one your Short List holds'));
+    await waitFor(() => expect(getByText('Needs approval')).toBeTruthy());
+
+    expect(container.querySelector('a[href="/approvals"]')).toBeTruthy();
+    expect(container.querySelector('a[href="/decisions/act_held_9"]')).toBeTruthy();
+    expect(container.textContent).toContain('That is you');
+  });
+
+  it('the held preset is not synthetic', () => {
+    expect(
+      isSyntheticEvent({ agent_id: FIRST_ACTION_AGENT_ID, action_type: BROWSER_HELD_ACTION.action_type })
+    ).toBe(false);
   });
 
   it('a 403 renders the honest trial-envelope message', async () => {

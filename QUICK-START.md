@@ -37,7 +37,7 @@ npm i -g @dashclaw/cli
 dashclaw install claude --trial
 ```
 
-The installer opens the trial's `/connect` page, takes the API key you minted, preflights the instance, and wires the Claude Code hooks in **enforce mode** by default (pass `--observe` to log without holding). Trial workspaces come with the `claude-code-starter` policy pack pre-seeded, so your next Claude Code session is governed from the first tool call. When a risky action is held, it lands in your Approvals inbox at `/approvals` and the paused tool call resumes the moment you approve. Full guide: [docs/integrations/claude-code.md](./docs/integrations/claude-code.md).
+The installer opens the trial's `/connect` page, takes the API key you minted, preflights the instance, and wires the Claude Code hooks in **enforce mode** by default (pass `--observe` to log without holding). Trial workspaces are seeded with the catastrophe-only Short List, so your next Claude Code session is governed from the first tool call. To see a hold before you install anything, click **Send one your Short List holds** on the first-action card at `/connect`: it sends a simulated force-push over main, which the Short List holds for your approval. When a risky action is held, it lands in your Approvals inbox at `/approvals` and the paused tool call resumes the moment you approve. Full guide: [docs/integrations/claude-code.md](./docs/integrations/claude-code.md).
 
 ## Door B: the 1-minute local demo
 
@@ -91,7 +91,7 @@ Open `/setup` on your instance to verify the database connection and environment
 
 ### Run the starter agent
 
-> This step needs the repo on disk (`npx dashclaw up` installs the app without the examples): `git clone https://github.com/ucsandman/DashClaw.git`. No clone handy? The `/connect` page on your instance sends a first governed action from the browser instead.
+> This step needs the repo on disk (`npx dashclaw up` installs the app without the examples): `git clone https://github.com/ucsandman/DashClaw.git`. No clone handy? The browser first action on `/connect` appears only in a hosted trial session; on a self-hosted instance, follow the starter or SDK path on `/connect` instead.
 
 ```bash
 cd examples/openai-governed-agent

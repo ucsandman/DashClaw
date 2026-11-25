@@ -12,6 +12,12 @@ vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: vi.fn
 
 import { evaluatePolicy, evaluateGuard } from '@/lib/guard.js';
 import { inferPolicyType, PACK_PREVIEWS } from '@/lib/policyPackPreviews.js';
+import { BROWSER_HELD_ACTION } from '@/lib/hosted/browser-action.js';
+import {
+  FIRST_ACTION_AGENT_ID,
+  FIRST_ACTION_TYPES,
+  FIRST_ACTION_DEFAULT_GOAL,
+} from '@/connect/FirstGovernedActionCard';
 
 describe('catastrophe-only pack', () => {
   let pack;
@@ -265,6 +271,40 @@ describe('catastrophe-only pack', () => {
 
     it('no line in the pack carries action: block', () => {
       for (const p of pack.policies) expect(p.rules.action).not.toBe('block');
+    });
+
+    // Hosted trials are seeded with this pack, so the /connect browser card
+    // needs one preset the pack actually holds, sent exactly as the card
+    // sends it (no declared risk, the card's agent id).
+    const decideAsCard = (fields) => {
+      const rows = pack.policies.map((p, i) => ({
+        id: `gp_pack_${i}`,
+        name: p.description,
+        policy_type: p.policy_type,
+        rules: JSON.stringify(p.rules),
+      }));
+      return evaluateGuard(
+        `org_pack_${++orgCounter}`,
+        { agent_id: FIRST_ACTION_AGENT_ID, ...fields },
+        createSqlMock({ taggedResponses: [rows] }),
+      );
+    };
+
+    it('the browser card held preset HOLDS under the pack', async () => {
+      const result = await decideAsCard(BROWSER_HELD_ACTION);
+      expect(result.decision).toBe('require_approval');
+    });
+
+    it('the browser card default presets are neither held nor blocked', async () => {
+      for (const actionType of FIRST_ACTION_TYPES) {
+        const result = await decideAsCard({ action_type: actionType, declared_goal: FIRST_ACTION_DEFAULT_GOAL });
+        expect(['block', 'require_approval']).not.toContain(result.decision);
+      }
+    });
+
+    it('grep -n truncate x is allowed', async () => {
+      const result = await decide('Bash: grep -n truncate x');
+      expect(result.decision).toBe('allow');
     });
   });
 });

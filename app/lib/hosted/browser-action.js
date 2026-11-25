@@ -9,3 +9,13 @@
 // Renaming it to anything matching a synthetic pattern silently vanishes
 // browser activations from the funnel — keep the pin test.
 export const BROWSER_FIRST_ACTION_AGENT_ID = 'browser-first-action';
+
+// The card's held preset: a force-push over main, which the catastrophe-only
+// Short List seeded into every hosted trial holds for approval (pinned in
+// catastrophe-only-pack.test.js). Simulated: the guard only grades the act,
+// nothing is pushed.
+export const BROWSER_HELD_ACTION = {
+  action_type: 'connect.first_action',
+  declared_goal: 'Force-push over main (simulated: nothing is pushed)',
+  act: { kind: 'shell', command: 'git push --force origin main' },
+};

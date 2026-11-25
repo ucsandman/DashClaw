@@ -15,7 +15,7 @@ import { Send, ArrowRight, AlertCircle, ShieldCheck, RotateCcw } from 'lucide-re
  * if any default ever matches a synthetic pattern, browser activations
  * silently vanish from the hosted funnel.
  */
-import { BROWSER_FIRST_ACTION_AGENT_ID as FIRST_ACTION_AGENT_ID } from '../lib/hosted/browser-action.js';
+import { BROWSER_FIRST_ACTION_AGENT_ID as FIRST_ACTION_AGENT_ID, BROWSER_HELD_ACTION } from '../lib/hosted/browser-action.js';
 export { FIRST_ACTION_AGENT_ID };
 export const FIRST_ACTION_AGENT_NAME = 'Browser (first action)';
 export const FIRST_ACTION_TYPES = ['connect.first_action', 'send_email', 'deploy', 'db_write'];
@@ -50,21 +50,38 @@ export default function FirstGovernedActionCard() {
   const [goal, setGoal] = useState(FIRST_ACTION_DEFAULT_GOAL);
   const [actionType, setActionType] = useState(FIRST_ACTION_TYPES[0]);
   const [state, setState] = useState({ status: 'idle' });
+  const [heldSelected, setHeldSelected] = useState(false);
 
-  const payload = {
+  const customPayload = {
     agent_id: FIRST_ACTION_AGENT_ID,
     agent_name: FIRST_ACTION_AGENT_NAME,
     action_type: actionType,
     declared_goal: goal,
   };
+  const heldPayload = {
+    agent_id: FIRST_ACTION_AGENT_ID,
+    agent_name: FIRST_ACTION_AGENT_NAME,
+    ...BROWSER_HELD_ACTION,
+  };
+  const payload = heldSelected ? heldPayload : customPayload;
 
-  async function onSend() {
+  function onSend() {
+    setHeldSelected(false);
+    return send(customPayload);
+  }
+
+  function onSendHeld() {
+    setHeldSelected(true);
+    return send(heldPayload);
+  }
+
+  async function send(requestBody) {
     setState({ status: 'sending' });
     try {
       const res = await fetch('/api/guard?record=true', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(requestBody),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -107,7 +124,7 @@ export default function FirstGovernedActionCard() {
           <input
             type="text"
             value={goal}
-            onChange={(e) => setGoal(e.target.value)}
+            onChange={(e) => { setGoal(e.target.value); setHeldSelected(false); }}
             className="rounded-lg border border-border bg-surface-primary px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-border-active"
           />
         </label>
@@ -117,7 +134,7 @@ export default function FirstGovernedActionCard() {
           </span>
           <select
             value={actionType}
-            onChange={(e) => setActionType(e.target.value)}
+            onChange={(e) => { setActionType(e.target.value); setHeldSelected(false); }}
             className="rounded-lg border border-border bg-surface-primary px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-border-active"
           >
             {FIRST_ACTION_TYPES.map((t) => (
@@ -145,6 +162,15 @@ export default function FirstGovernedActionCard() {
         >
           <Send size={14} aria-hidden="true" />
           {state.status === 'sending' ? 'Sending…' : 'Send governed action'}
+        </button>
+        <button
+          type="button"
+          onClick={onSendHeld}
+          disabled={state.status === 'sending'}
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-tertiary px-4 py-2 text-sm font-semibold text-text-secondary transition-colors hover:border-border-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <ShieldCheck size={14} aria-hidden="true" />
+          Send one your Short List holds
         </button>
         {state.status === 'error' ? (
           <div className="flex items-center gap-1.5 text-xs text-status-error">
@@ -191,18 +217,32 @@ export default function FirstGovernedActionCard() {
           {result.decision === 'require_approval' ? (
             <p className="text-sm text-text-secondary leading-relaxed">
               This action is waiting on an operator&rsquo;s approval before it
-              may proceed.
+              may proceed. That is you: open your Approvals inbox and click
+              Allow or Deny.
             </p>
           ) : null}
 
           {result.recorded && result.action_id ? (
-            <a
-              href={`/decisions/${result.action_id}`}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-surface-primary transition-colors hover:bg-brand-hover"
-            >
-              View it in your ledger
-              <ArrowRight size={14} aria-hidden="true" />
-            </a>
+            <div className="flex flex-wrap items-center gap-3">
+              {result.decision === 'require_approval' ? (
+                <a
+                  href="/approvals"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-surface-primary transition-colors hover:bg-brand-hover"
+                >
+                  Open your Approvals inbox
+                  <ArrowRight size={14} aria-hidden="true" />
+                </a>
+              ) : null}
+              <a
+                href={`/decisions/${result.action_id}`}
+                className={result.decision === 'require_approval'
+                  ? 'inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-4 py-2 text-sm font-semibold text-text-secondary transition-colors hover:border-border-hover hover:text-text-primary'
+                  : 'inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-surface-primary transition-colors hover:bg-brand-hover'}
+              >
+                View it in your ledger
+                <ArrowRight size={14} aria-hidden="true" />
+              </a>
+            </div>
           ) : null}
           {result.recorded === false && result.recorded_error ? (
             <p className="text-xs text-text-tertiary">

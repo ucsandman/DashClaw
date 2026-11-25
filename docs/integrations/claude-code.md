@@ -40,7 +40,9 @@ The installed `SessionStart` hook runs a probe at the start of each Claude Code 
 
 ## Policies: the catastrophe pack is seeded for you
 
-A fresh self-hosted instance seeds the **catastrophe-only** pack at its first migrate (`npm run db:migrate`, `npx dashclaw up`, or the Vercel deploy build): mass-destructive operations are blocked, secret-file writes are held for approval, and a warn-only rate limit nets runaways. Enforce mode holds from action one. Want broader gates (network calls, package installs)? Click **Import** on the `claude-code-starter` pack at `/policies` — that also retrofits any pre-M1 instance whose org predates the seed. Hosted trial workspaces come with `claude-code-starter` pre-seeded. What's in each pack and why: [policy modes](../policy-modes.md).
+A fresh self-hosted instance seeds the **catastrophe-only** pack at its first migrate (`npm run db:migrate`, `npx dashclaw up`, or the Vercel deploy build): mass-destructive operations and secret-file writes are held for approval, and a warn-only rate limit nets runaways. Enforce mode holds from action one. Want broader gates (network calls, package installs)? Click **Import** on the `claude-code-starter` pack at `/policies` — that also retrofits any pre-M1 instance whose org predates the seed. What's in each pack and why: [policy modes](../policy-modes.md).
+
+Hosted trial workspaces are seeded with the same catastrophe-only pack, so a trial holds the same Short List from its first action.
 
 ## Verify it fires
 
