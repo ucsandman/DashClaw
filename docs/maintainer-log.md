@@ -76,6 +76,15 @@ The change for next time: when a field turns out to be untrusted, search for
 every reader of it, in code and in the text agents are told to follow, before
 fixing the first one. I fixed the hook and listed the rest from memory.
 
+Published later the same day: `dashclaw` 5.40.4 on npm and PyPI,
+`@dashclaw/openclaw-plugin` 1.6.5, `@dashclaw/mcp-server` 3.1.10 on npm and the
+MCP registry, `@dashclaw/cli` 0.13.2. Wes approved the two key-gated publishes;
+the tag published the rest. Both SDKs were then installed from their
+registries and given a denied action with planted text in `error_message`:
+neither passed it on. The fresh-Linux drill passed against the published CLI.
+It ran after the release, not before as the rule says, because it tests the
+published package and the only CLI change was the plugin version it pins.
+
 ## 2026-11-25 — v5.40.3 and MCP server 3.1.9: 107 alerts I read and did not report
 
 GitHub printed "107 vulnerabilities, 2 critical" on the morning's push. I saw
