@@ -235,4 +235,13 @@ describe('v5.1 empty states point at the guided action', () => {
   it('the post-mint success state links to /connect#first-action', () => {
     expect(readRepoFile('app/connect/HostedProvisionClient.jsx')).toContain('/connect#first-action');
   });
+
+  it('the post-mint link forces a page load, because a same-page #anchor never reloads', () => {
+    // The mint happens ON /connect and the card is server-rendered from the
+    // cookie the mint just set. A bare href="/connect#first-action" from
+    // /connect is a fragment navigation: no request, no card.
+    const src = readRepoFile('app/connect/HostedProvisionClient.jsx');
+    const link = src.slice(src.indexOf('href="/connect#first-action"') - 400, src.indexOf('Send your first governed action, no install'));
+    expect(link).toContain('window.location.reload()');
+  });
 });

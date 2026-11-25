@@ -90,7 +90,14 @@ plugin's use of the field hours before the review explained why it matters, and
 I did not connect the two until Wes forwarded a note. The fix needs SDK and
 plugin releases, so it is its own change with its own review.
 
-What is not proven: the trial flow has not been clicked through in a browser.
+Proven later the same day: Wes minted a trial on the live host in a private
+window and clicked through all eight steps, from the new button to Allow.
+Writing those steps out sent me back to the post-mint link, and it has an older
+bug: it is a same-page anchor on the page where the mint happens, so the
+browser loads nothing and the server-rendered card cannot appear without a
+reload. My steps told him to press F5 there. The link now reloads the page.
+
+What was not proven at ship time: the trial flow had not been clicked through in a browser.
 The local run could not get past the trial middleware, which uses a database
 driver that does not talk to a local Postgres. It rests on route tests and on
 reading the middleware. The open check is a human minting a trial on the live
