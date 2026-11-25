@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.40.3] - 2026-11-25
+
+### Security
+
+- Non-breaking dependency security updates across six lockfiles (`npm audit fix`, no `--force`). The app, `media/remotion`, `cli` and `examples/vercel-ai-governed` are at 0 audit findings.
+- App: `source-map-js` 1.2.4 (runtime), plus development-only `undici` 7.30.2, `vite` 8.3.8, `rolldown` 1.2.19 and `typescript-eslint` 8.74.0.
+- Both critical `proxy-addr` alerts (GHSA-jqcg-44mw-7w3h) are cleared in the MCP server and OpenClaw plugin lockfiles.
+- MCP server: the `vite` override pinned a vulnerable 6.4.3; it is now 6.4.6. OpenClaw plugin: the `@hono/node-server` override moves to `^2.1.3`.
+- Still open: `zod` 3 in the MCP server (GHSA-mrhx-c7xc-m3w5; the fix is zod 4, a major upgrade that needs code changes and an MCP server release), and four findings in the OpenClaw plugin lockfile that pin through the locked `openclaw` peer. Lockfiles are not published, so of these updates only the app's reach a running system.
+
 ## [5.40.2] - 2026-11-25
 
 ### Fixed

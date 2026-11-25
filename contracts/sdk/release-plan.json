@@ -1,23 +1,23 @@
 {
   "node": {
-    "current_version": "5.40.2",
+    "current_version": "5.40.3",
     "next_bump": "none",
-    "reason": "5.40.2 makes the post-mint link to the /connect first-action card reload the page. No Node SDK source changed; do not republish the SDK.",
+    "reason": "5.40.3 applies non-breaking dependency security updates across six lockfiles. No Node SDK source changed; do not republish the SDK.",
     "domains": [
       "platform",
       "docs"
     ]
   },
   "python": {
-    "current_version": "5.40.2",
+    "current_version": "5.40.3",
     "next_bump": "none",
-    "reason": "5.40.2 makes the post-mint link to the /connect first-action card reload the page. No Python SDK source changed; do not republish the SDK.",
+    "reason": "5.40.3 applies non-breaking dependency security updates across six lockfiles. No Python SDK source changed; do not republish the SDK.",
     "domains": [
       "platform",
       "docs"
     ]
   },
-  "reason": "5.40.2 makes the post-mint link to the /connect first-action card reload the page. Platform only: no SDK source or package publication is included; npm and PyPI stay at the last SDK release.",
+  "reason": "5.40.3 applies non-breaking dependency security updates across six lockfiles. Platform only: no SDK source or package publication is included; npm and PyPI stay at the last SDK release.",
   "domains": [
     "platform",
     "docs"
