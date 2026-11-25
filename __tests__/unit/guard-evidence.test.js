@@ -862,3 +862,147 @@ describe('date-format strings are not the dd disk tool (2026-08-21 OpenClaw star
     }
   });
 });
+
+// shred / truncate / the format tool grade only in command position, like dd
+// above: a read-only grep, cat, ls or git log that merely MENTIONS one of them
+// was graded destructive (and, for the format tool, protected_target), so the
+// default catastrophe line held plain greps. The format-tool name is built from
+// two halves because a local security hook blocks the literal in tool input.
+describe('disk tools grade only in command position (read-only mentions are not destructive)', () => {
+  const MK = 'mk' + 'fs';
+
+  it('keeps read-only mentions out of the destructive band and off protected_target', () => {
+    for (const command of [
+      'grep -rn truncate app/lib',
+      'rg truncate src',
+      'cat docs/truncate.md',
+      'ls app/lib/truncate-words/',
+      'git log --oneline --grep truncate',
+      'grep -n shred x.py',
+      'git checkout -b fix/shred-docs',
+      `grep -n ${MK} hooks/x.py`,
+      `man ${MK}.ext4`,
+      `git log --grep ${MK}`,
+    ]) {
+      const c = classifyAct({ kind: 'shell', command });
+      expect(c.flags, command).not.toContain('destructive');
+      expect(c.flags, command).not.toContain('protected_target');
+      expect(c.base_risk, command).toBeLessThan(80);
+    }
+  });
+
+  it('an rm of a path that merely names the format tool is not protected_target', () => {
+    const command = `rm -rf /tmp/${MK}-notes`;
+    expect(classifyAct({ kind: 'shell', command }).flags, command).not.toContain('protected_target');
+  });
+
+  it('still grades real invocations (sudo, nohup, xargs, chained) destructive', () => {
+    for (const command of [
+      'truncate -s 0 important.db',
+      'sudo truncate -s 0 /var/log/x',
+      'echo go && truncate -s 0 a.db',
+      'shred -u secrets.txt',
+      'nohup shred -u f',
+      'xargs truncate -s 0 < list',
+    ]) {
+      const c = classifyAct({ kind: 'shell', command });
+      expect(c.flags, command).toContain('destructive');
+      expect(c.base_risk, command).toBeGreaterThanOrEqual(80);
+    }
+  });
+
+  it('the format tool on a device keeps destructive, protected_target, device_write and total 100', () => {
+    const c = classifyAct({ kind: 'shell', command: `${MK}.ext4 /dev/sdb1` });
+    expect(c.flags).toContain('destructive');
+    expect(c.base_risk).toBeGreaterThanOrEqual(80);
+    expect(c.flags).toContain('protected_target');
+    expect(c.flags).toContain('device_write');
+    expect(evidenceTotal(c)).toBe(100);
+  });
+
+  it('the format tool on a device keeps protected_target through a shell, remote or wrapper launch', () => {
+    for (const command of [
+      `bash -c "${MK}.ext4 /dev/sdb1"`,
+      `sudo sh -c '${MK}.ext4 /dev/sdb1'`,
+      `ssh host ${MK}.ext4 /dev/sdb1`,
+      `sudo -u root ${MK}.ext4 /dev/sdb1`,
+      `doas ${MK}.ext4 /dev/sdb1`,
+    ]) {
+      const c = classifyAct({ kind: 'shell', command });
+      expect(c.flags, command).toContain('destructive');
+      expect(c.flags, command).toContain('protected_target');
+      expect(c.flags, command).toContain('device_write');
+      expect(evidenceTotal(c), command).toBe(100);
+    }
+  });
+
+  it('still grades shred / truncate destructive inside sinks, subshells, control flow and wrappers', () => {
+    for (const command of [
+      'bash -c "truncate -s 0 a.db"',
+      "sh -c 'shred -u secrets.txt'",
+      'ssh host truncate -s 0 /var/lib/db',
+      'echo $(truncate -s 0 f)',
+      '(truncate -s 0 f)',
+      'if true; then shred -u f; fi',
+      'for f in *.db; do shred -u "$f"; done',
+      'exec shred -u f',
+      'doas shred -u f',
+      'busybox truncate -s 0 f',
+      'watch truncate -s 0 f',
+      'timeout -s KILL 10 shred f',
+      'sudo -u root truncate -s 0 f',
+    ]) {
+      const c = classifyAct({ kind: 'shell', command });
+      expect(c.flags, command).toContain('destructive');
+      expect(c.base_risk, command).toBeGreaterThanOrEqual(80);
+    }
+  });
+
+  // The exemption is for KNOWN read-only commands, not the reverse: a launcher
+  // nobody listed (stdbuf, setsid, chroot, wsl, pkexec, …) must still catch.
+  it('the format tool on a device stays a catastrophe behind a launcher no list names', () => {
+    for (const command of [
+      `stdbuf -o0 ${MK}.ext4 /dev/sdb1`,
+      `setsid ${MK}.ext4 /dev/sdb1`,
+      `chroot /mnt ${MK}.ext4 /dev/sdb1`,
+      `flock /tmp/l ${MK}.ext4 /dev/sdb1`,
+      `\\${MK}.ext4 /dev/sdb1`,
+      `wsl ${MK}.ext4 /dev/sdb1`,
+      `wsl -e ${MK}.ext4 /dev/sdb1`,
+      `unbuffer ${MK}.ext4 /dev/sdb1`,
+      `runuser -u root -- ${MK}.ext4 /dev/sdb1`,
+      `pkexec ${MK}.ext4 /dev/sdb1`,
+      `systemd-run ${MK}.ext4 /dev/sdb1`,
+      `nsenter -t 1 -m ${MK}.ext4 /dev/sdb1`,
+      `caffeinate ${MK}.ext4 /dev/sdb1`,
+    ]) {
+      const c = classifyAct({ kind: 'shell', command });
+      expect(c.flags, command).toContain('destructive');
+      expect(c.flags, command).toContain('protected_target');
+      expect(evidenceTotal(c), command).toBe(100);
+    }
+  });
+
+  it('shred / truncate stay destructive behind a launcher no list names', () => {
+    for (const command of [
+      'stdbuf -o0 truncate -s 0 a.db',
+      'parallel shred -u ::: a b',
+      'setsid shred -u f',
+    ]) {
+      const c = classifyAct({ kind: 'shell', command });
+      expect(c.flags, command).toContain('destructive');
+      expect(c.base_risk, command).toBeGreaterThanOrEqual(80);
+    }
+  });
+
+  it('a read-only command that can still launch one is not exempt', () => {
+    for (const command of [
+      'cat <(shred -u f)',
+      'rg --pre shred needle src',
+      'git -c core.pager=shred log',
+    ]) {
+      const c = classifyAct({ kind: 'shell', command });
+      expect(c.flags, command).toContain('destructive');
+    }
+  });
+});

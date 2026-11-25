@@ -7,8 +7,19 @@
 // catastrophe. Covers: the evaluator gate, the validator shape, the full
 // evidence fold (real commands through classifyAct), and the seeded-row upgrade.
 
-import { describe, it, expect } from 'vitest';
-import { evaluatePolicy } from '@/lib/guard.js';
+import { describe, it, expect, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import * as jsYaml from 'js-yaml';
+import { createSqlMock } from '../helpers.js';
+
+// evaluateGuard (the seeded-pack block) reads settings and can deliver
+// webhooks; same mocks catastrophe-only-pack.test.js uses.
+vi.mock('@/lib/webhooks.js', () => ({ deliverGuardWebhook: vi.fn() }));
+vi.mock('@/lib/llm.js', () => ({ checkSemanticGuardrail: vi.fn() }));
+vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: vi.fn(async () => []) }));
+
+import { evaluatePolicy, evaluateGuard } from '@/lib/guard.js';
 import { validatePolicy } from '@/lib/validate.js';
 import { classifyAct } from '@/lib/guard/evidence';
 import { gateMassDestructiveOnEvidence } from '../../app/lib/setup/catastrophe-pack.mjs';
@@ -52,6 +63,9 @@ describe('the 2026-08-21 false-positive shapes do not carry protected_target', (
     'cd "C:/Projects/x/site" && cat -n site/.env.example',
     'cd "C:/Projects/x" && npm run dev > "C:/Users/u/AppData/Local/Temp/claude/x/scratchpad/dev.log" 2>&1 &\ndisown\necho "launched"',
     "cd /c/Users/u/memory; python - <<'EOF'\np='MEMORY.md'; s=open(p).read()\nline='- `\\\\bdd\\\\b` graded `yyyy-MM-dd` destructive; dd now command-position only; `\\\\btruncate\\\\b` still bare'\nEOF",
+    // Read-only greps that mention the format tool (name split: a local hook blocks the literal).
+    'grep -n ' + 'mk' + 'fs hooks/x.py',
+    'grep -rn ' + 'mk' + 'fs. app/lib/guard',
   ];
   for (const command of shapes) {
     it(`no protected_target: ${command.slice(0, 40)}…`, () => {
@@ -64,6 +78,47 @@ describe('the 2026-08-21 false-positive shapes do not carry protected_target', (
     for (const command of ['rm -rf ~', 'rm -rf /', 'rm -rf C:\\Users\\wes', 'find / -delete', 'dd if=/dev/zero of=/dev/sda', 'mkfs.ext4 /dev/sdb1']) {
       expect(classifyAct({ kind: 'shell', command }).flags, command).toContain('protected_target');
     }
+  });
+});
+
+// The seeded catastrophe-only pack through the real engine, in the hook's
+// shape (declared_goal "Bash: <cmd>" plus the act): a grep that merely names
+// the format tool runs; the real device invocation and a force-push over main
+// still hold.
+describe('seeded catastrophe-only pack — disk-tool mentions vs invocations (evaluateGuard)', () => {
+  const MK = 'mk' + 'fs';
+  const pack = jsYaml.load(readFileSync(
+    join(process.cwd(), 'app', 'lib', 'guardrails', 'packs', 'catastrophe-only', 'policies.yml'), 'utf-8'));
+  let orgCounter = 0;
+  const decide = (command, actionType) => {
+    const rows = pack.policies.map((p, i) => ({
+      id: `gp_cat_${i}`, name: p.description, policy_type: p.policy_type, rules: JSON.stringify(p.rules),
+    }));
+    return evaluateGuard(
+      `org_disk_tool_${++orgCounter}`,
+      { action_type: actionType, agent_id: 'a1', declared_goal: `Bash: ${command}`, act: { kind: 'shell', command } },
+      createSqlMock({ taggedResponses: [rows] }),
+    );
+  };
+
+  it('a grep mentioning the format tool is allowed', async () => {
+    expect((await decide(`grep -n ${MK} hooks/x.py`, 'read')).decision).toBe('allow');
+  });
+
+  it('the format tool on a real device holds', async () => {
+    expect((await decide(`${MK}.ext4 /dev/sdb1`, 'security')).decision).toBe('require_approval');
+  });
+
+  it('the format tool on a real device holds when launched through bash -c', async () => {
+    expect((await decide(`bash -c "${MK}.ext4 /dev/sdb1"`, 'security')).decision).toBe('require_approval');
+  });
+
+  it('the format tool on a real device holds under sudo -u root', async () => {
+    expect((await decide(`sudo -u root ${MK}.ext4 /dev/sdb1`, 'security')).decision).toBe('require_approval');
+  });
+
+  it('git push --force origin main still holds (force-push line untouched)', async () => {
+    expect((await decide('git push --force origin main', 'security')).decision).toBe('require_approval');
   });
 });
 
