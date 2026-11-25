@@ -1681,6 +1681,34 @@ def handle_block(guard_resp, context, tool_use_id):
     sys.exit(2)
 
 
+_HITL_DENY_MARKER = "[HITL Decision: DENY by "
+
+
+def _operator_deny_note(action):
+    """The note an approver typed when denying, or ''.
+
+    Read ONLY from the marker the approvals route appends to `reasoning`:
+    that column is not writable through PATCH /api/actions/:id, while
+    `error_message` is writable by any org key, so printing it here would let
+    another agent speak to this one with the operator's voice. The LAST marker
+    is the server's; one the action's creator wrote earlier loses to it.
+    """
+    reasoning = action.get("reasoning")
+    if not isinstance(reasoning, str):
+        return ""
+    at = reasoning.rfind(_HITL_DENY_MARKER)
+    if at < 0:
+        return ""
+    close = reasoning.find("]", at)
+    prefix = "\nReason: "
+    if close < 0 or not reasoning.startswith(prefix, close + 1):
+        return ""
+    note = reasoning[close + 1 + len(prefix):]
+    # Control characters would be interpreted by a terminal showing hook stderr.
+    note = "".join(ch for ch in note if ch in "\n\t" or (" " <= ch and not "\x7f" <= ch <= "\x9f"))
+    return note.strip()[:500]
+
+
 def _wait_for_approval(action_id, tool_use_id, context, guard_resp):
     """Poll get_action until approved, denied, or the deadline passes.
 
@@ -1705,11 +1733,9 @@ def _wait_for_approval(action_id, tool_use_id, context, guard_resp):
             log("[DashClaw] Approval expired server-side.")
             sys.exit(2)
         if status in ("failed", "cancelled"):
-            # The deny note from /approvals is stored as error_message. The
-            # server writes "Denied by human operator" when no note was typed.
-            note = action.get("error_message")
-            if note and note != "Denied by human operator":
-                log("[DashClaw] Denied by operator: " + str(note))
+            note = _operator_deny_note(action)
+            if note:
+                log("[DashClaw] Denied by operator: " + note)
             else:
                 log("[DashClaw] Action denied by operator.")
             sys.exit(2)

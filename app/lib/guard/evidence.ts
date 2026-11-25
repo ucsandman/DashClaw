@@ -562,10 +562,13 @@ function classifyScriptExcerpt(excerpt: string): EvidenceClassification | null {
 /** The disk tool a sink-free segment names as a whole word, unless the
  *  segment's command only reads or prints (then the name is a mention).
  *  Grouping, process substitution (`cat <(shred f)`), `rg --pre <cmd>` and
- *  `git -c …` can still launch one, so none of them is exempt. */
+ *  `git -c …` can still launch one, so none of them is exempt. Neither is a
+ *  segment with a single `&` (the chain split leaves `ls & shred f` whole; a
+ *  `2>&1` / `&>` redirect is not one) or an env assignment
+ *  (`GIT_EXTERNAL_DIFF=shred git diff` makes git run the tool). */
 function diskToolOutsideReadOnlyCommand(scan: string): string | undefined {
   const tool = DISK_TOOL_WORD_RE.exec(scan)?.[1];
-  if (!tool || /[(){}`]/.test(scan)) return tool;
+  if (!tool || /[(){}`]|(?<!>)&(?!>)|(?:^|\s)[a-z_]\w*=/.test(scan)) return tool;
   const tokens = commandSlotTokens(scan);
   const command = (tokens[0] ?? '').replace(/^.*[/\\]/, '').replace(/\.exe$/, '');
   const readOnly = command === 'git'

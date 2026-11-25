@@ -58,7 +58,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
     }
 
     const body = await request.json();
-    const { decision, reasoning } = body;
+    const { decision } = body;
+    // The note is printed to the denied agent's terminal by the hook: keep it
+    // a bounded string with no control characters (newline and tab stay).
+    const reasoning = typeof body.reasoning === 'string'
+      // eslint-disable-next-line no-control-regex
+      ? body.reasoning.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '').slice(0, 2000)
+      : '';
 
     if (!['allow', 'deny'].includes(decision)) {
       return NextResponse.json({ error: 'Invalid decision. Must be allow or deny.' }, { status: 400 });

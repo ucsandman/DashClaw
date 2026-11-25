@@ -983,6 +983,25 @@ describe('disk tools grade only in command position (read-only mentions are not 
     }
   });
 
+  it('the format tool after a single & keeps the catastrophe grade', () => {
+    for (const command of [
+      `ls & ${MK}.ext4 /dev/sdb`,
+      `wc -l f & ${MK}.vfat /dev/sdc1`,
+      `head -1 /etc/fstab & sudo ${MK}.ext4 /dev/sdb`,
+    ]) {
+      const c = classifyAct({ kind: 'shell', command });
+      expect(c.flags, command).toContain('destructive');
+      expect(c.flags, command).toContain('protected_target');
+      expect(evidenceTotal(c), command).toBe(100);
+    }
+  });
+
+  it('a redirect that uses & is still a read-only mention', () => {
+    for (const command of ['grep -rn truncate app/lib 2>&1', 'grep truncate x &> out.txt', 'grep --include=*.ts truncate src']) {
+      expect(classifyAct({ kind: 'shell', command }).flags, command).not.toContain('destructive');
+    }
+  });
+
   it('shred / truncate stay destructive behind a launcher no list names', () => {
     for (const command of [
       'stdbuf -o0 truncate -s 0 a.db',
@@ -1000,6 +1019,12 @@ describe('disk tools grade only in command position (read-only mentions are not 
       'cat <(shred -u f)',
       'rg --pre shred needle src',
       'git -c core.pager=shred log',
+      // An env assignment can make a read-only git run the tool on every file.
+      'GIT_EXTERNAL_DIFF=shred git diff',
+      'GIT_PAGER=shred git log',
+      // A single & backgrounds the first command and runs the second.
+      'echo hi & truncate -s 0 prod.db',
+      'stat f & shred -n 3 notes.txt',
     ]) {
       const c = classifyAct({ kind: 'shell', command });
       expect(c.flags, command).toContain('destructive');

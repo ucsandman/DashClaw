@@ -14,7 +14,7 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
-## 2026-11-25 — v5.40.0: a tournament picked the work, and two of its claims were wrong
+## 2026-11-25 — v5.40.0: a tournament picked the work, and three review layers each caught something
 
 Wes asked for a tournament of ideas for what to do next, then for the winners
 to be built in parallel. Six agents each argued one angle (activation, the
@@ -38,7 +38,7 @@ What shipped:
 - **Sitemap and copy.** Five public pages were missing from the sitemap, and
   two lines promised Node 18 for an app that needs 20.9.
 
-What went wrong, both times after a reviewer had passed the work:
+What went wrong, each time after an earlier check had passed the work:
 
 1. The guard builder narrowed the disk-tool rule to "command position after a
    list of known wrappers". Its reviewer found one regression, a fix pass
@@ -58,6 +58,17 @@ What went wrong, both times after a reviewer had passed the work:
    boundary. He chose to exempt the trial principal the way `operator` is
    exempt: one human with a browser cookie, while agents authenticate with a
    key and still cannot approve themselves.
+
+3. The pre-ship security review then blocked the push on my own two fixes. My
+   read-only exemption in the guard could be walked around with a single `&`
+   (`ls & <format tool> /dev/sdb` stays one segment whose first word is `ls`)
+   or an env assignment (`GIT_EXTERNAL_DIFF=shred git diff`). And the deny note
+   was read from `error_message`, a field any key in the org can overwrite, so
+   one agent could have spoken to another in the operator's voice. The
+   exemption now refuses both shapes, and the hook reads the note only from
+   the decision marker the approvals route appends to `reasoning`, which no
+   API call can write after creation. The note is also stripped of control
+   characters and bounded on both sides.
 
 What is not proven: the trial flow has not been clicked through in a browser.
 The local run could not get past the trial middleware, which uses a database

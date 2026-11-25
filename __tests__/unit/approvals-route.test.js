@@ -186,6 +186,40 @@ describe('POST /api/approvals/[actionId]', () => {
     expect(mockRecordApproval).not.toHaveBeenCalled();
   });
 
+  it('bounds the deny note and strips control characters before it is stored', async () => {
+    // The hook prints this note to the denied agent's terminal.
+    mockGetActionStatus.mockResolvedValueOnce({
+      status: 'pending_approval', agent_id: 'agent_1', created_by: 'key_agent1',
+      approval_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const updatedAction = { action_id: 'act_123', status: 'failed', agent_id: 'agent_1' };
+    mockRecordApproval.mockResolvedValueOnce(updatedAction);
+    mockGetActionSummary.mockResolvedValueOnce(updatedAction);
+
+    const res = await POST(req({ decision: 'deny', reasoning: 'stop\u001b]52;c;AAAA\u0007 now ' + 'x'.repeat(5000) }), { params });
+
+    expect(res.status).toBe(200);
+    const stored = mockRecordApproval.mock.calls.at(-1)[3].safeReasoning;
+    expect(stored).not.toMatch(/[\u001b\u0007]/);
+    expect(stored.length).toBeLessThanOrEqual(2000);
+    expect(stored.startsWith('stop]52;c;AAAA now ')).toBe(true);
+  });
+
+  it('ignores a deny note that is not a string', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      status: 'pending_approval', agent_id: 'agent_1', created_by: 'key_agent1',
+      approval_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const updatedAction = { action_id: 'act_123', status: 'failed', agent_id: 'agent_1' };
+    mockRecordApproval.mockResolvedValueOnce(updatedAction);
+    mockGetActionSummary.mockResolvedValueOnce(updatedAction);
+
+    const res = await POST(req({ decision: 'deny', reasoning: { text: 'x' } }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockRecordApproval.mock.calls.at(-1)[3].errorMessage).toBe('Denied by human operator');
+  });
+
   it('allows approval by a different principal than the creator', async () => {
     mockGetActionStatus.mockResolvedValueOnce({
       status: 'pending_approval', agent_id: 'agent_1', created_by: 'key_agent1',

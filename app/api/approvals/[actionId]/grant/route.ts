@@ -99,7 +99,7 @@ async function prepareGrant(sql: ReturnType<typeof getSql>, orgId: string, actio
   const candidates = await listPendingApprovalsForGrant(sql, orgId, shape.action_type);
   const allReleaseIds = [actionId, ...candidates.rows
     .filter((candidate) => candidate.action_id !== actionId)
-    .filter((candidate) => userId === 'operator' || candidate.created_by !== userId)
+    .filter((candidate) => userId === 'operator' || userId === `trial:${orgId}` || candidate.created_by !== userId)
     .filter((candidate) => grantCoversRisk(rules, candidate.risk_score))
     .filter((candidate) => grantMatches(rules, { ...parseJsonObject(candidate.context), action_type: candidate.action_type }))
     .map((candidate) => candidate.action_id)];
