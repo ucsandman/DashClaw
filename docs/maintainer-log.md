@@ -14,6 +14,61 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-11-25 — v5.40.5: the fix I proposed would have protected almost nobody
+
+After 5.40.4 I told Wes the cause underneath it was still open: any API key in
+an org can write outcome fields onto any action. I proposed scoping those
+writes to the action's creator, and he said to do it.
+
+I had read the route and chosen where the check would go when a forwarded note
+asked which real setups a creator check protects. DashClaw records the creator
+as the credential, not the agent. So I counted. In the development database,
+one API key has created actions for 201 different agent ids. Four of the six
+live keys are admin keys and the root key is the operator, and all of those
+would have been exempt. No action out of 767 carries a verified agent
+identity. The check I was about to add to the route every tool call finishes
+on would have separated nothing, and a wrong rule there leaves actions stuck
+as running.
+
+What the server can promise without knowing who is calling is narrower and
+holds for every setup. The route already refused to change `status`,
+`output_summary` and `timestamp_end` once an action stopped running. It left
+`error_message`, `side_effects` and `artifacts_created` writable forever. That
+gap is what made the deny-reason spoofing possible: the planted text went onto
+a pending or denied record. Those three fields now land with the status, in
+the same gated write. The change is three names added to one list.
+
+Before changing it I read what every client sends. The hooks never send those
+fields; both SDKs, the OpenClaw plugin and the MCP server send them in the
+closing call. Late token and cost reports are untouched.
+
+Proof on a real case: a production build of the route, started locally
+against the local database. A normal close with text fields works, each text
+field sent alone to the closed action is refused with 409, and text sent
+alongside late token counts is dropped while the counts are stored. Six of six.
+Then the control: the same script against the old field list passes two of six
+and the planted text lands in all three fields.
+
+What this does not do: it is not ownership. While an action is running, any
+key in the org can still close it or annotate it, and can report its durable
+outcome first. Closing that needs agents to have identities the server can
+verify, which none use today.
+
+An independent security review tried to break the rule and passed it: no
+path through the route or the repository write puts those fields on a row
+that is not running. It found three low items. Two are the cost of the
+change and are in the CHANGELOG: a late failure report now gets a 409 where
+it used to store its error text, and a late one that also carries a duration
+gets a 200 and loses the text silently (the Python SDK `track()` failure
+path). The third was already there and is still open: `POST
+/api/actions/:id/outcome` checks the action's status in one query and writes
+in another, so an outcome sent just as the owner cancels can land on the
+cancelled row. The fix is a status condition on that write.
+
+The change for next time: before adding an authorization rule, count who it
+would stop on real data. I proposed this one from the shape of the bug, and
+the first query showed it stopped no one.
+
 ## 2026-11-25 — v5.40.4: the deny reason, in the four places the hook fix left behind
 
 5.40.0 stopped the Claude Code hook from printing `error_message` as the

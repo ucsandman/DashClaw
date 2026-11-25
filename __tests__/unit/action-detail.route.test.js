@@ -221,6 +221,76 @@ describe('/api/actions/[actionId]', () => {
       expect(data).not.toHaveProperty('cost_alert');
     });
 
+    // Any org key can call this route for any action in the org, and the server
+    // cannot tell two agents on one key apart. So the text an agent or operator
+    // later reads (error_message, side_effects, artifacts_created) is part of
+    // the close: it lands with the status, in the one write gated on `running`.
+    // Left on the ungated path, it could be planted on a pending or denied row.
+    describe('narrative fields are frozen once the action leaves running', () => {
+      const NARRATIVE = { error_message: 'boom', side_effects: ['wrote a file'], artifacts_created: ['a.txt'] };
+      const gatedCalls = () => mockUpdateActionOutcome.mock.calls.filter(([, , , , opts]) => opts?.gateStatus === 'running');
+      const ungatedCalls = () => mockUpdateActionOutcome.mock.calls.filter(([, , , , opts]) => !opts?.gateStatus);
+
+      beforeEach(() => {
+        mockScanSensitiveData.mockImplementation((value) => ({ clean: true, redacted: value, findings: [] }));
+      });
+
+      it('writes the narrative fields with the status under the running gate, and numbers on the ungated path', async () => {
+        const body = { status: 'failed', ...NARRATIVE, tokens_in: 5, cost_estimate: 0.01 };
+        mockValidateActionOutcome.mockReturnValue({ valid: true, data: { ...body }, errors: [] });
+        mockUpdateActionOutcome.mockResolvedValue({ action_id: 'act_1', status: 'failed' });
+
+        const res = await PATCH(req(body), routeCtx);
+        expect(res.status).toBe(200);
+        expect(gatedCalls()).toHaveLength(1);
+        expect(gatedCalls()[0][3]).toEqual({ status: 'failed', ...NARRATIVE });
+        expect(ungatedCalls()).toHaveLength(1);
+        expect(ungatedCalls()[0][3]).toEqual({ tokens_in: 5, cost_estimate: 0.01 });
+      });
+
+      it.each(Object.entries(NARRATIVE))('refuses a lone %s on an action that is no longer running', async (field, value) => {
+        mockValidateActionOutcome.mockReturnValue({ valid: true, data: { [field]: value }, errors: [] });
+        mockUpdateActionOutcome.mockResolvedValue(null); // the running gate did not match
+        mockGetActionStatus.mockResolvedValue({ status: 'cancelled' });
+
+        const res = await PATCH(req({ [field]: value }), routeCtx);
+        expect(res.status).toBe(409);
+        expect(ungatedCalls()).toHaveLength(0);
+        expect(gatedCalls()).toHaveLength(1);
+        expect(gatedCalls()[0][3]).toEqual({ [field]: value });
+        expect(mockPublishOrgEvent).not.toHaveBeenCalled();
+      });
+
+      it('drops the narrative fields but still lands late numbers on a closed action', async () => {
+        const body = { error_message: 'planted', tokens_in: 7, tokens_out: 3, cost_estimate: 0.02, model: 'm', duration_ms: 12 };
+        mockValidateActionOutcome.mockReturnValue({ valid: true, data: { ...body }, errors: [] });
+        // Gated write misses (row is closed); the ungated numeric write succeeds.
+        mockUpdateActionOutcome.mockImplementation(async (_sql, _org, _id, _data, opts) => (
+          opts?.gateStatus ? null : { action_id: 'act_1', status: 'completed', error_message: null }
+        ));
+
+        const res = await PATCH(req(body), routeCtx);
+        expect(res.status).toBe(200);
+        expect(gatedCalls()[0][3]).toEqual({ error_message: 'planted' });
+        expect(ungatedCalls()).toHaveLength(1);
+        expect(ungatedCalls()[0][3]).toEqual({ tokens_in: 7, tokens_out: 3, cost_estimate: 0.02, model: 'm', duration_ms: 12 });
+        expect((await res.json()).action.error_message).toBeNull();
+      });
+
+      it('applies the same split on the Stop-hook path (close_if_running)', async () => {
+        const body = { close_if_running: true, status: 'completed', side_effects: ['x'], tokens_in: 1, cost_estimate: 0 };
+        mockValidateActionOutcome.mockReturnValue({
+          valid: true, data: { status: 'completed', side_effects: ['x'], tokens_in: 1, cost_estimate: 0 }, errors: [],
+        });
+        mockUpdateActionOutcome.mockResolvedValue({ action_id: 'act_1', status: 'completed' });
+
+        const res = await PATCH(req(body), routeCtx);
+        expect(res.status).toBe(200);
+        expect(gatedCalls()[0][3]).toEqual({ status: 'completed', side_effects: ['x'] });
+        expect(ungatedCalls()[0][3]).toEqual({ tokens_in: 1, cost_estimate: 0 });
+      });
+    });
+
     // Containment Verdicts (drizzle/0064) — agent-side flip. Isolated from
     // the outcome-field path above: this is the ONLY containment_status
     // transition an agent-key PATCH may drive (operator promote/discard

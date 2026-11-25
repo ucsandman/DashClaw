@@ -13,6 +13,20 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.40.5] - 2026-11-25
+
+### Security
+
+- **The text on an action record is frozen once the action leaves `running`.** `PATCH /api/actions/:id` gated `status`, `output_summary` and `timestamp_end` on the action still running, but wrote `error_message`, `side_effects` and `artifacts_created` at any time, on any row. Any API key in the org can call that route for any action, so text could be planted on a pending, denied or finished record, which is how the deny-reason spoofing fixed in 5.40.4 was possible. Those three fields are now close fields: they land with the status, in the same gated write. Token counts, cost, model and duration can still be reported late.
+- This is not an ownership check. Agents that share one API key look identical to the server, so it cannot tell whose action is whose; a key can still close or annotate another agent's action while it is running.
+
+### Changed
+
+- A PATCH that sends `error_message`, `side_effects` or `artifacts_created` to an action that is no longer running, alone or with a `status`, now answers `409 illegal_transition`. It used to store the text and answer `200`. A late failure report (`status: failed` with an `error_message`, after a sweep or another call already closed the action) is the case to expect: the Node SDK `updateOutcome` throws, the OpenClaw plugin logs a warning, the MCP server reports the refusal.
+- Sent together with late token, cost or duration fields, the numbers are stored, the text is dropped, and the answer is still `200`. The Python SDK `track()` failure path sends `duration_ms` with its `error_message`, so a late one loses the error text without an error.
+- The hooks never send these fields. Both SDKs, the OpenClaw plugin and the MCP server send them in the closing call.
+- A close that carries text fields is now one database write instead of two.
+
 ## [5.40.4] - 2026-11-25
 
 ### Security

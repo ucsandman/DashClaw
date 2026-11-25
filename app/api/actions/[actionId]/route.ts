@@ -145,7 +145,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
     }
 
     // Stop-hook contract — see dashclaw_stop.py. When true, the request's close
-    // fields (status/output_summary/timestamp_end) are applied atomically only
+    // fields (CLOSE_FIELDS below) are applied atomically only
     // if the row is still `running`; token fields always apply. This prevents
     // a late Stop hook from clobbering a terminal state PostToolUse just wrote.
     const closeIfRunning = body.close_if_running === true;
@@ -315,7 +315,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
     // tokens/cost/model land even after the action is closed. The
     // close_if_running flag is retained for the Stop-hook contract but the
     // gate now always applies to prevent terminal-state overwrites.
-    const CLOSE_FIELDS = new Set(['status', 'output_summary', 'timestamp_end']);
+    //
+    // SECURITY: error_message, side_effects and artifacts_created are close
+    // fields too. Any org key can PATCH any action in the org, and agents
+    // sharing a key are indistinguishable here, so ownership cannot be
+    // checked. What can be guaranteed is that the text someone later reads
+    // off a record is frozen once the action leaves `running`: nothing can
+    // be planted on a pending, denied or finished row. Only numbers and the
+    // model name stay writable after the close.
+    const CLOSE_FIELDS = new Set([
+      'status', 'output_summary', 'timestamp_end',
+      'error_message', 'side_effects', 'artifacts_created',
+    ]);
     const closeData: Record<string, unknown> = {};
     const otherData: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(data)) {
