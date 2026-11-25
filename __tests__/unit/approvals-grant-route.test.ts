@@ -267,4 +267,16 @@ describe('GET /api/approvals/[actionId]/grant — preview', () => {
     mockGetActionForGrant.mockResolvedValue({ ...ACTION, created_by: 'operator' });
     expect((await get('24', { 'x-user-id': 'operator' })).status).toBe(200);
   });
+
+  it("exempts the trial session principal of the action's own org", async () => {
+    mockGetActionForGrant.mockResolvedValue({ ...ACTION, created_by: 'trial:org_1' });
+    expect((await get('24', { 'x-user-id': 'trial:org_1' })).status).toBe(200);
+  });
+
+  it('does not exempt a trial principal that names another org', async () => {
+    mockGetActionForGrant.mockResolvedValue({ ...ACTION, created_by: 'trial:org_2' });
+    const res = await get('24', { 'x-user-id': 'trial:org_2' });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('SELF_APPROVAL_FORBIDDEN');
+  });
 });

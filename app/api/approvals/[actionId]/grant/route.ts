@@ -64,7 +64,7 @@ async function prepareGrant(sql: ReturnType<typeof getSql>, orgId: string, actio
   if (action.status !== 'pending_approval') {
     return { error: 'Action is not pending approval', code: 'NOT_PENDING', status: 400 } as const;
   }
-  if (userId !== 'operator' && action.created_by === userId) {
+  if (userId !== 'operator' && userId !== `trial:${orgId}` && action.created_by === userId) {
     return { error: 'The credential that created this action cannot grant it.', code: 'SELF_APPROVAL_FORBIDDEN', status: 403 } as const;
   }
   if (action.risk_score >= RISK_HIGH_MIN) {

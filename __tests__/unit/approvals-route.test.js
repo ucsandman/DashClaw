@@ -153,6 +153,39 @@ describe('POST /api/approvals/[actionId]', () => {
     expect(mockRecordApproval).toHaveBeenCalled();
   });
 
+  it("exempts the trial session principal of the action's own org (one human, one browser)", async () => {
+    // A hosted trial is a single person holding a browser cookie; agents
+    // authenticate as key_<uuid>, so a machine still cannot approve itself.
+    mockGetUserId.mockReturnValueOnce('trial:org_test');
+    mockGetActionStatus.mockResolvedValueOnce({
+      status: 'pending_approval', agent_id: 'browser-first-action', created_by: 'trial:org_test',
+      approval_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const updatedAction = { action_id: 'act_123', status: 'running', agent_id: 'browser-first-action' };
+    mockRecordApproval.mockResolvedValueOnce(updatedAction);
+    mockGetActionSummary.mockResolvedValueOnce(updatedAction);
+
+    const res = await POST(req({ decision: 'allow' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockRecordApproval).toHaveBeenCalled();
+  });
+
+  it('does not exempt a trial principal that names another org', async () => {
+    mockGetUserId.mockReturnValueOnce('trial:org_other');
+    mockGetActionStatus.mockResolvedValueOnce({
+      status: 'pending_approval', agent_id: 'agent_1', created_by: 'trial:org_other',
+      approval_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+
+    const res = await POST(req({ decision: 'allow' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.code).toBe('SELF_APPROVAL_FORBIDDEN');
+    expect(mockRecordApproval).not.toHaveBeenCalled();
+  });
+
   it('allows approval by a different principal than the creator', async () => {
     mockGetActionStatus.mockResolvedValueOnce({
       status: 'pending_approval', agent_id: 'agent_1', created_by: 'key_agent1',

@@ -79,8 +79,17 @@ describe('recordBulkApprovals — separation-of-duties exclusion', () => {
     const sql = makeCapturingSqlMock([[{ action_id: 'act_1' }]]);
     await recordBulkApprovals(sql, 'org_1', ['act_1', 'act_2'], bulkData);
     const { text, values } = sql.calls[0];
-    expect(text).toContain("($8 = 'operator' OR created_by IS DISTINCT FROM $8)");
+    expect(text).toContain("($8 = 'operator' OR $8 = 'trial:' || org_id OR created_by IS DISTINCT FROM $8)");
     expect(values[7]).toBe('key_admin1');
+  });
+
+  it("the trial session principal is exempt only for its own org's rows", async () => {
+    const sql = makeCapturingSqlMock([[{ action_id: 'act_1' }]]);
+    await recordBulkApprovals(sql, 'org_1', ['act_1'], { ...bulkData, userId: 'trial:org_1' });
+    // The exemption compares the principal to the ROW's org_id, so a trial
+    // principal naming any other org falls through to the creator check.
+    expect(sql.calls[0].text).toContain("$8 = 'trial:' || org_id");
+    expect(sql.calls[0].values[7]).toBe('trial:org_1');
   });
 
   it("the 'operator' root principal is exempt (single-admin self-host)", async () => {

@@ -114,7 +114,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
     // root credential legitimately does both, and if an agent holds root the
     // gate was already forfeit. NULL created_by (legacy/system rows) is
     // unenforceable and stays approvable.
-    if (userId !== 'operator' && action.created_by && action.created_by === userId) {
+    // A hosted trial session (trial:<org>, this org only) is exempt for the
+    // same reason as 'operator': one human holding a browser cookie, while
+    // agents authenticate as key_<uuid>.
+    if (userId !== 'operator' && userId !== `trial:${orgId}` && action.created_by && action.created_by === userId) {
       return NextResponse.json(
         {
           error: 'The credential that created this action cannot approve it. Approve from the dashboard, or use a different admin credential.',

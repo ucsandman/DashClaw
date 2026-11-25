@@ -195,7 +195,7 @@ Reason: ' || ${safeReasoning} ELSE '' END
       AND status = 'pending_approval'
       AND (approval_expires_at >= NOW()
            OR (approval_expires_at IS NULL AND created_at >= NOW() - interval '24 hours'))
-      AND (${userId} = 'operator' OR created_by IS DISTINCT FROM ${userId})
+      AND (${userId} = 'operator' OR ${userId} = 'trial:' || org_id OR created_by IS DISTINCT FROM ${userId})
     RETURNING *
   `;
   return result[0] || null;
@@ -425,7 +425,7 @@ export async function recordBulkApprovals(
        AND status = 'pending_approval'
        AND (approval_expires_at >= NOW()
             OR (approval_expires_at IS NULL AND created_at >= NOW() - interval '24 hours'))
-       AND ($8 = 'operator' OR created_by IS DISTINCT FROM $8)
+       AND ($8 = 'operator' OR $8 = 'trial:' || org_id OR created_by IS DISTINCT FROM $8)
      RETURNING action_id`,
     [newStatus, errorMessage, approvedBy, decisionUpper === 'ALLOW', reasoningAppend, orgId, actionIds, userId],
   );
@@ -587,7 +587,7 @@ export async function createApprovalGrant(
         AND status = 'pending_approval'
         AND (approval_expires_at >= NOW()
              OR (approval_expires_at IS NULL AND created_at >= NOW() - interval '24 hours'))
-        AND (${actorId} = 'operator' OR created_by IS DISTINCT FROM ${actorId})
+        AND (${actorId} = 'operator' OR ${actorId} = 'trial:' || org_id OR created_by IS DISTINCT FROM ${actorId})
     )
     INSERT INTO guard_policies
       (id, org_id, name, policy_type, rules, active, created_by, created_at, updated_at)
