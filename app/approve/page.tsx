@@ -111,6 +111,9 @@ export default function ApprovePage() {
   const [connected, setConnected] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [pullOffset, setPullOffset] = useState(0);
+  // Deny opens an optional note for the agent before it posts.
+  const [denyingId, setDenyingId] = useState<string | null>(null);
+  const [denyNote, setDenyNote] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pullStartY = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -221,14 +224,15 @@ export default function ApprovePage() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
   }, []);
 
-  const handleDecision = useCallback(async (actionId: string, decision: string) => {
+  const handleDecision = useCallback(async (actionId: string, decision: string, reasoning?: string) => {
     setProcessingId(actionId);
     safeVibrate(decision === 'allow' ? 10 : [10, 50, 10]);
     try {
+      const note = reasoning?.trim();
       const res = await fetch(`/api/approvals/${actionId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision }),
+        body: JSON.stringify(note ? { decision, reasoning: note } : { decision }),
       });
       if (!res.ok) {
         let message = 'Decision failed';
@@ -492,10 +496,14 @@ export default function ApprovePage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDecision(action.action_id, 'deny')}
+                      onClick={() => {
+                        setDenyNote('');
+                        setDenyingId(denyingId === action.action_id ? null : action.action_id);
+                      }}
                       disabled={!canDecide || isProcessing || isRemoving}
                       className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-error/30 bg-error-subtle px-4 text-sm font-semibold text-error transition-colors hover:border-error/50 hover:bg-error-subtle disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label={`Deny action ${action.action_id}`}
+                      aria-expanded={denyingId === action.action_id}
                     >
                       {isProcessing ? (
                         <Loader2 size={16} className="animate-spin" />
@@ -505,6 +513,44 @@ export default function ApprovePage() {
                       Deny
                     </button>
                   </div>
+
+                  {denyingId === action.action_id && (
+                    <div className="mt-3 rounded-lg border border-error/20 bg-white/[0.02] p-3">
+                      <label htmlFor={`deny-note-${action.action_id}`} className="mb-1.5 block text-xs font-medium text-secondary">
+                        Tell the agent why (optional)
+                      </label>
+                      <textarea
+                        id={`deny-note-${action.action_id}`}
+                        value={denyNote}
+                        onChange={(e) => setDenyNote(e.target.value)}
+                        rows={2}
+                        maxLength={2000}
+                        placeholder="The agent sees this note when the action is denied."
+                        className="w-full resize-y rounded-lg border border-border bg-surface-primary px-3 py-2 text-sm text-white placeholder:text-tertiary focus:border-border-active focus:outline-none"
+                      />
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDenyingId(null)}
+                          disabled={isProcessing || isRemoving}
+                          className="min-h-[44px] rounded-lg border border-border px-3 text-sm text-secondary transition-colors hover:border-border-hover disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDenyingId(null);
+                            handleDecision(action.action_id, 'deny', denyNote);
+                          }}
+                          disabled={!canDecide || isProcessing || isRemoving}
+                          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-error/30 bg-error-subtle px-3 text-sm font-semibold text-error transition-colors hover:border-error/50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <X size={16} /> Confirm deny
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </li>
               );
             })}

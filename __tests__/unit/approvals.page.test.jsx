@@ -343,3 +343,95 @@ describe('ApprovalsPage — session resolution', () => {
     await waitFor(() => expect(screen.queryByText('Deploy release')).toBeNull());
   });
 });
+
+// Deny with a note: the server already stores `reasoning` as the action's
+// error_message, and the pretool hook prints it to the denied agent. The
+// dashboard has to be able to send it.
+describe('Deny with a note', () => {
+  const DENIABLE = {
+    action_id: 'act_dn', agent_id: 'agent_dn', agent_name: 'migrator',
+    declared_goal: 'Drop the users table', action_type: 'database', risk_score: 80,
+    status: 'pending_approval', timestamp_start: '2026-06-01T00:00:00.000Z', systems_touched: '[]',
+  };
+
+  function denyFetch(posts, { actions = [DENIABLE], total } = {}) {
+    return vi.fn(async (url, init) => {
+      const u = String(url);
+      if (u.includes('status=pending_approval')) {
+        return { ok: true, json: async () => ({ actions, total: total ?? actions.length }) };
+      }
+      if (u.startsWith('/api/actions')) return { ok: true, json: async () => ({ actions: [] }) };
+      if (u.startsWith('/api/approvals/') && init?.method === 'POST') {
+        posts.push(JSON.parse(init.body));
+        return { ok: true, json: async () => ({ success: true }) };
+      }
+      if (u === '/api/session/effective') {
+        return { ok: true, json: async () => ({ authenticated: true, authType: 'local', role: 'admin', isAdmin: true }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('/approvals: a typed note is sent as reasoning on Deny', async () => {
+    const posts = [];
+    global.fetch = denyFetch(posts);
+    const { default: ApprovalsPage } = await import('@/approvals/page.jsx');
+    render(<ApprovalsPage />);
+
+    await screen.findByText('Drop the users table');
+    fireEvent.click(screen.getByRole('button', { name: /^deny$/i }));
+    fireEvent.change(screen.getByLabelText(/tell the agent why/i), { target: { value: 'use the staging branch' } });
+    fireEvent.click(screen.getByRole('button', { name: /confirm deny/i }));
+
+    await waitFor(() => expect(posts).toEqual([{ decision: 'deny', reasoning: 'use the staging branch' }]));
+  });
+
+  it('/approvals: an empty note sends { decision: "deny" } only', async () => {
+    const posts = [];
+    global.fetch = denyFetch(posts);
+    const { default: ApprovalsPage } = await import('@/approvals/page.jsx');
+    render(<ApprovalsPage />);
+
+    await screen.findByText('Drop the users table');
+    fireEvent.click(screen.getByRole('button', { name: /^deny$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /confirm deny/i }));
+
+    await waitFor(() => expect(posts).toEqual([{ decision: 'deny' }]));
+  });
+
+  it('/approvals: the pending badge shows the API total and "showing 50 of 73"', async () => {
+    const rows = Array.from({ length: 50 }, (_, i) => ({
+      ...DENIABLE, action_id: `act_page_${i}`, declared_goal: `Queued action ${i}`,
+    }));
+    global.fetch = denyFetch([], { actions: rows, total: 73 });
+    const { default: ApprovalsPage } = await import('@/approvals/page.jsx');
+    render(<ApprovalsPage />);
+
+    await screen.findByText('Queued action 0');
+    expect(screen.getByText(/showing 50 of 73/i)).toBeTruthy();
+    expect(screen.getByText('73')).toBeTruthy();
+  });
+
+  it('/approve: a typed note is sent as reasoning, an empty one is not', async () => {
+    const posts = [];
+    global.fetch = denyFetch(posts, {
+      actions: [DENIABLE, { ...DENIABLE, action_id: 'act_dn2', declared_goal: 'Rotate the keys' }],
+    });
+    const { default: ApprovePage } = await import('@/approve/page.jsx');
+    render(<ApprovePage />);
+
+    await screen.findByText('Drop the users table');
+    fireEvent.click(screen.getByRole('button', { name: 'Deny action act_dn' }));
+    fireEvent.change(screen.getByLabelText(/tell the agent why/i), { target: { value: 'use the staging branch' } });
+    fireEvent.click(screen.getByRole('button', { name: /confirm deny/i }));
+    await waitFor(() => expect(posts).toEqual([{ decision: 'deny', reasoning: 'use the staging branch' }]));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Deny action act_dn2' }));
+    fireEvent.click(screen.getByRole('button', { name: /confirm deny/i }));
+    await waitFor(() => expect(posts[1]).toEqual({ decision: 'deny' }));
+  });
+});

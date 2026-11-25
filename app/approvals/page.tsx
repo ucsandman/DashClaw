@@ -95,6 +95,12 @@ function Banner({ icon: Icon, tone, title, children, onDismiss }: BannerProps) {
 export default function ApprovalsPage() {
   const { agentId } = useAgentFilter();
   const [pendingActions, setPendingActions] = useState<any[]>([]);
+  // Pending rows past the 50 fetched (API total minus rows returned), so the
+  // badge counts the whole queue and still drops as rows are resolved here.
+  const [pendingOverflow, setPendingOverflow] = useState(0);
+  // Single-item Deny opens an optional note for the agent before it posts.
+  const [denyingId, setDenyingId] = useState<string | null>(null);
+  const [denyNote, setDenyNote] = useState('');
   const [expiredActions, setExpiredActions] = useState<any[]>([]);
   const [pendingPlans, setPendingPlans] = useState<Array<{ plan: any; steps: any[] }>>([]);
   const [livePlans, setLivePlans] = useState<Array<{ plan: any; steps: any[] }>>([]);
@@ -126,6 +132,7 @@ export default function ApprovalsPage() {
       if (!res.ok) throw new Error('Failed to load pending actions');
       const json = await res.json();
       setPendingActions(json.actions || []);
+      setPendingOverflow(Math.max(0, (Number(json.total) || 0) - (json.actions || []).length));
       setQueueError(null);
       setLastSuccessfulRefresh(new Date().toLocaleTimeString());
       // Fetched AFTER the pending list on purpose: that request runs the
@@ -303,13 +310,14 @@ export default function ApprovalsPage() {
     }
   };
 
-  const handleDecision = async (actionId: string, decision: string) => {
+  const handleDecision = async (actionId: string, decision: string, reasoning?: string) => {
     try {
       setProcessingId(actionId);
+      const note = reasoning?.trim();
       const res = await fetch(`/api/approvals/${actionId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision })
+        body: JSON.stringify(note ? { decision, reasoning: note } : { decision })
       });
 
       if (!res.ok) {
@@ -520,10 +528,19 @@ export default function ApprovalsPage() {
 
         <CollapsibleSection
           id="approvals.pending"
-          title="Pending approvals"
+          title={
+            <>
+              Pending approvals
+              {pendingOverflow > 0 && (
+                <span className="ml-2 text-xs font-normal tabular-nums text-tertiary">
+                  showing {pendingActions.length} of {pendingActions.length + pendingOverflow}
+                </span>
+              )}
+            </>
+          }
           icon={Clock}
           iconClassName="text-warning"
-          count={pendingActions.length}
+          count={pendingActions.length + pendingOverflow}
           badgeVariant="warning"
           controls={
             pendingActions.length > 0 ? (
@@ -779,8 +796,12 @@ export default function ApprovalsPage() {
                         ))}
                         {canDeny && (
                           <button
-                            onClick={() => handleDecision(action.action_id, 'deny')}
+                            onClick={() => {
+                              setDenyNote('');
+                              setDenyingId(denyingId === action.action_id ? null : action.action_id);
+                            }}
                             disabled={!canDecide || isProcessing}
+                            aria-expanded={denyingId === action.action_id}
                             className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-error/20 bg-error-subtle px-4 py-2.5 text-sm font-semibold text-error transition-colors hover:border-error/40 hover:bg-error-subtle focus:border-error/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <X size={16} /> Deny
@@ -788,6 +809,44 @@ export default function ApprovalsPage() {
                         )}
                       </div>
                     </div>
+
+                    {canDeny && denyingId === action.action_id && (
+                      <div className="mt-4 rounded-lg border border-error/20 bg-surface-tertiary/50 p-3">
+                        <label htmlFor={`deny-note-${action.action_id}`} className="mb-1.5 block text-xs font-medium text-secondary">
+                          Tell the agent why (optional)
+                        </label>
+                        <textarea
+                          id={`deny-note-${action.action_id}`}
+                          value={denyNote}
+                          onChange={(e) => setDenyNote(e.target.value)}
+                          rows={2}
+                          maxLength={2000}
+                          placeholder="The agent sees this note when the action is denied."
+                          className="w-full resize-y rounded-lg border border-border bg-surface-secondary px-3 py-2 text-sm text-white placeholder:text-tertiary focus:border-border-active focus:outline-none"
+                        />
+                        <div className="mt-2 flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setDenyingId(null)}
+                            disabled={isProcessing}
+                            className="rounded-lg border border-border px-3 py-1.5 text-sm text-secondary transition-colors hover:border-border-hover hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDenyingId(null);
+                              handleDecision(action.action_id, 'deny', denyNote);
+                            }}
+                            disabled={!canDecide || isProcessing}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-error/30 bg-error-subtle px-3 py-1.5 text-sm font-semibold text-error transition-colors hover:border-error/50 focus:border-error/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <X size={14} /> Confirm deny
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {grantingId === action.action_id && (
                       <DontAskAgainPanel

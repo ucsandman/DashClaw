@@ -1705,7 +1705,13 @@ def _wait_for_approval(action_id, tool_use_id, context, guard_resp):
             log("[DashClaw] Approval expired server-side.")
             sys.exit(2)
         if status in ("failed", "cancelled"):
-            log("[DashClaw] Action denied by operator.")
+            # The deny note from /approvals is stored as error_message. The
+            # server writes "Denied by human operator" when no note was typed.
+            note = action.get("error_message")
+            if note and note != "Denied by human operator":
+                log("[DashClaw] Denied by operator: " + str(note))
+            else:
+                log("[DashClaw] Action denied by operator.")
             sys.exit(2)
 
 

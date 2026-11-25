@@ -341,5 +341,48 @@ class PretoolExecutionClaimTests(unittest.TestCase):
         self.assertEqual(request.call_args.args[1], "/api/actions/act_1")
 
 
+class PretoolDenyNoteTests(unittest.TestCase):
+    """A deny note typed on /approvals is stored as error_message; the denied
+    agent must see it on stderr, not a fixed line."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.hook = load_hook()
+
+    def _wait_denied(self, action):
+        import io
+        err = io.StringIO()
+        with (
+            mock.patch.object(self.hook, "APPROVAL_TIMEOUT", 30),
+            mock.patch.object(self.hook.time, "sleep"),
+            mock.patch.object(self.hook, "get_action", return_value={"action": action}),
+            mock.patch.object(sys, "stderr", err),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            self.hook._wait_for_approval("act_1", "tool_1", {}, {})
+        return raised.exception.code, err.getvalue()
+
+    def test_denied_action_prints_the_operator_note(self):
+        code, err = self._wait_denied({"status": "failed", "error_message": "use the staging branch"})
+        self.assertEqual(code, 2)
+        self.assertIn("[DashClaw] Denied by operator: use the staging branch", err)
+
+    def test_cancelled_action_prints_the_operator_note(self):
+        code, err = self._wait_denied({"status": "cancelled", "error_message": "use the staging branch"})
+        self.assertEqual(code, 2)
+        self.assertIn("use the staging branch", err)
+
+    def test_server_default_reason_is_not_printed_as_a_note(self):
+        code, err = self._wait_denied({"status": "failed", "error_message": "Denied by human operator"})
+        self.assertEqual(code, 2)
+        self.assertIn("[DashClaw] Action denied by operator.", err)
+        self.assertNotIn("Denied by operator: Denied by human operator", err)
+
+    def test_denied_action_without_a_note_keeps_the_old_line(self):
+        code, err = self._wait_denied({"status": "failed"})
+        self.assertEqual(code, 2)
+        self.assertIn("[DashClaw] Action denied by operator.", err)
+
+
 if __name__ == "__main__":
     unittest.main()
