@@ -299,7 +299,7 @@ Approved actions carry a terminal outcome separate from their lifecycle status. 
 
 | Surface | What it is | Setup |
 |---|---|---|
-| Dashboard (`/approvals`) | The primary inbox: what your agent tried, what waits on you, and per item — allow, deny, or stop being asked about that exact target — each led by a plain-English sentence for what the command does. | None |
+| Dashboard (`/approvals`) | The primary inbox: what your agent tried, what waits on you, and per item — allow, deny (with an optional note the agent reads), or stop being asked about that exact target — each led by a plain-English sentence for what the command does. | None |
 | CLI (`@dashclaw/cli`) | Terminal inbox: `dashclaw approvals`, `dashclaw approve <id>`. | `npm i -g @dashclaw/cli` |
 | Mobile PWA (`/approve`) | Phone-first allow/deny with risk score and policy. Add to home screen. | None |
 | Telegram | Inline Approve/Reject in an admin chat. | `dashclaw install telegram` ([guide](docs/telegram-setup.md)) |

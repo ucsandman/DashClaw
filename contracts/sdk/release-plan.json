@@ -1,26 +1,24 @@
 {
   "node": {
-    "current_version": "5.39.2",
+    "current_version": "5.40.0",
     "next_bump": "none",
-    "reason": "5.39.2 updates nested MCP/OpenClaw Hono lockfiles. No Node SDK source changed; do not republish the SDK.",
+    "reason": "5.40.0 adds the deny note on /approvals, the held first action on /connect, the trial self-approval exemption and the guard disk-tool grading fix. No Node SDK source changed; do not republish the SDK.",
     "domains": [
       "platform",
       "docs"
     ]
   },
   "python": {
-    "current_version": "5.39.2",
+    "current_version": "5.40.0",
     "next_bump": "none",
-    "reason": "5.39.2 updates nested MCP/OpenClaw Hono lockfiles. No Python SDK source changed; do not republish the SDK.",
+    "reason": "5.40.0 adds the deny note on /approvals, the held first action on /connect, the trial self-approval exemption and the guard disk-tool grading fix. No Python SDK source changed; do not republish the SDK.",
     "domains": [
-      "actions",
-      "sdk"
+      "platform",
+      "docs"
     ]
   },
-  "reason": "5.39.2 pins Hono 4.13.18 in the MCP server and OpenClaw plugin development/install lockfiles. No SDK source or package publication is included. Other dependency advisories remain separate.",
+  "reason": "5.40.0 adds the deny note on /approvals, the held first action on /connect, the trial self-approval exemption and the guard disk-tool grading fix. Platform, hook and docs only: no SDK source or package publication is included; npm and PyPI stay at the last SDK release. The plugin bundle moves to 3.4.1 for the hook change.",
   "domains": [
-    "actions",
-    "sdk",
     "platform",
     "docs"
   ]

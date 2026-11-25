@@ -14,6 +14,64 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-11-25 — v5.40.0: a tournament picked the work, and two of its claims were wrong
+
+Wes asked for a tournament of ideas for what to do next, then for the winners
+to be built in parallel. Six agents each argued one angle (activation, the
+approvals surface, platform health, guard correctness, distribution, the next
+bet), three judges scored them, and a synthesizer returned four items that
+touch disjoint files. Four builders ran at once in one working tree, each
+followed by an independent reviewer.
+
+What shipped:
+
+- **Deny with a note.** Deny on `/approvals` opens an optional "Tell the agent
+  why" field. The server already stored a deny reason; the dashboard never sent
+  one and the hook threw it away, so a denied unattended agent learned nothing
+  and retried blind. Now the note reaches the agent's terminal.
+- **A first action that holds.** A hosted trial is seeded with the
+  catastrophe-only pack, and none of the browser presets on `/connect` could
+  trip it. A stranger's only no-install step could never show the product. The
+  card now has a preset the pack holds, and links to the Approvals inbox.
+- **Guard false holds.** A grep that mentioned `truncate` or `shred` graded as
+  destructive. Read-only commands that only name a disk tool are now allowed.
+- **Sitemap and copy.** Five public pages were missing from the sitemap, and
+  two lines promised Node 18 for an app that needs 20.9.
+
+What went wrong, both times after a reviewer had passed the work:
+
+1. The guard builder narrowed the disk-tool rule to "command position after a
+   list of known wrappers". Its reviewer found one regression, a fix pass
+   patched it, and the reviewer's concern was closed. I then compared old and
+   new grading over 52 real invocation shapes and 15 had dropped from risk 100
+   to 30: a device format behind `stdbuf`, `setsid`, `chroot`, `wsl` or
+   `pkexec` would have run unheld. A wrapper list fails open for every launcher
+   nobody thought of. The shipped rule inverts it: only a known read-only
+   command is exempt, so an unlisted launcher costs a false hold, never a
+   missed one.
+2. The tournament's winning idea rested on the claim that a trial visitor can
+   approve their own held action. It cited the admin check and missed the
+   separation-of-duties check thirty lines below it. A trial browser creates
+   the action as `trial:<org>` and approves as `trial:<org>`, which the route
+   rejects. As built, the new button would have led every stranger to a 403.
+   I held the item and asked Wes, because relaxing that rule is a security
+   boundary. He chose to exempt the trial principal the way `operator` is
+   exempt: one human with a browser cookie, while agents authenticate with a
+   key and still cannot approve themselves.
+
+What is not proven: the trial flow has not been clicked through in a browser.
+The local run could not get past the trial middleware, which uses a database
+driver that does not talk to a local Postgres. It rests on route tests and on
+reading the middleware. The open check is a human minting a trial on the live
+host and clicking through to Allow.
+
+The change for next time: a slate's load-bearing claim gets a route-level test
+before any builder starts, and any change to guard grading gets an old-versus-new
+probe before a reviewer's pass counts.
+
+Entries for 5.39.0 through 5.39.2 (dependency and security patches) were not
+written at the time; the CHANGELOG is their record.
+
 ## 2026-09-26 — v5.38.0: a stranger's first pull request, and a tier chip that lied
 
 The best thing in this release is not mine. On 2026-09-24 **@dacheah** filed

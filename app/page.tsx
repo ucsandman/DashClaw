@@ -85,7 +85,7 @@ const SUPPORT_SURFACES = [
   {
     icon: Inbox,
     title: 'Approvals inbox',
-    desc: 'The primary human surface for recorded work waiting on you. Each item shows the redacted act bound to the decision, its risk, and the available allow or deny controls. Resolve from a browser, CLI, phone, Telegram, or Discord when that channel is configured.',
+    desc: 'The primary human surface for recorded work waiting on you. Each item shows the redacted act bound to the decision, its risk, and the available allow or deny controls. A deny can carry a note the agent reads. Resolve from a browser, CLI, phone, Telegram, or Discord when that channel is configured.',
     href: '/approvals',
   },
   {

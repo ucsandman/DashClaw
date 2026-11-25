@@ -13,6 +13,32 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.40.0] - 2026-11-25
+
+### Added
+
+- **Deny with a note.** Deny on `/approvals` and `/approve` opens an optional "Tell the agent why" field. The note is stored with the decision, shown on `/decisions`, and printed to the denied agent by the pretool hook in place of a fixed line. Allow stays one click; bulk deny is unchanged. Plugin bundle 3.4.1 carries the hook change.
+- **A first action that holds.** On a hosted trial, the `/connect` first-action card has "Send one your Short List holds": a simulated force-push over main that the seeded catastrophe-only pack holds, with a link straight to the Approvals inbox. Before this, no browser preset could produce a hold, so a new workspace never saw the approve loop.
+- The pending badge on `/approvals` counts the whole queue and reads "showing 50 of N" when it is longer than the page.
+
+### Changed
+
+- **Separation of duties, hosted trials.** The trial session principal of an action's own org may now approve, deny, bulk-decide or always-allow an action its own browser created, the same exemption the `operator` principal has on single-admin self-host. An API key still cannot approve its own action, and a trial principal naming another org is still rejected. Plans and containment keep the old rule.
+
+### Fixed
+
+- **Guard:** a read-only command that merely names `shred`, `truncate` or the filesystem format tool (`grep`, `cat`, `ls`, `man`, `git log`) is no longer graded destructive and held. Real invocations still grade destructive behind any launcher, inside exec sinks, subshells and process substitution.
+- Five public pages (`/explain` and four `/guides/*`) were missing from the sitemap. A reverse-coverage test now fails when a marketing page is not listed.
+- `/agents` and `llms.txt` said the app needs Node 18+; it needs Node 20.9+.
+- QUICK-START, the Claude Code guide and the operations doc said hosted trials are pre-seeded with `claude-code-starter` and that the catastrophe pack blocks. Trials are seeded with the catastrophe-only pack, and it holds for approval.
+- The platform guide no longer cites a Python method count that had drifted or describes the removed `dashclaw/legacy` subpath as present.
+
+## [5.39.2] - 2026-11-14
+
+### Security
+
+- Pin Hono 4.13.18 in the MCP server and OpenClaw plugin lockfiles.
+
 ## [5.39.1] - 2026-11-14
 
 ### Security
