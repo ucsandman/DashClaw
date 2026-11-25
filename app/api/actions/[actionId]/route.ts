@@ -291,13 +291,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
     if (data.cost_estimate !== undefined) data.cost_estimate = Math.max(0, Math.min(Number(data.cost_estimate) || 0, MAX_COST_USD));
     if ((data.tokens_in || data.tokens_out) && data.cost_estimate === undefined) {
       const customPricing = await getModelPricing(sql, orgId);
-      // Hooks may report tokens without a model; fall back to the stored
-      // row's model (set at create time) so those tokens don't price at $0.
-      let pricingModel = data.model;
-      if (!pricingModel) {
-        const existing = await getActionStatus(sql, orgId, actionId);
-        pricingModel = existing?.model || null;
-      }
+      // Price from the stored model first. model is write-once in the
+      // repository, so a model in this request is ignored when the row already
+      // has one, and the cost must match the model the record keeps. The
+      // request's model is used only when the row has none yet. (Hooks may
+      // also report tokens with no model at all; the stored one covers that.)
+      const existing = await getActionStatus(sql, orgId, actionId);
+      const pricingModel = (existing?.model as string | null | undefined) || data.model || null;
       data.cost_estimate = estimateCost(data.tokens_in || 0, data.tokens_out || 0, pricingModel, customPricing as Parameters<typeof estimateCost>[3]);
     }
 

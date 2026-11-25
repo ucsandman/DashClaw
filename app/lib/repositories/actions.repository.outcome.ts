@@ -78,7 +78,10 @@ async function updateActionOutcomeViaQueryMock(
 ): Promise<Row | null> {
   const { sql, orgId, actionId, patch, gateStatus } = ctx;
   const { data, fields } = patch;
-  const setClauses = fields.map((f, i) => `${f} = $${i + 1}`);
+  // model is write-once, same rule as the tagged-SQL path below.
+  const setClauses = fields.map((f, i) => (f === 'model'
+    ? `model = COALESCE(NULLIF(model, ''), NULLIF($${i + 1}, ''), model)`
+    : `${f} = $${i + 1}`));
   const values = fields.map(f => data[f]);
   appendImplicitOutcomeClauses(setClauses, fields);
   const baseWhere = `WHERE action_id = $${fields.length + 1} AND org_id = $${fields.length + 2}`;
@@ -140,7 +143,10 @@ async function updateActionOutcomeViaTaggedSql(
       cost_estimate     = COALESCE(${outcomeValue(data, fields, 'cost_estimate')}, cost_estimate),
       tokens_in         = COALESCE(${outcomeValue(data, fields, 'tokens_in')}, tokens_in),
       tokens_out        = COALESCE(${outcomeValue(data, fields, 'tokens_out')}, tokens_out),
-      model             = COALESCE(${outcomeValue(data, fields, 'model')}, model),
+      -- Write-once: a stored model is never replaced. model stays reportable
+      -- after the close (the Stop hook sends it with the turn's tokens) and
+      -- any org key can call this, so the first non-empty value sticks.
+      model             = COALESCE(NULLIF(model, ''), NULLIF(${outcomeValue(data, fields, 'model')}::text, ''), model),
       outcome_status    = CASE
         WHEN outcome_status = 'pending' AND ${newStatus} = 'completed' THEN 'completed'
         WHEN outcome_status = 'pending' AND ${newStatus} IN ('failed', 'cancelled', 'blocked') THEN 'failed'

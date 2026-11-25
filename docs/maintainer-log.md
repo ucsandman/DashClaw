@@ -14,6 +14,54 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-11-25 — v5.40.6: model is settable once, and what that does not cover
+
+5.40.5 left `model` writable after the close on purpose, because the Stop
+hook reports it late with the turn's tokens. A forwarded note pointed out the
+consequence: any key in the org could relabel which model acted on any
+record. Wes said to fix it.
+
+The rule is first value wins. The repository keeps a model that is already
+stored, on every row status, and takes the request's value only when the row
+has none. Cost derived from late tokens is now priced from the stored model,
+so a record cannot show one model beside a cost for another.
+
+I counted before building, as the last entry said to. In the development
+database 0 of 769 actions have a model at all. So on that data the rule
+protects no existing record: each one can still be given a model, once, by
+whoever sends it first. It cannot be closed from the server side without
+knowing who is calling, because the legitimate first write is itself a late
+write to a closed record. What the rule does give: once a model is reported,
+it stays. For hook-governed actions that is seconds to minutes after the act.
+The attested model on the guard decision, recorded when the action was
+checked, is a different field and this route cannot write it.
+
+Proof on a local production build against the local database: seven of seven
+checks. The same script against the committed 5.40.5 code passes two of
+seven: the model is replaced in all three attempts and the cost is priced
+from the wrong model both ways.
+
+The follow-up security review passed it: no request sequence replaces a
+stored model, no other code writes the column after creation, and no
+first-party client sets a provisional model and corrects it later. It found
+one low item the change introduced. The pricing read and the write are two
+statements, so two simultaneous first reports naming different models can
+leave a cost priced from the one that lost. I left it, because any key can
+already overwrite cost and token counts on any record, which the review also
+flagged as already there. It noted that a bad first value, such as a
+whitespace-only model, is now permanent.
+
+A possible next step, not built: copy the attested model onto the record when
+the guard creates it. Then hook-governed records would have a model before
+anyone else can write one, and this rule would cover them from the start.
+
+Separately: the harness guard canary has been reporting that
+`hooks/dashclaw_pretool.py` no longer matches its lock, and I did not raise
+it until a note pointed it out. I checked: the lock records the version from
+2026-09-30 (commit 704824de), the file on disk equals HEAD, and the only
+difference is the two reviewed deny-note commits shipped earlier today. The
+lock is stale, not the hook. Re-locking is done from a harness session.
+
 ## 2026-11-25 — v5.40.5: the fix I proposed would have protected almost nobody
 
 After 5.40.4 I told Wes the cause underneath it was still open: any API key in

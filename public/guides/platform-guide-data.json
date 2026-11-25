@@ -913,7 +913,7 @@
             "body.duration_ms": "integer >=0, optional",
             "body.cost_estimate": "number >=0, optional, clamped to 10000; auto-derived from tokens if omitted",
             "body.tokens_in / tokens_out": "integer >=0, optional, clamped to 10,000,000",
-            "body.model": "string, optional max 128; falls back to the row's stored model for cost calc if omitted",
+            "body.model": "string, optional max 128; settable once: ignored when the row already has a model. Cost is derived from the row's stored model, and from this value only when the row has none",
             "body.close_if_running": "boolean, optional — Stop-hook contract; when true, close fields only apply if the row is still status='running'",
             "body.outcome_metadata.spawned_agent_uuid": "string, optional, <=200 chars — persisted into outcome_progress regardless of the close gate"
           },
@@ -4571,7 +4571,7 @@
       "title": "Node / TypeScript SDK",
       "package": {
         "name": "dashclaw",
-        "version": "5.40.5",
+        "version": "5.40.6",
         "install": "npm install dashclaw",
         "description": "Govern agent callbacks with policy checks, remote approvals, execution claims, and outcome reporting.",
         "license": "MIT",
@@ -5237,7 +5237,7 @@
       "title": "Python SDK",
       "package": {
         "name": "dashclaw",
-        "version": "5.40.5",
+        "version": "5.40.6",
         "install": "pip install dashclaw",
         "source": "sdk-python/pyproject.toml, sdk-python/dashclaw/client.py, sdk-python/README.md",
         "requires_python": ">=3.7",

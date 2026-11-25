@@ -87,7 +87,7 @@ Auth chain: middleware strips client-sent `x-org-id`/`x-org-role`/`x-user-id` â†
 }
 ```
 
-**Status values:** `running` (progress, status unchanged), `completed`, `failed`, `cancelled`. Close fields (`status`, `output_summary`, `timestamp_end`, `error_message`, `side_effects`, `artifacts_created`) only apply while the action is `running`; token, cost, model and duration fields still apply afterwards. Any other status (`pending`, `pending_approval`, `blocked`), or a close on a row that is no longer running, answers `409 { "error": "illegal_transition", "current", "requested", "allowed", "status" }`. A status equal to the stored one is a no-op `200`. `GET` and `PATCH` responses carry `allowed_next`, the states the action can still move to.
+**Status values:** `running` (progress, status unchanged), `completed`, `failed`, `cancelled`. Close fields (`status`, `output_summary`, `timestamp_end`, `error_message`, `side_effects`, `artifacts_created`) only apply while the action is `running`; token, cost, model and duration fields still apply afterwards. `model` is settable once: a later value is ignored (still `200`), and derived cost uses the stored model. Any other status (`pending`, `pending_approval`, `blocked`), or a close on a row that is no longer running, answers `409 { "error": "illegal_transition", "current", "requested", "allowed", "status" }`. A status equal to the stored one is a no-op `200`. `GET` and `PATCH` responses carry `allowed_next`, the states the action can still move to.
 
 ---
 

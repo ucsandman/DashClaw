@@ -13,6 +13,19 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.40.6] - 2026-11-25
+
+### Security
+
+- **The model on an action record is settable once.** 5.40.5 froze the text fields of a closed action but left `model` writable, because the Stop hook and the OpenClaw plugin report it after the close, with the turn's tokens. Any API key in the org could therefore relabel which model acted, on any record. `PATCH /api/actions/:id` now keeps a model that is already stored: the first non-empty value sticks, and a later one is ignored.
+- This does not protect a record that never had a model. The first value sent for it is kept, whoever sends it. The attested model on the guard decision is a separate field that this route cannot write.
+
+### Changed
+
+- A PATCH that names a different model for an action that already has one still answers `200`; the response carries the model the record keeps.
+- Cost derived from late token counts is priced from the stored model. The model in the request is used only when the action has none yet. Before, the request's model set the price even when it differed from the record.
+- Deriving cost now reads the action once more per token-bearing PATCH. That read and the write are separate statements: if two first reports for one action arrive at the same moment naming different models, the stored cost can be priced from the model that lost.
+
 ## [5.40.5] - 2026-11-25
 
 ### Security

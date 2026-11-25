@@ -1,23 +1,23 @@
 {
   "node": {
-    "current_version": "5.40.5",
+    "current_version": "5.40.6",
     "next_bump": "none",
-    "reason": "5.40.5 freezes the narrative outcome fields (error_message, side_effects, artifacts_created) on PATCH /api/actions/:id once an action leaves running. Server-side only: no Node SDK source changed (one README sentence); do not republish the SDK.",
+    "reason": "5.40.6 makes model on an action record settable once (PATCH /api/actions/:id keeps a stored model) and prices derived cost from the stored model. Server-side only: no Node SDK source changed (one README sentence); do not republish the SDK.",
     "domains": [
       "platform",
       "docs"
     ]
   },
   "python": {
-    "current_version": "5.40.5",
+    "current_version": "5.40.6",
     "next_bump": "none",
-    "reason": "5.40.5 freezes the narrative outcome fields (error_message, side_effects, artifacts_created) on PATCH /api/actions/:id once an action leaves running. Server-side only: no Python SDK source changed; do not republish the SDK.",
+    "reason": "5.40.6 makes model on an action record settable once (PATCH /api/actions/:id keeps a stored model) and prices derived cost from the stored model. Server-side only: no Python SDK source changed; do not republish the SDK.",
     "domains": [
       "platform",
       "docs"
     ]
   },
-  "reason": "5.40.5 freezes the narrative outcome fields (error_message, side_effects, artifacts_created) on PATCH /api/actions/:id once an action leaves running. Platform only: no SDK source or package publication is included; npm and PyPI stay at 5.40.4.",
+  "reason": "5.40.6 makes model on an action record settable once (PATCH /api/actions/:id keeps a stored model) and prices derived cost from the stored model. Platform only: no SDK source or package publication is included; npm and PyPI stay at 5.40.4.",
   "domains": [
     "actions",
     "platform",

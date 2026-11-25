@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeRequest } from '../helpers.js';
 
 const {
@@ -288,6 +288,42 @@ describe('/api/actions/[actionId]', () => {
         expect(res.status).toBe(200);
         expect(gatedCalls()[0][3]).toEqual({ status: 'completed', side_effects: ['x'] });
         expect(ungatedCalls()[0][3]).toEqual({ tokens_in: 1, cost_estimate: 0 });
+      });
+    });
+
+    // `model` stays reportable after the close, but the repository keeps a
+    // model that is already stored (first value wins). A cost derived here
+    // must therefore be priced from the stored model, or the record would
+    // show one model beside a cost for another.
+    describe('a stored model is the pricing model', () => {
+      const lateUsage = (model) => ({ tokens_in: 1_000_000, tokens_out: 1_000_000, model });
+      const derivedCost = () => mockUpdateActionOutcome.mock.calls.at(-1)[3].cost_estimate;
+      const run = async (storedModel, requestModel) => {
+        const body = lateUsage(requestModel);
+        mockValidateActionOutcome.mockReturnValue({ valid: true, data: { ...body }, errors: [] });
+        mockGetActionStatus.mockResolvedValue({ status: 'completed', model: storedModel });
+        mockUpdateActionOutcome.mockResolvedValue({ action_id: 'act_1', status: 'completed', model: storedModel });
+        const res = await PATCH(req(body), routeCtx);
+        expect(res.status).toBe(200);
+      };
+
+      afterEach(() => {
+        mockGetActionStatus.mockReset();
+      });
+
+      it('prices late tokens from the stored model when the request names another', async () => {
+        await run('claude-opus-4-6', 'zz-unpriced-model');
+        expect(derivedCost()).toBeGreaterThan(0);
+      });
+
+      it('does not price from a request model that the stored model overrides', async () => {
+        await run('zz-unpriced-model', 'claude-opus-4-6');
+        expect(derivedCost()).toBe(0);
+      });
+
+      it('prices from the request model when the action has none yet', async () => {
+        await run(null, 'claude-opus-4-6');
+        expect(derivedCost()).toBeGreaterThan(0);
       });
     });
 
