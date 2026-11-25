@@ -13,6 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.40.2] - 2026-11-25
+
+### Fixed
+
+- **`/connect`, hosted trial:** the post-mint link "Send your first governed action, no install" pointed at an anchor on the same page, so the browser loaded nothing and the server-rendered first-action card did not appear without a manual reload. The link now reloads the page.
+
 ## [5.40.1] - 2026-11-25
 
 ### Changed

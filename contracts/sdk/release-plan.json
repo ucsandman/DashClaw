@@ -1,23 +1,23 @@
 {
   "node": {
-    "current_version": "5.40.1",
+    "current_version": "5.40.2",
     "next_bump": "none",
-    "reason": "5.40.1 withdraws the 5.40.0 guard disk-tool grading change (app/lib/guard/evidence.ts back to its 5.39.2 behaviour). No Node SDK source changed; do not republish the SDK.",
+    "reason": "5.40.2 makes the post-mint link to the /connect first-action card reload the page. No Node SDK source changed; do not republish the SDK.",
     "domains": [
       "platform",
       "docs"
     ]
   },
   "python": {
-    "current_version": "5.40.1",
+    "current_version": "5.40.2",
     "next_bump": "none",
-    "reason": "5.40.1 withdraws the 5.40.0 guard disk-tool grading change (app/lib/guard/evidence.ts back to its 5.39.2 behaviour). No Python SDK source changed; do not republish the SDK.",
+    "reason": "5.40.2 makes the post-mint link to the /connect first-action card reload the page. No Python SDK source changed; do not republish the SDK.",
     "domains": [
       "platform",
       "docs"
     ]
   },
-  "reason": "5.40.1 withdraws the 5.40.0 guard disk-tool grading change (app/lib/guard/evidence.ts back to its 5.39.2 behaviour). Platform only: no SDK source or package publication is included; npm and PyPI stay at the last SDK release.",
+  "reason": "5.40.2 makes the post-mint link to the /connect first-action card reload the page. Platform only: no SDK source or package publication is included; npm and PyPI stay at the last SDK release.",
   "domains": [
     "platform",
     "docs"
