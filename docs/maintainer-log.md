@@ -70,6 +70,26 @@ What went wrong, each time after an earlier check had passed the work:
    API call can write after creation. The note is also stripped of control
    characters and bounded on both sides.
 
+Addendum, same day (v5.40.1): the guard change is withdrawn. 5.40.0 was live
+for a few minutes with it when Wes forwarded a note making the argument I
+should have made myself: three rounds had each found real disk-wiping shapes
+the narrower rule let through, my "0 of 52" proof was a list written by the
+same agent that wrote the fix, a miss reaches every install, and holding the
+old rule costs only an occasional false pause. The independent reviewer had
+passed the final version on its own 45 shapes, but a track record of two
+failed rounds in one afternoon is the stronger evidence. Grading is back to
+5.39.2 behaviour and the work sits on `feat/guard-disk-tool-mentions`. The
+lesson: on a control that fails open, a fix that removes false positives does
+not ship in the same session it was written, however many reviewers pass it.
+
+Open, found and not fixed today: the deny-reason spoof the review caught in the
+hook is older and wider than the hook. Both SDKs build their approval-denied
+error from `error_message` (`sdk/dashclaw.js`, `sdk-python/dashclaw/client.py`),
+and the OpenClaw plugin relays that error to its agent. A builder reported the
+plugin's use of the field hours before the review explained why it matters, and
+I did not connect the two until Wes forwarded a note. The fix needs SDK and
+plugin releases, so it is its own change with its own review.
+
 What is not proven: the trial flow has not been clicked through in a browser.
 The local run could not get past the trial middleware, which uses a database
 driver that does not talk to a local Postgres. It rests on route tests and on

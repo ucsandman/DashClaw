@@ -1,23 +1,23 @@
 {
   "node": {
-    "current_version": "5.40.0",
+    "current_version": "5.40.1",
     "next_bump": "none",
-    "reason": "5.40.0 adds the deny note on /approvals, the held first action on /connect, the trial self-approval exemption and the guard disk-tool grading fix. No Node SDK source changed; do not republish the SDK.",
+    "reason": "5.40.1 withdraws the 5.40.0 guard disk-tool grading change (app/lib/guard/evidence.ts back to its 5.39.2 behaviour). No Node SDK source changed; do not republish the SDK.",
     "domains": [
       "platform",
       "docs"
     ]
   },
   "python": {
-    "current_version": "5.40.0",
+    "current_version": "5.40.1",
     "next_bump": "none",
-    "reason": "5.40.0 adds the deny note on /approvals, the held first action on /connect, the trial self-approval exemption and the guard disk-tool grading fix. No Python SDK source changed; do not republish the SDK.",
+    "reason": "5.40.1 withdraws the 5.40.0 guard disk-tool grading change (app/lib/guard/evidence.ts back to its 5.39.2 behaviour). No Python SDK source changed; do not republish the SDK.",
     "domains": [
       "platform",
       "docs"
     ]
   },
-  "reason": "5.40.0 adds the deny note on /approvals, the held first action on /connect, the trial self-approval exemption and the guard disk-tool grading fix. Platform, hook and docs only: no SDK source or package publication is included; npm and PyPI stay at the last SDK release. The plugin bundle moves to 3.4.1 for the hook change.",
+  "reason": "5.40.1 withdraws the 5.40.0 guard disk-tool grading change (app/lib/guard/evidence.ts back to its 5.39.2 behaviour). Platform only: no SDK source or package publication is included; npm and PyPI stay at the last SDK release.",
   "domains": [
     "platform",
     "docs"

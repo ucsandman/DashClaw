@@ -73,31 +73,6 @@ const RM_RECURSIVE_RE = /\brm\s+-\S*r|\bremove-item\b[^&|;]*\s-\S*rec/i;
 // delete verb; and a redirect or dd onto a raw block device destroys a disk
 // without naming a file at all.
 const FIND_DELETE_RE = /\bfind\b[^&|;]*(\s-delete\b|\s-exec\s+(\S*\/)?(rm|shred)\b)/i;
-// A disk tool in COMMAND position of a (chain-split, lowercased) segment: after
-// an optional run of wrappers (sudo, doas, nohup, nice, ionice, strace, time,
-// timeout, xargs, busybox, watch, exec, command, builtin), shell keywords and
-// grouping (`then`, `do`, `else`, `!`, `(`, `{`), wrapper flags — including the
-// value of -u/-g/-s/-k (`sudo -u root`, `timeout -s KILL`; kept to those so
-// `sudo -E grep truncate …` is not misread) — numeric args, and
-// env assignments; an optional path prefix (`/sbin/mkfs.ext4`). Group 1 is the
-// tool name.
-const DISK_TOOL_CMD_RE =
-  /^\s*(?:(?:[a-z_]\w*=\S*|sudo|doas|nohup|nice|ionice|strace|time|timeout|xargs|busybox|watch|exec|command|builtin|then|do|else|!|-[ugsk]\s+\S+|-\S*|\d+(?:\.\d+)?[smhd]?)\s+|[({]\s*)*(?:\S*\/)?((?:shred|truncate|mkfs(?:\.\w+)?)(?=\s|$)|dd(?=\s))/;
-// Exec-sink fallback: when the command carries a sink (`sh -c`, `ssh host`,
-// `$(…)`, …) the real command slot can sit inside a payload the segment split
-// never reaches, so the raw scan keeps the pre-anchoring anywhere-match for
-// shred / truncate / mkfs (dd stays command-position only, as it always was).
-// Errs toward a catch, per the EXEC_SINK_RE contract below.
-const DISK_TOOL_ANY_RE = /\b(shred|truncate|mkfs(?:\.\w+)?)(?:\.|\b)/;
-// Sink-free fallback. A disk tool named as a WHOLE word anywhere in the segment
-// still counts (`fix/shred-docs`, `docs/truncate.md` and `/tmp/mkfs-notes` are
-// not whole words) UNLESS the segment's command is one that only reads or
-// prints. The exemption is the allowlist, so a launcher nobody listed (stdbuf,
-// setsid, chroot, wsl, pkexec, …) keeps the catch.
-const DISK_TOOL_WORD_RE = /(?<![\w.-])(shred|truncate|mkfs(?:\.\w+)?)(?![\w.-])/;
-const READ_ONLY_COMMAND_RE =
-  /^(?:grep|egrep|fgrep|rg|cat|head|tail|ls|wc|file|stat|man|which|whereis|type|echo|printf|findstr|select-string|get-content)$/;
-const GIT_READ_ONLY_SUBCOMMAND_RE = /^(?:log|show|diff|status|blame|shortlog)$/;
 const INTERPRETER_DESTRUCTIVE_RE =
   /\b(python[0-9]?|node(?:js)?|ruby|perl|php|deno|bun|tsx|ts-node)\b[^&|;]*(shutil\.rmtree|os\.(remove|unlink|rmdir)|fs\.(rm|rmdir|unlink)|rmsync|unlinksync|rimraf)/i;
 // Whole-command variant: the quoted payload legitimately contains `;` and `|`
@@ -559,24 +534,6 @@ function classifyScriptExcerpt(excerpt: string): EvidenceClassification | null {
   return { derived_action_type: action, base_risk: base, modifiers, reversible_hint: reversible, flags };
 }
 
-/** The disk tool a sink-free segment names as a whole word, unless the
- *  segment's command only reads or prints (then the name is a mention).
- *  Grouping, process substitution (`cat <(shred f)`), `rg --pre <cmd>` and
- *  `git -c …` can still launch one, so none of them is exempt. Neither is a
- *  segment with a single `&` (the chain split leaves `ls & shred f` whole; a
- *  `2>&1` / `&>` redirect is not one) or an env assignment
- *  (`GIT_EXTERNAL_DIFF=shred git diff` makes git run the tool). */
-function diskToolOutsideReadOnlyCommand(scan: string): string | undefined {
-  const tool = DISK_TOOL_WORD_RE.exec(scan)?.[1];
-  if (!tool || /[(){}`]|(?<!>)&(?!>)|(?:^|\s)[a-z_]\w*=/.test(scan)) return tool;
-  const tokens = commandSlotTokens(scan);
-  const command = (tokens[0] ?? '').replace(/^.*[/\\]/, '').replace(/\.exe$/, '');
-  const readOnly = command === 'git'
-    ? GIT_READ_ONLY_SUBCOMMAND_RE.test(tokens[1] ?? '')
-    : READ_ONLY_COMMAND_RE.test(command) && !(command === 'rg' && tokens.some((t) => t.startsWith('--pre')));
-  return readOnly ? undefined : tool;
-}
-
 function classifyShellSegment(seg: string, rawScan: boolean): EvidenceClassification {
   // `env` as a launcher prefix (`env -u TOKEN cmd`, `env VAR=x cmd`) is
   // transparent — classify the command it runs. A BARE `env` (nothing after
@@ -604,17 +561,13 @@ function classifyShellSegment(seg: string, rawScan: boolean): EvidenceClassifica
   const isSudo = /^\s*sudo\b/.test(s);
 
   const deviceWrite = DEVICE_WRITE_RE.test(scan);
-  // Disk tools (dd / shred / truncate / mkfs) only in command position: the
-  // bare `\bdd\b` form graded every `yyyy-MM-dd` date-format string destructive
-  // (OpenClaw's read-only startup held for approval, 2026-08-21), and the bare
-  // shred / truncate / mkfs forms did the same to any grep, cat, ls or git log
-  // that merely named them. Segments are chain-split above, so start-of-segment
-  // (after wrappers, their flags and env assignments) is the command slot —
-  // mirrors bash_classifier.py's token-based base-command check.
-  const diskTool = DISK_TOOL_CMD_RE.exec(scan)?.[1]
-    ?? (rawScan ? DISK_TOOL_ANY_RE.exec(scan)?.[1] : diskToolOutsideReadOnlyCommand(scan))
-    ?? null;
-  if (RM_RECURSIVE_RE.test(scan) || diskTool !== null
+  // `dd` only in command position: the bare `\bdd\b` form graded every
+  // `yyyy-MM-dd` date-format string destructive (OpenClaw's read-only startup
+  // `Get-Content SOUL.md; $d.ToString('yyyy-MM-dd')` held for approval,
+  // 2026-08-21). Segments are chain-split above, so start-of-segment (after an
+  // optional sudo) is the command slot — mirrors bash_classifier.py's
+  // token-based `base == "dd"`.
+  if (RM_RECURSIVE_RE.test(scan) || /\bshred\b|\bmkfs(\.|\b)|^\s*(sudo\s+)?dd\s|\btruncate\b/.test(scan)
       || FIND_DELETE_RE.test(scan) || INTERPRETER_DESTRUCTIVE_RE.test(scan) || deviceWrite) {
     base = 80; action = 'security'; reversible = false; flags.push('destructive');
     if (INTERPRETER_DESTRUCTIVE_RE.test(scan)) flags.push('interpreter_destructive');
@@ -627,7 +580,7 @@ function classifyShellSegment(seg: string, rawScan: boolean): EvidenceClassifica
     if (deviceWrite) {
       modifiers.push({ reason: 'raw block device write target', delta: 20 });
       flags.push('device_write', 'protected_target');
-    } else if (diskTool?.startsWith('mkfs')) {
+    } else if (/\bmkfs(\.|\b)/.test(scan)) {
       // Formatting a filesystem IS a raw device write: same modifier and the
       // same flags as the dd/redirect branch. `protected_target` is what the
       // default packs' mass-destructive line keys on (rules.only_evidence_flags)

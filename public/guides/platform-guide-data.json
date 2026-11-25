@@ -4571,7 +4571,7 @@
       "title": "Node / TypeScript SDK",
       "package": {
         "name": "dashclaw",
-        "version": "5.40.0",
+        "version": "5.40.1",
         "install": "npm install dashclaw",
         "description": "Govern agent callbacks with policy checks, remote approvals, execution claims, and outcome reporting.",
         "license": "MIT",
@@ -5237,7 +5237,7 @@
       "title": "Python SDK",
       "package": {
         "name": "dashclaw",
-        "version": "5.40.0",
+        "version": "5.40.1",
         "install": "pip install dashclaw",
         "source": "sdk-python/pyproject.toml, sdk-python/dashclaw/client.py, sdk-python/README.md",
         "requires_python": ">=3.7",

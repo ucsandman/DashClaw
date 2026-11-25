@@ -13,6 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.40.1] - 2026-11-25
+
+### Changed
+
+- **Guard: the 5.40.0 disk-tool grading change is withdrawn.** 5.40.0 stopped grading read-only commands that only name `shred`, `truncate` or the filesystem format tool as destructive. Three review rounds each found real invocation shapes the narrower rule let through ungraded, and a miss there reaches every install, while keeping the old rule only costs an occasional false hold. Grading is back to its 5.39.2 behaviour: a `grep` that mentions `truncate` is graded destructive again. The work is kept on the `feat/guard-disk-tool-mentions` branch for a slower review. The other 5.40.0 changes are unaffected.
+
 ## [5.40.0] - 2026-11-25
 
 ### Added
