@@ -13,6 +13,13 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Changed
+
+- **An approval ask always opens a request an operator can answer.** `POST /api/guard` without `?record=true` used to evaluate and stop. A client that never followed up with `POST /api/actions` left a `require_approval` verdict with no pending record, no prompt and nothing on `/approvals`. The guard now opens the pending approval request itself when the call names an agent and a goal, and returns `recorded: true` with the request's `action_id`.
+- A repeat of the same ask while its request is still open returns that request and sends no second prompt. "Same" means the same agent, action type, goal, act content hash and API principal, the tuple an approval grant is matched on. `POST /api/actions` applies the same rule when its verdict is `require_approval`: it answers `202` with the open request and `open_request_reused: true` instead of creating a second pending row. A caller that sends its own `action_id` still gets its own row.
+- `POST /api/guard?record=false` evaluates only and never opens a request. An ask that carries `self_test: true` in its body never opens one either. Probes, smoke tests and test agents that name an agent should use one of the two, or their asks will prompt the operator.
+- Not changed: `?record=true` (the hook path), every verdict other than `require_approval`, and asks that name no agent.
+
 ## [5.40.6] - 2026-11-25
 
 ### Security

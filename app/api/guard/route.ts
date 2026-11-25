@@ -33,6 +33,14 @@ import { requestedAttemptId, attachExecutionClaim } from '../../lib/guard/route-
  *        verdict (the same claim PATCH /api/actions/<id> performs) and echoes
  *        { claimed, attempt_id, claimed_at }, so the hook needs no second
  *        request at all (app/lib/guard/route-claim.ts).
+ *        Without the param, a require_approval verdict for a named agent and
+ *        goal still opens its pending approval request and returns
+ *        { recorded: true, action_id }, so the ask reaches the Approvals inbox
+ *        and the operator's prompts. A repeat of the same ask while that
+ *        request is open returns the same action_id.
+ * Query: ?record=false — evaluate only; never opens an approval request (for
+ *        probes, smoke tests and policy previews). Body { self_test: true }
+ *        does the same for a test agent's asks.
  *
  * Agent identity — two tiers:
  *
@@ -183,7 +191,16 @@ export async function POST(request: Request) {
     // — and the original audit row stays untouched. The lookup window is
     // short (10 min, see repository): dedupe absorbs retries, not policy
     // changes. Lookup failures fall through to a normal evaluation.
-    const recordParam = (request as Request & { nextUrl: URL }).nextUrl.searchParams.get('record') === 'true';
+    const recordQuery = (request as Request & { nextUrl: URL }).nextUrl.searchParams.get('record');
+    const recordParam = recordQuery === 'true';
+    // An approval ask must leave the operator something to answer. Without
+    // ?record=true a require_approval verdict used to be evaluate-only, so a
+    // caller that never followed up with POST /api/actions left an ask nobody
+    // could approve. The verdict now opens its approval request here. It needs
+    // an agent and a goal (an anonymous probe opens nothing). A self_test ask
+    // never prompts a human, and ?record=false keeps the call evaluate-only.
+    const mayOpenRequest = !recordParam && recordQuery !== 'false' && data.self_test !== true
+      && Boolean(data.agent_id && data.declared_goal);
 
     // Record-path gate reads (idempotency row, org plan, quota meter) depend
     // only on the request payload, never on the decision — start them now so
@@ -201,6 +218,7 @@ export async function POST(request: Request) {
       recordParam,
       createdBy: getUserId(request) || null,
       prepared: preparedRecordReads,
+      openApprovalRequest: mayOpenRequest,
     });
     stageTimings.replay = Date.now() - replayStart;
     if (replayResponse) {
@@ -230,12 +248,15 @@ export async function POST(request: Request) {
 
     // Optional ?record=true — also create the running action record and return
     // its action_id (one HTTP call for governed hooks instead of two). Without
-    // the param the response is byte-identical to the pre-record behavior.
-    if (recordParam) {
+    // the param only a require_approval verdict records: it opens the pending
+    // approval request (or returns the one already open for the same ask).
+    // Every other verdict's response is unchanged.
+    const openRequest = mayOpenRequest && result.decision === 'require_approval';
+    if (recordParam || openRequest) {
       const mutable = result as Record<string, unknown>;
       const recordStart = Date.now();
       try {
-        const rec = await recordRunningAction(sql, orgId, data, result, getUserId(request) || null, preparedRecordReads);
+        const rec = await recordRunningAction(sql, orgId, data, result, getUserId(request) || null, preparedRecordReads, { reuseOpenRequest: openRequest });
         mutable.recorded = rec.recorded;
         if (rec.recorded && rec.action_id) {
           mutable.action_id = rec.action_id;
@@ -251,7 +272,7 @@ export async function POST(request: Request) {
       stageTimings.record = Date.now() - recordStart;
 
       // Folded execution claim: one request for evaluate + record + claim.
-      const attemptId = requestedAttemptId(body);
+      const attemptId = recordParam ? requestedAttemptId(body) : null;
       if (attemptId) {
         const claimStart = Date.now();
         // data.act, not body.act: the running record one line above hashed the

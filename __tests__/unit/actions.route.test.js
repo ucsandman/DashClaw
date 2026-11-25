@@ -14,6 +14,7 @@ const {
   mockListActionIdsByFilter,
   mockMaybeSweepLostOutcomes,
   mockGetActionByIdempotencyKey,
+  mockFindOpenApprovalRequest,
   mockEvaluateGuard,
   mockVerifyAgentSignature,
   mockPublishOrgEvent,
@@ -39,6 +40,7 @@ const {
   mockListActionIdsByFilter: vi.fn(async () => []),
   mockMaybeSweepLostOutcomes: vi.fn(async () => []),
   mockGetActionByIdempotencyKey: vi.fn(),
+  mockFindOpenApprovalRequest: vi.fn(async () => null),
   mockEvaluateGuard: vi.fn(),
   mockVerifyAgentSignature: vi.fn(),
   mockPublishOrgEvent: vi.fn(),
@@ -79,6 +81,9 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   hasAgentAction: mockHasAgentAction,
   insertActionEmbedding: mockInsertActionEmbedding,
   getActionByIdempotencyKey: mockGetActionByIdempotencyKey,
+}));
+vi.mock('@/lib/repositories/actions.repository.approvals', () => ({
+  findOpenApprovalRequest: mockFindOpenApprovalRequest,
 }));
 vi.mock('@/lib/repositories/agents.repository.js', () => ({
   deleteSyntheticAgentTraces: mockDeleteSyntheticAgentTraces,
@@ -650,6 +655,92 @@ describe('/api/actions POST', () => {
     }));
 
     expect(res.status).toBe(202);
+  });
+
+  // One open request per ask: a client that asked /api/guard first (which
+  // opened the request) and then records here must get that request back,
+  // not a second pending row and a second operator prompt.
+  describe('an approval request is already open for the same ask', () => {
+    const needsApproval = {
+      decision: 'require_approval',
+      decision_id: 'act_gd_2222222222222222',
+      reasons: ['High risk action'],
+      warnings: [],
+      matched_policies: ['gp_2'],
+    };
+    const openRequest = { ...validBody, action_id: 'act_open1', status: 'pending_approval' };
+
+    it('returns the open request instead of creating a second one', async () => {
+      mockEvaluateGuard.mockResolvedValue(needsApproval);
+      mockFindOpenApprovalRequest.mockResolvedValueOnce(openRequest);
+
+      const res = await POST(makeRequest('http://localhost/api/actions', {
+        headers: { 'x-org-id': 'org_1', 'x-user-id': 'key_1' },
+        body: validBody,
+      }));
+      const data = await res.json();
+
+      expect(res.status).toBe(202);
+      expect(data.action_id).toBe('act_open1');
+      expect(data.action).toEqual(openRequest);
+      expect(data.decision.decision).toBe('require_approval');
+      expect(data.open_request_reused).toBe(true);
+      expect(mockCreateActionRecord).not.toHaveBeenCalled();
+      expect(mockFindOpenApprovalRequest).toHaveBeenCalledWith(mockSql, 'org_1', {
+        agentId: 'agent_1',
+        actionType: 'build',
+        declaredGoal: 'Build the project',
+        actContentHash: null,
+        createdBy: 'key_1',
+      });
+    });
+
+    it('creates the request when none is open', async () => {
+      mockEvaluateGuard.mockResolvedValue(needsApproval);
+      mockCreateActionRecord.mockResolvedValue({ ...validBody, action_id: 'act_new', status: 'pending_approval' });
+
+      const res = await POST(makeRequest('http://localhost/api/actions', {
+        headers: { 'x-org-id': 'org_1' },
+        body: validBody,
+      }));
+      const data = await res.json();
+
+      expect(res.status).toBe(202);
+      expect(data).not.toHaveProperty('open_request_reused');
+      expect(mockCreateActionRecord).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not look for an open request when the verdict is allow', async () => {
+      mockFindOpenApprovalRequest.mockResolvedValueOnce(openRequest);
+
+      const res = await POST(makeRequest('http://localhost/api/actions', {
+        headers: { 'x-org-id': 'org_1' },
+        body: validBody,
+      }));
+
+      expect(res.status).toBe(201);
+      expect(mockFindOpenApprovalRequest).not.toHaveBeenCalled();
+      expect(mockCreateActionRecord).toHaveBeenCalledTimes(1);
+      mockFindOpenApprovalRequest.mockReset();
+      mockFindOpenApprovalRequest.mockImplementation(async () => null);
+    });
+
+    it('keeps a caller-chosen action id on its own row', async () => {
+      mockEvaluateGuard.mockResolvedValue(needsApproval);
+      mockValidateActionRecord.mockReturnValue({ valid: true, data: { ...validBody, action_id: 'act_client_chosen' }, errors: [] });
+      mockCreateActionRecord.mockResolvedValue({ ...validBody, action_id: 'act_client_chosen', status: 'pending_approval' });
+
+      const res = await POST(makeRequest('http://localhost/api/actions', {
+        headers: { 'x-org-id': 'org_1' },
+        body: { ...validBody, action_id: 'act_client_chosen' },
+      }));
+      const data = await res.json();
+
+      expect(res.status).toBe(202);
+      expect(data.action_id).toBe('act_client_chosen');
+      expect(mockFindOpenApprovalRequest).not.toHaveBeenCalled();
+      expect(mockCreateActionRecord).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('returns 403 when closed enrollment blocks unknown agent', async () => {

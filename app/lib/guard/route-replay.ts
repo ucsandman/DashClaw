@@ -108,7 +108,7 @@ export async function tryIdempotentReplay(
   sql: GuardSql,
   orgId: string,
   data: GuardData,
-  opts: { secretScan: Record<string, unknown> | null; recordParam: boolean; createdBy: string | null; prepared?: Promise<PreparedRecordReads | null> | null },
+  opts: { secretScan: Record<string, unknown> | null; recordParam: boolean; createdBy: string | null; prepared?: Promise<PreparedRecordReads | null> | null; openApprovalRequest?: boolean },
 ): Promise<NextResponse | null> {
   if (typeof data.idempotency_key !== 'string' || !data.idempotency_key) return null;
 
@@ -165,11 +165,14 @@ export async function tryIdempotentReplay(
   };
   if (opts.secretScan) replay.secret_scan = opts.secretScan;
   await attachAssumptionAlerts(sql, orgId, data, replay);
-  if (opts.recordParam) {
+  // A replayed approval ask hands back the request the first call opened (the
+  // route opens one for every require_approval verdict unless told not to).
+  const opensRequest = !opts.recordParam && opts.openApprovalRequest === true && prior.decision === 'require_approval';
+  if (opts.recordParam || opensRequest) {
     try {
       // recordRunningAction short-circuits on the existing action row;
       // when the prior record attempt failed it heals by creating one.
-      const rec = await recordRunningAction(sql, orgId, data, { decision: String(prior.decision), risk_score: prior.risk_score != null ? Number(prior.risk_score) : undefined, decision_id: String(prior.id), reason: prior.reason != null ? String(prior.reason) : null, matched_policies: priorPolicies as string[] }, opts.createdBy, opts.prepared);
+      const rec = await recordRunningAction(sql, orgId, data, { decision: String(prior.decision), risk_score: prior.risk_score != null ? Number(prior.risk_score) : undefined, decision_id: String(prior.id), reason: prior.reason != null ? String(prior.reason) : null, matched_policies: priorPolicies as string[] }, opts.createdBy, opts.prepared, { reuseOpenRequest: opensRequest });
       replay.recorded = rec.recorded;
       if (rec.recorded && rec.action_id) replay.action_id = rec.action_id;
       else if (rec.reason) replay.recorded_error = rec.reason;

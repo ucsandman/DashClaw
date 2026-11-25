@@ -43,6 +43,43 @@ export function isApprovalOverdue(
 }
 
 /**
+ * The approval request already waiting on a human for this exact ask, or null.
+ *
+ * "Same ask" is the tuple the operator-approval grant matches on (agent,
+ * action type, declared goal, act content hash: evaluate.grants.ts) plus the
+ * principal that created the row. The act hash keeps a request for one command
+ * from being handed to a different command that shares its goal text. The
+ * principal keeps separation of duties intact: a second caller can never pick
+ * up a request it would then be allowed to approve. Only a pending, unexpired
+ * row matches, so a request stops being reusable at the moment it stops being
+ * approvable.
+ */
+export async function findOpenApprovalRequest(
+  sql: SqlClient,
+  orgId: string,
+  ask: { agentId?: unknown; actionType?: unknown; declaredGoal?: unknown; actContentHash?: string | null; createdBy?: string | null },
+): Promise<Row | null> {
+  const { agentId, actionType, declaredGoal } = ask;
+  if (typeof agentId !== 'string' || !agentId) return null;
+  if (typeof actionType !== 'string' || !actionType) return null;
+  if (typeof declaredGoal !== 'string' || !declaredGoal) return null;
+  const rows = await sql`
+    SELECT * FROM action_records
+    WHERE org_id = ${orgId}
+      AND agent_id = ${agentId}
+      AND action_type = ${actionType}
+      AND declared_goal = ${declaredGoal}
+      AND act_content_hash IS NOT DISTINCT FROM ${ask.actContentHash ?? null}::text
+      AND created_by IS NOT DISTINCT FROM ${ask.createdBy ?? null}::text
+      AND status = 'pending_approval'
+      AND approval_expires_at > NOW()
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+  return rows[0] || null;
+}
+
+/**
  * Flip ONE overdue pending_approval row to expired. The WHERE clause re-checks
  * both the status and the overdue condition, so a concurrent approve/deny (or
  * a not-actually-overdue caller) safely returns null.
