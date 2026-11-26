@@ -45,16 +45,81 @@ export function attachOutcomes(asks, actions) {
   }
   return asks.map((ask) => {
     const a = byDecision.get(String(ask.id));
-    if (!a) return { ...ask, hasRecord: false, approvedMs: null, deniedMs: null };
+    if (!a) return { ...ask, hasRecord: false, approvedMs: null, deniedMs: null, openUntilMs: null };
     const approved = a.approved_by != null && a.approved_by !== '';
     const denied = !approved && String(a.reasoning || '').includes('[HITL Decision: DENY');
-    return {
-      ...ask,
-      hasRecord: true,
-      approvedMs: approved ? (toMs(a.approved_at) ?? toMs(a.created_at)) : null,
-      deniedMs: denied ? (toMs(a.outcome_at) ?? toMs(a.timestamp_end) ?? toMs(a.created_at)) : null,
-    };
+    const approvedMs = approved ? (toMs(a.approved_at) ?? toMs(a.created_at)) : null;
+    const deniedMs = denied ? (toMs(a.outcome_at) ?? toMs(a.timestamp_end) ?? toMs(a.created_at)) : null;
+    // The request stayed open until it was answered, or else until it expired.
+    return { ...ask, hasRecord: true, approvedMs, deniedMs, openUntilMs: approvedMs ?? deniedMs ?? toMs(a.approval_expires_at) };
   });
+}
+
+/** How far a bare guard call may lead the call that records the same ask. */
+const TWIN_LEAD_MS = 120_000;
+
+/**
+ * One ask can write more than one require_approval decision. POST /api/actions evaluates
+ * the guard again, so a client that calls the guard and then records the action writes
+ * two; and an ask repeated while its request is open is answered with that request. Mark
+ * the extra rows with `repeatOf` (the id of the row that holds the request) so the ask is
+ * counted once. Rows are matched on agent, action type and goal; `asks` come from
+ * attachOutcomes.
+ */
+export function markRepeats(asks) {
+  const groups = new Map();
+  asks.forEach((a, i) => {
+    const ms = toMs(a.created_at);
+    if (ms == null || isProbe(a)) return;
+    const key = `${a.agent_id ?? ''}\n${a.action_type ?? ''}\n${a.declared_goal ?? ''}`;
+    const group = groups.get(key) ?? [];
+    group.push({ i, ms, a });
+    groups.set(key, group);
+  });
+  const repeatOf = new Map();
+  for (const group of groups.values()) {
+    group.sort((x, y) => x.ms - y.ms);
+    const recorded = group.filter((r) => r.a.hasRecord);
+    const bare = group.filter((r) => !r.a.hasRecord);
+    // Asked again while the request was open.
+    for (const b of bare) {
+      const open = recorded.find((r) => r.ms <= b.ms && r.a.openUntilMs != null && b.ms < r.a.openUntilMs);
+      if (open) repeatOf.set(b.i, open.a.id);
+    }
+    // Guard call first, record call moments later: one bare row per recorded ask, the earliest.
+    for (const r of recorded) {
+      const twin = bare.find((b) => !repeatOf.has(b.i) && r.ms >= b.ms && r.ms - b.ms <= TWIN_LEAD_MS);
+      if (twin) repeatOf.set(twin.i, r.a.id);
+    }
+  }
+  return asks.map((a, i) => (repeatOf.has(i) ? { ...a, repeatOf: repeatOf.get(i) } : a));
+}
+
+/** What one fetched require_approval row is. Every row is exactly one kind. */
+function kindOf(row, testAgents) {
+  if (isProbe(row)) return 'probe';
+  if (row.agent_id && testAgents.includes(row.agent_id)) return 'test';
+  return row.repeatOf ? 'repeat' : 'ask';
+}
+
+/**
+ * Where the asks ended up. An ask with an action record reached the approvals inbox; one
+ * without never opened a request, so nobody was prompted.
+ */
+export function summarizeOutcomes(rows, testAgents = []) {
+  const out = { asks: 0, approved: 0, denied: 0, unanswered: 0, neverOpened: 0, repeats: 0, tests: 0 };
+  for (const row of rows) {
+    const kind = kindOf(row, testAgents);
+    if (kind === 'repeat') out.repeats += 1;
+    if (kind === 'test') out.tests += 1;
+    if (kind !== 'ask') continue;
+    out.asks += 1;
+    if (row.approvedMs != null) out.approved += 1;
+    else if (row.deniedMs != null) out.denied += 1;
+    else if (row.hasRecord) out.unanswered += 1;
+    else out.neverOpened += 1;
+  }
+  return out;
 }
 
 function parseRules(raw) {
@@ -225,21 +290,25 @@ export function replayWhatIf({ asks, policies, startMs, endMs, windowDays = 30 }
 
 const per1000 = (n, total) => (total > 0 ? Math.round((n / total) * 100_000) / 100 : 0);
 
-/** One row per week: real approval asks, floor probes, and the what-if count. */
-export function buildWeeks({ bounds, weeklyDecisions, askRows, removed, agentsPerWeek }) {
+/** One row per week: approval asks, the rows kept out of that count, and the what-if count. */
+export function buildWeeks({ bounds, weeklyDecisions, askRows, removed, agentsPerWeek, testAgents = [] }) {
   return weeklyDecisions.map((decisions, i) => {
     const inWeek = askRows.filter((a) => {
       const t = toMs(a.created_at);
       return t != null && t >= bounds[i] && t < bounds[i + 1];
     });
-    const asks = inWeek.filter((a) => !isProbe(a));
+    const kinds = inWeek.map((a) => kindOf(a, testAgents));
+    const count = (kind) => kinds.filter((k) => k === kind).length;
+    const asks = inWeek.filter((_, j) => kinds[j] === 'ask');
     const whatIfAsks = asks.filter((a) => !removed.has(a.id)).length;
     return {
       startMs: bounds[i],
       endMs: bounds[i + 1],
       decisions,
       asks: asks.length,
-      probes: inWeek.length - asks.length,
+      probes: count('probe'),
+      repeats: count('repeat'),
+      tests: count('test'),
       per1000: per1000(asks.length, decisions),
       agents: agentsPerWeek[i] ?? null,
       whatIfAsks,
@@ -254,14 +323,14 @@ export function runChecks(d) {
   const unique = new Set(ids).size;
   const weekSum = d.weeklyDecisions.reduce((s, n) => s + n, 0);
   const typeSum = Object.values(d.typeTotals).reduce((s, n) => s + n, 0);
-  const placed = d.weeks.reduce((s, w) => s + w.asks + w.probes, 0);
+  const placed = d.weeks.reduce((s, w) => s + w.asks + w.probes + w.repeats + w.tests, 0);
   const above = d.weeks.filter((w) => w.whatIfAsks > w.asks).length;
   const check = (name, ok, detail) => ({ name, ok, detail });
   return [
     check('rows_match_api', ids.length === d.apiAskTotal, `${ids.length} rows fetched, API counts ${d.apiAskTotal}`),
     check('unique_ids', unique === ids.length, `${unique} unique ids in ${ids.length} rows`),
     check('types_sum_to_weeks', typeSum === weekSum, `decision types sum to ${typeSum}, weeks sum to ${weekSum}`),
-    check('weekly_asks_sum', placed === ids.length, `${placed} rows placed in weeks, ${ids.length} rows fetched`),
+    check('weekly_asks_sum', placed === ids.length, `${placed} rows placed in weeks as asks, repeats, test traffic or probes, ${ids.length} rows fetched`),
     check('what_if_not_above_actual', above === 0, `${above} of ${d.weeks.length} weeks have a what-if count above the real one`),
     check('agents_within_total', d.agentDecisionSum <= weekSum, `per-agent counts sum to ${d.agentDecisionSum} of ${weekSum} decisions`),
   ];
@@ -291,6 +360,7 @@ export function renderMarkdown(r) {
   const mid = rates.length >> 1;
   const median = rates.length % 2 ? rates[mid] : Math.round(((rates[mid - 1] + rates[mid]) / 2) * 100) / 100;
   const answered = r.outcomes.approved + r.outcomes.denied;
+  const testAgents = r.testAgents ?? [];
   const lines = [
     '# Fleet replay: how often DashClaw asked a human',
     '',
@@ -316,7 +386,12 @@ export function renderMarkdown(r) {
     '',
     '## What happened to the asks',
     '',
-    `Of ${num(r.outcomes.asks)} approval asks, ${num(answered)} were answered: ${num(r.outcomes.approved)} approved by a human and ${num(r.outcomes.denied)} denied. The other ${num(r.outcomes.asks - answered)} were never answered; ${num(r.outcomes.asks - r.outcomes.withRecord)} of those have no action record at all.`,
+    `Of ${num(r.outcomes.asks)} approval asks, ${num(answered)} were answered: ${num(r.outcomes.approved)} approved by a human and ${num(r.outcomes.denied)} denied. ${num(r.outcomes.unanswered)} reached the approvals inbox and got no answer. ${num(r.outcomes.neverOpened)} never opened a request: the agent asked the guard and did not follow up, so nobody was prompted.`,
+    '',
+    `Guard decisions that repeat an ask above and are counted once: ${num(r.outcomes.repeats)}.`,
+    ...(testAgents.length
+      ? ['', `Asks left out as test traffic (${testAgents.join(', ')}): ${num(r.outcomes.tests)}.`]
+      : []),
     ...(r.outcomes.incompletePairs
       ? ['', `Outcome search stopped early for ${r.outcomes.incompletePairs} agent and action-type pairs with too many records to page through, so approvals may be undercounted.`]
       : []),
@@ -324,7 +399,9 @@ export function renderMarkdown(r) {
     '## How to read this',
     '',
     '- A governed action is one guard decision of any kind: allow, warn, ask or block.',
-    '- An approval ask is a `require_approval` decision: the agent stopped and a person had to answer.',
+    '- An approval ask is one question an agent put to the guard that came back `require_approval`. One ask can write two such decisions: the guard call and then the call that records the action, or the same ask repeated while its request is still open. Those are counted once.',
+    '- An ask never opened a request when no action record followed the guard decision. Older servers left opening the request to a second call from the agent. Current ones open it in the guard call, unless the caller sends `?record=false` or `self_test: true`.',
+    '- Agents named with `--test-agents` are left out of the ask counts. Their guard decisions stay in the governed-action totals.',
     '- A floor probe is the scheduled self-test in `scripts/catastrophe-floor-probe.mjs`. It tries five destructive commands and expects to be stopped. Nobody is asked, so probes are counted apart and kept out of the rate.',
     `- Blocks in the window: ${num(r.blocks)}.`,
     `- "If accepted" replays the window one day at a time with the product's own loosening, tuning and interruption-budget engines over a ${r.windowDays}-day evidence window, accepts every actionable proposal on the day it appears, and removes a later ask only when every policy that matched it had been relaxed.`,
@@ -335,6 +412,7 @@ export function renderMarkdown(r) {
     `- The first ${r.windowDays} days of the window see less evidence than the product had, because asks from before the window are not read.`,
     '- Precedent proposals are not replayed: they need evidence flags the API does not return.',
     '- Decisions with no agent id are counted as governed actions but not as an agent.',
+    '- A repeat is matched on agent, action type and goal. The payload of the action is not compared.',
     '',
     '## Checks',
     '',
