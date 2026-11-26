@@ -36,6 +36,13 @@ describe('Tool Definitions', () => {
     }
   });
 
+  it('the served dashclaw_guard description matches a server that opens the approval request', () => {
+    const guard = TOOL_DEFINITIONS.find((d) => d.name === 'dashclaw_guard');
+    expect(guard.description).not.toMatch(/creates no approval request/i);
+    expect(guard.description).toMatch(/"recorded": true/);
+    expect(guard.description).toMatch(/dashclaw_wait_for_approval with the returned action_id/);
+  });
+
   it('dashclaw_record schema includes optional session_id', () => {
     const rec = TOOL_DEFINITIONS.find((d) => d.name === 'dashclaw_record');
     expect(rec.inputSchema.properties.session_id).toBeDefined();
