@@ -7,6 +7,7 @@ import {
 } from '../calibration-mining.js';
 import { BROWSER_FIRST_ACTION_AGENT_ID } from '../hosted/browser-action.js';
 import type { SqlTag } from '../types/db';
+import type { TrialActivationFacts } from '../hosted/trial-activation';
 import {
   invalidateGuardPolicyCache,
   invalidateGuardRiskTemplateCache,
@@ -349,6 +350,53 @@ export async function queryLiveTrialFacts(
       graduatedAtMs: toMs(r.exported_at_ms),
     };
   });
+}
+
+/**
+ * One live trial org's activation facts for the /connect checklist. Null when
+ * the org is not a live hosted trial (operator org, claimed-and-cleaned, or a
+ * cap-0 placeholder), so callers can 404 instead of inventing progress.
+ * Reuses queryLiveTrialFacts for key use and the first action; the one extra
+ * read finds the first REAL agent action (the in-browser demo button does not
+ * count, even when it came first) and the first human approval. Every read is
+ * scoped to the given org id.
+ */
+export async function getTrialActivationFacts(
+  sql: SqlTag,
+  orgId: string,
+): Promise<TrialActivationFacts | null> {
+  const facts = (await queryLiveTrialFacts(sql, orgId))[0];
+  if (!facts) return null;
+  const rows = await sql`
+    SELECT
+      (SELECT (EXTRACT(EPOCH FROM MIN(ts)) * 1000)::float8
+         FROM (
+           SELECT gd.created_at::timestamptz AS ts
+           FROM guard_decisions gd
+           WHERE gd.org_id = ${orgId}
+             AND gd.agent_id IS DISTINCT FROM ${BROWSER_FIRST_ACTION_AGENT_ID}
+             AND (gd.action_type IS NULL OR gd.action_type NOT LIKE ALL(${SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS}::text[]))
+             AND (gd.agent_id IS NULL OR gd.agent_id NOT LIKE ALL(${SYNTHETIC_AGENT_LIKE_PATTERNS}::text[]))
+           UNION ALL
+           SELECT ar.created_at::timestamptz AS ts
+           FROM action_records ar
+           WHERE ar.org_id = ${orgId}
+             AND ar.agent_id IS DISTINCT FROM ${BROWSER_FIRST_ACTION_AGENT_ID}
+             AND (ar.action_type IS NULL OR ar.action_type NOT LIKE ALL(${SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS}::text[]))
+             AND (ar.agent_id IS NULL OR ar.agent_id NOT LIKE ALL(${SYNTHETIC_AGENT_LIKE_PATTERNS}::text[]))
+         ) agent_evts) AS first_agent_action_at_ms,
+      (SELECT (EXTRACT(EPOCH FROM MIN(ar.approved_at::timestamptz)) * 1000)::float8
+         FROM action_records ar
+         WHERE ar.org_id = ${orgId}
+           AND ar.approved_at IS NOT NULL) AS first_approval_at_ms
+  `;
+  const r = rows[0] ?? {};
+  return {
+    keyUsed: facts.keyUsed,
+    firstAgentCallAtMs:
+      facts.firstActionVia === 'agent' ? facts.firstActionAtMs : toMs(r.first_agent_action_at_ms),
+    approvalLandedAtMs: toMs(r.first_approval_at_ms),
+  };
 }
 
 /**

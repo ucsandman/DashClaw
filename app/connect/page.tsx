@@ -22,6 +22,8 @@ import HostedProvisionSection from './HostedProvisionSection';
 import TrialWorkspaceCard from './TrialWorkspaceCard';
 import FirstGovernedActionCard from './FirstGovernedActionCard';
 import ShortListReceipt from './ShortListReceipt';
+import TrialActivationChecklist from './TrialActivationChecklist';
+import { isHostedMode } from '../lib/hosted/flag';
 import { getViewerContextFromCookieHeader } from '../lib/sessionViewer.mjs';
 import { getSql } from '../lib/db';
 import { getHostedWorkspace } from '../lib/repositories/hosted-workspace.repository';
@@ -687,6 +689,18 @@ async function getTrialWorkspaceForViewer(): Promise<Record<string, unknown> | n
   }
 }
 
+function SelfHostPointer() {
+  return (
+    <p className="text-sm text-text-tertiary">
+      Want DashClaw on your own servers instead?{' '}
+      <Link href="/self-host" className="text-brand hover:text-brand-hover transition-colors font-medium">
+        Self-host guide
+      </Link>
+      .
+    </p>
+  );
+}
+
 function TrialExpiredNotice() {
   return (
     <section className="mb-10 rounded-3xl border border-border bg-surface-secondary p-6 sm:p-8">
@@ -827,6 +841,8 @@ export default async function ConnectPage({ searchParams }: ConnectPageProps = {
                   the browser, riding the trial session. Only ever rendered in
                   this branch, so anonymous visitors, operators, and self-host
                   instances never see it. */}
+              {/* Hosted trial: the same live checklist the mint panel shows. */}
+              <TrialActivationChecklist className="mb-10 rounded-3xl border border-border bg-surface-secondary p-6 sm:p-8" />
               <FirstGovernedActionCard />
             </>
           ) : null}
@@ -838,7 +854,12 @@ export default async function ConnectPage({ searchParams }: ConnectPageProps = {
               forward: mint a fresh workspace. The global/per-IP mint caps,
               not this page, are what bound abuse. */}
           <HostedProvisionSection />
-          <FullConnectGuide />
+          {/* The runbook below is the SELF-HOST guide ("you need a running
+              instance", "your-instance.vercel.app"). On the hosted trial
+              instance it sat under the mint button and told trial visitors
+              they needed their own server, so hosted mode leaves it out and
+              keeps one link for anyone who does want to self-host. */}
+          {isHostedMode() ? <SelfHostPointer /> : <FullConnectGuide />}
         </div>
       </main>
 

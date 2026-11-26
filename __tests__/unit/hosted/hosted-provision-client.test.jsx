@@ -110,6 +110,51 @@ describe('HostedProvisionClient', () => {
     expect(copied).toContain('https://hosted.example.com');
   });
 
+  it('after mint shows ONE copy block with the hosted URL and key filled in, plus the live checklist', async () => {
+    globalThis.fetch.mockImplementation(async (url) => {
+      if (String(url).startsWith('/api/hosted/activation')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            workspace_id: 'org_abc',
+            steps: [
+              { id: 'key_used', label: 'Key used', done: false },
+              { id: 'first_call', label: 'First call received', done: false },
+              { id: 'approval_landed', label: 'Approval landed on your phone', done: false },
+            ],
+            current: 'key_used',
+            complete: false,
+          }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          workspace_id: 'org_abc', api_key: 'oc_live_one_block',
+          endpoint: 'https://hosted.example.com',
+          expires_at: '2099-01-01T00:00:00Z', trial_action_cap: 10000,
+          session: true,
+        }),
+      };
+    });
+    const { container } = render(<HostedProvisionClient turnstileSiteKey={null} />);
+    fireEvent.click(screen.getByRole('button', { name: /mint trial/i }));
+    await waitFor(() => screen.getAllByText(/oc_live_one_block/));
+
+    const blocks = container.querySelectorAll('pre');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0].textContent).toContain('https://hosted.example.com/api/mcp');
+    expect(blocks[0].textContent).toContain('oc_live_one_block');
+
+    await waitFor(() => expect(screen.getByText('First call received')).toBeTruthy());
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/hosted/activation?workspace_id=org_abc',
+      expect.objectContaining({ cache: 'no-store' }),
+    );
+  });
+
   it('copies the bare API key when the Copy key button is clicked', async () => {
     globalThis.fetch.mockResolvedValueOnce({
       ok: true,

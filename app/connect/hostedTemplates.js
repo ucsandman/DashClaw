@@ -9,7 +9,7 @@ export const STACK_OPTIONS = [
   {
     id: 'claude-code',
     label: 'Claude Code',
-    description: 'URL-mode MCP entry in ~/.claude/settings.json — the full governance toolset, zero install.',
+    description: 'Paste into .mcp.json at your project root and approve it when Claude Code next starts. The full governance toolset, zero install.',
   },
   {
     id: 'mcp',
@@ -28,10 +28,13 @@ export const STACK_OPTIONS = [
   },
 ];
 
+// Claude Code ignores an .mcp.json entry with no "type" (it assumes stdio and
+// finds no command), so the http type is required, not decoration.
 function claudeCode({ endpoint, apiKey }) {
   return `{
   "mcpServers": {
     "dashclaw": {
+      "type": "http",
       "url": "${endpoint}/api/mcp",
       "headers": {
         "x-api-key": "${apiKey}"

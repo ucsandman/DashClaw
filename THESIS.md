@@ -320,7 +320,7 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 
 | Surface | Ceiling | Counted from |
 |---|---|---|
-| Active API routes | 136 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
+| Active API routes | 137 | `app/api/**/route.{js,ts,tsx}` (must export ≥1 HTTP method) |
 | App pages | 54 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 17 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
@@ -338,6 +338,17 @@ Raising any ceiling requires amending this section **and**
 recorded, deliberate act that falsifier #3 (Regrowth) watches for.
 
 **Amendment log:**
+- **2026-11-26 — Active API routes 136 → 137 (`GET /api/hosted/activation`).**
+  25 of the first 30 hosted trials never made a governed call, and only 1
+  connected a real agent. The trial page now shows a live checklist ("key
+  used", "first call received", "approval landed on your phone") that turns
+  green from the workspace's own facts, so it needs a read the browser can poll.
+  It cannot fold into an existing route: `/api/hosted/funnel` is public and
+  aggregate-only by design (no org ids may leave it), and
+  `/api/hosted/workspaces/[workspaceId]` is an operator route that refuses
+  trial principals. The new route is hosted-only, authenticated, and reads only
+  the caller's own org from the verified principal. Zero new tables,
+  migrations, pages, policy types, SDK methods, MCP tools or CLI commands.
 - **2026-09-15 — Guard policy types 19 → 20 (`verification_contract`).** An LLM
   verifier catches only what the specification named. Where an obligation was
   never written down and no convention settles it, the verifier is not failing

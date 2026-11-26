@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Check, Copy, AlertCircle, Sparkles, ArrowRight } from 'lucide-react';
 import { STACK_OPTIONS, renderTemplate } from './hostedTemplates.js';
+import TrialActivationChecklist from './TrialActivationChecklist.jsx';
 
 function CopyButton({ value, label = 'Copy config' }) {
   const [copied, setCopied] = useState(false);
@@ -140,30 +141,33 @@ export default function HostedProvisionClient({ turnstileSiteKey }) {
             </span>
           </div>
 
+          {/* One copy block: the hosted URL and this trial's key are already
+              in it. The bare key stays one click away for the CLI paste flow. */}
           <div>
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">API key</p>
-              <CopyButton value={state.data.api_key} label="Copy key" />
-            </div>
-            <pre className="mt-2 overflow-x-auto rounded-xl border border-border bg-surface-primary p-4 font-mono text-xs text-text-primary">
-              {state.data.api_key}
-            </pre>
-            <p className="mt-2 text-xs text-text-tertiary">
-              Running <code className="rounded border border-border bg-surface-primary px-1 py-0.5 font-mono text-[11px]">dashclaw install claude --trial</code>? Paste this key when the CLI asks.
-            </p>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
                 Config for {selectedOption.label} ({rendered.language})
               </p>
-              <CopyButton value={rendered.code} />
+              <div className="flex items-center gap-2">
+                <CopyButton value={state.data.api_key} label="Copy key" />
+                <CopyButton value={rendered.code} />
+              </div>
             </div>
             <pre className="mt-2 overflow-x-auto rounded-xl border border-border bg-surface-primary p-4 text-xs leading-relaxed text-text-secondary">
               {rendered.code}
             </pre>
+            <p className="mt-2 text-xs text-text-tertiary">
+              {selectedOption.description} Running{' '}
+              <code className="rounded border border-border bg-surface-primary px-1 py-0.5 font-mono text-[11px]">dashclaw install claude --trial</code>? Use Copy key and paste it when the CLI asks.
+            </p>
           </div>
+
+          {/* Live checklist from this workspace's own facts. Needs the trial
+              session the mint just set; without it there is nothing the
+              browser may read, so it is not shown. */}
+          {state.data.session ? (
+            <TrialActivationChecklist workspaceId={state.data.workspace_id} className="border-t border-border pt-4" />
+          ) : null}
 
           {/* v5.1: the mint also set a trial session cookie — the dashboard
               is now a real destination, and losing this tab no longer
