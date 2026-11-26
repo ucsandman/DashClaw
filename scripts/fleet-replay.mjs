@@ -3,8 +3,10 @@
 // week, and what would that number have been if every loosening and tuning proposal had been
 // accepted on the day it appeared?
 //
-//   node --import tsx scripts/fleet-replay.mjs [--weeks 13] [--out docs/proof/<file>.md] [--sabotage]
+//   node --import tsx scripts/fleet-replay.mjs [--weeks 13] [--out docs/proof/<file>.md]
+//     [--test-agents id,id] [--sabotage]
 //
+// --test-agents names agents whose asks are test traffic; they are left out of the ask counts.
 // Read-only: GET requests against the instance's own API, with DASHCLAW_URL (or
 // DASHCLAW_BASE_URL) and DASHCLAW_API_KEY from the environment. Nothing is written to the
 // instance. It sends one request a second, so 13 weeks of a busy fleet takes about 15 minutes.
@@ -17,10 +19,12 @@ import {
   attachOutcomes,
   buildWeeks,
   isProbe,
+  markRepeats,
   renderMarkdown,
   replayWhatIf,
   runChecks,
   sabotage,
+  summarizeOutcomes,
   weekBounds,
   weeklyFromCumulative,
 } from './lib/fleet-replay.mjs';
@@ -33,11 +37,12 @@ const flag = (name) => {
 const WEEKS = Number(flag('--weeks') ?? 13);
 const OUT = flag('--out');
 const SABOTAGE = argv.includes('--sabotage');
+const TEST_AGENTS = (flag('--test-agents') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 const BASE = (process.env.DASHCLAW_BASE_URL || process.env.DASHCLAW_URL || '').replace(/\/$/, '');
 const KEY = process.env.DASHCLAW_API_KEY;
 
 if (!BASE || !KEY || !Number.isInteger(WEEKS) || WEEKS < 1 || WEEKS > 52) {
-  console.error('usage: node --import tsx scripts/fleet-replay.mjs [--weeks 1..52] [--out file.md] [--sabotage]');
+  console.error('usage: node --import tsx scripts/fleet-replay.mjs [--weeks 1..52] [--out file.md] [--test-agents id,id] [--sabotage]');
   console.error('needs DASHCLAW_URL (or DASHCLAW_BASE_URL) and DASHCLAW_API_KEY in the environment');
   process.exit(2);
 }
@@ -188,16 +193,9 @@ async function main() {
     incompletePairs++;
     return matched;
   });
-  const asksWithOutcomes = attachOutcomes(askRows, found.flat());
-  const realAsks = asksWithOutcomes.filter((a) => !isProbe(a));
-  const outcomes = {
-    asks: realAsks.length,
-    withRecord: realAsks.filter((a) => a.hasRecord).length,
-    approved: realAsks.filter((a) => a.approvedMs != null).length,
-    denied: realAsks.filter((a) => a.deniedMs != null).length,
-    incompletePairs,
-  };
-  log(`outcomes: ${outcomes.withRecord} of ${outcomes.asks} asks have an action record (${outcomes.approved} approved, ${outcomes.denied} denied); ${pairs.size} pairs searched, ${incompletePairs} stopped at the page cap`);
+  const asksWithOutcomes = markRepeats(attachOutcomes(askRows, found.flat()));
+  const outcomes = { ...summarizeOutcomes(asksWithOutcomes, TEST_AGENTS), incompletePairs };
+  log(`outcomes: ${outcomes.asks} asks (${outcomes.approved} approved, ${outcomes.denied} denied, ${outcomes.unanswered} unanswered in the inbox, ${outcomes.neverOpened} never opened a request); ${outcomes.repeats} repeats and ${outcomes.tests} test asks left out; ${pairs.size} pairs searched, ${incompletePairs} stopped at the page cap`);
 
   // 5. Which agents were governed each week. Counts since a boundary never rise as the
   //    boundary moves later, so equal counts at two boundaries settle every week between them.
@@ -233,7 +231,7 @@ async function main() {
 
   // 6. Replay and report.
   const { removed, accepted } = replayWhatIf({ asks: asksWithOutcomes, policies, startMs, endMs, windowDays: WINDOW_DAYS });
-  const weeks = buildWeeks({ ...base, removed, agentsPerWeek });
+  const weeks = buildWeeks({ ...base, askRows: asksWithOutcomes, removed, agentsPerWeek, testAgents: TEST_AGENTS });
   const checks = runChecks({ ...base, removed, agentDecisionSum, weeks });
   const markdown = renderMarkdown({
     generatedAt: new Date().toISOString(),
@@ -242,6 +240,7 @@ async function main() {
     accepted,
     checks,
     outcomes,
+    testAgents: TEST_AGENTS,
     blocks: typeTotals.block,
     policyCount: policies.length,
     agentsInWindow,

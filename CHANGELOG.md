@@ -20,6 +20,10 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 - `POST /api/guard?record=false` evaluates only and never opens a request. An ask that carries `self_test: true` in its body never opens one either. Probes, smoke tests and test agents that name an agent should use one of the two, or their asks will prompt the operator.
 - Not changed: `?record=true` (the hook path), every verdict other than `require_approval`, and asks that name no agent.
 
+### Fixed
+
+- **Fleet replay counted one approval ask twice.** `scripts/fleet-replay.mjs` counted every `require_approval` guard decision as an ask. A client that calls the guard and then records the action writes two decisions for one ask, and so does an ask repeated while its request is open. Those rows are now counted once. The report also separates asks that reached the approvals inbox and got no answer from asks that never opened a request, and `--test-agents id,id` leaves named test agents out of the ask counts.
+
 ## [5.40.6] - 2026-11-25
 
 ### Security
