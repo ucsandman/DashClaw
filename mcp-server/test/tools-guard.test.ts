@@ -179,6 +179,36 @@ describe("dashclaw_guard context enrichment", () => {
 // Lifecycle refusal on the close path (app/lib/action-lifecycle.ts): a 409
 // illegal_transition is a verdict about the row's state, not a transport
 // failure, so the agent gets current/allowed and is told not to retry.
+describe("dashclaw_guard and the approval request the server opens", () => {
+  const guardDef = () => TOOL_DEFINITIONS.find((d) => d.name === "dashclaw_guard")!;
+  const recordDef = () => TOOL_DEFINITIONS.find((d) => d.name === "dashclaw_record")!;
+
+  it("no longer tells the agent that the guard creates no approval request", () => {
+    expect(guardDef().description).not.toMatch(/creates no approval request/i);
+  });
+
+  it("tells the agent to wait on the returned action_id when the response says recorded: true", () => {
+    const text = guardDef().description;
+    expect(text).toMatch(/"recorded": true/);
+    expect(text).toMatch(/dashclaw_wait_for_approval with the returned action_id/);
+  });
+
+  it("keeps the second call as the fallback when the server did not open a request", () => {
+    expect(guardDef().description).toMatch(/dashclaw_record with status "pending_approval"/);
+  });
+
+  it("lets dashclaw_record close a request that the guard opened", () => {
+    const actionId = (recordDef().inputSchema as any).properties.action_id.description as string;
+    expect(actionId).toMatch(/dashclaw_guard[^.]*"recorded": true/);
+  });
+
+  it("passes recorded and action_id from the server through to the agent", async () => {
+    fetchMock.mockResolvedValueOnce(mockOk({ decision: "require_approval", recorded: true, action_id: "act_123" }));
+    const out = JSON.parse(await makeHandlers().dashclaw_guard(GUARD_INPUT));
+    expect(out).toMatchObject({ decision: "require_approval", recorded: true, action_id: "act_123" });
+  });
+});
+
 describe("dashclaw_record close path lifecycle refusal", () => {
   const REFUSAL = {
     error: "illegal_transition",

@@ -22,6 +22,7 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ### Fixed
 
+- **The MCP `dashclaw_guard` tool told agents it creates no approval request.** The server now opens the request in the guard call, so the description was wrong and sent agents to a second call they no longer need. It now says: when the response has `"recorded": true`, wait on the returned `action_id` with `dashclaw_wait_for_approval`; otherwise (an older server, or no agent id) record the action as `pending_approval` first, as before. The `dashclaw_record` `action_id` text says a request the guard opened can be closed like any other record. Descriptions only: no tool behavior changed.
 - **Fleet replay counted one approval ask twice.** `scripts/fleet-replay.mjs` counted every `require_approval` guard decision as an ask. A client that calls the guard and then records the action writes two decisions for one ask, and so does an ask repeated while its request is open. Those rows are now counted once. The report also separates asks that reached the approvals inbox and got no answer from asks that never opened a request, and `--test-agents id,id` leaves named test agents out of the ask counts.
 
 ## [5.40.6] - 2026-11-25

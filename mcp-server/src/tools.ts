@@ -44,10 +44,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       'Evaluate DashClaw governance policies before taking a risky action. Call this BEFORE ' +
       'any action that modifies external systems, deploys code, sends messages, or touches ' +
       'production data. Returns a decision: "allow" (proceed), "warn" (proceed with caution), ' +
-      '"block" (stop), or "require_approval". This tool only EVALUATES — it creates no ' +
-      'approval request. On "require_approval", call dashclaw_record with status ' +
-      '"pending_approval" to put the action in the human Approvals inbox, then ' +
-      'dashclaw_wait_for_approval with the returned action_id. If the decision is "block", ' +
+      '"block" (stop), or "require_approval". On "require_approval" the server opens the ' +
+      'approval request itself when it can: if the response has "recorded": true, call ' +
+      'dashclaw_wait_for_approval with the returned action_id and do not record the action ' +
+      'again. If "recorded" is missing or false (an older server, or no agent id), call ' +
+      'dashclaw_record with status "pending_approval" to put the action in the human ' +
+      'Approvals inbox, then dashclaw_wait_for_approval with the action_id that call ' +
+      'returns. Do not act until the request is approved. If the decision is "block", ' +
       'do NOT proceed with the action.',
     inputSchema: {
       type: 'object',
@@ -78,7 +81,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        action_id: { type: 'string', description: 'Close an EXISTING record instead of creating one: the action_id returned by an earlier dashclaw_record (status running). A dashclaw_guard decision_id is not an action record and cannot be closed here. Only status, output_summary and error_message are applied; the server stamps the outcome from status. Omit to create a new record.' },
+        action_id: { type: 'string', description: 'Close an EXISTING record instead of creating one: the action_id returned by an earlier dashclaw_record (status running). A dashclaw_guard decision_id is not an action record and cannot be closed here. The one dashclaw_guard id that can be closed is the action_id from a response that had "recorded": true, which is the approval request the server opened. Only status, output_summary and error_message are applied; the server stamps the outcome from status. Omit to create a new record.' },
         action_type: { type: 'string', description: 'Category (e.g., research, analysis, code_change, deploy)' },
         declared_goal: { type: 'string', description: 'What was accomplished' },
         status: { type: 'string', enum: ['running', 'completed', 'failed', 'pending_approval'], description: 'Outcome status' },
@@ -618,6 +621,10 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
     // at completion time. Adopting record=true here would double-record every
     // guarded action (guard insert + record insert) or force dashclaw_record
     // into update semantics, breaking its documented contract.
+    // A require_approval verdict is the one case the server records on its
+    // own: it opens the approval request in this call and answers
+    // { recorded: true, action_id }, passed through below for
+    // dashclaw_wait_for_approval.
     async dashclaw_guard(input: any) {
       // Remember a validly-stated confidence for the following dashclaw_record
       // to pick up (see pendingConfidence above). Range-checked here only —
