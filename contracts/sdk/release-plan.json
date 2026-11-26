@@ -1,26 +1,25 @@
 {
   "node": {
-    "current_version": "5.40.6",
+    "current_version": "5.40.7",
     "next_bump": "none",
-    "reason": "5.40.6 makes model on an action record settable once (PATCH /api/actions/:id keeps a stored model) and prices derived cost from the stored model. Server-side only: no Node SDK source changed (one README sentence); do not republish the SDK.",
+    "reason": "5.40.7 has the guard open the approval request itself on a require_approval verdict, fixes the Claude Code hook's length cuts for text that contains an emoji, and corrects the MCP dashclaw_guard description. Server, hook and MCP server only: no Node SDK source changed; do not republish the SDK.",
     "domains": [
-      "platform",
-      "docs"
+      "platform"
     ]
   },
   "python": {
-    "current_version": "5.40.6",
+    "current_version": "5.40.7",
     "next_bump": "none",
-    "reason": "5.40.6 makes model on an action record settable once (PATCH /api/actions/:id keeps a stored model) and prices derived cost from the stored model. Server-side only: no Python SDK source changed; do not republish the SDK.",
+    "reason": "5.40.7 has the guard open the approval request itself on a require_approval verdict, fixes the Claude Code hook's length cuts for text that contains an emoji, and corrects the MCP dashclaw_guard description. Server, hook and MCP server only: no Python SDK source changed; do not republish the SDK.",
     "domains": [
-      "platform",
-      "docs"
+      "platform"
     ]
   },
-  "reason": "5.40.6 makes model on an action record settable once (PATCH /api/actions/:id keeps a stored model) and prices derived cost from the stored model. Platform only: no SDK source or package publication is included; npm and PyPI stay at 5.40.4.",
+  "reason": "5.40.7 has the guard open the approval request itself on a require_approval verdict, fixes the Claude Code hook's length cuts for text that contains an emoji, and corrects the MCP dashclaw_guard description. The MCP server (3.1.11) and the plugin bundle (3.4.3) are released with it. No SDK source or SDK package publication is included; npm and PyPI stay at 5.40.4.",
   "domains": [
-    "actions",
-    "platform",
-    "docs"
+    "guard",
+    "hooks",
+    "mcp",
+    "platform"
   ]
 }
