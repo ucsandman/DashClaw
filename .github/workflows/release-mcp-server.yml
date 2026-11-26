@@ -1,0 +1,152 @@
+# Publishes @dashclaw/mcp-server to npm and lists the same version on the MCP
+# Registry when a release tag is pushed. Auth is OIDC on both sides: no npm
+# token, security key or browser sign-in is involved.
+#   npm:      package @dashclaw/mcp-server -> Settings -> Trusted Publisher
+#             (ucsandman/DashClaw, workflow release-mcp-server.yml, with
+#             "npm publish" allowed). One-time setup. Until it is done the npm
+#             step fails and nothing is published.
+#   registry: mcp-publisher login github-oidc. A workflow in this repository
+#             may publish io.github.ucsandman/* names. No setup.
+#
+# This is its own file, not a job in release.yml, on purpose. release.yml runs
+# only on v* tags, and its manual run publishes the SDKs whenever their
+# manifests are ahead of the registry. That is the normal state after a
+# platform-only release (platform-v* tag), where the SDKs must stay put. The
+# MCP server versions on its own line and can ship with either kind of release.
+#
+# Each publishing step is skipped when that version is already there, so every
+# release tag and the "Run workflow" button are safe to fire. The registry
+# sign-in runs on every run: a broken sign-in then shows up on a run that had
+# nothing to publish, not on the release that needs it.
+#
+# Local fallback: npm run release:mcp (needs the owner's two browser sign-ins).
+
+name: release-mcp-server
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - 'platform-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+# Two release tags pushed together must not race to publish the same version.
+concurrency:
+  group: release-mcp-server
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      MCP_PUBLISHER_VERSION: v1.8.16
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Ensure npm supports trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Read the version and what is already published
+        id: plan
+        working-directory: mcp-server
+        run: |
+          set -euo pipefail
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          SERVER=$(node -p "require('./package.json').mcpName")
+          DRIFT=$(node -e "const s=require('./server.json');const [n,v]=process.argv.slice(1);const seen=[s.version,...(s.packages||[]).filter((p)=>p.identifier===n).map((p)=>p.version)];process.stdout.write([...new Set(seen.filter((x)=>x!==v))].join(' '))" "$NAME" "$VERSION")
+          if [ -n "$DRIFT" ]; then
+            echo "::error::mcp-server/server.json carries $DRIFT but package.json is $VERSION. Nothing was published."
+            exit 1
+          fi
+          status() { curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$1"; }
+          NPM=$(status "https://registry.npmjs.org/$NAME/$VERSION")
+          REGISTRY=$(status "https://registry.modelcontextprotocol.io/v0/servers/${SERVER//\//%2F}/versions/$VERSION")
+          for pair in "npm:$NPM" "registry:$REGISTRY"; do
+            case "${pair#*:}" in
+              200|404) ;;
+              *)
+                echo "::error::${pair%%:*} answered HTTP ${pair#*:} for $VERSION, so it is unknown whether that version exists. Nothing was published."
+                exit 1
+                ;;
+            esac
+          done
+          echo "$NAME $VERSION | npm HTTP $NPM | registry HTTP $REGISTRY (200 = already there, 404 = to publish)"
+          {
+            echo "name=$NAME"
+            echo "version=$VERSION"
+            echo "npm=$NPM"
+            echo "registry=$REGISTRY"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      # The official binary, pinned and checked against its Sigstore bundle. The
+      # npm package named mcp-publisher is an unrelated squat: never install it.
+      - name: Download and verify mcp-publisher
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+          arch="$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
+          archive="mcp-publisher_${os}_${arch}.tar.gz"
+          base_url="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+          curl --fail --location --silent --show-error --output "$archive" "$base_url/$archive"
+          curl --fail --location --silent --show-error --output "$archive.sigstore.json" "$base_url/$archive.sigstore.json"
+          cosign verify-blob \
+            --bundle "$archive.sigstore.json" \
+            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$archive"
+          tar xzf "$archive" mcp-publisher
+          rm -f "$archive" "$archive.sigstore.json"
+
+      - name: Sign in to the MCP Registry
+        run: '"$RUNNER_TEMP/mcp-publisher" login github-oidc'
+
+      - name: Install MCP server dependencies
+        if: steps.plan.outputs.npm == '404'
+        run: npm ci --no-audit --no-fund --prefix mcp-server
+
+      # prepublishOnly runs the package's own gate first: route drift, typecheck,
+      # build, tests and npm audit.
+      - name: Publish to npm
+        if: steps.plan.outputs.npm == '404'
+        working-directory: mcp-server
+        run: npm publish --provenance --access public
+
+      # The registry checks the npm package before it lists a version, and a new
+      # version can take a minute or two to appear on npm.
+      - name: Wait for the version to appear on npm
+        if: steps.plan.outputs.npm == '404'
+        env:
+          NAME: ${{ steps.plan.outputs.name }}
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          for attempt in $(seq 1 30); do
+            CODE=$(curl --silent --output /dev/null --write-out '%{http_code}' "https://registry.npmjs.org/$NAME/$VERSION" || true)
+            if [ "$CODE" = "200" ]; then
+              echo "$NAME $VERSION is on npm after $attempt checks"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::npm did not show $NAME $VERSION within 5 minutes. Run this workflow again to finish the registry listing."
+          exit 1
+
+      # Signed in again right before publishing: the registry's sign-in is short
+      # lived and the npm steps above can take several minutes.
+      - name: Publish to the MCP Registry
+        if: steps.plan.outputs.registry == '404'
+        working-directory: mcp-server
+        run: |
+          "$RUNNER_TEMP/mcp-publisher" login github-oidc
+          "$RUNNER_TEMP/mcp-publisher" publish
