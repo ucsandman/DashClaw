@@ -13,6 +13,17 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Changed
+
+- **The hosted trial page no longer tells trial visitors they need their own server.** On a hosted instance, `/connect` rendered the self-host runbook directly under the mint button: "you need a running DashClaw instance", `export DASHCLAW_BASE_URL=https://your-instance.vercel.app`, "Never use https://dashclaw.io as your agent base URL". 25 of the first 30 hosted trials never made a governed call. In hosted mode the page now shows the mint section and one link to the self-host guide. Self-host instances render `/connect` exactly as before.
+- **After a mint, one copy block.** The trial panel shows a single config block for the chosen stack with the hosted URL and the trial key already filled in. The bare key is still one click away (Copy key) for `dashclaw install claude --trial`.
+- **A live activation checklist on the trial page.** "Key used", "First call received", "Approval landed on your phone", each turning green from the workspace's own facts, with the `/approve` phone link as the last step. Shown after a mint and on `/connect` for a returning trial session. The in-browser demo button does not count as the first call; only a real agent does.
+- **The trial action cap 403 says where to go next.** `trial action cap reached` now carries `claim_url` and a `message` pointing at claiming the workspace. No price.
+
+### Added
+
+- `GET /api/hosted/activation` (hosted only): the caller's own trial checklist. Authenticated like any `/api` route; the org comes only from the verified principal. `401` with no authenticated org, `403` when `workspace_id` names another org, `404` when the caller is not a live trial.
+
 ## [5.40.7] - 2026-11-25
 
 ### Changed

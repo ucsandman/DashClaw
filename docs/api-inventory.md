@@ -1,7 +1,7 @@
 ---
 source-of-truth: false
 owner: API Governance Lead
-last-verified: 2026-11-25
+last-verified: 2026-11-26
 doc-type: architecture
 ---
 
@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `136`
+- Total routes: `137`
 - Stable routes: `43`
 - Beta routes: `18`
-- Experimental routes: `75`
+- Experimental routes: `76`
 
 ## Routes
 
@@ -73,6 +73,7 @@ doc-type: architecture
 | `/api/guard/decisions` | `GET` | `stable` | `/api/guard` | `app/api/guard/decisions/route.ts` |
 | `/api/halt` | `GET, POST` | `experimental` | `(default)` | `app/api/halt/route.ts` |
 | `/api/health` | `GET` | `stable` | `/api/health` | `app/api/health/route.ts` |
+| `/api/hosted/activation` | `GET` | `experimental` | `(default)` | `app/api/hosted/activation/route.ts` |
 | `/api/hosted/capacity` | `GET` | `experimental` | `(default)` | `app/api/hosted/capacity/route.ts` |
 | `/api/hosted/claim` | `GET, POST` | `experimental` | `(default)` | `app/api/hosted/claim/route.ts` |
 | `/api/hosted/cleanup` | `POST` | `experimental` | `(default)` | `app/api/hosted/cleanup/route.ts` |

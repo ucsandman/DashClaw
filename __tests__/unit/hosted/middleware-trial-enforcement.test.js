@@ -95,6 +95,47 @@ describe('middleware hosted-trial enforcement', () => {
     expect(body.error).toMatch(/action cap/i);
   });
 
+  it('cap-reached 403 points at claiming the workspace, with no price', async () => {
+    const apiKey = uniqueKey();
+    sqlMock.mockResolvedValueOnce([{
+      org_id: 'org_x',
+      role: 'admin',
+      revoked_at: null,
+      hosted_mode: true,
+      trial_ends_at: '2099-01-01T00:00:00Z',
+      trial_action_cap: 10,
+      trial_actions_used: 10,
+    }]);
+    const res = await middleware(req('/api/actions', apiKey));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe('trial action cap reached');
+    expect(body.trial_action_cap).toBe(10);
+    expect(body.trial_actions_used).toBe(10);
+    expect(body.claim_url).toBe('http://localhost:3000/claim');
+    expect(body.message).toContain(body.claim_url);
+    expect(body.message).toMatch(/claim/i);
+    expect(body.message).not.toMatch(/[$€£]|\bprice\b|\/mo\b/i);
+  });
+
+  it('expired-trial 403 carries no claim pointer (an expired trial cannot be claimed)', async () => {
+    const apiKey = uniqueKey();
+    sqlMock.mockResolvedValueOnce([{
+      org_id: 'org_x',
+      role: 'admin',
+      revoked_at: null,
+      hosted_mode: true,
+      trial_ends_at: '2026-01-01T00:00:00Z',
+      trial_action_cap: 10000,
+      trial_actions_used: 5,
+    }]);
+    const res = await middleware(req('/api/actions', apiKey));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe('trial expired');
+    expect(body.claim_url).toBeUndefined();
+  });
+
   it('key auth stamps first_used_at once alongside last_used_at (v5.3)', async () => {
     const apiKey = uniqueKey();
     sqlMock.mockResolvedValueOnce([{

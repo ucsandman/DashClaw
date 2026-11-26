@@ -31,6 +31,20 @@ describe('hostedTemplates', () => {
     expect(code).toContain('mcpServers');
   });
 
+  it('claude-code config is one Claude Code actually loads: type http, pasted into the project .mcp.json', () => {
+    // Without "type": "http", Claude Code 2.1 ignores the entry in .mcp.json
+    // (`claude mcp get dashclaw` -> No MCP server named "dashclaw"), and it
+    // never reads mcpServers from ~/.claude/settings.json at all.
+    const { code } = renderTemplate('claude-code', SAMPLE);
+    const parsed = JSON.parse(code);
+    expect(parsed.mcpServers.dashclaw.type).toBe('http');
+    expect(parsed.mcpServers.dashclaw.url).toBe('https://hosted.example.com/api/mcp');
+    expect(parsed.mcpServers.dashclaw.headers['x-api-key']).toBe('oc_live_abc123def456');
+    const option = STACK_OPTIONS.find((s) => s.id === 'claude-code');
+    expect(option.description).toContain('.mcp.json');
+    expect(option.description).not.toContain('settings.json');
+  });
+
   it('renders a URL-mode MCP config for mcp', () => {
     const { language, code } = renderTemplate('mcp', SAMPLE);
     expect(language).toBe('json');

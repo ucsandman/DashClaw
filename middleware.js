@@ -704,7 +704,7 @@ function mcpAuthChallenge(request) {
   });
 }
 
-function enforceHostedTrial(auth) {
+function enforceHostedTrial(auth, request) {
   if (!auth || !auth.hostedMode) return null;
   if (auth.trialEndsAt && new Date(auth.trialEndsAt).getTime() < Date.now()) {
     return {
@@ -714,12 +714,18 @@ function enforceHostedTrial(auth) {
   }
   // Note: actionsUsed may be up to 5min stale due to apiKeyCache; acceptable for Plan 1
   if (auth.trialActionCap != null && auth.trialActionsUsed >= auth.trialActionCap) {
+    // The agent hitting the cap is often the only thing a human reads, so the
+    // body says where to go next. Claiming keeps the workspace and its record;
+    // no price here on purpose (pricing is the maintainer's call).
+    const claimUrl = new URL('/claim', request.url).toString();
     return {
       status: 403,
       body: {
         error: 'trial action cap reached',
         trial_action_cap: auth.trialActionCap,
         trial_actions_used: auth.trialActionsUsed,
+        claim_url: claimUrl,
+        message: `This trial workspace has used all ${auth.trialActionCap} of its governed actions. Open ${claimUrl} in the browser that minted the trial to claim it; claiming keeps the workspace and its full record.`,
       },
     };
   }
@@ -1148,7 +1154,7 @@ async function handleSessionAuth(request, pathname, requestHeaders) {
       return securedJson(request, { error: 'Unauthorized - Session required' }, { status: 401 });
     }
     if (request.method !== 'GET' && request.method !== 'HEAD') {
-      const trialBlock = enforceHostedTrial(trialOrg);
+      const trialBlock = enforceHostedTrial(trialOrg, request);
       if (trialBlock) {
         return securedJson(request, trialBlock.body, { status: trialBlock.status });
       }
@@ -1253,7 +1259,7 @@ async function handleDatabaseKey(request, pathname, requestHeaders, apiKey) {
   if (resolved.keyId) requestHeaders.set('x-user-id', String(resolved.keyId));
   requestHeaders.set('x-auth-kind', 'api-key');
 
-  const trialBlock = enforceHostedTrial(resolved);
+  const trialBlock = enforceHostedTrial(resolved, request);
   if (trialBlock) {
     return securedJson(request, trialBlock.body, { status: trialBlock.status });
   }
