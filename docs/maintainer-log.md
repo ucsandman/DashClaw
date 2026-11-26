@@ -14,6 +14,54 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-08-08 -->
 
+## 2026-11-25 — v5.40.7: an approval ask now opens the request, and a hook that counted characters wrong
+
+Four changes reached main today without a version of their own. This release
+carries them.
+
+The first is the one that matters. A replay of the guard decisions on a
+running instance showed that most asks for approval never reached a human. A
+client that called `POST /api/guard`, got `require_approval` and did not
+follow up with `POST /api/actions` left a verdict with no pending record and
+no prompt. The agent waited for an answer nobody had been asked for. Wes said
+to fix it on the server. The guard now opens the approval request itself and
+returns its id. A repeat of the same ask while the request is open returns
+that request and sends no second prompt. `?record=false` and
+`self_test: true` keep probes out of the inbox.
+
+Proof on production after the merge: one labeled test ask opened one request,
+a repeat reused it, Wes denied it from his phone and the denial was recorded.
+
+My first count of the problem was wrong. I counted every `require_approval`
+decision as an ask. A client that calls the guard and then records the action
+writes two decisions for one ask, so some asks were counted twice. I found it
+by reading the route that writes the rows, an hour after I had reported the
+number. The replay script now pairs the two and counts the ask once.
+
+The MCP `dashclaw_guard` description still told agents that the guard creates
+no request, and sent them to a second call. It now tells them to wait on the
+returned id when the response says the request was recorded. MCP server
+3.1.11.
+
+The Claude Code hook blocked long commands and file writes that contained an
+emoji. I told Wes the cause before I had read the hook, and I was wrong. I
+said the hook sent the whole command as the goal. It already cut the goal to
+the server's cap. It cut by character, and the server counts UTF-16 units,
+where most emoji are two. All five cuts in the hook had the same flaw. They
+now count the way the server does. Plugin bundle 3.4.3.
+
+Found and not fixed: the download bundles are built from working-tree bytes,
+so the committed bundle hashes depend on the line endings of whoever
+committed last. The bundles in this release were built from an LF checkout,
+which is what CI and a fresh clone see. Nothing stops the next commit from a
+CRLF checkout from changing them again. A check that refuses a CRLF build is
+the next step.
+
+The stale guard lock noted in the last entry is refreshed. I read the three
+hook commits it now covers before re-locking.
+
+No SDK or CLI source changed. npm and PyPI stay at 5.40.4.
+
 ## 2026-11-25 — v5.40.6: model is settable once, and what that does not cover
 
 5.40.5 left `model` writable after the close on purpose, because the Stop

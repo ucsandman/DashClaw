@@ -13,6 +13,8 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.40.7] - 2026-11-25
+
 ### Changed
 
 - **An approval ask always opens a request an operator can answer.** `POST /api/guard` without `?record=true` used to evaluate and stop. A client that never followed up with `POST /api/actions` left a `require_approval` verdict with no pending record, no prompt and nothing on `/approvals`. The guard now opens the pending approval request itself when the call names an agent and a goal, and returns `recorded: true` with the request's `action_id`.
@@ -22,8 +24,8 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ### Fixed
 
-- **The Claude Code hook blocked a long command or file write that contained an emoji.** The hook cut text to the server's length caps by character, and the server counts UTF-16 units, where most emoji are two. A goal, command, script excerpt, file excerpt or scanned content cut at its cap with an emoji inside arrived one or more units over, the guard answered 400 "Validation failed", and the hook, failing closed, refused the tool call. The hook now cuts by the unit the server counts. Update the installed hook (or the plugin) to get the fix.
-- **The MCP `dashclaw_guard` tool told agents it creates no approval request.** The server now opens the request in the guard call, so the description was wrong and sent agents to a second call they no longer need. It now says: when the response has `"recorded": true`, wait on the returned `action_id` with `dashclaw_wait_for_approval`; otherwise (an older server, or no agent id) record the action as `pending_approval` first, as before. The `dashclaw_record` `action_id` text says a request the guard opened can be closed like any other record. Descriptions only: no tool behavior changed.
+- **The Claude Code hook blocked a long command or file write that contained an emoji.** The hook cut text to the server's length caps by character, and the server counts UTF-16 units, where most emoji are two. A goal, command, script excerpt, file excerpt or scanned content cut at its cap with an emoji inside arrived one or more units over, the guard answered 400 "Validation failed", and the hook, failing closed, refused the tool call. The hook now cuts by the unit the server counts. Update the installed hook (or the plugin) to get the fix. Plugin bundle 3.4.3.
+- **The MCP `dashclaw_guard` tool told agents it creates no approval request.** The server now opens the request in the guard call, so the description was wrong and sent agents to a second call they no longer need. It now says: when the response has `"recorded": true`, wait on the returned `action_id` with `dashclaw_wait_for_approval`; otherwise (an older server, or no agent id) record the action as `pending_approval` first, as before. The `dashclaw_record` `action_id` text says a request the guard opened can be closed like any other record. Descriptions only: no tool behavior changed. MCP server 3.1.11.
 - **Fleet replay counted one approval ask twice.** `scripts/fleet-replay.mjs` counted every `require_approval` guard decision as an ask. A client that calls the guard and then records the action writes two decisions for one ask, and so does an ask repeated while its request is open. Those rows are now counted once. The report also separates asks that reached the approvals inbox and got no answer from asks that never opened a request, and `--test-agents id,id` leaves named test agents out of the ask counts.
 
 ## [5.40.6] - 2026-11-25
