@@ -39,6 +39,13 @@ which publishes the SDKs **and `@dashclaw/cli`** via OIDC trusted publishing
 (each job skips versions already on the registry). `npm run release:sdks` is
 the local fallback (needs the owner's `npm login` + a PyPI token) and the
 Actions "Run workflow" button on release.yml is the manual re-trigger.
+`@dashclaw/mcp-server` has its own workflow, `release-mcp-server.yml`: any
+release tag (`v*` or `platform-v*`) publishes it to npm and lists it on the MCP
+Registry when `mcp-server/package.json` is ahead of them, with no sign-in.
+`npm run release:mcp` is its local fallback (needs the owner's two browser
+sign-ins). Do not use release.yml's "Run workflow" button after a
+platform-only release: it publishes the SDKs whenever their manifests are
+ahead of the registry.
 **If `cli/**` source changed this ship, bump `cli/package.json` in the same
 commit** — npm serves stale content forever under an unbumped version.
 Everything else — gates, version bump, doc accuracy, **merging a feature branch

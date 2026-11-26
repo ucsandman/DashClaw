@@ -7,6 +7,9 @@ import path from 'path';
 // MCP Registry (registry.modelcontextprotocol.io). Idempotent: each step is
 // skipped when the version is already live, so re-running is always safe.
 //
+// This is the local fallback. .github/workflows/release-mcp-server.yml does the
+// same two publishes on any release tag, with OIDC and no sign-in.
+//
 // Prereqs (one-time, already done on this machine):
 //   - npm login (publish uses your browser security key for the 2FA prompt)
 //   - the official mcp-publisher binary from modelcontextprotocol/registry
