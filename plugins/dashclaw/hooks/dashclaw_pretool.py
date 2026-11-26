@@ -627,6 +627,23 @@ def _apply_script_then_execute(parsed, risk_score):
         return risk_score, [], None
 
 
+def _clip_units(text, cap):
+    """Cut text to at most `cap` UTF-16 code units, the unit the server's
+    validator counts (JavaScript string length). Python slices by code point,
+    and a character outside the Basic Multilingual Plane (most emoji) is one
+    code point but two units, so `text[:cap]` could arrive over the cap. The
+    guard then answered 400 "Validation failed" and the tool call was blocked
+    (2026-11-25: a 2,100-character command with one emoji in it)."""
+    if not text or len(text) * 2 <= cap:
+        return text
+    used = 0
+    for i, ch in enumerate(text):
+        used += 2 if ord(ch) > 0xFFFF else 1
+        if used > cap:
+            return text[:i]
+    return text
+
+
 def _enrich_bash(tool_input: dict, tool_info: dict, label: str = "Bash") -> dict:
     """Run the command classifier and build enriched intel for a Bash or
     PowerShell tool call. PowerShell rides the same path: the classifier
@@ -680,7 +697,7 @@ def _enrich_bash(tool_input: dict, tool_info: dict, label: str = "Bash") -> dict
         # 2000). The old 120-char slice amputated the very thing the approval
         # surfaces exist to show the operator (field report 2026-08-07: a Telegram
         # approval card cut a command mid-word, making it unjudgeable).
-        "declared_goal": (label + ": " + command)[:2000],
+        "declared_goal": _clip_units(label + ": " + command, 2000),
         # A shell redirection target is a write path; forward it as `target` so a
         # protected_path policy can gate `echo secret > app/secrets/x` style writes.
         # A script-then-execute hit forwards the script path instead, so
@@ -2289,7 +2306,7 @@ def _build_act_script(command):
             if not _is_sensitive_path(resolved):
                 with open(resolved, encoding="utf-8", errors="replace") as f:
                     content = f.read(_ACT_SCRIPT_EXCERPT_CAP + 1)
-                script["content_excerpt"] = _scrub_act_text(content)[:_ACT_SCRIPT_EXCERPT_CAP]
+                script["content_excerpt"] = _clip_units(_scrub_act_text(content), _ACT_SCRIPT_EXCERPT_CAP)
             return script
         return None
     except Exception:
@@ -2307,7 +2324,7 @@ def _build_act(tool_name, tool_input):
         command = str(tool_input.get("command") or "")
         if not command:
             return None
-        act = {"kind": "shell", "command": _scrub_act_text(command)[:_ACT_COMMAND_CAP]}
+        act = {"kind": "shell", "command": _clip_units(_scrub_act_text(command), _ACT_COMMAND_CAP)}
         script = _build_act_script(command)
         if script:
             act["script"] = script
@@ -2324,7 +2341,7 @@ def _build_act(tool_name, tool_input):
             "kind": "file",
             "file": {
                 "path": path,
-                "content_excerpt": _scrub_act_text(content)[:_ACT_FILE_EXCERPT_CAP],
+                "content_excerpt": _clip_units(_scrub_act_text(content), _ACT_FILE_EXCERPT_CAP),
                 "bytes": len(content.encode("utf-8", errors="ignore")),
             },
         }
@@ -2417,7 +2434,7 @@ def _attach_autoscan_content(context, tool_name, tool_input):
     try:
         content = _outbound_content(tool_name, tool_input)
         if content:
-            context["content"] = str(content)[:50000]
+            context["content"] = _clip_units(str(content), 50000)
     except Exception:
         pass
 
